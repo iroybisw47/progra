@@ -13,8 +13,30 @@ export type Session = {
   endedAt: number | null;
 };
 
+export type Task = {
+  id: string;
+  title: string;
+  dueDate: string;
+  notes?: string;
+  completedAt: number | null;
+  createdAt: number;
+};
+
+export type CalendarEvent = {
+  id: string;
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location?: string;
+  notes?: string;
+  createdAt: number;
+};
+
 const CATS_KEY = "progra.categories";
 const SESS_KEY = "progra.sessions";
+const TASKS_KEY = "progra.tasks";
+const EVENTS_KEY = "progra.events";
 
 function readArray<T>(key: string): T[] {
   if (typeof window === "undefined") return [];
@@ -55,4 +77,20 @@ export function saveSessions(sessions: Session[]): void {
 
 export function getActiveSession(): Session | null {
   return getSessions().find((s) => s.endedAt === null) ?? null;
+}
+
+export function getTasks(): Task[] {
+  return readArray<Task>(TASKS_KEY);
+}
+
+export function saveTasks(tasks: Task[]): void {
+  writeArray(TASKS_KEY, tasks);
+}
+
+export function getEvents(): CalendarEvent[] {
+  return readArray<CalendarEvent>(EVENTS_KEY);
+}
+
+export function saveEvents(events: CalendarEvent[]): void {
+  writeArray(EVENTS_KEY, events);
 }
