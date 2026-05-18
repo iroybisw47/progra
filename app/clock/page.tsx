@@ -23,19 +23,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { CategoryPicker } from "@/components/category-picker";
 import { SessionDialog, type SessionDialogMode } from "@/components/session-dialog";
-import { SessionRow } from "@/components/session-row";
 
 import { type Category, type Session } from "@/lib/storage";
 import {
@@ -47,19 +37,27 @@ import {
 } from "@/lib/hooks";
 import {
   DAY_LABELS,
+  addDays,
   dayIndexMonFirst,
-  endOfDay,
   endOfWeek,
+  formatLocalDate,
+  formatLongDate,
   formatRange,
   startOfWeek,
 } from "@/lib/dates";
 import { formatDuration, formatElapsed, nowTs } from "@/lib/duration";
 
 const HOUR_MS = 60 * 60 * 1000;
-const DEFAULT_VISIBLE_SESSIONS = 10;
 
 function formatHours(ms: number): string {
   return `${(ms / HOUR_MS).toFixed(1)}h`;
+}
+
+// Attribution rule (per spec): a session belongs wholly to the local day of
+// its `endedAt`. A still-running session is attributed to `now` (today), so
+// the recap keeps ticking while clocked in.
+function attributionEnd(s: Session, now: number): number {
+  return s.endedAt ?? now;
 }
 
 function aggregateWeek(sessions: Session[], now: number) {
@@ -68,23 +66,29 @@ function aggregateWeek(sessions: Session[], now: number) {
   const perCategory = new Map<string | null, number>();
   const perDay = [0, 0, 0, 0, 0, 0, 0];
   for (const s of sessions) {
-    const a = Math.max(s.startedAt, weekStart);
-    const rawEnd = s.endedAt ?? now;
-    const b = Math.min(rawEnd, weekEnd);
-    if (b <= a) continue;
-    let cursor = a;
-    while (cursor < b) {
-      const dayEndMs = endOfDay(new Date(cursor)).getTime();
-      const slice = Math.min(b, dayEndMs + 1);
-      perDay[dayIndexMonFirst(new Date(cursor))] += slice - cursor;
-      cursor = slice;
-    }
-    perCategory.set(
-      s.categoryId,
-      (perCategory.get(s.categoryId) ?? 0) + (b - a)
-    );
+    const end = attributionEnd(s, now);
+    const ms = end - s.startedAt;
+    if (ms <= 0) continue;
+    if (end < weekStart || end > weekEnd) continue;
+    perDay[dayIndexMonFirst(new Date(end))] += ms;
+    perCategory.set(s.categoryId, (perCategory.get(s.categoryId) ?? 0) + ms);
   }
   return { perCategory, perDay, total: perDay.reduce((x, y) => x + y, 0) };
+}
+
+function dayBreakdown(sessions: Session[], now: number, dayDate: Date) {
+  const key = formatLocalDate(dayDate);
+  const rows = sessions
+    .map((s) => {
+      const end = attributionEnd(s, now);
+      return { session: s, ms: end - s.startedAt, end };
+    })
+    .filter(
+      (r) => r.ms > 0 && formatLocalDate(new Date(r.end)) === key
+    )
+    .sort((a, b) => a.session.startedAt - b.session.startedAt);
+  const total = rows.reduce((acc, r) => acc + r.ms, 0);
+  return { rows, total };
 }
 
 type SessionDialogState =
@@ -101,9 +105,9 @@ export default function ClockPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [pendingCategoryDelete, setPendingCategoryDelete] = useState<Category | null>(null);
-  const [pendingSessionDelete, setPendingSessionDelete] = useState<Session | null>(null);
   const [sessionDialog, setSessionDialog] = useState<SessionDialogState>(null);
-  const [showAllSessions, setShowAllSessions] = useState(false);
+  // null = week mode; 0..6 (Mon-first) = day mode for that weekday of this week.
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
 
   const activeSession = sessions.find((s) => s.endedAt === null) ?? null;
   const hydrated = now !== 0;
@@ -114,13 +118,6 @@ export default function ClockPage() {
   const weekEndDate = hydrated ? endOfWeek(nowDate) : null;
   const todayIndex = hydrated ? dayIndexMonFirst(nowDate) : -1;
   const weekly = aggregateWeek(sessions, hydrated ? now : 0);
-
-  const completedSessions = sessions
-    .filter((s): s is Session & { endedAt: number } => s.endedAt !== null)
-    .sort((a, b) => b.endedAt - a.endedAt);
-  const visibleSessions = showAllSessions
-    ? completedSessions
-    : completedSessions.slice(0, DEFAULT_VISIBLE_SESSIONS);
 
   const categoryBreakdown = Array.from(weekly.perCategory.entries())
     .map(([id, ms]) => ({
@@ -138,6 +135,24 @@ export default function ClockPage() {
     if (id === null) return "Uncategorized";
     return categoryById.get(id)?.name ?? "Uncategorized";
   }
+
+  const inDayMode =
+    selectedDayIndex !== null && hydrated && weekStartDate !== null;
+  const selectedDate = inDayMode
+    ? addDays(weekStartDate, selectedDayIndex)
+    : null;
+  const isTodaySelected =
+    selectedDate !== null &&
+    formatLocalDate(selectedDate) === formatLocalDate(nowDate);
+  const day = selectedDate
+    ? dayBreakdown(sessions, now, selectedDate)
+    : { rows: [], total: 0 };
+  const dayLabel =
+    selectedDate === null
+      ? ""
+      : isTodaySelected
+        ? "Today"
+        : formatLongDate(selectedDate);
 
   function handleClockIn() {
     const name = taskName.trim();
@@ -194,13 +209,6 @@ export default function ClockPage() {
     if (selectedCategoryId === id) setSelectedCategoryId(null);
     toast.success(`Removed ${pendingCategoryDelete.name}`);
     setPendingCategoryDelete(null);
-  }
-
-  function handleConfirmSessionDelete() {
-    if (!pendingSessionDelete) return;
-    updateSessions(sessions.filter((s) => s.id !== pendingSessionDelete.id));
-    toast.success("Deleted");
-    setPendingSessionDelete(null);
   }
 
   const canClockIn = taskName.trim().length > 0 && selectedCategoryId !== null;
@@ -320,46 +328,6 @@ export default function ClockPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent sessions</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {completedSessions.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                No completed sessions yet.
-              </p>
-            ) : (
-              <>
-                <div className="flex flex-col gap-2">
-                  {visibleSessions.map((s) => (
-                    <SessionRow
-                      key={s.id}
-                      session={s}
-                      categoryName={categoryName(s.categoryId)}
-                      now={nowDate}
-                      onEdit={() =>
-                        setSessionDialog({ mode: "edit-completed", session: s })
-                      }
-                      onDelete={() => setPendingSessionDelete(s)}
-                    />
-                  ))}
-                </div>
-                {!showAllSessions &&
-                  completedSessions.length > DEFAULT_VISIBLE_SESSIONS && (
-                    <Button
-                      variant="ghost"
-                      className="h-9 self-center"
-                      onClick={() => setShowAllSessions(true)}
-                    >
-                      Show all ({completedSessions.length})
-                    </Button>
-                  )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
             <CardTitle>Categories</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -409,66 +377,157 @@ export default function ClockPage() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>This week</CardTitle>
-            <CardDescription>
-              {weekStartDate && weekEndDate
-                ? formatRange(weekStartDate, weekEndDate)
-                : " "}
-            </CardDescription>
-          </CardHeader>
+          {inDayMode ? (
+            <CardHeader>
+              <CardTitle>{dayLabel}</CardTitle>
+              <CardAction>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSelectedDayIndex(null)}
+                >
+                  Week Overview
+                </Button>
+              </CardAction>
+            </CardHeader>
+          ) : (
+            <CardHeader>
+              <CardTitle>This week</CardTitle>
+              <CardDescription>
+                {weekStartDate && weekEndDate
+                  ? formatRange(weekStartDate, weekEndDate)
+                  : " "}
+              </CardDescription>
+            </CardHeader>
+          )}
           <CardContent className="flex flex-col gap-5">
-            <div className="font-mono text-3xl tabular-nums">
-              {formatHours(weekly.total)}
-            </div>
+            {inDayMode ? (
+              <>
+                <div className="font-mono text-3xl tabular-nums">
+                  {formatHours(day.total)}
+                </div>
 
-            {categoryBreakdown.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                No sessions logged yet this week.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {categoryBreakdown.map((row) => (
-                  <div key={row.id ?? "uncategorized"} className="flex flex-col gap-1">
-                    <div className="flex items-baseline justify-between text-sm">
-                      <span>{row.name}</span>
-                      <span className="font-mono tabular-nums text-muted-foreground">
-                        {formatHours(row.ms)}
-                      </span>
-                    </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full bg-primary/60"
-                        style={{
-                          width:
-                            maxCatMs > 0
-                              ? `${Math.max(2, (row.ms / maxCatMs) * 100)}%`
-                              : "0%",
-                        }}
-                      />
-                    </div>
+                {day.rows.length === 0 ? (
+                  <p className="text-muted-foreground py-6 text-center text-sm">
+                    No sessions logged
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {day.rows.map((row) => {
+                      const s = row.session;
+                      const isActive = s.endedAt === null;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() =>
+                            setSessionDialog({
+                              mode: isActive
+                                ? "edit-active"
+                                : "edit-completed",
+                              session: s,
+                            })
+                          }
+                          className="-mx-1 flex flex-col gap-1 rounded-md px-1 py-1 text-left transition-colors hover:bg-muted/50"
+                        >
+                          <div className="flex items-baseline justify-between gap-2 text-sm">
+                            <span className="truncate">
+                              {categoryName(s.categoryId)} - {s.taskName}
+                              {isActive && (
+                                <span className="text-muted-foreground">
+                                  {" "}
+                                  · in progress
+                                </span>
+                              )}
+                            </span>
+                            <span className="font-mono tabular-nums text-muted-foreground shrink-0">
+                              {formatDuration(row.ms)}
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full bg-primary/60"
+                              style={{
+                                width:
+                                  day.total > 0
+                                    ? `${Math.max(2, (row.ms / day.total) * 100)}%`
+                                    : "0%",
+                              }}
+                            />
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="font-mono text-3xl tabular-nums">
+                  {formatHours(weekly.total)}
+                </div>
+
+                {categoryBreakdown.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    No sessions logged yet this week.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {categoryBreakdown.map((row) => (
+                      <div
+                        key={row.id ?? "uncategorized"}
+                        className="flex flex-col gap-1"
+                      >
+                        <div className="flex items-baseline justify-between text-sm">
+                          <span>{row.name}</span>
+                          <span className="font-mono tabular-nums text-muted-foreground">
+                            {formatHours(row.ms)}
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full bg-primary/60"
+                            style={{
+                              width:
+                                maxCatMs > 0
+                                  ? `${Math.max(2, (row.ms / maxCatMs) * 100)}%`
+                                  : "0%",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
 
             <div className="grid grid-cols-7 gap-1">
               {DAY_LABELS.map((label, i) => {
                 const ms = weekly.perDay[i];
                 const isToday = i === todayIndex;
+                const isSelected = selectedDayIndex === i;
                 return (
-                  <div
+                  <button
                     key={label}
+                    type="button"
+                    disabled={!hydrated}
+                    aria-pressed={isSelected}
+                    onClick={() => setSelectedDayIndex(i)}
                     className={
-                      "flex flex-col items-center gap-0.5 rounded-md py-1.5 text-xs " +
-                      (isToday ? "bg-primary/10 ring-1 ring-primary/30" : "")
+                      "flex flex-col items-center gap-0.5 rounded-md py-1.5 text-xs transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-50 " +
+                      (isSelected
+                        ? "bg-primary/15 text-foreground ring-1 ring-primary"
+                        : isToday
+                          ? "bg-primary/10 ring-1 ring-primary/30"
+                          : "")
                     }
                   >
                     <span className="text-muted-foreground">{label}</span>
                     <span className="font-mono tabular-nums">
-                      {ms > 0 ? `${(ms / HOUR_MS).toFixed(1)}h` : "—"}
+                      {ms > 0 ? formatHours(ms) : "—"}
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -499,28 +558,6 @@ export default function ClockPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog
-        open={pendingSessionDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingSessionDelete(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this session?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <Button variant="destructive" onClick={handleConfirmSessionDelete}>
-              Delete
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {hydrated && (
         <SessionDialog
