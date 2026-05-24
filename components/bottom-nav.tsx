@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarIcon, TimerIcon } from "lucide-react";
+import { CalendarIcon, LogOutIcon, TimerIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -10,6 +10,9 @@ const TABS = [
   { href: "/clock", label: "Clock", icon: TimerIcon, match: (p: string) => p === "/" || p.startsWith("/clock") },
   { href: "/calendar", label: "Calendar", icon: CalendarIcon, match: (p: string) => p.startsWith("/calendar") },
 ] as const;
+
+const TAB_CLASS =
+  "flex min-h-14 w-full flex-col items-center justify-center gap-0.5 text-xs";
 
 export function BottomNav() {
   const pathname = usePathname();
@@ -28,7 +31,7 @@ export function BottomNav() {
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs",
+                  TAB_CLASS,
                   active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -38,6 +41,20 @@ export function BottomNav() {
             </li>
           );
         })}
+        <li className="flex-1">
+          <form action="/auth/signout" method="post" className="h-full">
+            <button
+              type="submit"
+              className={cn(
+                TAB_CLASS,
+                "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <LogOutIcon className="size-5" />
+              <span>Sign out</span>
+            </button>
+          </form>
+        </li>
       </ul>
     </nav>
   );
