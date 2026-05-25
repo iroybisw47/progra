@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { BottomNav } from "@/components/bottom-nav";
+import { EnsureProfileSync } from "@/components/ensure-profile-sync";
 import { Toaster } from "@/components/ui/sonner";
 import { getOptionalUser } from "@/lib/auth/require-user";
 
@@ -58,6 +59,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         {children}
         {user && <BottomNav />}
+        {user && <EnsureProfileSync />}
         <Toaster />
       </body>
     </html>

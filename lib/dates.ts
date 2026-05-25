@@ -61,6 +61,18 @@ export function formatTime(d: Date): string {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
+// Returns YYYY-MM-DD (ISO-style) for the current moment in the given IANA
+// timezone. Used by the habits server actions to verify the client's
+// claimed "today" matches the user's stored timezone.
+export function todayInTimeZone(tz: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
 export function formatRelativeDay(d: Date, now: Date): string {
   const dayKey = formatLocalDate(d);
   if (dayKey === formatLocalDate(now)) return "Today";

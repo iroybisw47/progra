@@ -17,7 +17,18 @@ export function GoogleSignInButton({ next }: { next?: string }) {
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: redirectTo.toString() },
+      options: {
+        redirectTo: redirectTo.toString(),
+        scopes:
+          "openid email profile https://www.googleapis.com/auth/calendar.readonly",
+        queryParams: {
+          // Required to receive a refresh token on first consent.
+          access_type: "offline",
+          // Force the consent screen so Google re-issues the refresh token
+          // even for users who've already granted access.
+          prompt: "consent",
+        },
+      },
     });
 
     if (error) {

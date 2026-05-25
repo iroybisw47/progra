@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarIcon, LogOutIcon, TimerIcon } from "lucide-react";
+import { CalendarIcon, ListChecksIcon, LogOutIcon, TimerIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/clock", label: "Clock", icon: TimerIcon, match: (p: string) => p === "/" || p.startsWith("/clock") },
   { href: "/calendar", label: "Calendar", icon: CalendarIcon, match: (p: string) => p.startsWith("/calendar") },
+  { href: "/habits", label: "Habits", icon: ListChecksIcon, match: (p: string) => p.startsWith("/habits") },
 ] as const;
 
 const TAB_CLASS =

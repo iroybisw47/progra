@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { SyncCalendarButton } from "@/components/sync-calendar-button";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { getOptionalUser } from "@/lib/auth/require-user";
 
@@ -27,11 +28,12 @@ export default async function Page() {
                 Open clock
               </Link>
               <Link
-                href="/planner"
+                href="/calendar"
                 className={buttonVariants({ variant: "secondary", className: "h-11 w-full text-base" })}
               >
-                Open planner
+                Open calendar
               </Link>
+              <SyncCalendarButton />
               <form action="/auth/signout" method="post" className="w-full">
                 <Button type="submit" variant="ghost" className="h-10 w-full">
                   Sign out

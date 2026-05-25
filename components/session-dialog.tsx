@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,11 @@ import {
 import { CategoryPicker } from "@/components/category-picker";
 
 import { type Category, type Session } from "@/lib/storage";
-import { updateSessions, useSessions } from "@/lib/hooks";
+import {
+  createSession,
+  deleteSession,
+  updateSession,
+} from "@/app/actions/sessions";
 import { formatLocalDate, formatTime, parseLocalDate } from "@/lib/dates";
 
 export type SessionDialogMode = "edit-completed" | "edit-active" | "create";
@@ -80,7 +85,8 @@ function SessionForm({
   now,
   onClose,
 }: SessionDialogProps & { onClose: () => void }) {
-  const sessions = useSessions();
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
   const isCreate = mode === "create";
   const isActive = mode === "edit-active";
 
@@ -118,6 +124,7 @@ function SessionForm({
   const startInFuture =
     isActive && startTs !== null && startTs > now.getTime();
   const canSave =
+    !pending &&
     taskName.trim().length > 0 &&
     categoryId !== null &&
     startTs !== null &&
@@ -132,69 +139,85 @@ function SessionForm({
   function handleSave() {
     const trimmed = taskName.trim();
     if (!trimmed || !categoryId || startTs === null) return;
+
     if (isActive) {
       if (startInFuture) {
         toast.error("Start time can't be in the future");
         return;
       }
-      updateSessions(
-        sessions.map((s) =>
-          s.id === session!.id
-            ? {
-                ...s,
-                taskName: trimmed,
-                description: description.trim() || undefined,
-                categoryId,
-                startedAt: startTs,
-              }
-            : s
-        )
-      );
-      toast.success("Saved");
-      onClose();
+      startTransition(async () => {
+        const r = await updateSession(session!.id, {
+          taskName: trimmed,
+          description,
+          categoryId,
+          startedAt: startTs,
+        });
+        if ("error" in r) {
+          toast.error(r.error);
+          return;
+        }
+        toast.success("Saved");
+        router.refresh();
+        onClose();
+      });
       return;
     }
+
     if (endTs === null || endTs <= startTs) {
       toast.error("End time must be after start time");
       return;
     }
+
     if (isCreate) {
-      const next: Session = {
-        id: crypto.randomUUID(),
-        taskName: trimmed,
-        description: description.trim() || undefined,
-        categoryId,
-        startedAt: startTs,
-        endedAt: endTs,
-      };
-      updateSessions([...sessions, next]);
-      toast.success("Added");
+      startTransition(async () => {
+        const r = await createSession({
+          taskName: trimmed,
+          description,
+          categoryId,
+          startedAt: startTs,
+          endedAt: endTs,
+        });
+        if ("error" in r) {
+          toast.error(r.error);
+          return;
+        }
+        toast.success("Added");
+        router.refresh();
+        onClose();
+      });
     } else {
-      updateSessions(
-        sessions.map((s) =>
-          s.id === session!.id
-            ? {
-                ...s,
-                taskName: trimmed,
-                description: description.trim() || undefined,
-                categoryId,
-                startedAt: startTs,
-                endedAt: endTs,
-              }
-            : s
-        )
-      );
-      toast.success("Saved");
+      startTransition(async () => {
+        const r = await updateSession(session!.id, {
+          taskName: trimmed,
+          description,
+          categoryId,
+          startedAt: startTs,
+          endedAt: endTs,
+        });
+        if ("error" in r) {
+          toast.error(r.error);
+          return;
+        }
+        toast.success("Saved");
+        router.refresh();
+        onClose();
+      });
     }
-    onClose();
   }
 
   function handleDelete() {
     if (!session) return;
-    updateSessions(sessions.filter((s) => s.id !== session.id));
-    toast.success("Deleted");
-    setConfirmDelete(false);
-    onClose();
+    startTransition(async () => {
+      const r = await deleteSession(session.id);
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success("Deleted");
+      setConfirmDelete(false);
+      router.refresh();
+      onClose();
+    });
   }
 
   return (
@@ -287,13 +310,14 @@ function SessionForm({
             variant="destructive"
             className="sm:mr-auto"
             onClick={() => setConfirmDelete(true)}
+            disabled={pending}
           >
             Delete
           </Button>
         )}
-        <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+        <DialogClose render={<Button variant="outline" disabled={pending} />}>Cancel</DialogClose>
         <Button onClick={handleSave} disabled={!canSave}>
-          Save
+          {pending ? "Saving…" : "Save"}
         </Button>
       </DialogFooter>
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
@@ -305,8 +329,8 @@ function SessionForm({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <Button variant="destructive" onClick={handleDelete}>Delete</Button>
+            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <Button variant="destructive" onClick={handleDelete} disabled={pending}>Delete</Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
