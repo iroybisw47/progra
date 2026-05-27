@@ -45,7 +45,21 @@ export async function listEventsInRange(
 
   if (!data || data.length === 0) return [];
 
-  const rows = data as Row[];
+  const allRows = data as Row[];
+  const allEventIds = allRows.map((r) => r.id);
+
+  // Drop events the user has explicitly hidden from Progra.
+  const { data: exclusionData } = await supabase
+    .from("event_exclusions")
+    .select("event_id")
+    .in("event_id", allEventIds);
+  const excludedIds = new Set(
+    (exclusionData ?? []).map(
+      (r) => (r as { event_id: string }).event_id
+    )
+  );
+  const rows = allRows.filter((r) => !excludedIds.has(r.id));
+  if (rows.length === 0) return [];
   const eventIds = rows.map((r) => r.id);
 
   // Pull manual overrides for just these events.

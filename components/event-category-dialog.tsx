@@ -20,6 +20,7 @@ import type { Category } from "@/lib/storage";
 import type { DayEvent } from "@/lib/db/calendar-events";
 
 import { setEventCategory } from "@/app/actions/event-categorizations";
+import { excludeEvent, restoreEvent } from "@/app/actions/event-exclusions";
 
 type Props = {
   event: DayEvent | null;
@@ -93,6 +94,32 @@ function EventCategoryForm({
     });
   }
 
+  function handleHide() {
+    const eventId = event.id;
+    startTransition(async () => {
+      const r = await excludeEvent(eventId);
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      router.refresh();
+      onClose();
+      toast.success("Event hidden", {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            const undo = await restoreEvent(eventId);
+            if ("error" in undo) {
+              toast.error(undo.error);
+              return;
+            }
+            router.refresh();
+          },
+        },
+      });
+    });
+  }
+
   return (
     <>
       <DialogHeader>
@@ -110,10 +137,17 @@ function EventCategoryForm({
         />
       </div>
       <DialogFooter>
+        <Button
+          variant="destructive"
+          className="sm:mr-auto"
+          onClick={handleHide}
+          disabled={pending}
+        >
+          Hide event
+        </Button>
         {event.source === "manual" && (
           <Button
             variant="outline"
-            className="sm:mr-auto"
             onClick={handleRevert}
             disabled={pending}
           >
