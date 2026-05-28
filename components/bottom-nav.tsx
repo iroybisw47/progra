@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarIcon, ListChecksIcon, LogOutIcon, TimerIcon } from "lucide-react";
+import { CalendarIcon, HomeIcon, ListChecksIcon, TimerIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { href: "/clock", label: "Clock", icon: TimerIcon, match: (p: string) => p === "/" || p.startsWith("/clock") },
+  { href: "/", label: "Home", icon: HomeIcon, match: (p: string) => p === "/" },
+  { href: "/clock", label: "Clock", icon: TimerIcon, match: (p: string) => p.startsWith("/clock") },
   { href: "/calendar", label: "Calendar", icon: CalendarIcon, match: (p: string) => p.startsWith("/calendar") },
   { href: "/habits", label: "Habits", icon: ListChecksIcon, match: (p: string) => p.startsWith("/habits") },
 ] as const;
@@ -42,20 +43,6 @@ export function BottomNav() {
             </li>
           );
         })}
-        <li className="flex-1">
-          <form action="/auth/signout" method="post" className="h-full">
-            <button
-              type="submit"
-              className={cn(
-                TAB_CLASS,
-                "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <LogOutIcon className="size-5" />
-              <span>Sign out</span>
-            </button>
-          </form>
-        </li>
       </ul>
     </nav>
   );

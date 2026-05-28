@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { XIcon } from "lucide-react";
 
@@ -9,26 +9,60 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { WeeklyHabits } from "@/components/weekly-habits";
 
 import {
   archiveHabit,
   createHabit,
   toggleHabitCompletion,
 } from "@/app/actions/habits";
-import type { HabitWithStatus } from "@/lib/db/habits";
+import type { Habit, HabitCompletion } from "@/lib/db/habits";
 
 type Props = {
-  items: HabitWithStatus[];
+  habits: Habit[];
+  completions: HabitCompletion[];
   todayLocal: string;
+  weekStart: string;
 };
 
-export function HabitsClient({ items, todayLocal }: Props) {
+type TodayItem = { habit: Habit; completedToday: boolean };
+
+export function HabitsClient({
+  habits,
+  completions,
+  todayLocal,
+  weekStart,
+}: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [name, setName] = useState("");
 
+  // Today's status is derived from the week's completions, not a separate fetch.
+  const todayCompletedSet = new Set(
+    completions
+      .filter((c) => c.completedOn === todayLocal)
+      .map((c) => c.habitId)
+  );
+  const items: TodayItem[] = habits.map((habit) => ({
+    habit,
+    completedToday: todayCompletedSet.has(habit.id),
+  }));
+
+  // Optimistic toggle: the UI flips instantly. The optimistic state is
+  // discarded when the transition ends and new props arrive from refresh.
+  const [optimisticItems, toggleOptimistic] = useOptimistic(
+    items,
+    (state: TodayItem[], habitId: string): TodayItem[] =>
+      state.map((it) =>
+        it.habit.id === habitId
+          ? { ...it, completedToday: !it.completedToday }
+          : it
+      )
+  );
+
   function handleToggle(habitId: string) {
     startTransition(async () => {
+      toggleOptimistic(habitId);
       const r = await toggleHabitCompletion(habitId, todayLocal);
       if ("error" in r) {
         toast.error(r.error);
@@ -78,13 +112,13 @@ export function HabitsClient({ items, todayLocal }: Props) {
             <CardTitle>Today</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
-            {items.length === 0 ? (
+            {optimisticItems.length === 0 ? (
               <p className="text-muted-foreground text-sm py-4">
                 No habits yet. Add one below.
               </p>
             ) : (
               <ul className="flex flex-col divide-y divide-border">
-                {items.map(({ habit, completedToday }) => (
+                {optimisticItems.map(({ habit, completedToday }) => (
                   <li
                     key={habit.id}
                     className="flex min-h-11 items-center gap-3 py-1"
@@ -129,6 +163,13 @@ export function HabitsClient({ items, todayLocal }: Props) {
             )}
           </CardContent>
         </Card>
+
+        <WeeklyHabits
+          habits={habits}
+          completions={completions}
+          weekStart={weekStart}
+          today={todayLocal}
+        />
 
         <Card>
           <CardHeader>

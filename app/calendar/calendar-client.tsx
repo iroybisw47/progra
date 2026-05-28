@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useOptimistic, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +28,14 @@ function formatTimeOfDay(ms: number): string {
 export function CalendarClient({ events, categories }: CalendarClientProps) {
   const now = useNow();
   const [dialogEvent, setDialogEvent] = useState<DayEvent | null>(null);
+
+  // Optimistic exclusion: hiding an event drops it from the day list and
+  // marked-dates instantly, before the server confirms.
+  const [optimisticEvents, hideOptimistic] = useOptimistic(
+    events,
+    (state: DayEvent[], hiddenId: string): DayEvent[] =>
+      state.filter((e) => e.id !== hiddenId)
+  );
   const hydrated = now !== 0;
   const today = new Date(hydrated ? now : 0);
   const [selectedTs, setSelectedTs] = useState<number | null>(null);
@@ -38,12 +46,12 @@ export function CalendarClient({ events, categories }: CalendarClientProps) {
 
   // Mark every day in the window that has at least one event.
   const markedDates = new Set(
-    events.map((e) => formatLocalDate(new Date(e.startMs)))
+    optimisticEvents.map((e) => formatLocalDate(new Date(e.startMs)))
   );
 
   // Attribution: event shown on the local-day of its start time. Events
   // spanning midnight only appear on their start day for v1.
-  const dayEvents = events
+  const dayEvents = optimisticEvents
     .filter((e) => formatLocalDate(new Date(e.startMs)) === selectedKey)
     .sort((a, b) => a.startMs - b.startMs);
 
@@ -52,19 +60,21 @@ export function CalendarClient({ events, categories }: CalendarClientProps) {
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24 sm:pt-12">
       <main className="flex w-full max-w-md flex-col gap-5">
-        <header className="flex flex-col gap-3">
+        <header className="flex flex-col gap-1">
           <h1 className="text-3xl font-semibold tracking-tight">Calendar</h1>
-          {hydrated ? (
-            <WeekStrip
-              selectedDate={selectedDate}
-              today={today}
-              onSelect={(d) => setSelectedTs(d.getTime())}
-              markedDates={markedDates}
-            />
-          ) : (
-            <div className="h-14" />
-          )}
+          <p className="text-muted-foreground text-sm">Your scheduled time.</p>
         </header>
+
+        {hydrated ? (
+          <WeekStrip
+            selectedDate={selectedDate}
+            today={today}
+            onSelect={(d) => setSelectedTs(d.getTime())}
+            markedDates={markedDates}
+          />
+        ) : (
+          <div className="h-14" />
+        )}
 
         <Card>
           <CardHeader>
@@ -139,6 +149,7 @@ export function CalendarClient({ events, categories }: CalendarClientProps) {
       <EventCategoryDialog
         event={dialogEvent}
         categories={categories}
+        onHide={hideOptimistic}
         onOpenChange={(open) => {
           if (!open) setDialogEvent(null);
         }}

@@ -28,51 +28,47 @@ type OverrideRow = {
   category_id: string;
 };
 
+type ExclusionRow = {
+  event_id: string;
+};
+
 // Returns events overlapping [startMs, endMs), categorized. Manual overrides
-// from event_categorizations win over rule matches.
+// win over rule matches. Excluded events are filtered out entirely.
+//
+// All three Supabase queries fire in parallel — exclusions and overrides
+// don't depend on the event-id list because RLS already scopes them to the
+// current user. We filter in JS against the events that are in this window.
 export async function listEventsInRange(
   startMs: number,
   endMs: number,
   categories: Category[]
 ): Promise<DayEvent[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("calendar_events")
-    .select("id, title, start_time, end_time")
-    .lt("start_time", new Date(endMs).toISOString())
-    .gt("end_time", new Date(startMs).toISOString())
-    .order("start_time", { ascending: true });
 
-  if (!data || data.length === 0) return [];
+  const [eventsResult, exclusionsResult, overridesResult] = await Promise.all([
+    supabase
+      .from("calendar_events")
+      .select("id, title, start_time, end_time")
+      .lt("start_time", new Date(endMs).toISOString())
+      .gt("end_time", new Date(startMs).toISOString())
+      .order("start_time", { ascending: true }),
+    supabase.from("event_exclusions").select("event_id"),
+    supabase.from("event_categorizations").select("event_id, category_id"),
+  ]);
 
-  const allRows = data as Row[];
-  const allEventIds = allRows.map((r) => r.id);
+  const eventRows = eventsResult.data as Row[] | null;
+  if (!eventRows || eventRows.length === 0) return [];
 
-  // Drop events the user has explicitly hidden from Progra.
-  const { data: exclusionData } = await supabase
-    .from("event_exclusions")
-    .select("event_id")
-    .in("event_id", allEventIds);
   const excludedIds = new Set(
-    (exclusionData ?? []).map(
-      (r) => (r as { event_id: string }).event_id
-    )
+    ((exclusionsResult.data ?? []) as ExclusionRow[]).map((r) => r.event_id)
   );
-  const rows = allRows.filter((r) => !excludedIds.has(r.id));
-  if (rows.length === 0) return [];
-  const eventIds = rows.map((r) => r.id);
-
-  // Pull manual overrides for just these events.
   const overrides = new Map<string, string>();
-  const { data: overrideData } = await supabase
-    .from("event_categorizations")
-    .select("event_id, category_id")
-    .in("event_id", eventIds);
-  if (overrideData) {
-    for (const r of overrideData as OverrideRow[]) {
-      overrides.set(r.event_id, r.category_id);
-    }
+  for (const r of (overridesResult.data ?? []) as OverrideRow[]) {
+    overrides.set(r.event_id, r.category_id);
   }
+
+  const rows = eventRows.filter((r) => !excludedIds.has(r.id));
+  if (rows.length === 0) return [];
 
   const categoryById = new Map(categories.map((c) => [c.id, c]));
 

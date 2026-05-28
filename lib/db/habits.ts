@@ -45,23 +45,51 @@ function rowToHabit(row: HabitRow): Habit {
   };
 }
 
-// Returns active habits plus a boolean per habit indicating whether there's
-// a completion row for `localDate` (YYYY-MM-DD in the user's local tz).
-export async function getHabitsWithTodayStatus(
-  localDate: string
-): Promise<HabitWithStatus[]> {
-  const supabase = await createClient();
+function rowToCompletion(row: CompletionRow): HabitCompletion {
+  return {
+    id: row.id,
+    habitId: row.habit_id,
+    completedOn: row.completed_on,
+  };
+}
 
-  const { data: habitData } = await supabase
+// Active habits only (archived_at is null), ordered by creation time.
+export async function listActiveHabits(): Promise<Habit[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
     .from("habits")
     .select("id, name, color, created_at, archived_at")
     .is("archived_at", null)
     .order("created_at", { ascending: true });
+  if (!data) return [];
+  return (data as HabitRow[]).map(rowToHabit);
+}
 
-  if (!habitData) return [];
-  const habits = (habitData as HabitRow[]).map(rowToHabit);
+// All habit completions for the user in [startLocalDate, endLocalDate]
+// inclusive. RLS scopes to the current user.
+export async function listCompletionsInRange(
+  startLocalDate: string,
+  endLocalDate: string
+): Promise<HabitCompletion[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("habit_completions")
+    .select("id, habit_id, completed_on")
+    .gte("completed_on", startLocalDate)
+    .lte("completed_on", endLocalDate);
+  if (!data) return [];
+  return (data as CompletionRow[]).map(rowToCompletion);
+}
+
+// Returns active habits plus a boolean per habit indicating whether there's
+// a completion row for `localDate`.
+export async function getHabitsWithTodayStatus(
+  localDate: string
+): Promise<HabitWithStatus[]> {
+  const habits = await listActiveHabits();
   if (habits.length === 0) return [];
 
+  const supabase = await createClient();
   const { data: completionData } = await supabase
     .from("habit_completions")
     .select("habit_id")
@@ -82,7 +110,7 @@ export async function getHabitsWithTodayStatus(
 }
 
 // Returns all habit completions for a given local date. Currently unused —
-// will feed the future day-overview integration.
+// kept for the future day-overview integration outside the dashboard.
 export async function getHabitsForDay(
   localDate: string
 ): Promise<HabitCompletion[]> {
@@ -93,9 +121,5 @@ export async function getHabitsForDay(
     .eq("completed_on", localDate);
 
   if (!data) return [];
-  return (data as CompletionRow[]).map((r) => ({
-    id: r.id,
-    habitId: r.habit_id,
-    completedOn: r.completed_on,
-  }));
+  return (data as CompletionRow[]).map(rowToCompletion);
 }

@@ -26,9 +26,18 @@ type Props = {
   event: DayEvent | null;
   categories: Category[];
   onOpenChange: (open: boolean) => void;
+  // Optional: parent provides this to optimistically remove the event from
+  // its list as soon as the user clicks "Hide event" — must be called
+  // inside a transition by the dialog.
+  onHide?: (eventId: string) => void;
 };
 
-export function EventCategoryDialog({ event, categories, onOpenChange }: Props) {
+export function EventCategoryDialog({
+  event,
+  categories,
+  onOpenChange,
+  onHide,
+}: Props) {
   return (
     <Dialog open={event !== null} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -38,6 +47,7 @@ export function EventCategoryDialog({ event, categories, onOpenChange }: Props) 
             event={event}
             categories={categories}
             onClose={() => onOpenChange(false)}
+            onHide={onHide}
           />
         )}
       </DialogContent>
@@ -49,10 +59,12 @@ function EventCategoryForm({
   event,
   categories,
   onClose,
+  onHide,
 }: {
   event: DayEvent;
   categories: Category[];
   onClose: () => void;
+  onHide?: (eventId: string) => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -97,13 +109,16 @@ function EventCategoryForm({
   function handleHide() {
     const eventId = event.id;
     startTransition(async () => {
+      // Optimistic: tell the parent to drop this event from its rendered
+      // list immediately. Stays visually hidden until refresh confirms.
+      onHide?.(eventId);
+      onClose();
       const r = await excludeEvent(eventId);
       if ("error" in r) {
         toast.error(r.error);
         return;
       }
       router.refresh();
-      onClose();
       toast.success("Event hidden", {
         action: {
           label: "Undo",

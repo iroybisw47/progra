@@ -126,5 +126,9 @@
   }
   html {
     @apply font-sans;
+    /* Always reserve scrollbar space so tall (/clock) and short (/calendar)
+       pages don't shift content horizontally as the scrollbar appears or
+       disappears between navigations. */
+    scrollbar-gutter: stable;
   }
 }

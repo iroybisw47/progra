@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { useOptimistic } from "react";
 import { CalendarIcon, PencilIcon, PlusIcon, XIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +32,7 @@ import { SessionDialog, type SessionDialogMode } from "@/components/session-dial
 
 import { type Category, type Session } from "@/lib/storage";
 import type { DayEvent } from "@/lib/db/calendar-events";
+import { aggregateWeek } from "@/lib/aggregate";
 import { useNow } from "@/lib/hooks";
 import {
   DAY_LABELS,
@@ -53,42 +55,10 @@ function formatHours(ms: number): string {
   return `${(ms / HOUR_MS).toFixed(1)}h`;
 }
 
-// Attribution rule (per spec): a session belongs wholly to the local day of
-// its `endedAt`. A still-running session is attributed to `now` (today), so
-// the recap keeps ticking while clocked in.
+// Session attribution for the day-row breakdown: belongs to the local-day
+// of `endedAt` (or `now` for active). Mirrors the rule in lib/aggregate.
 function attributionEnd(s: Session, now: number): number {
   return s.endedAt ?? now;
-}
-
-// Sessions are attributed to the local-day of their `endedAt` (or `now` for
-// active). Events are attributed to the local-day of their `startMs`. These
-// rules sum without de-duplication — an event overlapping a session counts in
-// both totals.
-function aggregateWeek(sessions: Session[], events: DayEvent[], now: number) {
-  const weekStart = startOfWeek(new Date(now)).getTime();
-  const weekEnd = endOfWeek(new Date(now)).getTime();
-  const perCategory = new Map<string | null, number>();
-  const perDay = [0, 0, 0, 0, 0, 0, 0];
-
-  for (const s of sessions) {
-    const end = attributionEnd(s, now);
-    const ms = end - s.startedAt;
-    if (ms <= 0) continue;
-    if (end < weekStart || end > weekEnd) continue;
-    perDay[dayIndexMonFirst(new Date(end))] += ms;
-    perCategory.set(s.categoryId, (perCategory.get(s.categoryId) ?? 0) + ms);
-  }
-
-  for (const e of events) {
-    const ms = e.endMs - e.startMs;
-    if (ms <= 0) continue;
-    if (e.startMs < weekStart || e.startMs > weekEnd) continue;
-    perDay[dayIndexMonFirst(new Date(e.startMs))] += ms;
-    const catId = e.category?.id ?? null;
-    perCategory.set(catId, (perCategory.get(catId) ?? 0) + ms);
-  }
-
-  return { perCategory, perDay, total: perDay.reduce((x, y) => x + y, 0) };
 }
 
 type DayRow =
@@ -139,6 +109,14 @@ export function ClockClient({ categories, sessions, events }: ClockClientProps) 
   const now = useNow();
   const [, startTransition] = useTransition();
 
+  // Optimistic exclusion: clicking "Hide event" drops the event from the
+  // rendered list and weekly totals before the server roundtrip completes.
+  const [optimisticEvents, hideOptimistic] = useOptimistic(
+    events,
+    (state: DayEvent[], hiddenId: string): DayEvent[] =>
+      state.filter((e) => e.id !== hiddenId)
+  );
+
   const [taskName, setTaskName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -157,7 +135,7 @@ export function ClockClient({ categories, sessions, events }: ClockClientProps) 
   const weekStartDate = hydrated ? startOfWeek(nowDate) : null;
   const weekEndDate = hydrated ? endOfWeek(nowDate) : null;
   const todayIndex = hydrated ? dayIndexMonFirst(nowDate) : -1;
-  const weekly = aggregateWeek(sessions, events, hydrated ? now : 0);
+  const weekly = aggregateWeek(sessions, optimisticEvents, hydrated ? now : 0);
 
   const categoryBreakdown = Array.from(weekly.perCategory.entries())
     .map(([id, ms]) => ({
@@ -185,7 +163,7 @@ export function ClockClient({ categories, sessions, events }: ClockClientProps) 
     selectedDate !== null &&
     formatLocalDate(selectedDate) === formatLocalDate(nowDate);
   const day = selectedDate
-    ? dayBreakdown(sessions, events, now, selectedDate)
+    ? dayBreakdown(sessions, optimisticEvents, now, selectedDate)
     : { rows: [] as DayRow[], total: 0 };
   const dayLabel =
     selectedDate === null
@@ -276,9 +254,9 @@ export function ClockClient({ categories, sessions, events }: ClockClientProps) 
     <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24 sm:pt-12">
       <main className="flex w-full max-w-md flex-col gap-5">
         <header className="flex flex-col gap-1">
-          <h1 className="text-3xl font-semibold tracking-tight">Progra</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Clock</h1>
           <p className="text-muted-foreground text-sm">
-            Plan the week. Clock in. Recap on Sunday.
+            Track deep work in real time.
           </p>
         </header>
 
@@ -668,6 +646,7 @@ export function ClockClient({ categories, sessions, events }: ClockClientProps) 
       <EventCategoryDialog
         event={eventDialog}
         categories={categories}
+        onHide={hideOptimistic}
         onOpenChange={(open) => {
           if (!open) setEventDialog(null);
         }}

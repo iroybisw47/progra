@@ -73,6 +73,36 @@ export function todayInTimeZone(tz: string): string {
   }).format(new Date());
 }
 
+// Returns {startDate, endDate} as YYYY-MM-DD for the Mon–Sun week containing
+// "today" in the given IANA timezone. UTC arithmetic on the parsed date
+// avoids any local-tz interpretation reshifting the day math.
+export function weekRangeInTimeZone(tz: string): {
+  startDate: string;
+  endDate: string;
+} {
+  const today = todayInTimeZone(tz);
+  const [y, m, d] = today.split("-").map(Number);
+  const anchor = new Date(Date.UTC(y, m - 1, d));
+  const dow = (anchor.getUTCDay() + 6) % 7; // Mon=0..Sun=6
+  const start = new Date(anchor);
+  start.setUTCDate(anchor.getUTCDate() - dow);
+  const end = new Date(start);
+  end.setUTCDate(start.getUTCDate() + 6);
+
+  const fmt = (x: Date) =>
+    `${x.getUTCFullYear()}-${String(x.getUTCMonth() + 1).padStart(2, "0")}-${String(x.getUTCDate()).padStart(2, "0")}`;
+  return { startDate: fmt(start), endDate: fmt(end) };
+}
+
+// Adds `n` days to a YYYY-MM-DD string, returning a new YYYY-MM-DD string.
+// UTC-based to avoid local-tz day shifts.
+export function addDaysISO(dateStr: string, n: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  date.setUTCDate(date.getUTCDate() + n);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
 export function formatRelativeDay(d: Date, now: Date): string {
   const dayKey = formatLocalDate(d);
   if (dayKey === formatLocalDate(now)) return "Today";

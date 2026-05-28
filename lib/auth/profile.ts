@@ -1,5 +1,8 @@
 import "server-only";
 
+import { cache } from "react";
+
+import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 
 export type Profile = {
@@ -12,13 +15,13 @@ export type Profile = {
   updated_at: string;
 };
 
-export async function getProfile(): Promise<Profile | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+// Cached per request alongside getCurrentUser so pages that need both
+// (e.g. /habits' tz computation + layout's auth check) share one fetch.
+export const getProfile = cache(async (): Promise<Profile | null> => {
+  const user = await getCurrentUser();
   if (!user) return null;
 
+  const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
     .select("*")
@@ -26,4 +29,4 @@ export async function getProfile(): Promise<Profile | null> {
     .maybeSingle<Profile>();
 
   return data;
-}
+});

@@ -24,9 +24,11 @@ function rowToSession(row: SessionRow): Session {
 }
 
 // Returns sessions started within the last `daysBack` days OR any still-active
-// session regardless of start time. The clock page only needs this-week math
-// plus the live timer, so a 60-day window is plenty.
-export async function listRecentSessions(daysBack = 60): Promise<Session[]> {
+// session regardless of start time. The clock page only renders the current
+// week, so 14 days is plenty (covers Monday-week start when today is Sunday
+// plus a tz-safety buffer); active sessions are returned via the OR clause
+// even if they started earlier.
+export async function listRecentSessions(daysBack = 14): Promise<Session[]> {
   const supabase = await createClient();
   const since = new Date();
   since.setDate(since.getDate() - daysBack);
