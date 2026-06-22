@@ -17,6 +17,7 @@ export type Category = {
 export type Session = {
   id: string;
   categoryId: string | null;
+  sessionPlanId: string | null;
   taskName: string;
   description?: string;
   startedAt: number;
