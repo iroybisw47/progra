@@ -28,10 +28,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { CategoryPicker } from "@/components/category-picker";
 import { EventCategoryDialog } from "@/components/event-category-dialog";
+import { PlanPicker } from "@/components/plan-picker";
 import { SessionDialog, type SessionDialogMode } from "@/components/session-dialog";
 
 import { type Category, type Session } from "@/lib/storage";
 import type { DayEvent } from "@/lib/db/calendar-events";
+import type { Goal } from "@/lib/db/goals";
+import type { SessionPlan } from "@/lib/db/session-plans";
 import { aggregateWeek } from "@/lib/aggregate";
 import { useNow } from "@/lib/hooks";
 import {
@@ -102,9 +105,17 @@ type ClockClientProps = {
   categories: Category[];
   sessions: Session[];
   events: DayEvent[];
+  goals: Goal[];
+  plans: SessionPlan[];
 };
 
-export function ClockClient({ categories, sessions, events }: ClockClientProps) {
+export function ClockClient({
+  categories,
+  sessions,
+  events,
+  goals,
+  plans,
+}: ClockClientProps) {
   const router = useRouter();
   const now = useNow();
   const [, startTransition] = useTransition();
@@ -120,6 +131,7 @@ export function ClockClient({ categories, sessions, events }: ClockClientProps) 
   const [taskName, setTaskName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [pendingCategoryDelete, setPendingCategoryDelete] = useState<Category | null>(null);
   const [sessionDialog, setSessionDialog] = useState<SessionDialogState>(null);
@@ -176,11 +188,13 @@ export function ClockClient({ categories, sessions, events }: ClockClientProps) 
     const name = taskName.trim();
     if (!name || !selectedCategoryId) return;
     const catName = categoryName(selectedCategoryId);
+    const planId = selectedPlanId;
     startTransition(async () => {
       const r = await clockIn({
         categoryId: selectedCategoryId,
         taskName: name,
         description,
+        sessionPlanId: planId,
       });
       if ("error" in r) {
         toast.error(r.error);
@@ -189,6 +203,7 @@ export function ClockClient({ categories, sessions, events }: ClockClientProps) 
       setTaskName("");
       setDescription("");
       setSelectedCategoryId(null);
+      setSelectedPlanId(null);
       toast.success(`Clocked into ${catName}`);
       router.refresh();
     });
@@ -344,6 +359,14 @@ export function ClockClient({ categories, sessions, events }: ClockClientProps) 
                   onSelect={setSelectedCategoryId}
                 />
               </div>
+              <PlanPicker
+                goals={goals}
+                plans={plans}
+                selectedId={selectedPlanId}
+                onSelect={(id) =>
+                  setSelectedPlanId((cur) => (cur === id ? null : id))
+                }
+              />
               <Button
                 className="h-11 w-full text-base"
                 disabled={!canClockIn}

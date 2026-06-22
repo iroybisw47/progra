@@ -10,6 +10,7 @@ type ClockInInput = {
   categoryId: string;
   taskName: string;
   description?: string;
+  sessionPlanId?: string | null;
 };
 
 export async function clockIn(input: ClockInInput): Promise<Result> {
@@ -24,6 +25,7 @@ export async function clockIn(input: ClockInInput): Promise<Result> {
     category_id: input.categoryId,
     task_name: input.taskName.trim(),
     description: input.description?.trim() || null,
+    session_plan_id: input.sessionPlanId ?? null,
     started_at: new Date().toISOString(),
     ended_at: null,
   });
@@ -37,6 +39,7 @@ export async function clockIn(input: ClockInInput): Promise<Result> {
   }
 
   revalidatePath("/clock");
+  revalidatePath("/goals");
   return { ok: true };
 }
 
@@ -47,6 +50,15 @@ export async function clockOut(): Promise<Result> {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
+  // Read the active session first so we can flip an attached plan to 'done'
+  // after the clock-out succeeds.
+  const { data: active } = await supabase
+    .from("sessions")
+    .select("session_plan_id")
+    .eq("user_id", user.id)
+    .is("ended_at", null)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("sessions")
     .update({ ended_at: new Date().toISOString() })
@@ -54,7 +66,19 @@ export async function clockOut(): Promise<Result> {
     .is("ended_at", null);
 
   if (error) return { error: error.message };
+
+  const planId =
+    (active as { session_plan_id: string | null } | null)?.session_plan_id ??
+    null;
+  if (planId) {
+    await supabase
+      .from("session_plans")
+      .update({ status: "done" })
+      .eq("id", planId);
+  }
+
   revalidatePath("/clock");
+  revalidatePath("/goals");
   return { ok: true };
 }
 
