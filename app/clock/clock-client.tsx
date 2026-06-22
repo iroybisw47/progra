@@ -107,6 +107,7 @@ type ClockClientProps = {
   events: DayEvent[];
   goals: Goal[];
   plans: SessionPlan[];
+  preselectPlanId: string | null;
 };
 
 export function ClockClient({
@@ -115,6 +116,7 @@ export function ClockClient({
   events,
   goals,
   plans,
+  preselectPlanId,
 }: ClockClientProps) {
   const router = useRouter();
   const now = useNow();
@@ -131,7 +133,10 @@ export function ClockClient({
   const [taskName, setTaskName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  // Pre-seeded if the user is currently inside a scheduled block with a plan.
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(
+    preselectPlanId
+  );
   const [newCategoryName, setNewCategoryName] = useState("");
   const [pendingCategoryDelete, setPendingCategoryDelete] = useState<Category | null>(null);
   const [sessionDialog, setSessionDialog] = useState<SessionDialogState>(null);

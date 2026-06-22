@@ -4,6 +4,40 @@ import { createClient } from "@/lib/supabase/server";
 import { categorizeTitle } from "@/lib/categorize";
 import type { Category } from "@/lib/storage";
 
+// Raw busy interval used for scheduling/placement and the /plan grid's
+// "fixed" overlay. Unlike `listEventsInRange`, this returns *every* synced
+// non-cancelled event in the window — including ones the user excluded
+// from time-spent totals — because an excluded class is still a real
+// commitment that blocks scheduling.
+export type BusyInterval = {
+  id: string;
+  title: string | null;
+  startMs: number;
+  endMs: number;
+};
+
+export async function listBusyTimes(
+  startMs: number,
+  endMs: number
+): Promise<BusyInterval[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("calendar_events")
+    .select("id, title, start_time, end_time")
+    .lt("start_time", new Date(endMs).toISOString())
+    .gt("end_time", new Date(startMs).toISOString())
+    .order("start_time", { ascending: true });
+  if (!data) return [];
+  return (
+    data as { id: string; title: string | null; start_time: string; end_time: string }[]
+  ).map((r) => ({
+    id: r.id,
+    title: r.title,
+    startMs: new Date(r.start_time).getTime(),
+    endMs: new Date(r.end_time).getTime(),
+  }));
+}
+
 export type DayEvent = {
   id: string;
   title: string | null;
