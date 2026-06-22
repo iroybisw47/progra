@@ -2,13 +2,16 @@ import Link from "next/link";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { GoalProgressBar } from "@/components/goal-progress";
 import { WeeklyHabits } from "@/components/weekly-habits";
-import { aggregateWeek } from "@/lib/aggregate";
+import { aggregateWeek, aggregateWeekByGoal } from "@/lib/aggregate";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 import { listCategories } from "@/lib/db/categories";
 import { listEventsInRange } from "@/lib/db/calendar-events";
+import { listActiveGoals } from "@/lib/db/goals";
 import { listActiveHabits, listCompletionsInRange } from "@/lib/db/habits";
+import { listPlansForGoals } from "@/lib/db/session-plans";
 import { listRecentSessions } from "@/lib/db/sessions";
 import {
   endOfWeek,
@@ -62,11 +65,12 @@ async function SignedInDashboard({ email }: { email: string }) {
   const weekEndMs = endOfWeek(now).getTime();
   const dayMs = 24 * 60 * 60 * 1000;
 
-  const [categories, sessions, habits, completions] = await Promise.all([
+  const [categories, sessions, habits, completions, goals] = await Promise.all([
     listCategories(),
     listRecentSessions(),
     listActiveHabits(),
     listCompletionsInRange(startDate, endDate),
+    listActiveGoals(),
   ]);
   // Events depend on categories for categorization, so fetch after.
   const events = await listEventsInRange(
@@ -74,6 +78,10 @@ async function SignedInDashboard({ email }: { email: string }) {
     weekEndMs + dayMs,
     categories
   );
+  const plans =
+    goals.length > 0
+      ? await listPlansForGoals(goals.map((g) => g.id))
+      : [];
 
   const weekly = aggregateWeek(sessions, events, now.getTime());
   const categoryById = new Map(categories.map((c) => [c.id, c] as const));
@@ -89,6 +97,19 @@ async function SignedInDashboard({ email }: { email: string }) {
     }))
     .sort((a, b) => b.ms - a.ms);
   const maxCatMs = categoryBreakdown[0]?.ms ?? 0;
+
+  // Goal progress reuses the same `now` so per-session attribution matches
+  // the category bars above.
+  const planToGoal = new Map(plans.map((p) => [p.id, p.goalId] as const));
+  const goalWeekly = aggregateWeekByGoal(sessions, planToGoal, now.getTime());
+  const goalBreakdown = goals
+    .map((g) => ({
+      id: g.id,
+      title: g.title,
+      quotaHours: g.weeklyQuotaHours,
+      actualMs: goalWeekly.perGoal.get(g.id) ?? 0,
+    }))
+    .sort((a, b) => b.actualMs - a.actualMs);
 
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24 sm:pt-12">
@@ -154,6 +175,30 @@ async function SignedInDashboard({ email }: { email: string }) {
             )}
           </CardContent>
         </Card>
+
+        {goalBreakdown.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Goals this week</CardTitle>
+              <CardDescription>Committed vs actual</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              {goalBreakdown.map((row) => (
+                <GoalProgressBar
+                  key={row.id}
+                  title={row.title}
+                  quotaHours={row.quotaHours}
+                  actualMs={row.actualMs}
+                />
+              ))}
+              {goalWeekly.untracked > 0 && (
+                <p className="text-muted-foreground text-xs">
+                  Untracked this week — {formatHours(goalWeekly.untracked)}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <WeeklyHabits
           habits={habits}

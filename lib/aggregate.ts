@@ -44,3 +44,47 @@ export function aggregateWeek(
 
   return { perCategory, perDay, total: perDay.reduce((x, y) => x + y, 0) };
 }
+
+export type WeeklyGoalTotals = {
+  // goalId → ms attributed via session_plan_id → plan → goal
+  perGoal: Map<string, number>;
+  // ms for sessions in-week whose plan isn't in `planToGoal` (no plan, or
+  // attached to a plan whose goal isn't tracked here — e.g. archived).
+  untracked: number;
+  total: number;
+};
+
+// Mirrors aggregateWeek's session attribution exactly: `end = endedAt ?? now`,
+// in-week iff end ∈ [weekStart, weekEnd], skip non-positive durations. The
+// per-session ms contribution to its goal equals its contribution to its
+// category in aggregateWeek — that invariant is what keeps the goal bars
+// and category bars consistent for the same sessions.
+export function aggregateWeekByGoal(
+  sessions: Session[],
+  planToGoal: Map<string, string>,
+  now: number
+): WeeklyGoalTotals {
+  const weekStart = startOfWeek(new Date(now)).getTime();
+  const weekEnd = endOfWeek(new Date(now)).getTime();
+  const perGoal = new Map<string, number>();
+  let untracked = 0;
+
+  for (const s of sessions) {
+    const end = s.endedAt ?? now;
+    const ms = end - s.startedAt;
+    if (ms <= 0) continue;
+    if (end < weekStart || end > weekEnd) continue;
+    const goalId = s.sessionPlanId
+      ? planToGoal.get(s.sessionPlanId) ?? null
+      : null;
+    if (goalId === null) {
+      untracked += ms;
+    } else {
+      perGoal.set(goalId, (perGoal.get(goalId) ?? 0) + ms);
+    }
+  }
+
+  let total = untracked;
+  for (const v of perGoal.values()) total += v;
+  return { perGoal, untracked, total };
+}

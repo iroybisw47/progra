@@ -6,6 +6,7 @@ import type { Session } from "@/lib/storage";
 type SessionRow = {
   id: string;
   category_id: string | null;
+  session_plan_id: string | null;
   task_name: string;
   description: string | null;
   started_at: string;
@@ -16,6 +17,7 @@ function rowToSession(row: SessionRow): Session {
   return {
     id: row.id,
     categoryId: row.category_id,
+    sessionPlanId: row.session_plan_id,
     taskName: row.task_name,
     description: row.description ?? undefined,
     startedAt: new Date(row.started_at).getTime(),
@@ -35,7 +37,9 @@ export async function listRecentSessions(daysBack = 14): Promise<Session[]> {
 
   const { data } = await supabase
     .from("sessions")
-    .select("id, category_id, task_name, description, started_at, ended_at")
+    .select(
+      "id, category_id, session_plan_id, task_name, description, started_at, ended_at"
+    )
     .or(`started_at.gte.${since.toISOString()},ended_at.is.null`)
     .order("started_at", { ascending: false });
 

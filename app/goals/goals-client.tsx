@@ -21,6 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { GoalProgressBar } from "@/components/goal-progress";
 import {
   Dialog,
   DialogClose,
@@ -45,9 +46,22 @@ import type { SessionPlan } from "@/lib/db/session-plans";
 type Props = {
   goals: Goal[];
   plans: SessionPlan[];
+  actualMsByGoal: Record<string, number>;
+  untrackedMs: number;
 };
 
-export function GoalsClient({ goals, plans }: Props) {
+const HOUR_MS = 60 * 60 * 1000;
+
+function formatHours(ms: number): string {
+  return `${(ms / HOUR_MS).toFixed(1)}h`;
+}
+
+export function GoalsClient({
+  goals,
+  plans,
+  actualMsByGoal,
+  untrackedMs,
+}: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
@@ -237,6 +251,10 @@ export function GoalsClient({ goals, plans }: Props) {
                       {goal.description}
                     </p>
                   )}
+                  <GoalProgressBar
+                    quotaHours={goal.weeklyQuotaHours}
+                    actualMs={actualMsByGoal[goal.id] ?? 0}
+                  />
                   {goalPlans.length === 0 ? (
                     <p className="text-muted-foreground text-sm py-2">
                       No planned sessions yet.
@@ -387,6 +405,12 @@ export function GoalsClient({ goals, plans }: Props) {
               </Card>
             );
           })
+        )}
+
+        {untrackedMs > 0 && (
+          <p className="text-muted-foreground text-center text-xs">
+            Untracked this week — {formatHours(untrackedMs)}
+          </p>
         )}
 
         <Card>
