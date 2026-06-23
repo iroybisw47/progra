@@ -25,6 +25,28 @@ function rowToSession(row: SessionRow): Session {
   };
 }
 
+// Returns sessions overlapping [startMs, endMs). Overlap test: started_at <
+// endMs AND (ended_at > startMs OR ended_at IS NULL). Used by the recap to
+// fetch arbitrary historical weeks — listRecentSessions caps at ~14 days.
+export async function listSessionsInRange(
+  startMs: number,
+  endMs: number
+): Promise<Session[]> {
+  const supabase = await createClient();
+  const startIso = new Date(startMs).toISOString();
+  const endIso = new Date(endMs).toISOString();
+  const { data } = await supabase
+    .from("sessions")
+    .select(
+      "id, category_id, session_plan_id, task_name, description, started_at, ended_at"
+    )
+    .lt("started_at", endIso)
+    .or(`ended_at.gt.${startIso},ended_at.is.null`)
+    .order("started_at", { ascending: false });
+  if (!data) return [];
+  return (data as SessionRow[]).map(rowToSession);
+}
+
 // Returns sessions started within the last `daysBack` days OR any still-active
 // session regardless of start time. The clock page only renders the current
 // week, so 14 days is plenty (covers Monday-week start when today is Sunday

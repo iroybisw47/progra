@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronRightIcon } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -198,6 +199,20 @@ async function SignedInDashboard({ email }: { email: string }) {
             Where your week is going.
           </p>
         </header>
+
+        <Link href="/recap" className="block">
+          <Card className="hover:bg-muted/30 transition-colors">
+            <CardContent className="flex items-center justify-between gap-3 px-5 py-4">
+              <div className="flex flex-col gap-0.5">
+                <p className="text-sm font-medium">This week’s recap</p>
+                <p className="text-muted-foreground text-xs">
+                  A calm look at how the week is shaping up.
+                </p>
+              </div>
+              <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" />
+            </CardContent>
+          </Card>
+        </Link>
 
         <MissedBlocksCard items={missedItems} />
 
