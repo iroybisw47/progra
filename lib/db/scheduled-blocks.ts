@@ -12,6 +12,8 @@ export type ScheduledBlock = {
   endMs: number;
   isFlex: boolean;
   status: ScheduledBlockStatus;
+  rescheduledFrom: string | null;
+  dismissedAt: number | null;
   createdAt: number;
 };
 
@@ -23,8 +25,13 @@ type BlockRow = {
   end_time: string;
   is_flex: boolean;
   status: string;
+  rescheduled_from: string | null;
+  dismissed_at: string | null;
   created_at: string;
 };
+
+const BLOCK_COLUMNS =
+  "id, goal_id, session_plan_id, start_time, end_time, is_flex, status, rescheduled_from, dismissed_at, created_at";
 
 function normalizeStatus(s: string): ScheduledBlockStatus {
   return s === "done" || s === "missed" || s === "moved" ? s : "scheduled";
@@ -39,6 +46,8 @@ function rowToBlock(row: BlockRow): ScheduledBlock {
     endMs: new Date(row.end_time).getTime(),
     isFlex: row.is_flex,
     status: normalizeStatus(row.status),
+    rescheduledFrom: row.rescheduled_from,
+    dismissedAt: row.dismissed_at ? new Date(row.dismissed_at).getTime() : null,
     createdAt: new Date(row.created_at).getTime(),
   };
 }
@@ -53,9 +62,7 @@ export async function listBlocksInRange(
   const supabase = await createClient();
   const { data } = await supabase
     .from("scheduled_blocks")
-    .select(
-      "id, goal_id, session_plan_id, start_time, end_time, is_flex, status, created_at"
-    )
+    .select(BLOCK_COLUMNS)
     .lt("start_time", new Date(endMs).toISOString())
     .gt("end_time", new Date(startMs).toISOString())
     .order("start_time", { ascending: true });
@@ -73,9 +80,7 @@ export async function getActiveBlockAtTime(
   const nowIso = new Date(nowMs).toISOString();
   const { data } = await supabase
     .from("scheduled_blocks")
-    .select(
-      "id, goal_id, session_plan_id, start_time, end_time, is_flex, status, created_at"
-    )
+    .select(BLOCK_COLUMNS)
     .lte("start_time", nowIso)
     .gte("end_time", nowIso)
     .eq("status", "scheduled")
@@ -84,4 +89,22 @@ export async function getActiveBlockAtTime(
     .maybeSingle();
   if (!data) return null;
   return rowToBlock(data as BlockRow);
+}
+
+// Missed blocks the user hasn't dismissed yet — what the "Needs reslotting"
+// surface reads. Bounded to ~2 weeks back so stale unresolved blocks from
+// months ago don't pile up forever.
+export async function listMissedNeedingReslot(
+  sinceMs: number
+): Promise<ScheduledBlock[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("scheduled_blocks")
+    .select(BLOCK_COLUMNS)
+    .eq("status", "missed")
+    .is("dismissed_at", null)
+    .gt("end_time", new Date(sinceMs).toISOString())
+    .order("start_time", { ascending: false });
+  if (!data) return [];
+  return (data as BlockRow[]).map(rowToBlock);
 }

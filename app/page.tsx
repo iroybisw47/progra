@@ -3,16 +3,24 @@ import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { GoalProgressBar } from "@/components/goal-progress";
+import { MissedBlocksCard } from "@/components/missed-blocks-card";
 import { WeeklyHabits } from "@/components/weekly-habits";
+import { sweepPastBlocks } from "@/app/actions/scheduled-blocks";
 import { aggregateWeek, aggregateWeekByGoal } from "@/lib/aggregate";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
+import { listBusyTimes } from "@/lib/db/calendar-events";
 import { listCategories } from "@/lib/db/categories";
 import { listEventsInRange } from "@/lib/db/calendar-events";
-import { listActiveGoals } from "@/lib/db/goals";
+import { getGoalsByIds, listActiveGoals } from "@/lib/db/goals";
 import { listActiveHabits, listCompletionsInRange } from "@/lib/db/habits";
+import {
+  listBlocksInRange,
+  listMissedNeedingReslot,
+} from "@/lib/db/scheduled-blocks";
 import { listPlansForGoals } from "@/lib/db/session-plans";
 import { listRecentSessions } from "@/lib/db/sessions";
+import { proposeReslotSlots } from "@/lib/placement";
 import {
   endOfWeek,
   formatRange,
@@ -55,22 +63,39 @@ function SignedOutLanding() {
 }
 
 async function SignedInDashboard({ email }: { email: string }) {
+  // Lazy miss-detection — same rationale as /plan: PWAs can't run a cron.
+  await sweepPastBlocks();
+
   const profile = await getProfile();
   const tz = profile?.timezone ?? "UTC";
   const { startDate, endDate } = weekRangeInTimeZone(tz);
   const today = todayInTimeZone(tz);
 
   const now = new Date();
+  const nowMs = now.getTime();
   const weekStartMs = startOfWeek(now).getTime();
   const weekEndMs = endOfWeek(now).getTime();
   const dayMs = 24 * 60 * 60 * 1000;
+  const reslotLookbackMs = nowMs - 14 * dayMs;
 
-  const [categories, sessions, habits, completions, goals] = await Promise.all([
+  const [
+    categories,
+    sessions,
+    habits,
+    completions,
+    goals,
+    missedBlocks,
+    scheduledBlocksThisWeek,
+    busy,
+  ] = await Promise.all([
     listCategories(),
     listRecentSessions(),
     listActiveHabits(),
     listCompletionsInRange(startDate, endDate),
     listActiveGoals(),
+    listMissedNeedingReslot(reslotLookbackMs),
+    listBlocksInRange(weekStartMs, weekEndMs),
+    listBusyTimes(weekStartMs, weekEndMs),
   ]);
   // Events depend on categories for categorization, so fetch after.
   const events = await listEventsInRange(
@@ -82,6 +107,59 @@ async function SignedInDashboard({ email }: { email: string }) {
     goals.length > 0
       ? await listPlansForGoals(goals.map((g) => g.id))
       : [];
+
+  // Backfill goal/plan titles for missed blocks tied to archived goals.
+  // Kept separate from `plans` above so the active-only `plans` flows into
+  // aggregateWeekByGoal unchanged — sessions for archived goals continue to
+  // route through `untracked` in the weekly progress card.
+  const missedGoalIds = [...new Set(missedBlocks.map((b) => b.goalId))];
+  const activeGoalIdSet = new Set(goals.map((g) => g.id));
+  const orphanGoalIds = missedGoalIds.filter(
+    (id) => !activeGoalIdSet.has(id)
+  );
+  const orphanGoals =
+    orphanGoalIds.length > 0 ? await getGoalsByIds(orphanGoalIds) : [];
+  const orphanPlans =
+    orphanGoalIds.length > 0 ? await listPlansForGoals(orphanGoalIds) : [];
+
+  const goalByIdForMissed = new Map(
+    [...goals, ...orphanGoals].map((g) => [g.id, g] as const)
+  );
+  const planByIdForMissed = new Map(
+    [...plans, ...orphanPlans].map((p) => [p.id, p] as const)
+  );
+
+  const scheduledObstacles = scheduledBlocksThisWeek
+    .filter((b) => b.status === "scheduled")
+    .map((b) => ({
+      id: b.id,
+      title: null as string | null,
+      startMs: b.startMs,
+      endMs: b.endMs,
+    }));
+
+  const missedItems = missedBlocks.map((mb) => {
+    const goal = goalByIdForMissed.get(mb.goalId);
+    const plan = mb.sessionPlanId
+      ? planByIdForMissed.get(mb.sessionPlanId)
+      : null;
+    const suggestions = proposeReslotSlots(
+      { startMs: mb.startMs, endMs: mb.endMs },
+      busy,
+      scheduledObstacles,
+      nowMs,
+      weekEndMs,
+      8,
+      23,
+      3
+    );
+    return {
+      block: mb,
+      goalTitle: goal?.title ?? "Untitled goal",
+      planTitle: plan?.title ?? null,
+      suggestions,
+    };
+  });
 
   const weekly = aggregateWeek(sessions, events, now.getTime());
   const categoryById = new Map(categories.map((c) => [c.id, c] as const));
@@ -120,6 +198,8 @@ async function SignedInDashboard({ email }: { email: string }) {
             Where your week is going.
           </p>
         </header>
+
+        <MissedBlocksCard items={missedItems} />
 
         <Card>
           <CardHeader>

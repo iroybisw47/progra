@@ -210,3 +210,60 @@ export function placeWeek(input: PlacementInput): PlacementResult {
 
   return { placed, skipped };
 }
+
+// Propose up to `maxResults` future time slots for re-slotting a missed
+// block. Reuses the same gap-finding logic as `placeWeek`: per-day waking
+// window minus the union of busy events and other scheduled blocks.
+//
+// "One slot per day, then earliest first" gives the user spatially diverse
+// options instead of three back-to-back proposals on the same afternoon —
+// matches the spirit of the prompt's "small ranked list" without optimizing.
+export function proposeReslotSlots(
+  missedBlock: { startMs: number; endMs: number },
+  busy: BusyInterval[],
+  otherScheduledBlocks: BusyInterval[],
+  windowStartMs: number,
+  windowEndMs: number,
+  wakingStartHour: number,
+  wakingEndHour: number,
+  maxResults: number = 3
+): Slot[] {
+  const duration = missedBlock.endMs - missedBlock.startMs;
+  if (duration <= 0 || windowEndMs <= windowStartMs) return [];
+
+  const obstacles: BusyInterval[] = [...busy, ...otherScheduledBlocks];
+
+  // Per-day candidates — pick the earliest fitting slot per day so the
+  // three results spread across days when possible.
+  const perDayCandidates: Slot[] = [];
+
+  // Iterate one day at a time from windowStart's day → windowEnd's day,
+  // clipping per-day waking windows to the overall window.
+  const firstDayStart = new Date(windowStartMs);
+  firstDayStart.setHours(0, 0, 0, 0);
+  let cursor = firstDayStart.getTime();
+
+  while (cursor < windowEndMs) {
+    const { startMs: rawWakeStart, endMs: rawWakeEnd } = wakingWindowForDay(
+      cursor,
+      wakingStartHour,
+      wakingEndHour
+    );
+    const clippedStart = Math.max(rawWakeStart, windowStartMs);
+    const clippedEnd = Math.min(rawWakeEnd, windowEndMs);
+    if (clippedEnd > clippedStart) {
+      const free = computeFreeSlots(clippedStart, clippedEnd, obstacles);
+      const earliest = free.find((s) => s.endMs - s.startMs >= duration);
+      if (earliest) {
+        perDayCandidates.push({
+          startMs: earliest.startMs,
+          endMs: earliest.startMs + duration,
+        });
+      }
+    }
+    cursor += DAY_MS;
+  }
+
+  perDayCandidates.sort((a, b) => a.startMs - b.startMs);
+  return perDayCandidates.slice(0, maxResults);
+}

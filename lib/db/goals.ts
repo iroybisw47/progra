@@ -45,6 +45,20 @@ export async function listActiveGoals(): Promise<Goal[]> {
   return (data as GoalRow[]).map(rowToGoal);
 }
 
+// Returns goals by id regardless of status. Used by the "needs reslotting"
+// surface to backfill titles for missed blocks pointing at goals the user
+// has since archived (which `listActiveGoals` correctly excludes).
+export async function getGoalsByIds(ids: string[]): Promise<Goal[]> {
+  if (ids.length === 0) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("goals")
+    .select("id, title, description, weekly_quota_hours, status, created_at")
+    .in("id", ids);
+  if (!data) return [];
+  return (data as GoalRow[]).map(rowToGoal);
+}
+
 export async function getGoal(id: string): Promise<Goal | null> {
   const supabase = await createClient();
   const { data } = await supabase

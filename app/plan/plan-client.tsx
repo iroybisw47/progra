@@ -24,6 +24,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  MissedBlocksCard,
+  type MissedItem,
+} from "@/components/missed-blocks-card";
 
 import {
   createBlock,
@@ -100,6 +104,7 @@ type Props = {
   plans: SessionPlan[];
   blocks: ScheduledBlock[];
   busy: BusyInterval[];
+  missedItems: MissedItem[];
 };
 
 export function PlanClient({
@@ -109,6 +114,7 @@ export function PlanClient({
   plans,
   blocks,
   busy,
+  missedItems,
 }: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -255,8 +261,13 @@ export function PlanClient({
     if (idx >= 0 && idx < 7) busyByDay[idx].push(b);
   }
 
+  // Grid surfaces only currently-scheduled blocks. Past states (done /
+  // missed / moved) belong in the quota progress card and the
+  // MissedBlocksCard above — rendering them here would visually clash with
+  // the "Needs reslotting" surface for the same block.
   const blocksByDay: ScheduledBlock[][] = [[], [], [], [], [], [], []];
   for (const b of blocks) {
+    if (b.status !== "scheduled") continue;
     const idx = dayIdxOfMs(b.startMs);
     if (idx >= 0 && idx < 7) blocksByDay[idx].push(b);
   }
@@ -280,6 +291,8 @@ export function PlanClient({
             around your calendar.
           </p>
         </header>
+
+        <MissedBlocksCard items={missedItems} />
 
         <Card>
           <CardHeader>
