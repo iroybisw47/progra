@@ -7,7 +7,11 @@ import { GoalProgressBar } from "@/components/goal-progress";
 import { MissedBlocksCard } from "@/components/missed-blocks-card";
 import { WeeklyHabits } from "@/components/weekly-habits";
 import { sweepPastBlocks } from "@/app/actions/scheduled-blocks";
-import { aggregateWeek, aggregateWeekByGoal } from "@/lib/aggregate";
+import {
+  aggregateWeek,
+  aggregateWeekByGoal,
+  buildCategoryBreakdown,
+} from "@/lib/aggregate";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 import { listBusyTimes } from "@/lib/db/calendar-events";
@@ -163,18 +167,10 @@ async function SignedInDashboard({ email }: { email: string }) {
   });
 
   const weekly = aggregateWeek(sessions, events, now.getTime());
-  const categoryById = new Map(categories.map((c) => [c.id, c] as const));
-  const categoryBreakdown = Array.from(weekly.perCategory.entries())
-    .map(([id, ms]) => ({
-      id,
-      name:
-        id === null
-          ? "Uncategorized"
-          : categoryById.get(id)?.name ?? "Uncategorized",
-      color: id === null ? null : categoryById.get(id)?.color ?? null,
-      ms,
-    }))
-    .sort((a, b) => b.ms - a.ms);
+  const categoryBreakdown = buildCategoryBreakdown(
+    weekly.perCategory,
+    categories
+  );
   const maxCatMs = categoryBreakdown[0]?.ms ?? 0;
 
   // Goal progress reuses the same `now` so per-session attribution matches
@@ -207,6 +203,20 @@ async function SignedInDashboard({ email }: { email: string }) {
                 <p className="text-sm font-medium">This week’s recap</p>
                 <p className="text-muted-foreground text-xs">
                   A calm look at how the week is shaping up.
+                </p>
+              </div>
+              <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" />
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/history" className="block">
+          <Card className="hover:bg-muted/30 transition-colors">
+            <CardContent className="flex items-center justify-between gap-3 px-5 py-4">
+              <div className="flex flex-col gap-0.5">
+                <p className="text-sm font-medium">History</p>
+                <p className="text-muted-foreground text-xs">
+                  Time per goal across months and years.
                 </p>
               </div>
               <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" />

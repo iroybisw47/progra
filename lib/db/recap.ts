@@ -1,7 +1,14 @@
 import "server-only";
 
-import { aggregateWeekByGoal } from "@/lib/aggregate";
+import {
+  aggregateRange,
+  aggregateWeekByGoal,
+  buildCategoryBreakdown,
+  type CategoryBreakdownRow,
+} from "@/lib/aggregate";
 import { formatLocalDate } from "@/lib/dates";
+import { listEventsInRange } from "@/lib/db/calendar-events";
+import { listCategories } from "@/lib/db/categories";
 import { listActiveGoals } from "@/lib/db/goals";
 import { listActiveHabits, listCompletionsInRange } from "@/lib/db/habits";
 import { listBlocksInRange } from "@/lib/db/scheduled-blocks";
@@ -27,6 +34,10 @@ export type WeekRecap = {
   weekEndMs: number;
   totalFocusedMs: number;
   goalRows: RecapGoalRow[];
+  // All tracked time this week (sessions + calendar events) and its per-
+  // category split, incl. the Uncategorized bucket. Superset of totalFocusedMs.
+  totalTrackedMs: number;
+  categoryRows: CategoryBreakdownRow[];
   sessionsCompleted: number;
   habitChecks: number;
   activeHabitsCount: number;
@@ -57,12 +68,14 @@ export async function computeWeekRecap(
     goals.length > 0
       ? await listPlansForGoals(goals.map((g) => g.id))
       : [];
+  const categories = await listCategories();
 
   const startLocalDate = formatLocalDate(new Date(weekStartMs));
   const endLocalDate = formatLocalDate(new Date(weekEndMs));
 
-  const [sessions, blocks, completions, habits] = await Promise.all([
+  const [sessions, events, blocks, completions, habits] = await Promise.all([
     listSessionsInRange(weekStartMs, weekEndMs),
+    listEventsInRange(weekStartMs, weekEndMs, categories),
     listBlocksInRange(weekStartMs, weekEndMs),
     listCompletionsInRange(startLocalDate, endLocalDate),
     listActiveHabits(),
@@ -75,6 +88,20 @@ export async function computeWeekRecap(
   const aggregateNow = Math.min(Date.now(), weekEndMs);
   const planToGoal = new Map(plans.map((p) => [p.id, p.goalId] as const));
   const { perGoal } = aggregateWeekByGoal(sessions, planToGoal, aggregateNow);
+
+  // Category axis: clocked-in sessions + Google Calendar events (uncategorized
+  // events land in the Uncategorized bucket). The complete time-spent view,
+  // alongside the goal-focused numbers below.
+  const { perCategory, total: totalTrackedMs } = aggregateRange(
+    sessions,
+    events,
+    weekStartMs,
+    weekEndMs,
+    aggregateNow
+  );
+  const categoryRows = buildCategoryBreakdown(perCategory, categories).filter(
+    (r) => r.ms > 0
+  );
 
   const goalRows: RecapGoalRow[] = goals
     .map((g) => {
@@ -136,6 +163,8 @@ export async function computeWeekRecap(
     weekEndMs,
     totalFocusedMs,
     goalRows,
+    totalTrackedMs,
+    categoryRows,
     sessionsCompleted,
     habitChecks,
     activeHabitsCount,

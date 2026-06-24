@@ -32,6 +32,7 @@ export function RecapCard({ recap }: { recap: WeekRecap }) {
   const goalCount = recap.goalRows.length;
   const range = formatWeekRange(recap.weekStartMs, recap.weekEndMs);
   const hasFocus = recap.totalFocusedMs > 0;
+  const maxCategoryMs = recap.categoryRows[0]?.ms ?? 0;
 
   const goalCountLabel =
     goalCount === 0
@@ -86,6 +87,49 @@ export function RecapCard({ recap }: { recap: WeekRecap }) {
                 quotaHours={row.quotaHours}
                 actualMs={row.actualMs}
               />
+            ))}
+          </div>
+        )}
+
+        {/* By category — sessions + calendar, incl. Uncategorized. Width
+            proportional to the largest category. Descriptive, no quota line. */}
+        {recap.categoryRows.length > 0 && (
+          <div className="flex flex-col gap-3">
+            <span className="text-muted-foreground text-[10px] uppercase tracking-[0.2em]">
+              By category · {formatHours(recap.totalTrackedMs)} tracked
+            </span>
+            {recap.categoryRows.map((row) => (
+              <div
+                key={row.id ?? "uncategorized"}
+                className="flex flex-col gap-1"
+              >
+                <div className="flex items-baseline justify-between gap-2 text-sm">
+                  <span className="flex items-center gap-1.5 truncate">
+                    {row.color && (
+                      <span
+                        aria-hidden
+                        className="size-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: row.color }}
+                      />
+                    )}
+                    <span className="truncate">{row.name}</span>
+                  </span>
+                  <span className="text-muted-foreground shrink-0 font-mono tabular-nums">
+                    {formatHours(row.ms)}
+                  </span>
+                </div>
+                <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
+                  <div
+                    className="bg-primary/60 h-full"
+                    style={{
+                      width:
+                        maxCategoryMs > 0
+                          ? `${Math.max(2, (row.ms / maxCategoryMs) * 100)}%`
+                          : "0%",
+                    }}
+                  />
+                </div>
+              </div>
             ))}
           </div>
         )}

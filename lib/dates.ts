@@ -22,6 +22,29 @@ export function endOfDay(d: Date): Date {
   return out;
 }
 
+// Calendar-month / calendar-year boundaries, defined in local time exactly
+// like startOfWeek/endOfWeek above (inclusive end at 23:59:59.999). Using the
+// same convention is what lets month/year rollups reconcile with the weekly
+// numbers: every session is attributed by a single instant (its `end`), so it
+// lands in exactly one week AND exactly one month AND exactly one year — never
+// double-counted, never dropped.
+export function startOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+}
+
+export function endOfMonth(d: Date): Date {
+  // Day 0 of the next month is the last day of this month.
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+}
+
+export function startOfYear(d: Date): Date {
+  return new Date(d.getFullYear(), 0, 1, 0, 0, 0, 0);
+}
+
+export function endOfYear(d: Date): Date {
+  return new Date(d.getFullYear(), 11, 31, 23, 59, 59, 999);
+}
+
 export function formatRange(start: Date, end: Date): string {
   const fmt = (date: Date) =>
     date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
