@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useOptimistic, useState, useTransition } from "react";
+import { toast } from "sonner";
 import { CheckIcon, CircleIcon } from "lucide-react";
 
 import {
@@ -15,6 +17,8 @@ import { DAY_LABELS, addDaysISO, parseLocalDate, formatLongDate } from "@/lib/da
 import type { Habit, HabitCompletion } from "@/lib/db/habits";
 import { cn } from "@/lib/utils";
 
+import { toggleHabitCompletion } from "@/app/actions/habits";
+
 type Props = {
   habits: Habit[];
   completions: HabitCompletion[];
@@ -22,13 +26,55 @@ type Props = {
   today: string; // YYYY-MM-DD in user's tz
 };
 
+type ToggleAction = { habitId: string; date: string };
+
 export function WeeklyHabits({ habits, completions, weekStart, today }: Props) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
 
-  // Map: completed_on -> Set<habit_id>. Built once per render.
   const activeIds = new Set(habits.map((h) => h.id));
-  const filtered = completions.filter((c) => activeIds.has(c.habitId));
+  const baseFiltered = completions.filter((c) => activeIds.has(c.habitId));
 
+  // Optimistic completions: flips a (habit, date) pair instantly; reconciled
+  // when fresh props arrive after router.refresh.
+  const [filtered, applyToggle] = useOptimistic(
+    baseFiltered,
+    (state: HabitCompletion[], action: ToggleAction): HabitCompletion[] => {
+      const exists = state.some(
+        (c) => c.habitId === action.habitId && c.completedOn === action.date
+      );
+      if (exists) {
+        return state.filter(
+          (c) =>
+            !(c.habitId === action.habitId && c.completedOn === action.date)
+        );
+      }
+      return [
+        ...state,
+        {
+          id: `optimistic-${action.habitId}-${action.date}`,
+          habitId: action.habitId,
+          completedOn: action.date,
+        },
+      ];
+    }
+  );
+
+  function handleToggle(habitId: string, date: string) {
+    if (date > today) return; // can't fill future days
+    startTransition(async () => {
+      applyToggle({ habitId, date });
+      const r = await toggleHabitCompletion(habitId, date);
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  // Map: completed_on -> Set<habit_id>.
   const completionsByDate = new Map<string, Set<string>>();
   for (const c of filtered) {
     let s = completionsByDate.get(c.completedOn);
@@ -96,36 +142,56 @@ export function WeeklyHabits({ habits, completions, weekStart, today }: Props) {
             No habits yet. Add some on the Habits tab.
           </p>
         ) : inDayMode ? (
-          <ul className="flex flex-col divide-y divide-border">
-            {habits.map((h) => {
-              const done =
-                completionsByDate.get(selectedDate!)?.has(h.id) ?? false;
-              return (
-                <li key={h.id} className="flex min-h-10 items-center gap-3 py-1">
-                  {done ? (
-                    <CheckIcon className="size-4 text-primary" />
-                  ) : (
-                    <CircleIcon className="size-4 text-muted-foreground" />
-                  )}
-                  {h.color && (
-                    <span
-                      aria-hidden
-                      className="size-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: h.color }}
-                    />
-                  )}
-                  <span
-                    className={
-                      "flex-1 text-sm " +
-                      (done ? "" : "text-muted-foreground")
-                    }
-                  >
-                    {h.name}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="flex flex-col gap-2">
+            <ul className="flex flex-col divide-y divide-border">
+              {habits.map((h) => {
+                const done =
+                  completionsByDate.get(selectedDate!)?.has(h.id) ?? false;
+                const isFuture = selectedDate! > today;
+                return (
+                  <li key={h.id}>
+                    <button
+                      type="button"
+                      disabled={isFuture}
+                      aria-pressed={done}
+                      onClick={() => handleToggle(h.id, selectedDate!)}
+                      className="-mx-2 flex min-h-11 w-full items-center gap-3 rounded-md px-2 py-1 text-left transition-colors hover:bg-muted/50 disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      {done ? (
+                        <CheckIcon className="size-4 text-primary" />
+                      ) : (
+                        <CircleIcon className="size-4 text-muted-foreground" />
+                      )}
+                      {h.color && (
+                        <span
+                          aria-hidden
+                          className="size-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: h.color }}
+                        />
+                      )}
+                      <span
+                        className={
+                          "flex-1 text-sm " +
+                          (done ? "" : "text-muted-foreground")
+                        }
+                      >
+                        {h.name}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            {selectedDate! > today ? (
+              <p className="text-muted-foreground text-xs">
+                Future day — nothing to fill in yet.
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-xs">
+                Tap a habit to mark it done for this day.
+              </p>
+            )}
+          </div>
         ) : (
           <div className="flex flex-col gap-4">
             <div className="flex items-baseline justify-between">

@@ -61,7 +61,7 @@ export async function syncCalendar(): Promise<SyncResult> {
     .upsert(rows, { onConflict: "user_id,google_event_id" });
 
   if (error) return { error: error.message };
-  revalidatePath("/calendar");
   revalidatePath("/clock");
+  revalidatePath("/");
   return { ok: true, count: rows.length };
 }

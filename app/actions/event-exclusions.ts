@@ -6,8 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { error: string };
 
-// Hides an event from Progra (both /calendar listing and /clock totals).
-// The underlying Google event is untouched; un-hiding restores visibility.
+// Hides an event from Progra's /clock totals. The underlying Google event is
+// untouched; un-hiding restores visibility.
 export async function excludeEvent(eventId: string): Promise<Result> {
   const supabase = await createClient();
   const {
@@ -20,7 +20,6 @@ export async function excludeEvent(eventId: string): Promise<Result> {
     .upsert({ event_id: eventId, user_id: user.id });
   if (error) return { error: error.message };
 
-  revalidatePath("/calendar");
   revalidatePath("/clock");
   return { ok: true };
 }
@@ -33,7 +32,6 @@ export async function restoreEvent(eventId: string): Promise<Result> {
     .eq("event_id", eventId);
   if (error) return { error: error.message };
 
-  revalidatePath("/calendar");
   revalidatePath("/clock");
   return { ok: true };
 }

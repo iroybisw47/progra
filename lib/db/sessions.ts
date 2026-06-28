@@ -11,7 +11,14 @@ type SessionRow = {
   description: string | null;
   started_at: string;
   ended_at: string | null;
+  paused_ms: number | string | null;
+  paused_since: string | null;
 };
+
+// Columns selected for every session read. Single constant so the pause
+// columns can't be forgotten on a new query.
+const SESSION_COLUMNS =
+  "id, category_id, session_plan_id, task_name, description, started_at, ended_at, paused_ms, paused_since";
 
 function rowToSession(row: SessionRow): Session {
   return {
@@ -22,6 +29,10 @@ function rowToSession(row: SessionRow): Session {
     description: row.description ?? undefined,
     startedAt: new Date(row.started_at).getTime(),
     endedAt: row.ended_at ? new Date(row.ended_at).getTime() : null,
+    // PostgREST returns bigint as string; normalize to number. Defaults handle
+    // pre-migration rows the column was added to (0 / null).
+    pausedMs: row.paused_ms != null ? Number(row.paused_ms) : 0,
+    pausedSince: row.paused_since ? new Date(row.paused_since).getTime() : null,
   };
 }
 
@@ -37,9 +48,7 @@ export async function listSessionsInRange(
   const endIso = new Date(endMs).toISOString();
   const { data } = await supabase
     .from("sessions")
-    .select(
-      "id, category_id, session_plan_id, task_name, description, started_at, ended_at"
-    )
+    .select(SESSION_COLUMNS)
     .lt("started_at", endIso)
     .or(`ended_at.gt.${startIso},ended_at.is.null`)
     .order("started_at", { ascending: false });
@@ -59,12 +68,46 @@ export async function listRecentSessions(daysBack = 14): Promise<Session[]> {
 
   const { data } = await supabase
     .from("sessions")
-    .select(
-      "id, category_id, session_plan_id, task_name, description, started_at, ended_at"
-    )
+    .select(SESSION_COLUMNS)
     .or(`started_at.gte.${since.toISOString()},ended_at.is.null`)
     .order("started_at", { ascending: false });
 
+  if (!data) return [];
+  return (data as SessionRow[]).map(rowToSession);
+}
+
+// One page of past (completed) sessions for the history surface, newest first.
+// `categoryId` null = all categories; `"none"` = the Uncategorized bucket.
+// Cursor pagination by started_at: pass the oldest `startedAt` from the prior
+// page as `beforeMs` to fetch the next page. Only ended sessions are returned —
+// the active/paused session lives on the clock page, not in history.
+export const SESSION_HISTORY_PAGE_SIZE = 50;
+
+export async function listSessionHistory(opts: {
+  categoryId?: string | "none" | null;
+  beforeMs?: number | null;
+  limit?: number;
+}): Promise<Session[]> {
+  const supabase = await createClient();
+  const limit = opts.limit ?? SESSION_HISTORY_PAGE_SIZE;
+
+  let query = supabase
+    .from("sessions")
+    .select(SESSION_COLUMNS)
+    .not("ended_at", "is", null);
+
+  if (opts.categoryId === "none") {
+    query = query.is("category_id", null);
+  } else if (opts.categoryId) {
+    query = query.eq("category_id", opts.categoryId);
+  }
+  if (opts.beforeMs != null) {
+    query = query.lt("started_at", new Date(opts.beforeMs).toISOString());
+  }
+
+  const { data } = await query
+    .order("started_at", { ascending: false })
+    .limit(limit);
   if (!data) return [];
   return (data as SessionRow[]).map(rowToSession);
 }

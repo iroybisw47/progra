@@ -1,10 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useOptimistic } from "react";
-import { CalendarIcon, PencilIcon, PlusIcon, XIcon } from "lucide-react";
+import {
+  CalendarIcon,
+  ChevronRightIcon,
+  HistoryIcon,
+  PauseIcon,
+  PencilIcon,
+  PlayIcon,
+  PlusIcon,
+  XIcon,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,16 +36,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { CategoryPicker } from "@/components/category-picker";
 import { EventCategoryDialog } from "@/components/event-category-dialog";
 import { PlanPicker } from "@/components/plan-picker";
 import { SessionDialog, type SessionDialogMode } from "@/components/session-dialog";
+import { SyncCalendarButton } from "@/components/sync-calendar-button";
 
 import { type Category, type Session } from "@/lib/storage";
 import type { DayEvent } from "@/lib/db/calendar-events";
 import type { Goal } from "@/lib/db/goals";
 import type { SessionPlan } from "@/lib/db/session-plans";
 import { aggregateWeek } from "@/lib/aggregate";
+import { isPaused, sessionPausedMs, sessionWorkedMs } from "@/lib/session";
 import { useNow } from "@/lib/hooks";
 import {
   DAY_LABELS,
@@ -50,7 +63,13 @@ import {
 import { formatDuration, formatElapsed } from "@/lib/duration";
 
 import { createCategory, deleteCategory } from "@/app/actions/categories";
-import { clockIn, clockOut } from "@/app/actions/sessions";
+import {
+  clockIn,
+  clockOut,
+  pauseSession,
+  resumeSession,
+  updateSession,
+} from "@/app/actions/sessions";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -79,7 +98,7 @@ function dayBreakdown(
 
   for (const s of sessions) {
     const end = attributionEnd(s, now);
-    const ms = end - s.startedAt;
+    const ms = sessionWorkedMs(s, now);
     if (ms <= 0) continue;
     if (formatLocalDate(new Date(end)) !== key) continue;
     rows.push({ kind: "session", session: s, ms, sortKey: s.startedAt });
@@ -145,6 +164,20 @@ export function ClockClient({
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
 
   const activeSession = sessions.find((s) => s.endedAt === null) ?? null;
+
+  // Inline notes draft for the active session. Reset when the active session
+  // changes (clock out → new clock in) using the render-time prop-sync pattern.
+  const [notesDraft, setNotesDraft] = useState(
+    activeSession?.description ?? ""
+  );
+  const [notesSessionId, setNotesSessionId] = useState<string | null>(
+    activeSession?.id ?? null
+  );
+  if ((activeSession?.id ?? null) !== notesSessionId) {
+    setNotesSessionId(activeSession?.id ?? null);
+    setNotesDraft(activeSession?.description ?? "");
+  }
+
   const hydrated = now !== 0;
   const nowDate = new Date(hydrated ? now : 0);
   const categoryById = new Map(categories.map((c) => [c.id, c] as const));
@@ -216,14 +249,42 @@ export function ClockClient({
 
   function handleClockOut() {
     if (!activeSession) return;
-    const startedAt = activeSession.startedAt;
+    const session = activeSession;
     startTransition(async () => {
       const r = await clockOut();
       if ("error" in r) {
         toast.error(r.error);
         return;
       }
-      toast.success(`Logged ${formatDuration(Date.now() - startedAt)}`);
+      toast.success(`Logged ${formatDuration(sessionWorkedMs(session, Date.now()))}`);
+      router.refresh();
+    });
+  }
+
+  function handlePauseResume() {
+    if (!activeSession) return;
+    const paused = isPaused(activeSession);
+    startTransition(async () => {
+      const r = paused ? await resumeSession() : await pauseSession();
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  function handleSaveNotes() {
+    if (!activeSession) return;
+    const id = activeSession.id;
+    const next = notesDraft;
+    startTransition(async () => {
+      const r = await updateSession(id, { description: next });
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success("Notes saved");
       router.refresh();
     });
   }
@@ -300,8 +361,31 @@ export function ClockClient({
               </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div className="font-mono text-5xl tabular-nums tracking-tight">
-                {formatElapsed(hydrated ? now - activeSession.startedAt : 0)}
+              <div className="flex flex-col gap-1">
+                <div className="font-mono text-5xl tabular-nums tracking-tight">
+                  {formatElapsed(
+                    hydrated ? sessionWorkedMs(activeSession, now) : 0
+                  )}
+                </div>
+                {/* Worked time is the big number; paused is shown plainly. */}
+                {hydrated &&
+                  (() => {
+                    const paused = isPaused(activeSession);
+                    const pausedTotal = sessionPausedMs(activeSession, now);
+                    if (!paused && pausedTotal <= 0) return null;
+                    return (
+                      <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                        {paused && (
+                          <Badge variant="outline" className="gap-1">
+                            <PauseIcon className="size-3" /> Paused
+                          </Badge>
+                        )}
+                        {pausedTotal > 0 && (
+                          <span>paused {formatDuration(pausedTotal)}</span>
+                        )}
+                      </div>
+                    );
+                  })()}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{activeSession.taskName}</span>
@@ -309,18 +393,57 @@ export function ClockClient({
                   {categoryName(activeSession.categoryId)}
                 </Badge>
               </div>
-              {activeSession.description && (
-                <p className="text-muted-foreground text-sm">
-                  {activeSession.description}
-                </p>
-              )}
-              <Button
-                variant="destructive"
-                className="h-11 w-full text-base"
-                onClick={handleClockOut}
-              >
-                Clock Out
-              </Button>
+
+              {/* Inline notes — jot as you work. Reuses the session note. */}
+              <div className="flex flex-col gap-1.5">
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="active-notes"
+                >
+                  Notes
+                </label>
+                <Textarea
+                  id="active-notes"
+                  className="min-h-20"
+                  placeholder="What's happening this session?"
+                  value={notesDraft}
+                  onChange={(e) => setNotesDraft(e.target.value)}
+                />
+                {notesDraft !== (activeSession.description ?? "") && (
+                  <Button
+                    variant="secondary"
+                    className="h-9 self-end"
+                    onClick={handleSaveNotes}
+                  >
+                    Save notes
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="h-11 flex-1 text-base"
+                  onClick={handlePauseResume}
+                >
+                  {isPaused(activeSession) ? (
+                    <>
+                      <PlayIcon /> Resume
+                    </>
+                  ) : (
+                    <>
+                      <PauseIcon /> Pause
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="h-11 flex-1 text-base"
+                  onClick={handleClockOut}
+                >
+                  Clock Out
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ) : (
@@ -440,6 +563,8 @@ export function ClockClient({
             )}
           </CardContent>
         </Card>
+
+        <SyncCalendarButton />
 
         <Card>
           {inDayMode ? (
@@ -632,6 +757,24 @@ export function ClockClient({
             </div>
           </CardContent>
         </Card>
+
+        {/* Session history — opens the full past-session browser. */}
+        <Link href="/sessions" className="block">
+          <Card className="hover:bg-muted/30 transition-colors">
+            <CardContent className="flex items-center justify-between gap-3 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <HistoryIcon className="text-muted-foreground size-5 shrink-0" />
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-sm font-medium">Session history</p>
+                  <p className="text-muted-foreground text-xs">
+                    Browse past sessions by day or category.
+                  </p>
+                </div>
+              </div>
+              <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" />
+            </CardContent>
+          </Card>
+        </Link>
       </main>
 
       <Dialog

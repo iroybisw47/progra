@@ -32,7 +32,6 @@ export async function setEventCategory(
     if (error) return { error: error.message };
   }
 
-  revalidatePath("/calendar");
   revalidatePath("/clock");
   return { ok: true };
 }

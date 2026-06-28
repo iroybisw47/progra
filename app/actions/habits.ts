@@ -61,9 +61,9 @@ export async function archiveHabit(habitId: string): Promise<Result> {
   return { ok: true };
 }
 
-// Toggles today's completion for a habit. Server-side reject if `localDate`
-// isn't today in the user's stored timezone — clients can't backfill or
-// edit past days through this endpoint.
+// Toggles a habit completion for `localDate`. Past days and today are allowed
+// (backfilling missed days); future days are rejected against the user's stored
+// timezone. Date comparison is lexical, which is chronological for YYYY-MM-DD.
 export async function toggleHabitCompletion(
   habitId: string,
   localDate: string
@@ -86,8 +86,8 @@ export async function toggleHabitCompletion(
   const tz =
     (profile as { timezone: string | null } | null)?.timezone ?? "UTC";
   const serverToday = todayInTimeZone(tz);
-  if (localDate !== serverToday) {
-    return { error: "Can only check off today" };
+  if (localDate > serverToday) {
+    return { error: "Can't check off a future day" };
   }
 
   const { data: existing } = await supabase

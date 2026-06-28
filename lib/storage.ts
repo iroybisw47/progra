@@ -22,4 +22,10 @@ export type Session = {
   description?: string;
   startedAt: number;
   endedAt: number | null;
+  // Pause tracking. `startedAt`/`endedAt` stay real wall-clock times; worked
+  // time = (end - start) - pausedMs - (current pause). `pausedMs` is banked
+  // paused time from resumed pauses; `pausedSince` is set (ms) only while the
+  // session is currently paused, null otherwise. See lib/session.ts.
+  pausedMs: number;
+  pausedSince: number | null;
 };

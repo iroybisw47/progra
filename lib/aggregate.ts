@@ -1,5 +1,6 @@
 import { dayIndexMonFirst, endOfWeek, startOfWeek } from "@/lib/dates";
 import type { DayEvent } from "@/lib/db/calendar-events";
+import { sessionWorkedMs } from "@/lib/session";
 import type { Category, Session } from "@/lib/storage";
 
 export type CategoryBreakdownRow = {
@@ -62,7 +63,7 @@ export function aggregateRange(
 
   for (const s of sessions) {
     const end = s.endedAt ?? now;
-    const ms = end - s.startedAt;
+    const ms = sessionWorkedMs(s, now);
     if (ms <= 0) continue;
     if (end < rangeStart || end > rangeEnd) continue;
     perCategory.set(s.categoryId, (perCategory.get(s.categoryId) ?? 0) + ms);
@@ -103,7 +104,7 @@ export function aggregateWeek(
   const perDay = [0, 0, 0, 0, 0, 0, 0];
   for (const s of sessions) {
     const end = s.endedAt ?? now;
-    const ms = end - s.startedAt;
+    const ms = sessionWorkedMs(s, now);
     if (ms <= 0) continue;
     if (end < weekStart || end > weekEnd) continue;
     perDay[dayIndexMonFirst(new Date(end))] += ms;
@@ -146,7 +147,7 @@ export function aggregateRangeByGoal(
 
   for (const s of sessions) {
     const end = s.endedAt ?? now;
-    const ms = end - s.startedAt;
+    const ms = sessionWorkedMs(s, now);
     if (ms <= 0) continue;
     if (end < rangeStart || end > rangeEnd) continue;
     const goalId = s.sessionPlanId
