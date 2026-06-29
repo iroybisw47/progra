@@ -46,15 +46,16 @@ const DAY_MS = 24 * HOUR_MS;
 const WAKING_START = 8;
 const WAKING_END = 23;
 const PX_PER_HOUR = 36;
+// Soft, desaturated goal palette matching the warm redesign — no alarmist red.
 const GOAL_PALETTE = [
-  "#3b82f6",
-  "#22c55e",
-  "#ec4899",
-  "#f97316",
-  "#8b5cf6",
-  "#06b6d4",
-  "#eab308",
-  "#ef4444",
+  "#b07a52", // clay
+  "#6e84a8", // periwinkle
+  "#6e9277", // sage
+  "#c2a24e", // gold
+  "#9d7fa0", // muted plum
+  "#5f8c8c", // muted teal
+  "#c08a6a", // terracotta
+  "#8a9a6e", // olive
 ];
 
 function colorForGoalIdx(idx: number): string {

@@ -7,16 +7,18 @@ import { todayInTimeZone } from "@/lib/dates";
 
 type Result = { ok: true } | { error: string };
 
-// Small auto-assign palette. Cycles by existing habit count.
+// Small auto-assign palette. Cycles by existing habit count. Soft/desaturated
+// to match the warm redesign (no alarmist red). Existing habits keep the color
+// stored at creation time; this only affects newly added habits.
 const PALETTE = [
-  "#ef4444", // red
-  "#f97316", // orange
-  "#eab308", // yellow
-  "#22c55e", // green
-  "#06b6d4", // cyan
-  "#3b82f6", // blue
-  "#8b5cf6", // violet
-  "#ec4899", // pink
+  "#b07a52", // clay
+  "#6e84a8", // periwinkle
+  "#6e9277", // sage
+  "#c2a24e", // gold
+  "#9d7fa0", // muted plum
+  "#5f8c8c", // muted teal
+  "#c08a6a", // terracotta
+  "#8a9a6e", // olive
 ];
 
 export async function createHabit(

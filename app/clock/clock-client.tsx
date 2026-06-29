@@ -9,10 +9,12 @@ import {
   CalendarIcon,
   ChevronRightIcon,
   HistoryIcon,
+  MoonIcon,
   PauseIcon,
   PencilIcon,
   PlayIcon,
   PlusIcon,
+  SunIcon,
   XIcon,
 } from "lucide-react";
 
@@ -50,6 +52,7 @@ import type { SessionPlan } from "@/lib/db/session-plans";
 import { aggregateWeek } from "@/lib/aggregate";
 import { isPaused, sessionPausedMs, sessionWorkedMs } from "@/lib/session";
 import { useNow } from "@/lib/hooks";
+import { cn } from "@/lib/utils";
 import {
   DAY_LABELS,
   addDays,
@@ -162,6 +165,31 @@ export function ClockClient({
   const [eventDialog, setEventDialog] = useState<DayEvent | null>(null);
   // null = week mode; 0..6 (Mon-first) = day mode for that weekday of this week.
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
+
+  // Clock-only theme. Scoped to this screen via a `dark` class on the wrapper
+  // (activates the warm-charcoal dark tokens for this subtree only — the rest
+  // of the app and the tab bar stay light). Persisted in localStorage; read
+  // lazily (SSR-guarded) so there's no setState-in-effect. The wrapper is
+  // suppressHydrationWarning since its class can differ from the server's.
+  const [dark, setDark] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem("clock-theme") === "dark";
+    } catch {
+      return false;
+    }
+  });
+  function toggleTheme() {
+    setDark((d) => {
+      const next = !d;
+      try {
+        localStorage.setItem("clock-theme", next ? "dark" : "light");
+      } catch {
+        // ignore storage failures (private mode etc.)
+      }
+      return next;
+    });
+  }
 
   const activeSession = sessions.find((s) => s.endedAt === null) ?? null;
 
@@ -332,13 +360,32 @@ export function ClockClient({
   const canClockIn = taskName.trim().length > 0 && selectedCategoryId !== null;
 
   return (
-    <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24 sm:pt-12">
+    <div
+      suppressHydrationWarning
+      className={cn(
+        "flex flex-1 flex-col items-center px-5 pt-8 pb-24 transition-colors sm:pt-12",
+        dark && "dark bg-[#22352f] text-[#ece6da]"
+      )}
+    >
       <main className="flex w-full max-w-md flex-col gap-5">
-        <header className="flex flex-col gap-1">
-          <h1 className="text-3xl font-semibold tracking-tight">Clock</h1>
-          <p className="text-muted-foreground text-sm">
-            Track deep work in real time.
-          </p>
+        <header className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-3xl font-semibold tracking-tight">Clock</h1>
+            <p className="text-muted-foreground text-sm">
+              Track deep work in real time.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+            aria-pressed={dark}
+            onClick={toggleTheme}
+            className="mt-1 shrink-0"
+          >
+            {dark ? <SunIcon /> : <MoonIcon />}
+          </Button>
         </header>
 
         {activeSession ? (

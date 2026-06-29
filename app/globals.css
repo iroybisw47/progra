@@ -7,9 +7,31 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-hanken);
+  --font-mono: var(--font-hanken);
+  --font-serif: var(--font-newsreader);
+  --font-heading: var(--font-newsreader);
+
+  /* Progra warm palette — extended named tokens (surfaces, brand, text, states).
+     Enables utilities like bg-brand, text-faint, border-hairline, bg-track. */
+  --color-brand: var(--brand);
+  --color-brand-deep: var(--brand-deep);
+  --color-sand: var(--sand);
+  --color-sand-ink: var(--sand-ink);
+  --color-screen: var(--screen);
+  --color-screen-recap: var(--screen-recap);
+  --color-card-warm: var(--card-warm);
+  --color-inset: var(--inset);
+  --color-track: var(--track);
+  --color-hairline: var(--hairline);
+  --color-warm-border: var(--warm-border);
+  --color-divider: var(--divider);
+  --color-ink: var(--ink);
+  --color-body: var(--body);
+  --color-faint: var(--faint);
+  --color-caption: var(--caption);
+  --color-done: var(--done);
+  --color-busy: var(--busy);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,72 +71,119 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Warm "paper" surfaces + soft ink. Mapped onto shadcn semantic tokens. */
+  --background: #f8f6f1; /* bg/screen */
+  --foreground: #3a352e; /* text/body */
+  --card: #ffffff;
+  --card-foreground: #2b2722; /* text/primary */
+  --popover: #ffffff;
+  --popover-foreground: #2b2722;
+  --primary: #355a52; /* brand/teal */
+  --primary-foreground: #fcf6ef;
+  --secondary: #f0ebe3; /* soft track/well */
+  --secondary-foreground: #3a352e;
+  --muted: #f0ebe3; /* progress track / subtle fill */
+  --muted-foreground: #6b6358; /* text/secondary */
+  --accent: #f8f4ee; /* inset / hover */
+  --accent-foreground: #2b2722;
+  --destructive: #a85842; /* muted clay — genuine delete only, never quota/missed */
+  --border: #eae4db; /* hairline */
+  --input: #eae4db;
+  --ring: #355a52;
+  /* Charts map to the soft category palette. */
+  --chart-1: #b07a52; /* clay */
+  --chart-2: #6e84a8; /* periwinkle */
+  --chart-3: #6e9277; /* sage */
+  --chart-4: #c2a24e; /* gold */
+  --chart-5: #c3b9a8; /* warm grey / uncategorized */
+  --radius: 0.9rem;
+
+  /* Extended Progra tokens */
+  --brand: #355a52;
+  --brand-deep: #22352f;
+  --sand: #e7c9a6;
+  --sand-ink: #3a2e20;
+  --screen: #f8f6f1;
+  --screen-recap: #fbf8f2;
+  --card-warm: #fbf6ef;
+  --inset: #f8f4ee;
+  --track: #f0ebe3;
+  --hairline: #eae4db;
+  --warm-border: #efe5d8;
+  --divider: #f2ede5;
+  --ink: #2b2722;
+  --body: #3a352e;
+  --secondary-ink: #6b6358;
+  --caption: #9a917f;
+  --faint: #a89f8e;
+  --done: #9dbca2;
+  --busy: #ece7df;
+
+  --sidebar: #fbf8f2;
+  --sidebar-foreground: #2b2722;
+  --sidebar-primary: #355a52;
+  --sidebar-primary-foreground: #fcf6ef;
+  --sidebar-accent: #f8f4ee;
+  --sidebar-accent-foreground: #2b2722;
+  --sidebar-border: #eae4db;
+  --sidebar-ring: #355a52;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Warm-charcoal/green family per the brief — never pure black or blue-grey.
+     Category colors and "paused" blue carry over; no reds introduced. */
+  --background: #1a211d;
+  --foreground: #ece6da;
+  --card: #232c26;
+  --card-foreground: #ece6da;
+  --popover: #232c26;
+  --popover-foreground: #ece6da;
+  --primary: #7fb0a3; /* lifted teal for contrast on dark */
+  --primary-foreground: #14201c;
+  --secondary: #2c352e;
+  --secondary-foreground: #ece6da;
+  --muted: #2e382f;
+  --muted-foreground: #a7a091;
+  --accent: #2c352e;
+  --accent-foreground: #ece6da;
+  --destructive: #c77b63;
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: #7fb0a3;
+  --chart-1: #b07a52;
+  --chart-2: #6e84a8;
+  --chart-3: #6e9277;
+  --chart-4: #c2a24e;
+  --chart-5: #c3b9a8;
+
+  --brand: #7fb0a3;
+  --brand-deep: #22352f;
+  --sand: #e7c9a6;
+  --sand-ink: #3a2e20;
+  --screen: #1a211d;
+  --screen-recap: #1e261f;
+  --card-warm: #26302a;
+  --inset: #232c26;
+  --track: #2e382f;
+  --hairline: oklch(1 0 0 / 9%);
+  --warm-border: oklch(1 0 0 / 11%);
+  --divider: oklch(1 0 0 / 7%);
+  --ink: #f2ece0;
+  --body: #ece6da;
+  --secondary-ink: #b8b0a1;
+  --caption: #9a9384;
+  --faint: #837c6e;
+  --done: #9dbca2;
+  --busy: #2e382f;
+
+  --sidebar: #232c26;
+  --sidebar-foreground: #ece6da;
+  --sidebar-primary: #7fb0a3;
+  --sidebar-primary-foreground: #14201c;
+  --sidebar-accent: #2c352e;
+  --sidebar-accent-foreground: #ece6da;
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: #7fb0a3;
 }
 
 @layer base {
@@ -126,9 +195,16 @@
   }
   html {
     @apply font-sans;
-    /* Always reserve scrollbar space so tall (/clock) and short (/calendar)
-       pages don't shift content horizontally as the scrollbar appears or
-       disappears between navigations. */
+    /* Always reserve scrollbar space so tall (/clock) pages don't shift
+       content horizontally as the scrollbar appears between navigations. */
     scrollbar-gutter: stable;
+  }
+  /* Newsreader serif for true heading elements (screen titles). Card/goal
+     titles opt in via `font-serif` since shadcn CardTitle isn't an h-tag. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-newsreader);
+    font-weight: 500;
   }
 }

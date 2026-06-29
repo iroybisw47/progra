@@ -114,9 +114,6 @@ async function SignedInDashboard({ email }: { email: string }) {
       : [];
 
   // Backfill goal/plan titles for missed blocks tied to archived goals.
-  // Kept separate from `plans` above so the active-only `plans` flows into
-  // aggregateWeekByGoal unchanged — sessions for archived goals continue to
-  // route through `untracked` in the weekly progress card.
   const missedGoalIds = [...new Set(missedBlocks.map((b) => b.goalId))];
   const activeGoalIdSet = new Set(goals.map((g) => g.id));
   const orphanGoalIds = missedGoalIds.filter(

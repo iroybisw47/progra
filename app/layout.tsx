@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Hanken_Grotesk, Newsreader } from "next/font/google";
 import "./globals.css";
 
 import { BottomNav } from "@/components/bottom-nav";
@@ -7,14 +7,20 @@ import { EnsureProfileSync } from "@/components/ensure-profile-sync";
 import { Toaster } from "@/components/ui/sonner";
 import { getOptionalUser } from "@/lib/auth/require-user";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Hanken Grotesk — all UI text, labels, body, buttons (weights 300–700).
+const hankenSans = Hanken_Grotesk({
+  variable: "--font-hanken",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// Newsreader — serif for headings, hero numbers, goal/recap titles, and the
+// warm italic "human" lines. Italic is used for those closing lines.
+const newsreaderSerif = Newsreader({
+  variable: "--font-newsreader",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -37,8 +43,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+    { media: "(prefers-color-scheme: light)", color: "#F8F6F1" },
+    { media: "(prefers-color-scheme: dark)", color: "#22352F" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -54,7 +60,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${hankenSans.variable} ${newsreaderSerif.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {children}
