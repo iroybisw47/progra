@@ -22,6 +22,14 @@ A running log of changes, grouped by date (newest first).
 - Categorizer now surfaces real failures (e.g. a missing/invalid
   ANTHROPIC_API_KEY) instead of silently reporting "nothing to categorize".
 
+### Mobile / PWA layout
+- Fixed content rendering under the iOS status bar / notch (headers "shifted too
+  high") and behind the bottom nav on phones. The app now insets by
+  `env(safe-area-inset-top)` / `env(safe-area-inset-bottom)` at the shell level;
+  these are 0 on desktop, so it's a phone-only change. Root cause was
+  `viewport-fit=cover` + a black-translucent iOS status bar with no safe-area
+  padding on the content.
+
 ## 2026-06-30
 
 - Created this changelog.

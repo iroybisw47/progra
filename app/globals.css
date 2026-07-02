@@ -192,6 +192,14 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* iOS PWA uses a black-translucent status bar + viewport-fit=cover, so web
+       content draws under the notch and home indicator. Inset the whole app by
+       the device safe areas. These are 0 on desktop, so no visual change there;
+       they only take effect on phones (matching the phone-only symptom). The
+       fixed bottom nav is position:fixed so body padding doesn't move it — the
+       padding-bottom just gives scrolled content room to clear the nav. */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
   }
   html {
     @apply font-sans;
