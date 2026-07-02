@@ -30,7 +30,7 @@ export function BottomNav() {
       aria-label="Primary"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-[#ebe6dd] bg-[rgba(248,246,241,0.94)] backdrop-blur-md pb-[env(safe-area-inset-bottom)] dark:border-white/10 dark:bg-[rgba(26,33,29,0.92)]"
     >
-      <ul className="mx-auto flex h-[88px] w-full max-w-md items-stretch">
+      <ul className="mx-auto flex h-[64px] w-full max-w-md items-stretch">
         {TABS.map((tab) => {
           const active = tab.match(pathname);
           const Icon = tab.icon;
@@ -65,7 +65,7 @@ export function BottomNav() {
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex h-full flex-col items-center justify-center gap-1 pb-4 transition-colors",
+                  "flex h-full flex-col items-center justify-end gap-1 pb-2 transition-colors",
                   active ? "text-brand" : INACTIVE
                 )}
               >

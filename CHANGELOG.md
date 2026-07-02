@@ -29,6 +29,9 @@ A running log of changes, grouped by date (newest first).
   these are 0 on desktop, so it's a phone-only change. Root cause was
   `viewport-fit=cover` + a black-translucent iOS status bar with no safe-area
   padding on the content.
+- Tightened the bottom nav: shortened the bar (88px → 64px) and anchored the tab
+  icons to the bottom so they sit just above the home indicator instead of
+  floating in the middle of an over-tall bar (the "bar too high up" look).
 
 ## 2026-06-30
 
