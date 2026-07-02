@@ -1,5 +1,6 @@
 import { startOfMonth } from "@/lib/dates";
 import { computeMonthRollup, computeYearRollup } from "@/lib/db/rollups";
+import { listCategories } from "@/lib/db/categories";
 
 import { HistoryClient } from "./history-client";
 
@@ -20,6 +21,8 @@ export default async function HistoryPage({
   const params = await searchParams;
   const now = new Date();
   const view = params.view === "year" ? "year" : "month";
+  // Needed by the auto-categorize review popup's inline category picker.
+  const categories = await listCategories();
 
   if (view === "year") {
     let year = now.getFullYear();
@@ -39,6 +42,7 @@ export default async function HistoryPage({
         isFuturePeriod={isFuture}
         prevParam={String(year - 1)}
         nextParam={String(year + 1)}
+        categories={categories}
       />
     );
   }
@@ -68,6 +72,7 @@ export default async function HistoryPage({
       isFuturePeriod={isFuture}
       prevParam={monthParam(prev)}
       nextParam={monthParam(next)}
+      categories={categories}
     />
   );
 }

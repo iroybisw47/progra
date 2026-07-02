@@ -5,8 +5,10 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { CategorizePeriodButton } from "@/components/categorize-period-button";
 import { cn } from "@/lib/utils";
 import type { Rollup } from "@/lib/db/rollups";
+import type { Category } from "@/lib/storage";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -23,6 +25,7 @@ type Props = {
   isFuturePeriod: boolean;
   prevParam: string;
   nextParam: string;
+  categories: Category[];
 };
 
 // Labels formatted client-side (locale lives on the client) to avoid SSR
@@ -46,6 +49,7 @@ export function HistoryClient({
   isFuturePeriod,
   prevParam,
   nextParam,
+  categories,
 }: Props) {
   const label = periodLabel(view, rollup.startMs);
   const categoryCount = rollup.categoryRows.length;
@@ -178,6 +182,21 @@ export function HistoryClient({
                 Nothing logged in {label}.
               </p>
             )}
+
+            {/* Auto-categorize the period's Uncategorized calendar events, or —
+                once none remain — review the AI's past decisions. Hidden for
+                future periods and when there's nothing to sort or review. */}
+            {!isFuturePeriod &&
+              (rollup.uncategorizedEventCount > 0 ||
+                rollup.aiCategorizedEventCount > 0) && (
+                <CategorizePeriodButton
+                  startMs={rollup.startMs}
+                  endMs={rollup.endMs}
+                  uncategorizedCount={rollup.uncategorizedEventCount}
+                  reviewCount={rollup.aiCategorizedEventCount}
+                  categories={categories}
+                />
+              )}
 
             {/* By goal — the committed-work subset (clocked-in, goal-attributed) */}
             {goalCount > 0 && (

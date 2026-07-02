@@ -35,6 +35,14 @@ export type Rollup = {
   // category sessions + calendar events that matched no rule). Reconciles with
   // the home week card and the weekly recap's category breakdown.
   categoryRows: CategoryBreakdownRow[];
+  // How many calendar events in the window are still Uncategorized (no manual
+  // override, no rule match, no prior AI assignment) and have a title to
+  // classify. Drives the History "Auto-categorize" button and its label.
+  uncategorizedEventCount: number;
+  // How many calendar events in the window the AI has already labeled
+  // (source "ai"). Lets the History button switch to a "Review" affordance so
+  // past AI decisions stay reviewable even when nothing new is left to sort.
+  aiCategorizedEventCount: number;
   // Sum of per-goal hours (sessions attributed to an active goal). Mirrors the
   // weekly recap's `totalFocusedMs` definition so summing the weekly recaps
   // inside this window reconciles with this number. Subset of totalTrackedMs.
@@ -71,6 +79,20 @@ async function computeRollup(startMs: number, endMs: number): Promise<Rollup> {
   // null bucket via aggregateRange. (Future: parse a category from the event
   // title with Claude instead of leaving title-only events Uncategorized.)
   const events = await listEventsInRange(startMs, endMs, categories);
+
+  // Events still in the Uncategorized bucket that the AI could label (need a
+  // title). Reuses the events already fetched above — no extra query.
+  const uncategorizedEventCount = events.filter(
+    (e) =>
+      e.source === "uncategorized" &&
+      e.title != null &&
+      e.title.trim().length > 0
+  ).length;
+
+  // Events already labeled by the AI — powers the "Review" button state.
+  const aiCategorizedEventCount = events.filter(
+    (e) => e.source === "ai" && e.title != null && e.title.trim().length > 0
+  ).length;
 
   // For past windows, cap aggregate's "now" at the window end so a session
   // still running into the window counts up to the end, not artificially
@@ -115,6 +137,8 @@ async function computeRollup(startMs: number, endMs: number): Promise<Rollup> {
     endMs,
     totalTrackedMs,
     categoryRows,
+    uncategorizedEventCount,
+    aiCategorizedEventCount,
     totalFocusedMs,
     untrackedMs: untracked,
     goalRows,

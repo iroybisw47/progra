@@ -44,6 +44,7 @@ import { EventCategoryDialog } from "@/components/event-category-dialog";
 import { PlanPicker } from "@/components/plan-picker";
 import { SessionDialog, type SessionDialogMode } from "@/components/session-dialog";
 import { SyncCalendarButton } from "@/components/sync-calendar-button";
+import { CategorizeEventsButton } from "@/components/categorize-events-button";
 
 import { type Category, type Session } from "@/lib/storage";
 import type { DayEvent } from "@/lib/db/calendar-events";
@@ -612,6 +613,8 @@ export function ClockClient({
         </Card>
 
         <SyncCalendarButton />
+
+        <CategorizeEventsButton />
 
         <Card>
           {inDayMode ? (

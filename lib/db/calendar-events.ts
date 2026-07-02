@@ -46,8 +46,8 @@ export type DayEvent = {
   // null = uncategorized
   category: { id: string; name: string; color: string | null } | null;
   // "manual" = explicit override set by user; "rule" = matched a category rule;
-  // "uncategorized" = neither.
-  source: "manual" | "rule" | "uncategorized";
+  // "ai" = assigned by the auto-categorizer; "uncategorized" = none of the above.
+  source: "manual" | "rule" | "ai" | "uncategorized";
 };
 
 type Row = {
@@ -60,6 +60,7 @@ type Row = {
 type OverrideRow = {
   event_id: string;
   category_id: string;
+  source: string | null;
 };
 
 type ExclusionRow = {
@@ -87,7 +88,7 @@ export async function listEventsInRange(
       .gt("end_time", new Date(startMs).toISOString())
       .order("start_time", { ascending: true }),
     supabase.from("event_exclusions").select("event_id"),
-    supabase.from("event_categorizations").select("event_id, category_id"),
+    supabase.from("event_categorizations").select("event_id, category_id, source"),
   ]);
 
   const eventRows = eventsResult.data as Row[] | null;
@@ -96,9 +97,14 @@ export async function listEventsInRange(
   const excludedIds = new Set(
     ((exclusionsResult.data ?? []) as ExclusionRow[]).map((r) => r.event_id)
   );
-  const overrides = new Map<string, string>();
+  // Split stored categorizations by provenance. Manual overrides win over a
+  // keyword rule; AI assignments sit below rules (a rule the user later adds
+  // takes precedence over an earlier AI guess).
+  const manualOverrides = new Map<string, string>();
+  const aiOverrides = new Map<string, string>();
   for (const r of (overridesResult.data ?? []) as OverrideRow[]) {
-    overrides.set(r.event_id, r.category_id);
+    if (r.source === "ai") aiOverrides.set(r.event_id, r.category_id);
+    else manualOverrides.set(r.event_id, r.category_id);
   }
 
   const rows = eventRows.filter((r) => !excludedIds.has(r.id));
@@ -107,21 +113,34 @@ export async function listEventsInRange(
   const categoryById = new Map(categories.map((c) => [c.id, c]));
 
   return rows.map((row) => {
-    const overrideCategoryId = overrides.get(row.id);
+    const manualCategoryId = manualOverrides.get(row.id);
 
     let category: DayEvent["category"];
     let source: DayEvent["source"];
 
-    if (overrideCategoryId) {
-      const cat = categoryById.get(overrideCategoryId);
-      category = cat ? { id: cat.id, name: cat.name, color: cat.color } : null;
-      source = category ? "manual" : "uncategorized";
+    const manualCat = manualCategoryId
+      ? categoryById.get(manualCategoryId)
+      : undefined;
+    const ruleMatch = categorizeTitle(row.title, categories);
+    const aiCategoryId = aiOverrides.get(row.id);
+    const aiCat = aiCategoryId ? categoryById.get(aiCategoryId) : undefined;
+
+    if (manualCat) {
+      category = { id: manualCat.id, name: manualCat.name, color: manualCat.color };
+      source = "manual";
+    } else if (ruleMatch) {
+      category = {
+        id: ruleMatch.id,
+        name: ruleMatch.name,
+        color: ruleMatch.color,
+      };
+      source = "rule";
+    } else if (aiCat) {
+      category = { id: aiCat.id, name: aiCat.name, color: aiCat.color };
+      source = "ai";
     } else {
-      const matched = categorizeTitle(row.title, categories);
-      category = matched
-        ? { id: matched.id, name: matched.name, color: matched.color }
-        : null;
-      source = matched ? "rule" : "uncategorized";
+      category = null;
+      source = "uncategorized";
     }
 
     return {
