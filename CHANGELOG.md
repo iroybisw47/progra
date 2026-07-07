@@ -1,10 +1,27 @@
 # Changelog
 
-A running log of changes, grouped by date (newest first).
+A running log of changes, grouped by date (newest first). Section headings are
+prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
+when it was done, not a start/stop work timer.
+
+## 2026-07-07
+
+### 12:18 · Calendar sync range + History breakdown
+- Widened the Google Calendar sync window from −30/+90 days to −365/+90, so a
+  full rolling year of history syncs (the month/year History views had no older
+  data to show). Sync is a manual, paginated button, so a year of events is fine.
+- Sync now revalidates `/history`, `/recap`, and `/plan` (not just `/clock` and
+  `/`), so those views no longer render stale after a sync.
+- Added a "Sync Google Calendar" button to the History month & year views, below
+  the categorize/review button.
+- History category rows are now expandable: tap a category to see every session
+  and calendar event making up its total, each tagged by source
+  (clock / rule / manual / AI / uncat). Items reconcile exactly with the bar —
+  same attribution as the totals (`lib/aggregate.ts#buildCategoryItems`).
 
 ## 2026-07-02
 
-### AI event categorization
+### 01:01 · AI event categorization
 - Auto-categorize Google Calendar events into your categories with Claude
   (Haiku), server-side via a Next.js server action. Confident title→category
   matches are stored as `source: "ai"` in `event_categorizations`; manual
@@ -22,7 +39,7 @@ A running log of changes, grouped by date (newest first).
 - Categorizer now surfaces real failures (e.g. a missing/invalid
   ANTHROPIC_API_KEY) instead of silently reporting "nothing to categorize".
 
-### Mobile / PWA layout
+### 01:27–01:39 · Mobile / PWA layout
 - Fixed content rendering under the iOS status bar / notch (headers "shifted too
   high") and behind the bottom nav on phones. The app now insets by
   `env(safe-area-inset-top)` / `env(safe-area-inset-bottom)` at the shell level;

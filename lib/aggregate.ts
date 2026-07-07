@@ -32,6 +32,68 @@ export function buildCategoryBreakdown(
     .sort((a, b) => b.ms - a.ms);
 }
 
+// One row in a category's audit breakdown — the individual session or calendar
+// event that contributed time to the category in the window.
+export type CategoryItem = {
+  kind: "session" | "event";
+  title: string;
+  ms: number;
+  startMs: number;
+  // "session" = clocked-in time; otherwise the calendar event's provenance.
+  source: "session" | "manual" | "rule" | "ai" | "uncategorized";
+};
+
+// Per-category list of the exact items that make up its total, using the SAME
+// attribution rules as aggregateRange (sessions by `endedAt`, events by
+// `startMs`, same clipping and skip-if-non-positive), so each category's items
+// sum to its bar. Keyed by category id; null = Uncategorized. Items are sorted
+// by time descending (biggest contributors first). This is what powers the
+// History "tap a category to see where the hours came from" breakdown.
+export function buildCategoryItems(
+  sessions: Session[],
+  events: DayEvent[],
+  rangeStart: number,
+  rangeEnd: number,
+  now: number
+): Map<string | null, CategoryItem[]> {
+  const byCat = new Map<string | null, CategoryItem[]>();
+  const push = (cat: string | null, item: CategoryItem) => {
+    const arr = byCat.get(cat);
+    if (arr) arr.push(item);
+    else byCat.set(cat, [item]);
+  };
+
+  for (const s of sessions) {
+    const end = s.endedAt ?? now;
+    const ms = sessionWorkedMs(s, now);
+    if (ms <= 0) continue;
+    if (end < rangeStart || end > rangeEnd) continue;
+    push(s.categoryId, {
+      kind: "session",
+      title: s.taskName.trim() || "Untitled session",
+      ms,
+      startMs: s.startedAt,
+      source: "session",
+    });
+  }
+
+  for (const e of events) {
+    const ms = e.endMs - e.startMs;
+    if (ms <= 0) continue;
+    if (e.startMs < rangeStart || e.startMs > rangeEnd) continue;
+    push(e.category?.id ?? null, {
+      kind: "event",
+      title: e.title?.trim() || "(no title)",
+      ms,
+      startMs: e.startMs,
+      source: e.source,
+    });
+  }
+
+  for (const arr of byCat.values()) arr.sort((a, b) => b.ms - a.ms);
+  return byCat;
+}
+
 export type RangeTotals = {
   // null key = "Uncategorized"
   perCategory: Map<string | null, number>;

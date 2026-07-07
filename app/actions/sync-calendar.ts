@@ -8,7 +8,11 @@ import { createClient } from "@/lib/supabase/server";
 
 type SyncResult = { ok: true; count: number } | { error: string };
 
-const SYNC_WINDOW_PAST_DAYS = 30;
+// Pull a full rolling year of history so the month/year History views have data
+// to show; keep a quarter of look-ahead for planning. The fetch paginates
+// (lib/google/calendar.ts), so a year of events is fine, and this only runs on
+// the manual Sync button, not on every page load.
+const SYNC_WINDOW_PAST_DAYS = 365;
 const SYNC_WINDOW_FUTURE_DAYS = 90;
 
 export async function syncCalendar(): Promise<SyncResult> {
@@ -61,7 +65,13 @@ export async function syncCalendar(): Promise<SyncResult> {
     .upsert(rows, { onConflict: "user_id,google_event_id" });
 
   if (error) return { error: error.message };
+  // Refresh every surface that reads calendar events, not just /clock — the
+  // month/year History, the weekly recap, and the /plan busy overlay all show
+  // synced events and would otherwise render stale after a sync.
   revalidatePath("/clock");
   revalidatePath("/");
+  revalidatePath("/history");
+  revalidatePath("/recap");
+  revalidatePath("/plan");
   return { ok: true, count: rows.length };
 }

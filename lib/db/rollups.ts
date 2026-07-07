@@ -4,7 +4,9 @@ import {
   aggregateRange,
   aggregateRangeByGoal,
   buildCategoryBreakdown,
+  buildCategoryItems,
   type CategoryBreakdownRow,
+  type CategoryItem,
 } from "@/lib/aggregate";
 import {
   endOfMonth,
@@ -35,6 +37,11 @@ export type Rollup = {
   // category sessions + calendar events that matched no rule). Reconciles with
   // the home week card and the weekly recap's category breakdown.
   categoryRows: CategoryBreakdownRow[];
+  // Per-category audit list: the individual sessions + events making up each
+  // category's time, so a row can expand to show where the hours came from.
+  // Keyed by category id, or "uncategorized" for the null bucket. Items in each
+  // list sum to that category's `ms` in categoryRows.
+  categoryItems: Record<string, CategoryItem[]>;
   // How many calendar events in the window are still Uncategorized (no manual
   // override, no rule match, no prior AI assignment) and have a title to
   // classify. Drives the History "Auto-categorize" button and its label.
@@ -111,6 +118,14 @@ async function computeRollup(startMs: number, endMs: number): Promise<Rollup> {
     (r) => r.ms > 0
   );
 
+  // Per-category audit items (same attribution as the totals above), keyed for
+  // the client by category id or "uncategorized".
+  const itemsByCat = buildCategoryItems(sessions, events, startMs, endMs, aggregateNow);
+  const categoryItems: Record<string, CategoryItem[]> = {};
+  for (const [id, items] of itemsByCat) {
+    categoryItems[id ?? "uncategorized"] = items;
+  }
+
   // Goal axis: sessions attributed to an active goal (subset of the above).
   const planToGoal = new Map(plans.map((p) => [p.id, p.goalId] as const));
   const { perGoal, untracked } = aggregateRangeByGoal(
@@ -137,6 +152,7 @@ async function computeRollup(startMs: number, endMs: number): Promise<Rollup> {
     endMs,
     totalTrackedMs,
     categoryRows,
+    categoryItems,
     uncategorizedEventCount,
     aiCategorizedEventCount,
     totalFocusedMs,
