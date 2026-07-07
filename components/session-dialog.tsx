@@ -24,8 +24,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CategoryPicker } from "@/components/category-picker";
+import { GoalPicker } from "@/components/goal-picker";
 
 import { type Category, type Session } from "@/lib/storage";
+import type { Goal } from "@/lib/db/goals";
 import {
   createSession,
   deleteSession,
@@ -41,6 +43,7 @@ type SessionDialogProps = {
   mode: SessionDialogMode;
   session?: Session;
   categories: Category[];
+  goals: Goal[];
   now: Date;
 };
 
@@ -82,6 +85,7 @@ function SessionForm({
   mode,
   session,
   categories,
+  goals,
   now,
   onClose,
 }: SessionDialogProps & { onClose: () => void }) {
@@ -104,9 +108,20 @@ function SessionForm({
   const [description, setDescription] = useState(
     isCreate ? "" : session!.description ?? ""
   );
-  const [categoryId, setCategoryId] = useState<string | null>(
+  // A session targets EITHER a category OR a goal; the toggle switches which
+  // picker shows, and selecting from one clears the other. Seeded from the
+  // session's current axis.
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     isCreate ? null : session!.categoryId
   );
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(
+    isCreate ? null : session!.goalId
+  );
+  const [pickerMode, setPickerMode] = useState<"category" | "goal">(
+    !isCreate && session!.goalId ? "goal" : "category"
+  );
+  const activeSelection =
+    pickerMode === "goal" ? selectedGoalId : selectedCategoryId;
   const [startDate, setStartDate] = useState(formatLocalDate(defaultStart));
   const [startTime, setStartTime] = useState(formatTime(defaultStart));
   const [endDate, setEndDate] = useState(
@@ -126,7 +141,7 @@ function SessionForm({
   const canSave =
     !pending &&
     taskName.trim().length > 0 &&
-    categoryId !== null &&
+    activeSelection !== null &&
     startTs !== null &&
     (isActive ? !startInFuture : endTs !== null && !endBeforeStart);
 
@@ -138,7 +153,10 @@ function SessionForm({
 
   function handleSave() {
     const trimmed = taskName.trim();
-    if (!trimmed || !categoryId || startTs === null) return;
+    const categoryId = pickerMode === "goal" ? null : selectedCategoryId;
+    const goalId = pickerMode === "goal" ? selectedGoalId : null;
+    if (!trimmed || (categoryId === null && goalId === null) || startTs === null)
+      return;
 
     if (isActive) {
       if (startInFuture) {
@@ -150,6 +168,7 @@ function SessionForm({
           taskName: trimmed,
           description,
           categoryId,
+          goalId,
           startedAt: startTs,
         });
         if ("error" in r) {
@@ -174,6 +193,7 @@ function SessionForm({
           taskName: trimmed,
           description,
           categoryId,
+          goalId,
           startedAt: startTs,
           endedAt: endTs,
         });
@@ -191,6 +211,7 @@ function SessionForm({
           taskName: trimmed,
           description,
           categoryId,
+          goalId,
           startedAt: startTs,
           endedAt: endTs,
         });
@@ -248,14 +269,47 @@ function SessionForm({
             onChange={(e) => setDescription(e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium">Category</span>
-          <CategoryPicker
-            categories={categories}
-            selectedId={categoryId}
-            onSelect={setCategoryId}
-            emptyHint="Add a category on the main screen first."
-          />
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={pickerMode === "category" ? "secondary" : "outline"}
+              className="h-9 flex-1"
+              aria-pressed={pickerMode === "category"}
+              onClick={() => setPickerMode("category")}
+            >
+              Category
+            </Button>
+            <Button
+              type="button"
+              variant={pickerMode === "goal" ? "secondary" : "outline"}
+              className="h-9 flex-1"
+              aria-pressed={pickerMode === "goal"}
+              onClick={() => setPickerMode("goal")}
+            >
+              Goal
+            </Button>
+          </div>
+          {pickerMode === "category" ? (
+            <CategoryPicker
+              categories={categories}
+              selectedId={selectedCategoryId}
+              onSelect={(id) => {
+                setSelectedCategoryId(id);
+                setSelectedGoalId(null);
+              }}
+              emptyHint="Add a category on the main screen first."
+            />
+          ) : (
+            <GoalPicker
+              goals={goals}
+              selectedId={selectedGoalId}
+              onSelect={(id) => {
+                setSelectedGoalId(id);
+                setSelectedCategoryId(null);
+              }}
+            />
+          )}
         </div>
         <div className="flex flex-col gap-1.5">
           <span className="text-sm font-medium">Start</span>

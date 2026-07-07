@@ -9,6 +9,7 @@ function makeSession(over: Partial<Session> = {}): Session {
   return {
     id: "s1",
     categoryId: "c1",
+    goalId: null,
     sessionPlanId: null,
     taskName: "t",
     startedAt: 0,

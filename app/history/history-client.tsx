@@ -25,6 +25,7 @@ function formatHours(ms: number): string {
 // Short provenance tag shown next to each item in a category's breakdown.
 const SOURCE_LABEL: Record<string, string> = {
   session: "clock",
+  goal: "goal",
   rule: "rule",
   manual: "manual",
   ai: "AI",

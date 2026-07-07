@@ -6,6 +6,27 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-07
 
+### 13:30 · Goals revamp — clock straight into a goal
+- Goals are now just a title + weekly quota (editable — pencil on each goal
+  card). Dropped the "planned sessions" sub-tasks from the goal flow.
+- Clock page: the category selector is now a **Category / Goal** toggle — pick a
+  category *or* a goal (mutually exclusive) and clock in. No planning step;
+  goal time accrues the moment you clock out.
+- A session now links straight to a goal (`sessions.goal_id`) instead of the old
+  `session → session_plan → goal` indirection. `aggregateRangeByGoal` reads
+  `goalId` directly across home / goals / history / recap.
+- Goal-clocked time shows as a synthetic **`Goal: {name}`** row (one accent
+  colour) in the "Time this week" and History category breakdowns, reconciling
+  with the totals; History tap-to-expand lists a goal's sessions (tagged
+  `goal`).
+- Goals tab: each goal shows its quota bar plus **this week's sessions** under
+  it (task, length, time range, day).
+- Session edit dialog can now switch a past session between a category and a
+  goal after the fact.
+- Requires a one-time DB migration: `alter table sessions add column goal_id
+  uuid references goals(id) on delete set null;`. The `/plan` planner is
+  untouched (still uses `session_plans`).
+
 ### 12:18 · Calendar sync range + History breakdown
 - Widened the Google Calendar sync window from −30/+90 days to −365/+90, so a
   full rolling year of history syncs (the month/year History views had no older

@@ -17,7 +17,6 @@ import {
 import { listEventsInRange } from "@/lib/db/calendar-events";
 import { listCategories } from "@/lib/db/categories";
 import { listActiveGoals } from "@/lib/db/goals";
-import { listPlansForGoals } from "@/lib/db/session-plans";
 import { listSessionsInRange } from "@/lib/db/sessions";
 
 export type RollupGoalRow = {
@@ -77,8 +76,6 @@ export type Rollup = {
 // in PostgREST. For a single user a month/year of sessions is a small set.
 async function computeRollup(startMs: number, endMs: number): Promise<Rollup> {
   const goals = await listActiveGoals();
-  const plans =
-    goals.length > 0 ? await listPlansForGoals(goals.map((g) => g.id)) : [];
   const categories = await listCategories();
   const sessions = await listSessionsInRange(startMs, endMs);
   // Categorized calendar events overlapping the window. Excluded events are
@@ -114,9 +111,11 @@ async function computeRollup(startMs: number, endMs: number): Promise<Rollup> {
     endMs,
     aggregateNow
   );
-  const categoryRows = buildCategoryBreakdown(perCategory, categories).filter(
-    (r) => r.ms > 0
-  );
+  const categoryRows = buildCategoryBreakdown(
+    perCategory,
+    categories,
+    goals
+  ).filter((r) => r.ms > 0);
 
   // Per-category audit items (same attribution as the totals above), keyed for
   // the client by category id or "uncategorized".
@@ -126,11 +125,9 @@ async function computeRollup(startMs: number, endMs: number): Promise<Rollup> {
     categoryItems[id ?? "uncategorized"] = items;
   }
 
-  // Goal axis: sessions attributed to an active goal (subset of the above).
-  const planToGoal = new Map(plans.map((p) => [p.id, p.goalId] as const));
+  // Goal axis: sessions attributed to a goal (subset of the above).
   const { perGoal, untracked } = aggregateRangeByGoal(
     sessions,
-    planToGoal,
     startMs,
     endMs,
     aggregateNow

@@ -3,15 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  CheckIcon,
-  PencilIcon,
-  XIcon,
-} from "lucide-react";
+import { PencilIcon, XIcon } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -33,59 +26,44 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
-import { archiveGoal, createGoal } from "@/app/actions/goals";
-import {
-  createSessionPlan,
-  deleteSessionPlan,
-  reorderSessionPlans,
-  updateSessionPlan,
-} from "@/app/actions/session-plans";
+import { archiveGoal, createGoal, updateGoal } from "@/app/actions/goals";
 import type { Goal } from "@/lib/db/goals";
-import type { SessionPlan } from "@/lib/db/session-plans";
+import { formatRelativeDay, formatTime } from "@/lib/dates";
+import { formatDuration } from "@/lib/duration";
+import { useNow } from "@/lib/hooks";
+
+// One of this week's sessions clocked toward a goal (see app/goals/page.tsx).
+export type GoalSessionInfo = {
+  id: string;
+  title: string;
+  ms: number;
+  startMs: number;
+  endMs: number | null;
+};
 
 type Props = {
   goals: Goal[];
-  plans: SessionPlan[];
   actualMsByGoal: Record<string, number>;
-  untrackedMs: number;
+  sessionsByGoal: Record<string, GoalSessionInfo[]>;
 };
 
-const HOUR_MS = 60 * 60 * 1000;
-
-function formatHours(ms: number): string {
-  return `${(ms / HOUR_MS).toFixed(1)}h`;
-}
-
-export function GoalsClient({
-  goals,
-  plans,
-  actualMsByGoal,
-  untrackedMs,
-}: Props) {
+export function GoalsClient({ goals, actualMsByGoal, sessionsByGoal }: Props) {
   const router = useRouter();
+  const now = useNow();
+  const hydrated = now !== 0;
   const [, startTransition] = useTransition();
 
   const [newGoalTitle, setNewGoalTitle] = useState("");
   const [newGoalDescription, setNewGoalDescription] = useState("");
   const [newGoalQuota, setNewGoalQuota] = useState("");
 
-  const [newPlanTitleByGoal, setNewPlanTitleByGoal] = useState<
-    Record<string, string>
-  >({});
-  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
-  const [editPlanTitle, setEditPlanTitle] = useState("");
-  const [pendingPlanDelete, setPendingPlanDelete] =
-    useState<SessionPlan | null>(null);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editQuota, setEditQuota] = useState("");
+
   const [pendingGoalArchive, setPendingGoalArchive] = useState<Goal | null>(
     null
   );
-
-  const plansByGoal = new Map<string, SessionPlan[]>();
-  for (const p of plans) {
-    const list = plansByGoal.get(p.goalId) ?? [];
-    list.push(p);
-    plansByGoal.set(p.goalId, list);
-  }
 
   function handleAddGoal() {
     const title = newGoalTitle.trim();
@@ -113,51 +91,33 @@ export function GoalsClient({
     });
   }
 
-  function handleAddPlan(goalId: string) {
-    const title = (newPlanTitleByGoal[goalId] ?? "").trim();
-    if (!title) return;
-    startTransition(async () => {
-      const r = await createSessionPlan({ goalId, title });
-      if ("error" in r) {
-        toast.error(r.error);
-        return;
-      }
-      setNewPlanTitleByGoal((s) => ({ ...s, [goalId]: "" }));
-      router.refresh();
-    });
-  }
-
-  function handleStartEdit(plan: SessionPlan) {
-    setEditingPlanId(plan.id);
-    setEditPlanTitle(plan.title);
+  function handleStartEdit(goal: Goal) {
+    setEditingGoal(goal);
+    setEditTitle(goal.title);
+    setEditQuota(String(goal.weeklyQuotaHours));
   }
 
   function handleSaveEdit() {
-    if (!editingPlanId) return;
-    const title = editPlanTitle.trim();
-    if (!title) return;
-    const id = editingPlanId;
+    if (!editingGoal) return;
+    const title = editTitle.trim();
+    const quota = parseFloat(editQuota);
+    if (!title) {
+      toast.error("Title required");
+      return;
+    }
+    if (!Number.isFinite(quota) || quota <= 0) {
+      toast.error("Weekly quota must be a positive number");
+      return;
+    }
+    const id = editingGoal.id;
     startTransition(async () => {
-      const r = await updateSessionPlan(id, { title });
+      const r = await updateGoal(id, { title, weeklyQuotaHours: quota });
       if ("error" in r) {
         toast.error(r.error);
         return;
       }
-      setEditingPlanId(null);
-      router.refresh();
-    });
-  }
-
-  function handleDeletePlan() {
-    if (!pendingPlanDelete) return;
-    const id = pendingPlanDelete.id;
-    startTransition(async () => {
-      const r = await deleteSessionPlan(id);
-      if ("error" in r) {
-        toast.error(r.error);
-        return;
-      }
-      setPendingPlanDelete(null);
+      setEditingGoal(null);
+      toast.success("Saved");
       router.refresh();
     });
   }
@@ -177,34 +137,17 @@ export function GoalsClient({
     });
   }
 
-  function handleMovePlan(
-    goalId: string,
-    planId: string,
-    direction: -1 | 1
-  ) {
-    const list = plansByGoal.get(goalId) ?? [];
-    const idx = list.findIndex((p) => p.id === planId);
-    if (idx < 0) return;
-    const swapWith = idx + direction;
-    if (swapWith < 0 || swapWith >= list.length) return;
-    const next = [...list];
-    [next[idx], next[swapWith]] = [next[swapWith], next[idx]];
-    const orderedIds = next.map((p) => p.id);
-    startTransition(async () => {
-      const r = await reorderSessionPlans(goalId, orderedIds);
-      if ("error" in r) {
-        toast.error(r.error);
-        return;
-      }
-      router.refresh();
-    });
-  }
-
   const newQuotaNum = parseFloat(newGoalQuota);
   const canAddGoal =
     newGoalTitle.trim().length > 0 &&
     Number.isFinite(newQuotaNum) &&
     newQuotaNum > 0;
+
+  const editQuotaNum = parseFloat(editQuota);
+  const canSaveEdit =
+    editTitle.trim().length > 0 &&
+    Number.isFinite(editQuotaNum) &&
+    editQuotaNum > 0;
 
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24 sm:pt-12">
@@ -212,7 +155,7 @@ export function GoalsClient({
         <header className="flex flex-col gap-1">
           <h1 className="text-3xl font-semibold tracking-tight">Goals</h1>
           <p className="text-muted-foreground text-sm">
-            Plan your week, one session at a time.
+            Clock into a goal any time — its hours add up here.
           </p>
         </header>
 
@@ -226,7 +169,7 @@ export function GoalsClient({
           </Card>
         ) : (
           goals.map((goal) => {
-            const goalPlans = plansByGoal.get(goal.id) ?? [];
+            const goalSessions = sessionsByGoal[goal.id] ?? [];
             return (
               <Card key={goal.id}>
                 <CardHeader>
@@ -234,7 +177,15 @@ export function GoalsClient({
                   <CardDescription>
                     {goal.weeklyQuotaHours.toFixed(1)}h / week
                   </CardDescription>
-                  <CardAction>
+                  <CardAction className="flex gap-1">
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label={`Edit ${goal.title}`}
+                      onClick={() => handleStartEdit(goal)}
+                    >
+                      <PencilIcon />
+                    </Button>
                     <Button
                       size="icon-sm"
                       variant="ghost"
@@ -255,162 +206,50 @@ export function GoalsClient({
                     quotaHours={goal.weeklyQuotaHours}
                     actualMs={actualMsByGoal[goal.id] ?? 0}
                   />
-                  {goalPlans.length === 0 ? (
-                    <p className="text-muted-foreground text-sm py-2">
-                      No planned sessions yet.
-                    </p>
-                  ) : (
-                    <ol className="flex flex-col divide-y divide-border">
-                      {goalPlans.map((plan, idx) => {
-                        const isEditing = editingPlanId === plan.id;
-                        const isDone = plan.status === "done";
-                        return (
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-muted-foreground text-[10px] uppercase tracking-[0.2em]">
+                      This week
+                    </span>
+                    {goalSessions.length === 0 ? (
+                      <p className="text-muted-foreground py-1 text-sm">
+                        No sessions yet. Clock into this goal from the Clock tab.
+                      </p>
+                    ) : (
+                      <ul className="flex flex-col divide-y divide-border">
+                        {goalSessions.map((s) => (
                           <li
-                            key={plan.id}
-                            className="flex min-h-11 items-center gap-1.5 py-1"
+                            key={s.id}
+                            className="flex flex-col gap-0.5 py-2"
                           >
-                            <span className="text-muted-foreground w-5 shrink-0 font-mono text-xs">
-                              {idx + 1}.
-                            </span>
-                            {isEditing ? (
-                              <>
-                                <Input
-                                  className="h-9 flex-1"
-                                  value={editPlanTitle}
-                                  onChange={(e) =>
-                                    setEditPlanTitle(e.target.value)
-                                  }
-                                  autoFocus
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                      e.preventDefault();
-                                      handleSaveEdit();
-                                    } else if (e.key === "Escape") {
-                                      setEditingPlanId(null);
-                                    }
-                                  }}
-                                />
-                                <Button
-                                  size="icon-sm"
-                                  variant="ghost"
-                                  aria-label="Save"
-                                  onClick={handleSaveEdit}
-                                >
-                                  <CheckIcon />
-                                </Button>
-                                <Button
-                                  size="icon-sm"
-                                  variant="ghost"
-                                  aria-label="Cancel edit"
-                                  onClick={() => setEditingPlanId(null)}
-                                >
-                                  <XIcon />
-                                </Button>
-                              </>
-                            ) : (
-                              <>
-                                <span
-                                  className={
-                                    "flex-1 text-sm " +
-                                    (isDone
-                                      ? "text-muted-foreground line-through"
-                                      : "")
-                                  }
-                                >
-                                  {plan.title}
-                                </span>
-                                {isDone && (
-                                  <Badge
-                                    variant="secondary"
-                                    className="h-5 text-xs"
-                                  >
-                                    done
-                                  </Badge>
+                            <div className="flex items-baseline justify-between gap-2 text-sm">
+                              <span className="truncate">{s.title}</span>
+                              <span className="text-muted-foreground shrink-0 font-mono tabular-nums">
+                                {formatDuration(s.ms)}
+                              </span>
+                            </div>
+                            {hydrated && (
+                              <span className="text-muted-foreground text-xs">
+                                {formatRelativeDay(
+                                  new Date(s.startMs),
+                                  new Date(now)
                                 )}
-                                <Button
-                                  size="icon-sm"
-                                  variant="ghost"
-                                  aria-label="Move up"
-                                  disabled={idx === 0}
-                                  onClick={() =>
-                                    handleMovePlan(goal.id, plan.id, -1)
-                                  }
-                                >
-                                  <ArrowUpIcon />
-                                </Button>
-                                <Button
-                                  size="icon-sm"
-                                  variant="ghost"
-                                  aria-label="Move down"
-                                  disabled={idx === goalPlans.length - 1}
-                                  onClick={() =>
-                                    handleMovePlan(goal.id, plan.id, 1)
-                                  }
-                                >
-                                  <ArrowDownIcon />
-                                </Button>
-                                <Button
-                                  size="icon-sm"
-                                  variant="ghost"
-                                  aria-label={`Edit ${plan.title}`}
-                                  onClick={() => handleStartEdit(plan)}
-                                >
-                                  <PencilIcon />
-                                </Button>
-                                <Button
-                                  size="icon-sm"
-                                  variant="ghost"
-                                  aria-label={`Delete ${plan.title}`}
-                                  onClick={() => setPendingPlanDelete(plan)}
-                                >
-                                  <XIcon />
-                                </Button>
-                              </>
+                                {" · "}
+                                {formatTime(new Date(s.startMs))}
+                                {s.endMs !== null
+                                  ? `–${formatTime(new Date(s.endMs))}`
+                                  : " · in progress"}
+                              </span>
                             )}
                           </li>
-                        );
-                      })}
-                    </ol>
-                  )}
-                  <div className="flex gap-2">
-                    <Input
-                      className="h-10"
-                      placeholder="New planned session"
-                      value={newPlanTitleByGoal[goal.id] ?? ""}
-                      onChange={(e) =>
-                        setNewPlanTitleByGoal((s) => ({
-                          ...s,
-                          [goal.id]: e.target.value,
-                        }))
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleAddPlan(goal.id);
-                        }
-                      }}
-                    />
-                    <Button
-                      className="h-10"
-                      variant="secondary"
-                      onClick={() => handleAddPlan(goal.id)}
-                      disabled={
-                        !(newPlanTitleByGoal[goal.id] ?? "").trim()
-                      }
-                    >
-                      Add
-                    </Button>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 </CardContent>
               </Card>
             );
           })
-        )}
-
-        {untrackedMs > 0 && (
-          <p className="text-muted-foreground text-center text-xs">
-            Untracked this week — {formatHours(untrackedMs)}
-          </p>
         )}
 
         <Card>
@@ -474,26 +313,49 @@ export function GoalsClient({
       </main>
 
       <Dialog
-        open={pendingPlanDelete !== null}
+        open={editingGoal !== null}
         onOpenChange={(open) => {
-          if (!open) setPendingPlanDelete(null);
+          if (!open) setEditingGoal(null);
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete planned session?</DialogTitle>
-            <DialogDescription>
-              {pendingPlanDelete
-                ? `"${pendingPlanDelete.title}" will be removed. Past clock-ins attached to it stay logged.`
-                : ""}
-            </DialogDescription>
+            <DialogTitle>Edit goal</DialogTitle>
           </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" htmlFor="edit-goal-title">
+                Title
+              </label>
+              <Input
+                id="edit-goal-title"
+                className="h-10"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" htmlFor="edit-goal-quota">
+                Weekly quota (hours)
+              </label>
+              <Input
+                id="edit-goal-quota"
+                className="h-10"
+                type="number"
+                inputMode="decimal"
+                step="0.5"
+                min="0"
+                value={editQuota}
+                onChange={(e) => setEditQuota(e.target.value)}
+              />
+            </div>
+          </div>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>
               Cancel
             </DialogClose>
-            <Button variant="destructive" onClick={handleDeletePlan}>
-              Delete
+            <Button onClick={handleSaveEdit} disabled={!canSaveEdit}>
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -510,7 +372,7 @@ export function GoalsClient({
             <DialogTitle>Archive goal?</DialogTitle>
             <DialogDescription>
               {pendingGoalArchive
-                ? `"${pendingGoalArchive.title}" will be hidden from this list. Its planned sessions stay attached to past clock-ins.`
+                ? `"${pendingGoalArchive.title}" will be hidden from this list. Past sessions clocked to it stay logged.`
                 : ""}
             </DialogDescription>
           </DialogHeader>

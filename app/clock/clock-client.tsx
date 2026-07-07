@@ -41,16 +41,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CategoryPicker } from "@/components/category-picker";
 import { EventCategoryDialog } from "@/components/event-category-dialog";
-import { PlanPicker } from "@/components/plan-picker";
+import { GoalPicker } from "@/components/goal-picker";
 import { SessionDialog, type SessionDialogMode } from "@/components/session-dialog";
-import { SyncCalendarButton } from "@/components/sync-calendar-button";
-import { CategorizeEventsButton } from "@/components/categorize-events-button";
 
 import { type Category, type Session } from "@/lib/storage";
 import type { DayEvent } from "@/lib/db/calendar-events";
 import type { Goal } from "@/lib/db/goals";
-import type { SessionPlan } from "@/lib/db/session-plans";
-import { aggregateWeek } from "@/lib/aggregate";
+import { aggregateWeek, buildCategoryBreakdown } from "@/lib/aggregate";
 import { isPaused, sessionPausedMs, sessionWorkedMs } from "@/lib/session";
 import { useNow } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
@@ -129,8 +126,6 @@ type ClockClientProps = {
   sessions: Session[];
   events: DayEvent[];
   goals: Goal[];
-  plans: SessionPlan[];
-  preselectPlanId: string | null;
 };
 
 export function ClockClient({
@@ -138,8 +133,6 @@ export function ClockClient({
   sessions,
   events,
   goals,
-  plans,
-  preselectPlanId,
 }: ClockClientProps) {
   const router = useRouter();
   const now = useNow();
@@ -155,11 +148,11 @@ export function ClockClient({
 
   const [taskName, setTaskName] = useState("");
   const [description, setDescription] = useState("");
+  // A clock-in targets EITHER a category OR a goal. `pickerMode` is which list
+  // is currently revealed; selecting from one clears the other.
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  // Pre-seeded if the user is currently inside a scheduled block with a plan.
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(
-    preselectPlanId
-  );
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+  const [pickerMode, setPickerMode] = useState<"category" | "goal">("category");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [pendingCategoryDelete, setPendingCategoryDelete] = useState<Category | null>(null);
   const [sessionDialog, setSessionDialog] = useState<SessionDialogState>(null);
@@ -210,27 +203,32 @@ export function ClockClient({
   const hydrated = now !== 0;
   const nowDate = new Date(hydrated ? now : 0);
   const categoryById = new Map(categories.map((c) => [c.id, c] as const));
+  const goalById = new Map(goals.map((g) => [g.id, g] as const));
 
   const weekStartDate = hydrated ? startOfWeek(nowDate) : null;
   const weekEndDate = hydrated ? endOfWeek(nowDate) : null;
   const todayIndex = hydrated ? dayIndexMonFirst(nowDate) : -1;
   const weekly = aggregateWeek(sessions, optimisticEvents, hydrated ? now : 0);
 
-  const categoryBreakdown = Array.from(weekly.perCategory.entries())
-    .map(([id, ms]) => ({
-      id,
-      name:
-        id === null
-          ? "Uncategorized"
-          : categoryById.get(id)?.name ?? "Uncategorized",
-      ms,
-    }))
-    .sort((a, b) => b.ms - a.ms);
+  // Goal clock-ins surface here as "Goal: {name}" rows, same as the home and
+  // History breakdowns (shared buildCategoryBreakdown).
+  const categoryBreakdown = buildCategoryBreakdown(
+    weekly.perCategory,
+    categories,
+    goals
+  );
   const maxCatMs = categoryBreakdown[0]?.ms ?? 0;
 
   function categoryName(id: string | null): string {
     if (id === null) return "Uncategorized";
     return categoryById.get(id)?.name ?? "Uncategorized";
+  }
+
+  // A session's display label: its goal ("Goal: {name}") when it's a goal
+  // clock-in, otherwise its category name.
+  function sessionLabel(s: Session): string {
+    if (s.goalId) return `Goal: ${goalById.get(s.goalId)?.title ?? "goal"}`;
+    return categoryName(s.categoryId);
   }
 
   const inDayMode =
@@ -253,15 +251,20 @@ export function ClockClient({
 
   function handleClockIn() {
     const name = taskName.trim();
-    if (!name || !selectedCategoryId) return;
-    const catName = categoryName(selectedCategoryId);
-    const planId = selectedPlanId;
+    const goalMode = pickerMode === "goal";
+    const categoryId = goalMode ? null : selectedCategoryId;
+    const goalId = goalMode ? selectedGoalId : null;
+    if (!name || (categoryId === null && goalId === null)) return;
+    const label =
+      goalId !== null
+        ? `Goal: ${goalById.get(goalId)?.title ?? "goal"}`
+        : categoryName(categoryId);
     startTransition(async () => {
       const r = await clockIn({
-        categoryId: selectedCategoryId,
+        categoryId,
+        goalId,
         taskName: name,
         description,
-        sessionPlanId: planId,
       });
       if ("error" in r) {
         toast.error(r.error);
@@ -270,8 +273,8 @@ export function ClockClient({
       setTaskName("");
       setDescription("");
       setSelectedCategoryId(null);
-      setSelectedPlanId(null);
-      toast.success(`Clocked into ${catName}`);
+      setSelectedGoalId(null);
+      toast.success(`Clocked into ${label}`);
       router.refresh();
     });
   }
@@ -358,7 +361,9 @@ export function ClockClient({
     });
   }
 
-  const canClockIn = taskName.trim().length > 0 && selectedCategoryId !== null;
+  const activeSelection =
+    pickerMode === "goal" ? selectedGoalId : selectedCategoryId;
+  const canClockIn = taskName.trim().length > 0 && activeSelection !== null;
 
   return (
     <div
@@ -438,7 +443,7 @@ export function ClockClient({
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{activeSession.taskName}</span>
                 <Badge variant="secondary">
-                  {categoryName(activeSession.categoryId)}
+                  {sessionLabel(activeSession)}
                 </Badge>
               </div>
 
@@ -527,22 +532,55 @@ export function ClockClient({
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <span className="text-sm font-medium">Category</span>
-                <CategoryPicker
-                  categories={categories}
-                  selectedId={selectedCategoryId}
-                  onSelect={setSelectedCategoryId}
-                />
+              {/* Clock into a category OR a goal — pick one. The two buttons
+                  switch which list shows; choosing from one clears the other. */}
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={pickerMode === "category" ? "secondary" : "outline"}
+                    className="h-9 flex-1"
+                    aria-pressed={pickerMode === "category"}
+                    onClick={() => setPickerMode("category")}
+                  >
+                    Category
+                    {selectedCategoryId
+                      ? `: ${categoryName(selectedCategoryId)}`
+                      : ""}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={pickerMode === "goal" ? "secondary" : "outline"}
+                    className="h-9 flex-1"
+                    aria-pressed={pickerMode === "goal"}
+                    onClick={() => setPickerMode("goal")}
+                  >
+                    Goal
+                    {selectedGoalId
+                      ? `: ${goalById.get(selectedGoalId)?.title ?? "goal"}`
+                      : ""}
+                  </Button>
+                </div>
+                {pickerMode === "category" ? (
+                  <CategoryPicker
+                    categories={categories}
+                    selectedId={selectedCategoryId}
+                    onSelect={(id) => {
+                      setSelectedCategoryId(id);
+                      setSelectedGoalId(null);
+                    }}
+                  />
+                ) : (
+                  <GoalPicker
+                    goals={goals}
+                    selectedId={selectedGoalId}
+                    onSelect={(id) => {
+                      setSelectedGoalId(id);
+                      setSelectedCategoryId(null);
+                    }}
+                  />
+                )}
               </div>
-              <PlanPicker
-                goals={goals}
-                plans={plans}
-                selectedId={selectedPlanId}
-                onSelect={(id) =>
-                  setSelectedPlanId((cur) => (cur === id ? null : id))
-                }
-              />
               <Button
                 className="h-11 w-full text-base"
                 disabled={!canClockIn}
@@ -612,10 +650,6 @@ export function ClockClient({
           </CardContent>
         </Card>
 
-        <SyncCalendarButton />
-
-        <CategorizeEventsButton />
-
         <Card>
           {inDayMode ? (
             <CardHeader>
@@ -678,7 +712,7 @@ export function ClockClient({
                           >
                             <div className="flex items-baseline justify-between gap-2 text-sm">
                               <span className="truncate">
-                                {categoryName(s.categoryId)} - {s.taskName}
+                                {sessionLabel(s)} - {s.taskName}
                                 {isActive && (
                                   <span className="text-muted-foreground">
                                     {" "}
@@ -860,6 +894,7 @@ export function ClockClient({
           mode={sessionDialog?.mode ?? "create"}
           session={sessionDialog?.session}
           categories={categories}
+          goals={goals}
           now={nowDate}
         />
       )}

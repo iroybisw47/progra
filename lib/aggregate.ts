@@ -1,11 +1,23 @@
 import { dayIndexMonFirst, endOfWeek, startOfWeek } from "@/lib/dates";
 import type { DayEvent } from "@/lib/db/calendar-events";
+import type { Goal } from "@/lib/db/goals";
 import { sessionWorkedMs } from "@/lib/session";
 import type { Category, Session } from "@/lib/storage";
 
+// A goal-attributed session shows up in the category breakdowns as a synthetic
+// "Goal: {name}" row, keyed by this prefix + the goal id (so it never collides
+// with a real category id). One shared accent colour for all goal rows — the
+// theme primary, so it adapts to the clock page's dark mode too.
+const GOAL_KEY_PREFIX = "goal:";
+export const GOAL_ACCENT = "var(--primary)";
+export function goalCategoryKey(goalId: string): string {
+  return GOAL_KEY_PREFIX + goalId;
+}
+
 export type CategoryBreakdownRow = {
   // null id = the Uncategorized bucket (clocked-in sessions with no category
-  // and Google Calendar events that matched no category rule).
+  // and Google Calendar events that matched no category rule). A `goal:<id>`
+  // id is a synthetic goal row (see GOAL_KEY_PREFIX).
   id: string | null;
   name: string;
   color: string | null;
@@ -13,22 +25,31 @@ export type CategoryBreakdownRow = {
 };
 
 // Resolves a perCategory map into display rows: names/colors looked up from
-// `categories`, the null bucket labelled "Uncategorized", sorted descending by
-// time. Shared by the home week card, the recap, and the /history rollups so
-// the same category renders identically everywhere.
+// `categories`, the null bucket labelled "Uncategorized", `goal:<id>` keys
+// labelled "Goal: {title}" in the goal accent, sorted descending by time.
+// Shared by the home week card, the recap, and the /history rollups so the
+// same category renders identically everywhere.
 export function buildCategoryBreakdown(
   perCategory: Map<string | null, number>,
-  categories: Category[]
+  categories: Category[],
+  goals: Goal[] = []
 ): CategoryBreakdownRow[] {
   const categoryById = new Map(categories.map((c) => [c.id, c] as const));
+  const goalById = new Map(goals.map((g) => [g.id, g] as const));
   return Array.from(perCategory.entries())
-    .map(([id, ms]) => ({
-      id,
-      name:
-        id === null ? "Uncategorized" : categoryById.get(id)?.name ?? "Uncategorized",
-      color: id === null ? null : categoryById.get(id)?.color ?? null,
-      ms,
-    }))
+    .map(([id, ms]) => {
+      if (typeof id === "string" && id.startsWith(GOAL_KEY_PREFIX)) {
+        const g = goalById.get(id.slice(GOAL_KEY_PREFIX.length));
+        return { id, name: g ? `Goal: ${g.title}` : "Goal", color: GOAL_ACCENT, ms };
+      }
+      return {
+        id,
+        name:
+          id === null ? "Uncategorized" : categoryById.get(id)?.name ?? "Uncategorized",
+        color: id === null ? null : categoryById.get(id)?.color ?? null,
+        ms,
+      };
+    })
     .sort((a, b) => b.ms - a.ms);
 }
 
@@ -39,8 +60,9 @@ export type CategoryItem = {
   title: string;
   ms: number;
   startMs: number;
-  // "session" = clocked-in time; otherwise the calendar event's provenance.
-  source: "session" | "manual" | "rule" | "ai" | "uncategorized";
+  // "session" = category clock-in; "goal" = goal clock-in; otherwise the
+  // calendar event's provenance.
+  source: "session" | "goal" | "manual" | "rule" | "ai" | "uncategorized";
 };
 
 // Per-category list of the exact items that make up its total, using the SAME
@@ -68,12 +90,12 @@ export function buildCategoryItems(
     const ms = sessionWorkedMs(s, now);
     if (ms <= 0) continue;
     if (end < rangeStart || end > rangeEnd) continue;
-    push(s.categoryId, {
+    push(s.goalId ? goalCategoryKey(s.goalId) : s.categoryId, {
       kind: "session",
       title: s.taskName.trim() || "Untitled session",
       ms,
       startMs: s.startedAt,
-      source: "session",
+      source: s.goalId ? "goal" : "session",
     });
   }
 
@@ -128,7 +150,10 @@ export function aggregateRange(
     const ms = sessionWorkedMs(s, now);
     if (ms <= 0) continue;
     if (end < rangeStart || end > rangeEnd) continue;
-    perCategory.set(s.categoryId, (perCategory.get(s.categoryId) ?? 0) + ms);
+    // Goal clock-ins bucket under a synthetic "goal:<id>" key so they render as
+    // a "Goal: {name}" row; category clock-ins bucket under their category id.
+    const key = s.goalId ? goalCategoryKey(s.goalId) : s.categoryId;
+    perCategory.set(key, (perCategory.get(key) ?? 0) + ms);
     total += ms;
   }
 
@@ -182,24 +207,24 @@ export function aggregateWeek(
 }
 
 export type WeeklyGoalTotals = {
-  // goalId → ms attributed via session_plan_id → plan → goal
+  // goalId → ms, attributed directly via session.goalId
   perGoal: Map<string, number>;
-  // ms for sessions in-week whose plan isn't in `planToGoal` (no plan, or
-  // attached to a plan whose goal isn't tracked here — e.g. archived).
+  // ms for in-window sessions with no goal (i.e. category clock-ins) — that
+  // time lives on the category axis, not "untracked goal time" per se.
   untracked: number;
   total: number;
 };
 
 // Per-goal session summing over an arbitrary [rangeStart, rangeEnd] window.
 // Session attribution mirrors aggregateWeek exactly: `end = endedAt ?? now`,
-// in-range iff end ∈ [rangeStart, rangeEnd], skip non-positive durations. The
-// per-session ms contribution to its goal equals its contribution to its
-// category in aggregateWeek — that invariant is what keeps the goal bars and
-// category bars consistent for the same sessions, and what makes week / month
-// / year rollups reconcile (they are this same function over wider windows).
+// in-range iff end ∈ [rangeStart, rangeEnd], skip non-positive durations. A
+// session links straight to its goal via `goalId` (no plan indirection); the
+// per-session ms contribution to its goal equals its contribution to the
+// matching "Goal: {name}" row in aggregateRange — that invariant keeps the
+// goal bars and category bars consistent, and makes week / month / year
+// rollups reconcile (they are this same function over wider windows).
 export function aggregateRangeByGoal(
   sessions: Session[],
-  planToGoal: Map<string, string>,
   rangeStart: number,
   rangeEnd: number,
   now: number
@@ -212,13 +237,10 @@ export function aggregateRangeByGoal(
     const ms = sessionWorkedMs(s, now);
     if (ms <= 0) continue;
     if (end < rangeStart || end > rangeEnd) continue;
-    const goalId = s.sessionPlanId
-      ? planToGoal.get(s.sessionPlanId) ?? null
-      : null;
-    if (goalId === null) {
+    if (s.goalId === null) {
       untracked += ms;
     } else {
-      perGoal.set(goalId, (perGoal.get(goalId) ?? 0) + ms);
+      perGoal.set(s.goalId, (perGoal.get(s.goalId) ?? 0) + ms);
     }
   }
 
@@ -232,10 +254,9 @@ export function aggregateRangeByGoal(
 // month/year rollups run through identical session-summing logic.
 export function aggregateWeekByGoal(
   sessions: Session[],
-  planToGoal: Map<string, string>,
   now: number
 ): WeeklyGoalTotals {
   const weekStart = startOfWeek(new Date(now)).getTime();
   const weekEnd = endOfWeek(new Date(now)).getTime();
-  return aggregateRangeByGoal(sessions, planToGoal, weekStart, weekEnd, now);
+  return aggregateRangeByGoal(sessions, weekStart, weekEnd, now);
 }

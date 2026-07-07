@@ -17,11 +17,25 @@ export async function loadSessionHistory(opts: {
 }
 
 type ClockInInput = {
-  categoryId: string;
+  categoryId?: string | null;
+  goalId?: string | null;
   taskName: string;
   description?: string;
-  sessionPlanId?: string | null;
 };
+
+// A clock-in counts toward EITHER a category OR a goal — never both, never
+// neither. Returns an error string when that invariant is violated.
+function resolveAxis(
+  categoryId: string | null | undefined,
+  goalId: string | null | undefined
+): { categoryId: string | null; goalId: string | null } | { error: string } {
+  const cat = categoryId ?? null;
+  const goal = goalId ?? null;
+  if ((cat === null) === (goal === null)) {
+    return { error: "Pick a category or a goal" };
+  }
+  return { categoryId: cat, goalId: goal };
+}
 
 export async function clockIn(input: ClockInInput): Promise<Result> {
   const supabase = await createClient();
@@ -30,12 +44,15 @@ export async function clockIn(input: ClockInInput): Promise<Result> {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
+  const axis = resolveAxis(input.categoryId, input.goalId);
+  if ("error" in axis) return axis;
+
   const { error } = await supabase.from("sessions").insert({
     user_id: user.id,
-    category_id: input.categoryId,
+    category_id: axis.categoryId,
+    goal_id: axis.goalId,
     task_name: input.taskName.trim(),
     description: input.description?.trim() || null,
-    session_plan_id: input.sessionPlanId ?? null,
     started_at: new Date().toISOString(),
     ended_at: null,
   });
@@ -177,7 +194,8 @@ export async function resumeSession(): Promise<Result> {
 }
 
 type CreateSessionInput = {
-  categoryId: string;
+  categoryId?: string | null;
+  goalId?: string | null;
   taskName: string;
   description?: string;
   startedAt: number; // ms
@@ -191,9 +209,13 @@ export async function createSession(input: CreateSessionInput): Promise<Result> 
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
+  const axis = resolveAxis(input.categoryId, input.goalId);
+  if ("error" in axis) return axis;
+
   const { error } = await supabase.from("sessions").insert({
     user_id: user.id,
-    category_id: input.categoryId,
+    category_id: axis.categoryId,
+    goal_id: axis.goalId,
     task_name: input.taskName.trim(),
     description: input.description?.trim() || null,
     started_at: new Date(input.startedAt).toISOString(),
@@ -202,11 +224,15 @@ export async function createSession(input: CreateSessionInput): Promise<Result> 
 
   if (error) return { error: error.message };
   revalidatePath("/clock");
+  revalidatePath("/goals");
   return { ok: true };
 }
 
 type UpdateSessionPatch = {
-  categoryId?: string;
+  // Provide categoryId OR goalId to switch a session's axis (the other is set
+  // to null). Omit both to leave the axis untouched (e.g. a notes-only save).
+  categoryId?: string | null;
+  goalId?: string | null;
   taskName?: string;
   description?: string;
   startedAt?: number;
@@ -219,7 +245,12 @@ export async function updateSession(
 ): Promise<Result> {
   const supabase = await createClient();
   const update: Record<string, unknown> = {};
-  if (patch.categoryId !== undefined) update.category_id = patch.categoryId;
+  if (patch.categoryId !== undefined || patch.goalId !== undefined) {
+    const axis = resolveAxis(patch.categoryId, patch.goalId);
+    if ("error" in axis) return axis;
+    update.category_id = axis.categoryId;
+    update.goal_id = axis.goalId;
+  }
   if (patch.taskName !== undefined) update.task_name = patch.taskName.trim();
   if (patch.description !== undefined) {
     update.description = patch.description.trim() || null;
@@ -234,6 +265,7 @@ export async function updateSession(
   const { error } = await supabase.from("sessions").update(update).eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/clock");
+  revalidatePath("/goals");
   return { ok: true };
 }
 
@@ -242,5 +274,6 @@ export async function deleteSession(id: string): Promise<Result> {
   const { error } = await supabase.from("sessions").delete().eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/clock");
+  revalidatePath("/goals");
   return { ok: true };
 }

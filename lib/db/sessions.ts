@@ -6,6 +6,7 @@ import type { Session } from "@/lib/storage";
 type SessionRow = {
   id: string;
   category_id: string | null;
+  goal_id: string | null;
   session_plan_id: string | null;
   task_name: string;
   description: string | null;
@@ -18,12 +19,13 @@ type SessionRow = {
 // Columns selected for every session read. Single constant so the pause
 // columns can't be forgotten on a new query.
 const SESSION_COLUMNS =
-  "id, category_id, session_plan_id, task_name, description, started_at, ended_at, paused_ms, paused_since";
+  "id, category_id, goal_id, session_plan_id, task_name, description, started_at, ended_at, paused_ms, paused_since";
 
 function rowToSession(row: SessionRow): Session {
   return {
     id: row.id,
     categoryId: row.category_id,
+    goalId: row.goal_id,
     sessionPlanId: row.session_plan_id,
     taskName: row.task_name,
     description: row.description ?? undefined,

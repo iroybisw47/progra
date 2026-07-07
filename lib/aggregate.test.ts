@@ -17,6 +17,7 @@ function sess(over: Partial<Session> = {}): Session {
   return {
     id: `s${idc++}`,
     categoryId: "c1",
+    goalId: null,
     sessionPlanId: null,
     taskName: "t",
     startedAt: 0,
@@ -72,20 +73,15 @@ describe("aggregateRange (by category)", () => {
 });
 
 describe("aggregateRangeByGoal", () => {
-  const planToGoal = new Map([
-    ["p1", "g1"],
-    ["p2", "g2"],
-  ]);
-
-  it("maps sessions to goals via plan; everything else is untracked", () => {
+  it("sums sessions by goalId directly; goal-less sessions are untracked", () => {
     const d = new Date(2026, 5, 10, 12).getTime();
     const rows = [
-      ended(d, 2, { sessionPlanId: "p1" }),
-      ended(d, 1, { sessionPlanId: "p2" }),
-      ended(d, 3, { sessionPlanId: null }), // no plan
-      ended(d, 1, { sessionPlanId: "pX" }), // unknown plan
+      ended(d, 2, { goalId: "g1" }),
+      ended(d, 1, { goalId: "g2" }),
+      ended(d, 3, { goalId: null }), // category clock-in
+      ended(d, 1, { goalId: null, categoryId: null }), // uncategorized
     ];
-    const r = aggregateRangeByGoal(rows, planToGoal, JUN_START, JUN_END, JUN_END);
+    const r = aggregateRangeByGoal(rows, JUN_START, JUN_END, JUN_END);
     expect(r.perGoal.get("g1")).toBe(2 * HOUR);
     expect(r.perGoal.get("g2")).toBe(1 * HOUR);
     expect(r.untracked).toBe(4 * HOUR);
@@ -110,29 +106,25 @@ describe("month boundary: a straddling session counts once, by end instant", () 
 
 describe("reconciliation: a year equals the sum of its 12 months", () => {
   it("every session lands in exactly one month; totals match the year", () => {
-    const planToGoal = new Map([
-      ["p1", "g1"],
-      ["p2", "g2"],
-    ]);
     const sessions: Session[] = [
-      ended(new Date(2026, 0, 1, 0, 30).getTime(), 0.5, { sessionPlanId: "p1" }),
-      ended(new Date(2026, 0, 31, 23, 30).getTime(), 1, { sessionPlanId: "p2" }),
+      ended(new Date(2026, 0, 1, 0, 30).getTime(), 0.5, { goalId: "g1" }),
+      ended(new Date(2026, 0, 31, 23, 30).getTime(), 1, { goalId: "g2" }),
       // starts in Jan, ENDS Feb 1 → belongs to February:
-      ended(new Date(2026, 1, 1, 0, 10).getTime(), 1, { sessionPlanId: "p1" }),
-      ended(new Date(2026, 5, 15, 12).getTime(), 2, { sessionPlanId: null }),
-      ended(new Date(2026, 11, 31, 23, 59).getTime(), 1.5, { sessionPlanId: "p2" }),
+      ended(new Date(2026, 1, 1, 0, 10).getTime(), 1, { goalId: "g1" }),
+      ended(new Date(2026, 5, 15, 12).getTime(), 2, { goalId: null }),
+      ended(new Date(2026, 11, 31, 23, 59).getTime(), 1.5, { goalId: "g2" }),
     ];
 
     const yStart = startOfYear(new Date(2026, 0, 1)).getTime();
     const yEnd = endOfYear(new Date(2026, 0, 1)).getTime();
-    const year = aggregateRangeByGoal(sessions, planToGoal, yStart, yEnd, yEnd);
+    const year = aggregateRangeByGoal(sessions, yStart, yEnd, yEnd);
 
     const monthPerGoal = new Map<string, number>();
     let monthUntracked = 0;
     for (let m = 0; m < 12; m++) {
       const mStart = startOfMonth(new Date(2026, m, 1)).getTime();
       const mEnd = endOfMonth(new Date(2026, m, 1)).getTime();
-      const r = aggregateRangeByGoal(sessions, planToGoal, mStart, mEnd, mEnd);
+      const r = aggregateRangeByGoal(sessions, mStart, mEnd, mEnd);
       for (const [g, ms] of r.perGoal) {
         monthPerGoal.set(g, (monthPerGoal.get(g) ?? 0) + ms);
       }

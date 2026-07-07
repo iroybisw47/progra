@@ -4,6 +4,7 @@ import { ChevronRightIcon } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { GoalProgressBar } from "@/components/goal-progress";
+import { HomeActions } from "@/components/home-actions";
 import { MissedBlocksCard } from "@/components/missed-blocks-card";
 import { WeeklyHabits } from "@/components/weekly-habits";
 import { sweepPastBlocks } from "@/app/actions/scheduled-blocks";
@@ -166,14 +167,14 @@ async function SignedInDashboard({ email }: { email: string }) {
   const weekly = aggregateWeek(sessions, events, now.getTime());
   const categoryBreakdown = buildCategoryBreakdown(
     weekly.perCategory,
-    categories
+    categories,
+    goals
   );
   const maxCatMs = categoryBreakdown[0]?.ms ?? 0;
 
   // Goal progress reuses the same `now` so per-session attribution matches
-  // the category bars above.
-  const planToGoal = new Map(plans.map((p) => [p.id, p.goalId] as const));
-  const goalWeekly = aggregateWeekByGoal(sessions, planToGoal, now.getTime());
+  // the category bars above (goal clock-ins also surface as "Goal:" rows there).
+  const goalWeekly = aggregateWeekByGoal(sessions, now.getTime());
   const goalBreakdown = goals
     .map((g) => ({
       id: g.id,
@@ -293,11 +294,6 @@ async function SignedInDashboard({ email }: { email: string }) {
                   actualMs={row.actualMs}
                 />
               ))}
-              {goalWeekly.untracked > 0 && (
-                <p className="text-muted-foreground text-xs">
-                  Untracked this week — {formatHours(goalWeekly.untracked)}
-                </p>
-              )}
             </CardContent>
           </Card>
         )}
@@ -308,6 +304,10 @@ async function SignedInDashboard({ email }: { email: string }) {
           weekStart={startDate}
           today={today}
         />
+
+        {/* Calendar actions: short explanation + a small button each. Moved
+            here from the Clock screen; sits just above the profile card. */}
+        <HomeActions />
 
         <Card>
           <CardHeader>

@@ -12,7 +12,6 @@ import { listCategories } from "@/lib/db/categories";
 import { listActiveGoals } from "@/lib/db/goals";
 import { listActiveHabits, listCompletionsInRange } from "@/lib/db/habits";
 import { listBlocksInRange } from "@/lib/db/scheduled-blocks";
-import { listPlansForGoals } from "@/lib/db/session-plans";
 import { listSessionsInRange } from "@/lib/db/sessions";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -64,10 +63,6 @@ export async function computeWeekRecap(
   weekEndMs: number
 ): Promise<WeekRecap> {
   const goals = await listActiveGoals();
-  const plans =
-    goals.length > 0
-      ? await listPlansForGoals(goals.map((g) => g.id))
-      : [];
   const categories = await listCategories();
 
   const startLocalDate = formatLocalDate(new Date(weekStartMs));
@@ -86,8 +81,7 @@ export async function computeWeekRecap(
   // to the end of that week, not artificially clipped. For current-week
   // recap, the real now lands within the week and acts normally.
   const aggregateNow = Math.min(Date.now(), weekEndMs);
-  const planToGoal = new Map(plans.map((p) => [p.id, p.goalId] as const));
-  const { perGoal } = aggregateWeekByGoal(sessions, planToGoal, aggregateNow);
+  const { perGoal } = aggregateWeekByGoal(sessions, aggregateNow);
 
   // Category axis: clocked-in sessions + Google Calendar events (uncategorized
   // events land in the Uncategorized bucket). The complete time-spent view,
@@ -99,9 +93,11 @@ export async function computeWeekRecap(
     weekEndMs,
     aggregateNow
   );
-  const categoryRows = buildCategoryBreakdown(perCategory, categories).filter(
-    (r) => r.ms > 0
-  );
+  const categoryRows = buildCategoryBreakdown(
+    perCategory,
+    categories,
+    goals
+  ).filter((r) => r.ms > 0);
 
   const goalRows: RecapGoalRow[] = goals
     .map((g) => {
