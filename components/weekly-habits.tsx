@@ -88,7 +88,12 @@ export function WeeklyHabits({ habits, completions, weekStart, today }: Props) {
   const dayDates = Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i));
   const countsByDay = dayDates.map((d) => completionsByDate.get(d)?.size ?? 0);
   const totalCompletions = countsByDay.reduce((a, b) => a + b, 0);
-  const avgPerDay = totalCompletions / 7;
+  // Average over the days that have actually happened (Mon..today, inclusive),
+  // not the full 7 — mid-week the denominator shouldn't include days that
+  // haven't occurred yet. Clamped to ≥1 so a stray future weekStart can't
+  // divide by zero. Lexical `<=` is chronological for YYYY-MM-DD.
+  const daysElapsed = Math.max(1, dayDates.filter((d) => d <= today).length);
+  const avgPerDay = totalCompletions / daysElapsed;
 
   // Top habits by completion count this week. Tie-break by createdAt ASC.
   const completionsByHabit = new Map<string, number>();

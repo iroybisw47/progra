@@ -1,4 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { CategoryMarker } from "@/components/category-marker";
 import { GoalProgressBar } from "@/components/goal-progress";
 import type { WeekRecap } from "@/lib/db/recap";
 
@@ -28,33 +29,20 @@ function formatWeekRange(startMs: number, endMs: number): string {
 // Pure presentational card designed to look complete as a standalone
 // screenshot — controls live outside (in RecapClient). More whitespace
 // than other surfaces; calm, non-graded tone is the product requirement.
+// Leads with total tracked time across categories; goals are secondary.
 export function RecapCard({ recap }: { recap: WeekRecap }) {
-  const goalCount = recap.goalRows.length;
   const range = formatWeekRange(recap.weekStartMs, recap.weekEndMs);
-  const hasFocus = recap.totalFocusedMs > 0;
+  const hasTracked = recap.totalTrackedMs > 0;
   const maxCategoryMs = recap.categoryRows[0]?.ms ?? 0;
+  const categoryCount = recap.categoryRows.length;
+  const goalCount = recap.goalRows.length;
 
-  const goalCountLabel =
-    goalCount === 0
-      ? "no active goals"
-      : goalCount === 1
-        ? "across 1 goal"
-        : `across ${goalCount} goals`;
-
-  // Only show non-zero block counts — keeps the "didn't happen" line out of
-  // the recap when there's nothing to mention.
-  const blockSegments: string[] = [];
-  if (recap.blocksDone > 0) {
-    blockSegments.push(`${recap.blocksDone} done`);
-  }
-  if (recap.blocksMoved > 0) {
-    blockSegments.push(`${recap.blocksMoved} re-slotted`);
-  }
-  if (recap.blocksMissed > 0) {
-    blockSegments.push(
-      `${recap.blocksMissed} didn't happen`
-    );
-  }
+  const trackedLabel =
+    categoryCount === 0
+      ? "in total this week"
+      : categoryCount === 1
+        ? "in total across 1 category"
+        : `in total across ${categoryCount} categories`;
 
   return (
     <Card className="overflow-hidden">
@@ -67,36 +55,20 @@ export function RecapCard({ recap }: { recap: WeekRecap }) {
           <h2 className="text-lg font-medium tracking-tight">{range}</h2>
         </div>
 
-        {/* Hero */}
+        {/* Hero — all tracked time (sessions + calendar) */}
         <div className="flex flex-col items-center gap-1.5 text-center">
           <div className="font-mono text-5xl tabular-nums tracking-tight">
-            {formatHours(recap.totalFocusedMs)}
+            {formatHours(recap.totalTrackedMs)}
           </div>
-          <div className="text-muted-foreground text-sm">
-            focused {goalCountLabel}
-          </div>
+          <div className="text-muted-foreground text-sm">{trackedLabel}</div>
         </div>
-
-        {/* Per-goal bars */}
-        {goalCount > 0 && (
-          <div className="flex flex-col gap-3">
-            {recap.goalRows.map((row) => (
-              <GoalProgressBar
-                key={row.id}
-                title={row.title}
-                quotaHours={row.quotaHours}
-                actualMs={row.actualMs}
-              />
-            ))}
-          </div>
-        )}
 
         {/* By category — sessions + calendar, incl. Uncategorized. Width
             proportional to the largest category. Descriptive, no quota line. */}
-        {recap.categoryRows.length > 0 && (
+        {categoryCount > 0 && (
           <div className="flex flex-col gap-3">
             <span className="text-muted-foreground text-[10px] uppercase tracking-[0.2em]">
-              By category · {formatHours(recap.totalTrackedMs)} tracked
+              By category · {formatHours(recap.totalTrackedMs)}
             </span>
             {recap.categoryRows.map((row) => (
               <div
@@ -105,13 +77,7 @@ export function RecapCard({ recap }: { recap: WeekRecap }) {
               >
                 <div className="flex items-baseline justify-between gap-2 text-sm">
                   <span className="flex items-center gap-1.5 truncate">
-                    {row.color && (
-                      <span
-                        aria-hidden
-                        className="size-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: row.color }}
-                      />
-                    )}
+                    <CategoryMarker isGoal={row.isGoal} color={row.color} />
                     <span className="truncate">{row.name}</span>
                   </span>
                   <span className="text-muted-foreground shrink-0 font-mono tabular-nums">
@@ -134,33 +100,20 @@ export function RecapCard({ recap }: { recap: WeekRecap }) {
           </div>
         )}
 
-        {/* Counts micro-row */}
-        {(recap.sessionsCompleted > 0 ||
-          recap.habitChecks > 0 ||
-          blockSegments.length > 0) && (
-          <div className="text-muted-foreground flex flex-col items-center gap-1 text-center text-sm">
-            {(recap.sessionsCompleted > 0 || recap.habitChecks > 0) && (
-              <span>
-                {recap.sessionsCompleted > 0 && (
-                  <>
-                    {recap.sessionsCompleted}{" "}
-                    {recap.sessionsCompleted === 1 ? "session" : "sessions"}
-                  </>
-                )}
-                {recap.sessionsCompleted > 0 && recap.habitChecks > 0 && (
-                  <> · </>
-                )}
-                {recap.habitChecks > 0 && (
-                  <>
-                    {recap.habitChecks} habit{" "}
-                    {recap.habitChecks === 1 ? "check" : "checks"}
-                  </>
-                )}
-              </span>
-            )}
-            {blockSegments.length > 0 && (
-              <span>{blockSegments.join(" · ")}</span>
-            )}
+        {/* By goal — quota bars, after the category view */}
+        {goalCount > 0 && (
+          <div className="flex flex-col gap-3">
+            <span className="text-muted-foreground text-[10px] uppercase tracking-[0.2em]">
+              By goal · {formatHours(recap.totalFocusedMs)} focused
+            </span>
+            {recap.goalRows.map((row) => (
+              <GoalProgressBar
+                key={row.id}
+                title={row.title}
+                quotaHours={row.quotaHours}
+                actualMs={row.actualMs}
+              />
+            ))}
           </div>
         )}
 
@@ -176,7 +129,7 @@ export function RecapCard({ recap }: { recap: WeekRecap }) {
         {/* Closing */}
         <div className="flex flex-col items-center gap-1 pt-2 text-center">
           <p className="text-sm">
-            {hasFocus
+            {hasTracked
               ? "That’s a wrap on your week."
               : "A quiet week. Onward."}
           </p>

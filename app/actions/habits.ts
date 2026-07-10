@@ -2,24 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
+import { CATEGORY_COLORS, isCategoryColor } from "@/lib/category-colors";
 import { createClient } from "@/lib/supabase/server";
 import { todayInTimeZone } from "@/lib/dates";
 
 type Result = { ok: true } | { error: string };
-
-// Small auto-assign palette. Cycles by existing habit count. Soft/desaturated
-// to match the warm redesign (no alarmist red). Existing habits keep the color
-// stored at creation time; this only affects newly added habits.
-const PALETTE = [
-  "#b07a52", // clay
-  "#6e84a8", // periwinkle
-  "#6e9277", // sage
-  "#c2a24e", // gold
-  "#9d7fa0", // muted plum
-  "#5f8c8c", // muted teal
-  "#c08a6a", // terracotta
-  "#8a9a6e", // olive
-];
 
 export async function createHabit(
   name: string,
@@ -34,13 +21,15 @@ export async function createHabit(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
+  // Auto-assign from the shared 12-swatch palette (same one categories use),
+  // cycling by existing habit count. Editable afterwards via updateHabit.
   let chosenColor: string | null = color ?? null;
   if (!chosenColor) {
     const { count } = await supabase
       .from("habits")
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id);
-    chosenColor = PALETTE[(count ?? 0) % PALETTE.length];
+    chosenColor = CATEGORY_COLORS[(count ?? 0) % CATEGORY_COLORS.length].value;
   }
 
   const { error } = await supabase
@@ -49,6 +38,45 @@ export async function createHabit(
 
   if (error) return { error: error.message };
   revalidatePath("/habits");
+  revalidatePath("/");
+  return { ok: true };
+}
+
+type UpdateHabitPatch = {
+  name?: string;
+  // A palette hex value, or null to clear. Omit to leave untouched.
+  color?: string | null;
+};
+
+export async function updateHabit(
+  habitId: string,
+  patch: UpdateHabitPatch
+): Promise<Result> {
+  const update: Record<string, unknown> = {};
+
+  if (patch.name !== undefined) {
+    const trimmed = patch.name.trim();
+    if (!trimmed) return { error: "Name required" };
+    update.name = trimmed;
+  }
+  if (patch.color !== undefined) {
+    if (patch.color !== null && !isCategoryColor(patch.color)) {
+      return { error: "Pick a color from the palette" };
+    }
+    update.color = patch.color;
+  }
+  if (Object.keys(update).length === 0) return { ok: true };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("habits")
+    .update(update)
+    .eq("id", habitId);
+  if (error) return { error: error.message };
+
+  // Habits render on /habits and the home dashboard.
+  revalidatePath("/habits");
+  revalidatePath("/");
   return { ok: true };
 }
 
@@ -60,6 +88,7 @@ export async function archiveHabit(habitId: string): Promise<Result> {
     .eq("id", habitId);
   if (error) return { error: error.message };
   revalidatePath("/habits");
+  revalidatePath("/");
   return { ok: true };
 }
 

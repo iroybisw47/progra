@@ -3,18 +3,29 @@
 import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { XIcon } from "lucide-react";
+import { PencilIcon, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ColorSwatches } from "@/components/color-swatches";
 import { WeeklyHabits } from "@/components/weekly-habits";
 
 import {
   archiveHabit,
   createHabit,
   toggleHabitCompletion,
+  updateHabit,
 } from "@/app/actions/habits";
 import type { Habit, HabitCompletion } from "@/lib/db/habits";
 
@@ -36,6 +47,11 @@ export function HabitsClient({
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [name, setName] = useState("");
+  // Habit edit dialog: rename + palette color, same pattern as the clock
+  // page's category editor. Draft state seeded when the pencil opens it.
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editColor, setEditColor] = useState<string | null>(null);
 
   // Today's status is derived from the week's completions, not a separate fetch.
   const todayCompletedSet = new Set(
@@ -83,6 +99,30 @@ export function HabitsClient({
       }
       setName("");
       toast.success(`Added ${trimmed}`);
+      router.refresh();
+    });
+  }
+
+  function openHabitEdit(habit: Habit) {
+    setEditingHabit(habit);
+    setEditName(habit.name);
+    setEditColor(habit.color);
+  }
+
+  function handleSaveHabit() {
+    if (!editingHabit) return;
+    const trimmed = editName.trim();
+    if (!trimmed) return;
+    const id = editingHabit.id;
+    const color = editColor;
+    startTransition(async () => {
+      const r = await updateHabit(id, { name: trimmed, color });
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      setEditingHabit(null);
+      toast.success(`Saved ${trimmed}`);
       router.refresh();
     });
   }
@@ -152,6 +192,14 @@ export function HabitsClient({
                     <Button
                       size="icon-sm"
                       variant="ghost"
+                      aria-label={`Edit ${habit.name}`}
+                      onClick={() => openHabitEdit(habit)}
+                    >
+                      <PencilIcon />
+                    </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
                       aria-label={`Archive ${habit.name}`}
                       onClick={() => handleArchive(habit.id, habit.name)}
                     >
@@ -201,6 +249,59 @@ export function HabitsClient({
           </CardContent>
         </Card>
       </main>
+
+      {/* Habit edit — rename + palette color */}
+      <Dialog
+        open={editingHabit !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingHabit(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit habit</DialogTitle>
+            <DialogDescription>
+              Rename it or give it a color.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" htmlFor="habit-name">
+                Name
+              </label>
+              <Input
+                id="habit-name"
+                className="h-10"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSaveHabit();
+                  }
+                }}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium">
+                Color{" "}
+                <span className="text-muted-foreground font-normal">
+                  (tap the selected one to clear)
+                </span>
+              </span>
+              <ColorSwatches value={editColor} onChange={setEditColor} />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>
+              Cancel
+            </DialogClose>
+            <Button disabled={!editName.trim()} onClick={handleSaveHabit}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

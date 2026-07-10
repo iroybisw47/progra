@@ -117,6 +117,50 @@ export function weekRangeInTimeZone(tz: string): {
   return { startDate: fmt(start), endDate: fmt(end) };
 }
 
+// Offset of `tz` from UTC at the instant `utcMs`, in ms (positive east of
+// UTC). Derived by re-reading the instant's wall-clock time in `tz` via Intl.
+function tzOffsetMs(utcMs: number, tz: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(new Date(utcMs));
+  const get = (type: string) =>
+    Number(parts.find((p) => p.type === type)?.value ?? 0);
+  const asUtc = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour"),
+    get("minute"),
+    get("second")
+  );
+  return asUtc - Math.floor(utcMs / 1000) * 1000;
+}
+
+// UTC instant (ms) of local midnight starting the given YYYY-MM-DD in `tz`.
+// Second offset pass handles DST transitions landing near midnight.
+export function zonedDayStartMs(dateStr: string, tz: string): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const wallAsUtc = Date.UTC(y, m - 1, d);
+  const ts = wallAsUtc - tzOffsetMs(wallAsUtc, tz);
+  return wallAsUtc - tzOffsetMs(ts, tz);
+}
+
+// Monday of the week containing the given YYYY-MM-DD, as YYYY-MM-DD.
+// UTC arithmetic so the local tz never reshifts the day math.
+export function mondayOfDateISO(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const anchor = new Date(Date.UTC(y, m - 1, d));
+  anchor.setUTCDate(anchor.getUTCDate() - ((anchor.getUTCDay() + 6) % 7));
+  return `${anchor.getUTCFullYear()}-${String(anchor.getUTCMonth() + 1).padStart(2, "0")}-${String(anchor.getUTCDate()).padStart(2, "0")}`;
+}
+
 // Adds `n` days to a YYYY-MM-DD string, returning a new YYYY-MM-DD string.
 // UTC-based to avoid local-tz day shifts.
 export function addDaysISO(dateStr: string, n: number): string {

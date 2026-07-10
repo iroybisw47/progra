@@ -21,6 +21,9 @@ export type CategoryBreakdownRow = {
   id: string | null;
   name: string;
   color: string | null;
+  // Goal rows render a filled star marker instead of a color dot (see
+  // components/category-marker.tsx).
+  isGoal: boolean;
   ms: number;
 };
 
@@ -40,13 +43,20 @@ export function buildCategoryBreakdown(
     .map(([id, ms]) => {
       if (typeof id === "string" && id.startsWith(GOAL_KEY_PREFIX)) {
         const g = goalById.get(id.slice(GOAL_KEY_PREFIX.length));
-        return { id, name: g ? `Goal: ${g.title}` : "Goal", color: GOAL_ACCENT, ms };
+        return {
+          id,
+          name: g ? `Goal: ${g.title}` : "Goal",
+          color: GOAL_ACCENT,
+          isGoal: true,
+          ms,
+        };
       }
       return {
         id,
         name:
           id === null ? "Uncategorized" : categoryById.get(id)?.name ?? "Uncategorized",
         color: id === null ? null : categoryById.get(id)?.color ?? null,
+        isGoal: false,
         ms,
       };
     })
@@ -57,6 +67,9 @@ export function buildCategoryBreakdown(
 // event that contributed time to the category in the window.
 export type CategoryItem = {
   kind: "session" | "event";
+  // The sessions row id, or the calendar_events row id — what the History
+  // delete affordance passes to deleteSession / excludeEvent.
+  id: string;
   title: string;
   ms: number;
   startMs: number;
@@ -69,8 +82,8 @@ export type CategoryItem = {
 // attribution rules as aggregateRange (sessions by `endedAt`, events by
 // `startMs`, same clipping and skip-if-non-positive), so each category's items
 // sum to its bar. Keyed by category id; null = Uncategorized. Items are sorted
-// by time descending (biggest contributors first). This is what powers the
-// History "tap a category to see where the hours came from" breakdown.
+// most recent first. This is what powers the History "tap a category to see
+// where the hours came from" breakdown.
 export function buildCategoryItems(
   sessions: Session[],
   events: DayEvent[],
@@ -92,6 +105,7 @@ export function buildCategoryItems(
     if (end < rangeStart || end > rangeEnd) continue;
     push(s.goalId ? goalCategoryKey(s.goalId) : s.categoryId, {
       kind: "session",
+      id: s.id,
       title: s.taskName.trim() || "Untitled session",
       ms,
       startMs: s.startedAt,
@@ -105,6 +119,7 @@ export function buildCategoryItems(
     if (e.startMs < rangeStart || e.startMs > rangeEnd) continue;
     push(e.category?.id ?? null, {
       kind: "event",
+      id: e.id,
       title: e.title?.trim() || "(no title)",
       ms,
       startMs: e.startMs,
@@ -112,7 +127,7 @@ export function buildCategoryItems(
     });
   }
 
-  for (const arr of byCat.values()) arr.sort((a, b) => b.ms - a.ms);
+  for (const arr of byCat.values()) arr.sort((a, b) => b.startMs - a.startMs);
   return byCat;
 }
 

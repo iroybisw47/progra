@@ -21,6 +21,8 @@ export async function excludeEvent(eventId: string): Promise<Result> {
   if (error) return { error: error.message };
 
   revalidatePath("/clock");
+  revalidatePath("/history");
+  revalidatePath("/recap");
   return { ok: true };
 }
 

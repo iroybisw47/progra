@@ -34,6 +34,13 @@ export function CategoryPicker({
             />
           }
         >
+          {cat.color && (
+            <span
+              aria-hidden
+              className="size-2 shrink-0 rounded-full"
+              style={{ backgroundColor: cat.color }}
+            />
+          )}
           {cat.name}
         </Badge>
       ))}

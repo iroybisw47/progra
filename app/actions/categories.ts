@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { isCategoryColor } from "@/lib/category-colors";
 import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { error: string; code?: "duplicate" };
@@ -28,6 +29,52 @@ export async function createCategory(name: string): Promise<Result> {
   }
 
   revalidatePath("/clock");
+  return { ok: true };
+}
+
+type UpdateCategoryPatch = {
+  name?: string;
+  // A palette hex value, or null to clear. Omit to leave untouched.
+  color?: string | null;
+};
+
+export async function updateCategory(
+  id: string,
+  patch: UpdateCategoryPatch
+): Promise<Result> {
+  const update: Record<string, unknown> = {};
+
+  if (patch.name !== undefined) {
+    const trimmed = patch.name.trim();
+    if (!trimmed) return { error: "Name required" };
+    update.name = trimmed;
+  }
+  if (patch.color !== undefined) {
+    if (patch.color !== null && !isCategoryColor(patch.color)) {
+      return { error: "Pick a color from the palette" };
+    }
+    update.color = patch.color;
+  }
+  if (Object.keys(update).length === 0) return { ok: true };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("categories")
+    .update(update)
+    .eq("id", id);
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: "Category already exists", code: "duplicate" };
+    }
+    return { error: error.message };
+  }
+
+  // Category names/colors render on every aggregation surface.
+  revalidatePath("/");
+  revalidatePath("/clock");
+  revalidatePath("/history");
+  revalidatePath("/recap");
   return { ok: true };
 }
 

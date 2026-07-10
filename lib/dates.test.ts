@@ -4,9 +4,11 @@ import {
   endOfMonth,
   endOfWeek,
   endOfYear,
+  mondayOfDateISO,
   startOfMonth,
   startOfWeek,
   startOfYear,
+  zonedDayStartMs,
 } from "@/lib/dates";
 
 describe("month boundaries", () => {
@@ -43,6 +45,42 @@ describe("year boundaries", () => {
     const e = endOfYear(anchor);
     expect([s.getMonth(), s.getDate(), s.getHours()]).toEqual([0, 1, 0]);
     expect([e.getMonth(), e.getDate(), e.getMilliseconds()]).toEqual([11, 31, 999]);
+  });
+});
+
+describe("mondayOfDateISO", () => {
+  it("snaps any day of the week to its Monday", () => {
+    expect(mondayOfDateISO("2026-07-09")).toBe("2026-07-06"); // Thu
+    expect(mondayOfDateISO("2026-07-12")).toBe("2026-07-06"); // Sun stays in its week
+    expect(mondayOfDateISO("2026-07-06")).toBe("2026-07-06"); // Mon is a fixpoint
+  });
+
+  it("crosses month boundaries", () => {
+    expect(mondayOfDateISO("2026-07-01")).toBe("2026-06-29"); // Wed → prior June Monday
+  });
+});
+
+describe("zonedDayStartMs", () => {
+  it("resolves local midnight in a fixed-offset zone", () => {
+    // Tokyo is UTC+9 year-round: midnight Jul 6 JST = Jul 5 15:00 UTC.
+    expect(zonedDayStartMs("2026-07-06", "Asia/Tokyo")).toBe(
+      Date.UTC(2026, 6, 5, 15)
+    );
+  });
+
+  it("tracks DST on both sides of a US transition", () => {
+    // US spring-forward is 2026-03-08. Midnight that day is still EST (UTC-5);
+    // the next day it's EDT (UTC-4).
+    expect(zonedDayStartMs("2026-03-08", "America/New_York")).toBe(
+      Date.UTC(2026, 2, 8, 5)
+    );
+    expect(zonedDayStartMs("2026-03-09", "America/New_York")).toBe(
+      Date.UTC(2026, 2, 9, 4)
+    );
+  });
+
+  it("UTC midnight is the identity case", () => {
+    expect(zonedDayStartMs("2026-07-06", "UTC")).toBe(Date.UTC(2026, 6, 6));
   });
 });
 

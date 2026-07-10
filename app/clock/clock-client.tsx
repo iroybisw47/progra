@@ -40,9 +40,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CategoryPicker } from "@/components/category-picker";
+import { ColorSwatches } from "@/components/color-swatches";
 import { EventCategoryDialog } from "@/components/event-category-dialog";
 import { GoalPicker } from "@/components/goal-picker";
 import { SessionDialog, type SessionDialogMode } from "@/components/session-dialog";
+import { WeekBreakdown } from "@/components/week-breakdown";
 
 import { type Category, type Session } from "@/lib/storage";
 import type { DayEvent } from "@/lib/db/calendar-events";
@@ -63,7 +65,11 @@ import {
 } from "@/lib/dates";
 import { formatDuration, formatElapsed } from "@/lib/duration";
 
-import { createCategory, deleteCategory } from "@/app/actions/categories";
+import {
+  createCategory,
+  deleteCategory,
+  updateCategory,
+} from "@/app/actions/categories";
 import {
   clockIn,
   clockOut,
@@ -155,6 +161,11 @@ export function ClockClient({
   const [pickerMode, setPickerMode] = useState<"category" | "goal">("category");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [pendingCategoryDelete, setPendingCategoryDelete] = useState<Category | null>(null);
+  // Category edit dialog: rename + palette color. Draft state is seeded when
+  // the pencil opens the dialog.
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editColor, setEditColor] = useState<string | null>(null);
   const [sessionDialog, setSessionDialog] = useState<SessionDialogState>(null);
   const [eventDialog, setEventDialog] = useState<DayEvent | null>(null);
   // null = week mode; 0..6 (Mon-first) = day mode for that weekday of this week.
@@ -217,7 +228,6 @@ export function ClockClient({
     categories,
     goals
   );
-  const maxCatMs = categoryBreakdown[0]?.ms ?? 0;
 
   function categoryName(id: string | null): string {
     if (id === null) return "Uncategorized";
@@ -341,6 +351,30 @@ export function ClockClient({
       }
       setNewCategoryName("");
       toast.success(`Added ${name}`);
+      router.refresh();
+    });
+  }
+
+  function openCategoryEdit(cat: Category) {
+    setEditingCategory(cat);
+    setEditName(cat.name);
+    setEditColor(cat.color);
+  }
+
+  function handleSaveCategory() {
+    if (!editingCategory) return;
+    const name = editName.trim();
+    if (!name) return;
+    const id = editingCategory.id;
+    const color = editColor;
+    startTransition(async () => {
+      const r = await updateCategory(id, { name, color });
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      setEditingCategory(null);
+      toast.success(`Saved ${name}`);
       router.refresh();
     });
   }
@@ -632,17 +666,39 @@ export function ClockClient({
                 {categories.map((cat) => (
                   <li
                     key={cat.id}
-                    className="flex items-center justify-between py-2"
+                    className="flex items-center justify-between gap-2 py-2"
                   >
-                    <span className="text-sm">{cat.name}</span>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      aria-label={`Delete ${cat.name}`}
-                      onClick={() => setPendingCategoryDelete(cat)}
-                    >
-                      <XIcon />
-                    </Button>
+                    <span className="flex min-w-0 items-center gap-2 text-sm">
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "size-2.5 shrink-0 rounded-full",
+                          !cat.color && "bg-muted ring-border ring-1"
+                        )}
+                        style={
+                          cat.color ? { backgroundColor: cat.color } : undefined
+                        }
+                      />
+                      <span className="truncate">{cat.name}</span>
+                    </span>
+                    <span className="flex shrink-0 items-center">
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label={`Edit ${cat.name}`}
+                        onClick={() => openCategoryEdit(cat)}
+                      >
+                        <PencilIcon />
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label={`Delete ${cat.name}`}
+                        onClick={() => setPendingCategoryDelete(cat)}
+                      >
+                        <XIcon />
+                      </Button>
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -780,32 +836,7 @@ export function ClockClient({
                     No sessions logged yet this week.
                   </p>
                 ) : (
-                  <div className="flex flex-col gap-2">
-                    {categoryBreakdown.map((row) => (
-                      <div
-                        key={row.id ?? "uncategorized"}
-                        className="flex flex-col gap-1"
-                      >
-                        <div className="flex items-baseline justify-between text-sm">
-                          <span>{row.name}</span>
-                          <span className="font-mono tabular-nums text-muted-foreground">
-                            {formatHours(row.ms)}
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full bg-primary/60"
-                            style={{
-                              width:
-                                maxCatMs > 0
-                                  ? `${Math.max(2, (row.ms / maxCatMs) * 100)}%`
-                                  : "0%",
-                            }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <WeekBreakdown rows={categoryBreakdown} />
                 )}
               </>
             )}
@@ -860,6 +891,60 @@ export function ClockClient({
           </Card>
         </Link>
       </main>
+
+      {/* Category edit — rename + palette color */}
+      <Dialog
+        open={editingCategory !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingCategory(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit category</DialogTitle>
+            <DialogDescription>
+              Rename it or give it a color — the color shows up across the
+              week, history and recap breakdowns.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" htmlFor="category-name">
+                Name
+              </label>
+              <Input
+                id="category-name"
+                className="h-10"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSaveCategory();
+                  }
+                }}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium">
+                Color{" "}
+                <span className="text-muted-foreground font-normal">
+                  (tap the selected one to clear)
+                </span>
+              </span>
+              <ColorSwatches value={editColor} onChange={setEditColor} />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>
+              Cancel
+            </DialogClose>
+            <Button disabled={!editName.trim()} onClick={handleSaveCategory}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={pendingCategoryDelete !== null}

@@ -2,17 +2,32 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  XIcon,
 } from "lucide-react";
 
-import { buttonVariants } from "@/components/ui/button";
+import { deleteSession } from "@/app/actions/sessions";
+import { excludeEvent } from "@/app/actions/event-exclusions";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { CategorizePeriodButton } from "@/components/categorize-period-button";
+import { CategoryMarker } from "@/components/category-marker";
 import { SyncCalendarButton } from "@/components/sync-calendar-button";
 import { cn } from "@/lib/utils";
+import type { CategoryItem } from "@/lib/aggregate";
 import type { Rollup } from "@/lib/db/rollups";
 import type { Category } from "@/lib/storage";
 
@@ -58,6 +73,15 @@ function navHref(view: View, param: string): string {
     : `/history?view=month&m=${param}`;
 }
 
+// "Jun 24" — the day an item happened, shown in the expanded breakdown.
+// Client-side formatting for the same locale-drift reason as periodLabel.
+function itemDate(startMs: number): string {
+  return new Date(startMs).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export function HistoryClient({
   view,
   rollup,
@@ -68,7 +92,23 @@ export function HistoryClient({
   categories,
 }: Props) {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<CategoryItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const label = periodLabel(view, rollup.startMs);
+
+  async function handleDelete() {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    // Sessions are our rows — delete for real. Calendar events re-sync from
+    // Google, so "delete" = exclusion (hidden from all Progra totals).
+    const res =
+      pendingDelete.kind === "session"
+        ? await deleteSession(pendingDelete.id)
+        : await excludeEvent(pendingDelete.id);
+    setDeleting(false);
+    setPendingDelete(null);
+    if ("error" in res) toast.error(res.error);
+  }
   const categoryCount = rollup.categoryRows.length;
   const goalCount = rollup.goalRows.length;
   const hasTime = rollup.totalTrackedMs > 0;
@@ -176,13 +216,7 @@ export function HistoryClient({
                         className="flex items-baseline justify-between gap-2 text-left text-sm disabled:cursor-default"
                       >
                         <span className="flex items-center gap-1.5 truncate">
-                          {row.color && (
-                            <span
-                              aria-hidden
-                              className="size-2 shrink-0 rounded-full"
-                              style={{ backgroundColor: row.color }}
-                            />
-                          )}
+                          <CategoryMarker isGoal={row.isGoal} color={row.color} />
                           <span className="truncate">{row.name}</span>
                           {items.length > 0 && (
                             <ChevronDownIcon
@@ -210,19 +244,32 @@ export function HistoryClient({
                       </div>
                       {isOpen && items.length > 0 && (
                         <ul className="mt-1 flex max-h-64 flex-col gap-1.5 overflow-y-auto py-1 pl-3.5">
-                          {items.map((it, i) => (
+                          {items.map((it) => (
                             <li
-                              key={i}
-                              className="flex items-baseline justify-between gap-2 text-xs"
+                              key={it.id}
+                              className="group flex items-baseline justify-between gap-2 text-xs"
                             >
                               <span className="flex min-w-0 items-center gap-1.5">
+                                {/* Hover-reveal on pointer devices; always
+                                    visible on touch (the PWA has no hover). */}
+                                <button
+                                  type="button"
+                                  onClick={() => setPendingDelete(it)}
+                                  aria-label={`Delete ${it.title}`}
+                                  className="text-muted-foreground/60 hover:text-foreground -ml-1 shrink-0 self-center transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100"
+                                >
+                                  <XIcon className="size-3" />
+                                </button>
                                 <span className="truncate">{it.title}</span>
                                 <span className="text-muted-foreground bg-muted shrink-0 rounded px-1 py-px text-[10px] uppercase tracking-wide">
                                   {SOURCE_LABEL[it.source]}
                                 </span>
                               </span>
-                              <span className="text-muted-foreground shrink-0 font-mono tabular-nums">
-                                {formatHours(it.ms)}
+                              <span className="text-muted-foreground flex shrink-0 items-baseline gap-1.5">
+                                <span>{itemDate(it.startMs)}</span>
+                                <span className="font-mono tabular-nums">
+                                  {formatHours(it.ms)}
+                                </span>
                               </span>
                             </li>
                           ))}
@@ -299,6 +346,41 @@ export function HistoryClient({
             )}
           </CardContent>
         </Card>
+
+        {/* Delete confirm */}
+        <Dialog
+          open={pendingDelete !== null}
+          onOpenChange={(open) => {
+            if (!open) setPendingDelete(null);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {pendingDelete?.kind === "session"
+                  ? "Delete session?"
+                  : "Remove event?"}
+              </DialogTitle>
+              <DialogDescription>
+                {pendingDelete?.kind === "session"
+                  ? `"${pendingDelete.title}" will be permanently deleted and removed from all totals.`
+                  : `"${pendingDelete?.title}" will be hidden from Progra and its totals. The event stays on your Google Calendar.`}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose render={<Button variant="outline" />}>
+                Cancel
+              </DialogClose>
+              <Button
+                variant="destructive"
+                disabled={deleting}
+                onClick={handleDelete}
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

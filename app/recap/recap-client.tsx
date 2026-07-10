@@ -47,37 +47,27 @@ export function RecapClient({
     const lines: string[] = [];
     lines.push(`Week of ${range}`);
     lines.push(
-      `${formatHours(recap.totalFocusedMs)} focused${
-        recap.goalRows.length > 0
-          ? recap.goalRows.length === 1
-            ? " on 1 goal"
-            : ` across ${recap.goalRows.length} goals`
+      `${formatHours(recap.totalTrackedMs)} in total${
+        recap.categoryRows.length > 1
+          ? ` across ${recap.categoryRows.length} categories`
           : ""
       }`
     );
+    if (recap.categoryRows.length > 0) {
+      lines.push("");
+      for (const c of recap.categoryRows) {
+        lines.push(`${c.name}: ${formatHours(c.ms)}`);
+      }
+    }
     if (recap.goalRows.length > 0) {
       lines.push("");
+      lines.push(`Goals · ${formatHours(recap.totalFocusedMs)} focused`);
       for (const g of recap.goalRows) {
         const actual = formatHours(g.actualMs);
         const quota = g.quotaHours.toFixed(1);
         const mark = g.status === "hit" ? " ✓" : "";
         lines.push(`${g.title}: ${actual} / ${quota}h${mark}`);
       }
-    }
-    const tail: string[] = [];
-    if (recap.sessionsCompleted > 0) {
-      tail.push(
-        `${recap.sessionsCompleted} ${recap.sessionsCompleted === 1 ? "session" : "sessions"}`
-      );
-    }
-    if (recap.habitChecks > 0) {
-      tail.push(
-        `${recap.habitChecks} habit ${recap.habitChecks === 1 ? "check" : "checks"}`
-      );
-    }
-    if (tail.length > 0) {
-      lines.push("");
-      lines.push(tail.join(" · "));
     }
     return lines.join("\n");
   }

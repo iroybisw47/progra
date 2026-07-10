@@ -275,5 +275,7 @@ export async function deleteSession(id: string): Promise<Result> {
   if (error) return { error: error.message };
   revalidatePath("/clock");
   revalidatePath("/goals");
+  revalidatePath("/history");
+  revalidatePath("/recap");
   return { ok: true };
 }

@@ -1,9 +1,13 @@
-import { startOfWeek, parseLocalDate } from "@/lib/dates";
+import { getProfile } from "@/lib/auth/profile";
+import {
+  addDaysISO,
+  mondayOfDateISO,
+  todayInTimeZone,
+  zonedDayStartMs,
+} from "@/lib/dates";
 import { computeWeekRecap } from "@/lib/db/recap";
 
 import { RecapClient } from "./recap-client";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 type SearchParams = Promise<{ w?: string }>;
 
@@ -13,43 +17,37 @@ export default async function RecapPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  const now = new Date();
-  const todayWeekStart = startOfWeek(now);
+
+  // Week boundaries are computed in the user's stored timezone (the same
+  // source the habits flow trusts). Server-local time is UTC on Vercel, so
+  // the old `startOfWeek(new Date())` approach started the "week" on Sunday
+  // evening for anyone west of UTC.
+  const profile = await getProfile();
+  const tz = profile?.timezone ?? "UTC";
+
+  const currentMonday = mondayOfDateISO(todayInTimeZone(tz));
 
   // ?w=YYYY-MM-DD anchors the recap to that week. Invalid input falls back
   // to the current week silently rather than 404'ing — the recap is a
   // browse surface, not a strict data URL.
-  let anchor = todayWeekStart;
+  let monday = currentMonday;
   if (params.w && /^\d{4}-\d{2}-\d{2}$/.test(params.w)) {
-    const parsed = parseLocalDate(params.w);
-    if (!Number.isNaN(parsed.getTime())) anchor = parsed;
+    monday = mondayOfDateISO(params.w);
   }
 
-  const weekStart = startOfWeek(anchor);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6);
-  weekEnd.setHours(23, 59, 59, 999);
+  // Monday 00:00 through Sunday 23:59:59.999, both in the user's tz.
+  const weekStartMs = zonedDayStartMs(monday, tz);
+  const weekEndMs = zonedDayStartMs(addDaysISO(monday, 7), tz) - 1;
 
-  const recap = await computeWeekRecap(weekStart.getTime(), weekEnd.getTime());
-
-  const isCurrentWeek =
-    weekStart.getTime() === todayWeekStart.getTime();
-  const isFutureWeek = weekStart.getTime() > todayWeekStart.getTime();
-
-  const prevAnchor = new Date(weekStart.getTime() - 7 * DAY_MS);
-  const nextAnchor = new Date(weekStart.getTime() + 7 * DAY_MS);
+  const recap = await computeWeekRecap(weekStartMs, weekEndMs);
 
   return (
     <RecapClient
       recap={recap}
-      isCurrentWeek={isCurrentWeek}
-      isFutureWeek={isFutureWeek}
-      prevWeekParam={formatYmd(prevAnchor)}
-      nextWeekParam={formatYmd(nextAnchor)}
+      isCurrentWeek={monday === currentMonday}
+      isFutureWeek={monday > currentMonday}
+      prevWeekParam={addDaysISO(monday, -7)}
+      nextWeekParam={addDaysISO(monday, 7)}
     />
   );
-}
-
-function formatYmd(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

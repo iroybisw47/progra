@@ -5,6 +5,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { GoalProgressBar } from "@/components/goal-progress";
 import { HomeActions } from "@/components/home-actions";
+import { WeekBreakdown } from "@/components/week-breakdown";
 import { MissedBlocksCard } from "@/components/missed-blocks-card";
 import { WeeklyHabits } from "@/components/weekly-habits";
 import { sweepPastBlocks } from "@/app/actions/scheduled-blocks";
@@ -170,7 +171,6 @@ async function SignedInDashboard({ email }: { email: string }) {
     categories,
     goals
   );
-  const maxCatMs = categoryBreakdown[0]?.ms ?? 0;
 
   // Goal progress reuses the same `now` so per-session attribution matches
   // the category bars above (goal clock-ins also surface as "Goal:" rows there).
@@ -240,41 +240,7 @@ async function SignedInDashboard({ email }: { email: string }) {
                 Nothing logged yet this week.
               </p>
             ) : (
-              <div className="flex flex-col gap-2">
-                {categoryBreakdown.map((row) => (
-                  <div
-                    key={row.id ?? "uncategorized"}
-                    className="flex flex-col gap-1"
-                  >
-                    <div className="flex items-baseline justify-between text-sm">
-                      <span className="flex items-center gap-1.5">
-                        {row.color && (
-                          <span
-                            aria-hidden
-                            className="size-2 shrink-0 rounded-full"
-                            style={{ backgroundColor: row.color }}
-                          />
-                        )}
-                        <span>{row.name}</span>
-                      </span>
-                      <span className="font-mono tabular-nums text-muted-foreground">
-                        {formatHours(row.ms)}
-                      </span>
-                    </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full bg-primary/60"
-                        style={{
-                          width:
-                            maxCatMs > 0
-                              ? `${Math.max(2, (row.ms / maxCatMs) * 100)}%`
-                              : "0%",
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <WeekBreakdown rows={categoryBreakdown} />
             )}
           </CardContent>
         </Card>
@@ -283,7 +249,6 @@ async function SignedInDashboard({ email }: { email: string }) {
           <Card>
             <CardHeader>
               <CardTitle>Goals this week</CardTitle>
-              <CardDescription>Committed vs actual</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               {goalBreakdown.map((row) => (
