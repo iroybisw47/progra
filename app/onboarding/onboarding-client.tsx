@@ -8,10 +8,12 @@ import {
   ClockIcon,
   FlagIcon,
   PlayIcon,
+  SparklesIcon,
 } from "lucide-react";
 
 import { BottomNav } from "@/components/bottom-nav";
 import { GoalProgressBar } from "@/components/goal-progress";
+import { SyncCalendarButton } from "@/components/sync-calendar-button";
 import { WeekBreakdown } from "@/components/week-breakdown";
 import { WeeklyHabits } from "@/components/weekly-habits";
 import { Button } from "@/components/ui/button";
@@ -34,7 +36,7 @@ import type { Habit, HabitCompletion } from "@/lib/db/habits";
 
 const HOUR_MS = 60 * 60 * 1000;
 
-// Login is step 1 of 8 (the real /login page); the wizard starts at 2.
+// Login is step 1 of 9 (the real /login page); the wizard starts at 2.
 type Step =
   | "welcome"
   | "how"
@@ -42,6 +44,7 @@ type Step =
   | "practice"
   | "categories"
   | "tour-home"
+  | "tour-history"
   | "tour-habits";
 
 const STEP_NUM: Record<Step, number> = {
@@ -51,7 +54,8 @@ const STEP_NUM: Record<Step, number> = {
   practice: 5,
   categories: 6,
   "tour-home": 7,
-  "tour-habits": 8,
+  "tour-history": 8,
+  "tour-habits": 9,
 };
 
 function formatHours(ms: number): string {
@@ -91,6 +95,10 @@ type Props = {
   weekStart: string;
   today: string;
   weekRangeLabel: string;
+  monthStartMs: number;
+  monthTotalMs: number;
+  monthCategoryRows: CategoryBreakdownRow[];
+  monthUncategorizedCount: number;
   activeSession: { taskName: string; startedAt: number } | null;
 };
 
@@ -104,6 +112,10 @@ export function OnboardingClient({
   weekStart,
   today,
   weekRangeLabel,
+  monthStartMs,
+  monthTotalMs,
+  monthCategoryRows,
+  monthUncategorizedCount,
   activeSession,
 }: Props) {
   const router = useRouter();
@@ -213,7 +225,7 @@ export function OnboardingClient({
       <TourHome
         homeTour={homeTour}
         onRecapNext={() => setHomeTour("history")}
-        onHistoryNext={() => setStep("tour-habits")}
+        onHistoryNext={() => setStep("tour-history")}
         weeklyTotalMs={weeklyTotalMs}
         categoryBreakdown={categoryBreakdown}
         goalBreakdown={goalBreakdown}
@@ -222,6 +234,18 @@ export function OnboardingClient({
         weekStart={weekStart}
         today={today}
         weekRangeLabel={weekRangeLabel}
+      />
+    );
+  }
+
+  if (step === "tour-history") {
+    return (
+      <TourHistory
+        monthStartMs={monthStartMs}
+        monthTotalMs={monthTotalMs}
+        monthCategoryRows={monthCategoryRows}
+        monthUncategorizedCount={monthUncategorizedCount}
+        onNext={() => setStep("tour-habits")}
       />
     );
   }
@@ -243,7 +267,7 @@ export function OnboardingClient({
     <div key={step} className="flex flex-1 animate-[fade-up_.35s_ease] flex-col">
       <div className="flex h-11 items-center justify-center">
         <span className="text-caption text-xs tracking-[.05em] tabular-nums">
-          {STEP_NUM[step]} of 8
+          {STEP_NUM[step]} of 9
         </span>
       </div>
 
@@ -635,7 +659,7 @@ function TourHome({
           active={homeTour === "history"}
           title="Your yearly history"
           body="Months and years of logged time, by goal and category — the long view of where your hours go."
-          buttonLabel="Go to Habits"
+          buttonLabel="See History"
           onNext={onHistoryNext}
         >
           <Card>
@@ -700,7 +724,98 @@ function TourHome({
   );
 }
 
-// Step 8: the Habits page with the weekly grid spotlighted; finishing stamps
+// Step 8: a History-page replica. Spotlights the two calendar actions in
+// sequence: a LIVE Sync Google Calendar button (real sync — its
+// router.refresh() pulls the fresh month rollup into these props), then a
+// static replica of the Auto-categorize button that lives on /history.
+function TourHistory({
+  monthStartMs,
+  monthTotalMs,
+  monthCategoryRows,
+  monthUncategorizedCount,
+  onNext,
+}: {
+  monthStartMs: number;
+  monthTotalMs: number;
+  monthCategoryRows: CategoryBreakdownRow[];
+  monthUncategorizedCount: number;
+  onNext: () => void;
+}) {
+  const [historyTour, setHistoryTour] = useState<"sync" | "categorize">("sync");
+
+  // Client-side formatting like history-client's periodLabel, so the label
+  // follows the viewer's locale rather than the server's.
+  const monthLabel = new Date(monthStartMs).toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+
+  return (
+    <div className="flex flex-1 animate-[fade-up_.35s_ease] flex-col items-center px-5 pt-8 pb-24">
+      <div className="fixed inset-0 z-[60] bg-[rgba(24,21,16,.5)]" />
+      <main className="flex w-full max-w-md flex-col gap-5">
+        <header className="flex flex-col gap-1">
+          <h1 className="text-3xl font-semibold tracking-tight">History</h1>
+          <p className="text-muted-foreground text-sm">
+            Where your time went, over a longer stretch.
+          </p>
+        </header>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{monthLabel}</CardTitle>
+            <CardDescription>Total tracked time this month.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="font-mono text-3xl tabular-nums">
+              {formatHours(monthTotalMs)}
+            </div>
+            {monthCategoryRows.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                Nothing logged in {monthLabel} yet — syncing your calendar is
+                the fastest way to fill this in.
+              </p>
+            ) : (
+              <WeekBreakdown rows={monthCategoryRows.slice(0, 4)} />
+            )}
+          </CardContent>
+        </Card>
+
+        <Spotlight
+          active={historyTour === "sync"}
+          title="Merge your Google Calendar"
+          body="One tap pulls your events into Progra so meetings and plans count toward your time — no clocking needed. This button is live: try it now if you like."
+          buttonLabel="Next"
+          onNext={() => setHistoryTour("categorize")}
+        >
+          <div className="rounded-md bg-card">
+            <SyncCalendarButton />
+          </div>
+        </Spotlight>
+
+        <Spotlight
+          active={historyTour === "categorize"}
+          title="AI files events for you"
+          body="Synced events get sorted into your categories automatically — your manual picks and keyword rules always win, and a review popup lets you correct anything. You'll find this button right here on the History page."
+          buttonLabel="Go to Habits"
+          onNext={onNext}
+        >
+          <div className="rounded-md bg-card">
+            <Button variant="outline" className="h-11 w-full text-base" disabled>
+              <SparklesIcon />{" "}
+              {monthUncategorizedCount > 0
+                ? `Auto-categorize ${monthUncategorizedCount} uncategorized event${monthUncategorizedCount === 1 ? "" : "s"}`
+                : "Auto-categorize events"}
+            </Button>
+          </div>
+        </Spotlight>
+      </main>
+      <BottomNav activePath="/" />
+    </div>
+  );
+}
+
+// Step 9: the Habits page with the weekly grid spotlighted; finishing stamps
 // onboarded_at and lands on the real Home.
 function TourHabits({
   habits,

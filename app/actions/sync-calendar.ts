@@ -73,5 +73,7 @@ export async function syncCalendar(): Promise<SyncResult> {
   revalidatePath("/history");
   revalidatePath("/recap");
   revalidatePath("/sessions");
+  // The onboarding History tour hosts a live Sync button over the month rollup.
+  revalidatePath("/onboarding");
   return { ok: true, count: rows.length };
 }
