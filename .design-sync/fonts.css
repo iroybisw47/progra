@@ -1,0 +1,11 @@
+/* Progra brand fonts — served by Google Fonts at runtime (the app loads them
+   via next/font; designs load them via this remote import). Weights match
+   app/layout.tsx: Hanken Grotesk 300–700, Newsreader 400–600 + italic. */
+@import url("https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400..600&display=swap");
+
+:root {
+  /* next/font injects these variables in the app; defined here so the token
+     layer (--font-sans/--font-serif in globals.css) resolves in designs. */
+  --font-hanken: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-newsreader: "Newsreader", ui-serif, Georgia, serif;
+}
