@@ -216,3 +216,24 @@
     font-weight: 500;
   }
 }
+
+/* Onboarding wizard: step entry rise + the running-session pulse dot. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}

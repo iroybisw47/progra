@@ -11,6 +11,9 @@ export type Profile = {
   google_provider_token: string | null;
   google_provider_refresh_token: string | null;
   google_token_expires_at: string | null;
+  // Null until the first-run onboarding flow is completed (or after a
+  // "Replay onboarding" reset). Home redirects to /onboarding while null.
+  onboarded_at: string | null;
   created_at: string;
   updated_at: string;
 };

@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  CalendarIcon,
   CheckSquareIcon,
   ClockIcon,
   FlagIcon,
   HomeIcon,
+  SearchIcon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 // 5 tabs; Clock is the raised center FAB.
 const TABS = [
   { href: "/", label: "Home", icon: HomeIcon, center: false, match: (p: string) => p === "/" },
-  { href: "/plan", label: "Plan", icon: CalendarIcon, center: false, match: (p: string) => p.startsWith("/plan") },
+  { href: "/search", label: "Search", icon: SearchIcon, center: false, match: (p: string) => p.startsWith("/search") },
   { href: "/clock", label: "Clock", icon: ClockIcon, center: true, match: (p: string) => p.startsWith("/clock") },
   { href: "/goals", label: "Goals", icon: FlagIcon, center: false, match: (p: string) => p.startsWith("/goals") },
   { href: "/habits", label: "Habits", icon: CheckSquareIcon, center: false, match: (p: string) => p.startsWith("/habits") },
@@ -23,8 +23,17 @@ const TABS = [
 
 const INACTIVE = "text-[#aba293] dark:text-[#837c6e]";
 
-export function BottomNav() {
-  const pathname = usePathname();
+export function BottomNav({ activePath }: { activePath?: string } = {}) {
+  // Nullish outside a Next router (e.g. standalone previews) — match against
+  // an empty path instead of crashing in the tab matchers.
+  const realPathname = usePathname() ?? "";
+  // The onboarding wizard owns the whole viewport (steps have a bottom-pinned
+  // CTA where the nav would sit). Its tour screens opt back in by passing the
+  // path they're recreating, which also drives the active-tab highlight.
+  if (realPathname.startsWith("/onboarding") && activePath === undefined) {
+    return null;
+  }
+  const pathname = activePath ?? realPathname;
   return (
     <nav
       aria-label="Primary"
