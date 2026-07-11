@@ -11,7 +11,7 @@
 > first. When code and this doc disagree, the code wins — and the doc should be
 > fixed in the same session.
 >
-> _Last updated: 2026-06-27_
+> _Last updated: 2026-07-10_
 
 ---
 
@@ -20,10 +20,11 @@
 A personal, single-user productivity PWA (installs to the iPhone home screen).
 It unifies four loops:
 
-1. **Plan** — set weekly goals with hour quotas, break them into ordered session
-   plans, and auto-place them into calendar time blocks for the week.
-2. **Clock** — clock in/out (with pause/resume) on a task, optionally attached to
-   a planned session, accumulating real worked time.
+1. **Goals** — set weekly goals with hour quotas and track actual time against
+   them. (The former weekly *planner* — session plans auto-placed into calendar
+   blocks — was removed 2026-07-10; see Changelog.)
+2. **Clock** — clock in/out (with pause/resume) on a task, optionally attributed
+   to a goal, accumulating real worked time.
 3. **Track** — pull Google Calendar events in, categorize everything, and see
    per-category / per-goal time across week / month / year.
 4. **Reflect** — a Sunday recap and a history/rollups view.
@@ -104,9 +105,10 @@ All feature routes are auth-gated and share the `BottomNav` (rendered in
 | `/login` | `app/login/page.tsx` | `google-sign-in-button.tsx` | Google OAuth entry. |
 | `/auth/callback` | `route.ts` | — | OAuth code exchange → session. |
 | `/auth/signout` | `route.ts` | — | Sign out. |
-| `/plan` | `plan/page.tsx` | `plan-client.tsx` | Weekly plan grid; greedy auto-placement of blocks. |
+| `/onboarding` | `onboarding/page.tsx` | `onboarding-client.tsx` | First-run wizard (goal → practice clock-in → tour). Home redirects here while `profiles.onboarded_at` is null; "Replay onboarding" on Home re-enters it. |
+| `/search` | `search/page.tsx` | — | Placeholder ("Coming soon") for a future search surface. |
 | `/clock` | `clock/page.tsx` | `clock-client.tsx` | Clock in/out/pause; live timer; week strip. |
-| `/goals` | `goals/page.tsx` | `goals-client.tsx` | Weekly quotas, ordered session plans, progress. |
+| `/goals` | `goals/page.tsx` | `goals-client.tsx` | Weekly quotas and progress. |
 | `/calendar` | `calendar/page.tsx` | `calendar-client.tsx` | Google Calendar events, categorized. |
 | `/habits` | `habits/page.tsx` | `habits-client.tsx` | Habit tracker (per-day, tz-aware). |
 | `/history` | `history/page.tsx` | `history-client.tsx` | Month/year rollups, category axis, session browser. |
@@ -125,12 +127,10 @@ is the interactive shell. `loading.tsx` provides route-level skeletons.
 
 | Table | Owner module | Key columns / notes |
 |---|---|---|
-| `profiles` | `lib/auth/profile.ts`, `lib/google/oauth.ts` | One row per user. Stores Google `provider_token`, `provider_refresh_token`, `token_expires_at`, and the user's IANA timezone. |
+| `profiles` | `lib/auth/profile.ts`, `lib/google/oauth.ts` | One row per user (created by a Supabase trigger on auth signup). Stores Google `provider_token`, `provider_refresh_token`, `token_expires_at`, the user's IANA timezone, and `onboarded_at` (null until the first-run wizard completes; Home gates on it). |
 | `categories` | `lib/db/categories.ts` | `name`, `color`, `rules` (JSON, `titleContains[]` for auto-categorization). |
-| `sessions` | `lib/db/sessions.ts` | The clock-in record. `started_at`/`ended_at` (real wall-clock), `paused_ms` (banked), `paused_since` (set only while paused), `category_id`, `session_plan_id`. **Partial unique index** enforces one active (`ended_at IS NULL`) session per user → insert error `23505`. |
+| `sessions` | `lib/db/sessions.ts` | The clock-in record. `started_at`/`ended_at` (real wall-clock), `paused_ms` (banked), `paused_since` (set only while paused), `category_id`, `goal_id`. **Partial unique index** enforces one active (`ended_at IS NULL`) session per user → insert error `23505`. |
 | `goals` | `lib/db/goals.ts` | `weekly_quota_hours`, active flag, ordering. |
-| `session_plans` | `lib/db/session-plans.ts` | Ordered tasks under a goal. `status` (`planned`/`done`), `target_hours`, `sort_order`, `goal_id`. Flipped to `done` automatically at clock-out. |
-| `scheduled_blocks` | `lib/db/scheduled-blocks.ts` | Time blocks placed onto the week by the planner. May carry `session_plan_id` (preselects a plan when you clock in inside the block). |
 | `calendar_events` | `lib/db/calendar-events.ts` | Synced Google events. Upsert keyed on `(user_id, google_event_id)`. All-day + cancelled events skipped on sync. |
 | `event_categorizations` | `app/actions/event-categorizations.ts` | Manual category overrides for specific calendar events. |
 | `event_exclusions` | `app/actions/event-exclusions.ts` | Hidden/excluded calendar events. |
@@ -151,7 +151,7 @@ numbers reconcile across every surface.
 
 - **`lib/aggregate.ts` — attribution engine.** `aggregateRange` /
   `aggregateWeek` sum per-category time; `aggregateRangeByGoal` /
-  `aggregateWeekByGoal` sum per-goal time via `session_plan_id → plan → goal`.
+  `aggregateWeekByGoal` sum per-goal time directly via the session's `goal_id`.
   **Invariant:** a session is attributed to the single instant of its `end`
   (`endedAt ?? now`); events to their `start`. That single-instant rule is what
   makes a session land in exactly one week AND one month AND one year — never
@@ -162,13 +162,6 @@ numbers reconcile across every surface.
 - **`lib/categorize.ts` — auto-categorization.** First category whose
   `rules.titleContains` substring-matches the title (case-insensitive). Order =
   priority; caller sorts first.
-
-- **`lib/placement.ts` — greedy weekly planner.** Pure. Takes goals + plans +
-  busy intervals + waking window → proposed blocks. Round-robins across goals so
-  none monopolizes early slots; spreads across days (fewest-blocks-per-day
-  tiebreaker, then earliest day); never overlaps busy time. `proposeReslotSlots`
-  reuses the same gap-finder to suggest re-slots for missed blocks. Explicitly
-  *not* a solver.
 
 - **`lib/dates.ts` — week/month/year boundaries.** Mon-first weeks. Local-time
   boundaries with inclusive ends (`23:59:59.999`) — the *same* convention across
@@ -236,7 +229,6 @@ numbers reconcile across every surface.
 - `lib/hooks.ts`, `lib/duration.ts`, `lib/storage.ts` (now types-only),
   `lib/aggregate.ts` goal/category reconciliation, and the recap/rollups read
   helpers are summarized but not exhaustively documented.
-- DST behavior on transition weeks is knowingly approximate in `lib/placement.ts`.
 
 ---
 
@@ -245,6 +237,28 @@ numbers reconcile across every surface.
 > Append one entry per work session / feature set. Keep it terse: what changed
 > architecturally, why, and any new invariant or migration. Seeded from git
 > history; entries before this file existed are reconstructed.
+
+### 2026-07-10 — First-run onboarding
+- `/onboarding` wizard (from the Claude Design handoff) reusing real actions:
+  `createGoal`, `clockIn`/`clockOut`, `completeOnboarding`. Gate lives in
+  Home's server component on `profiles.onboarded_at` (new nullable column,
+  added via Supabase SQL); OAuth callback default landing moved `/clock → /`
+  so new users always hit the gate. Replay switch on Home's Profile card
+  nulls the stamp for end-to-end retesting. `BottomNav` hides on `/onboarding`
+  unless a tour screen passes `activePath`.
+
+### 2026-07-10 — Weekly planner removed
+- Deleted the `/plan` tab and its whole subsystem: `scheduled_blocks` +
+  `session_plans` (actions + db readers), the greedy placement engine
+  (`lib/placement.ts`), the missed-block sweep/reslot pipeline, and Home's
+  "Needs reslotting" card. `PlanPicker` and the session-plan CRUD actions were
+  already dead code. `sessions.session_plan_id` (vestigial — read once at
+  clock-out, never written) removed from types, `SESSION_COLUMNS`, and the
+  clock-out flow; goal attribution was already direct via `sessions.goal_id`.
+  `listBusyTimes`/`BusyInterval` dropped from `lib/db/calendar-events.ts`
+  (planner-only). Nav is 4 tabs. The `scheduled_blocks` / `session_plans`
+  tables and the `sessions.session_plan_id` column are dropped in Supabase
+  (manual SQL — schema is not in-repo).
 
 ### 2026-06-27 — Architecture reference created
 - Established this document. Captured the current layered architecture (proxy →

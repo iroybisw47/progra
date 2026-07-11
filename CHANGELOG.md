@@ -4,6 +4,71 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-07-10
+
+### 23:05 · Onboarding flow for new users
+- New /onboarding first-run wizard recreated from the Claude Design handoff
+  (`design_handoff_onboarding/`): welcome → how it works → set first goal
+  (quota stepper → real `createGoal`) → practice clock-in (real
+  `clockIn`/`clockOut`, live ticker, success banner) → categories explainer →
+  spotlight tour of Home (recap, history) and Habits. Tour screens render the
+  user's REAL week data (the practice session shows up in "Time this week").
+- Gate: new nullable `profiles.onboarded_at` column (added via Supabase SQL,
+  not in-repo); Home redirects to /onboarding while null. OAuth callback
+  default landing changed /clock → / so brand-new users hit the gate.
+- Retest: "Replay onboarding" button on Home's Profile card
+  (`replayOnboarding` action nulls the stamp; each replay runs the real flow
+  and creates a real goal + session, deletable afterwards).
+- `completeOnboarding`/`replayOnboarding` actions in `app/actions/profile.ts`;
+  `BottomNav` gained an `activePath` override (hidden during wizard steps,
+  shown decoratively on tour screens); `fade-up`/`pulse-dot` keyframes in
+  globals.css. Practice step adopts an already-running session on replay
+  instead of tripping the one-active-session constraint.
+
+### 22:20 · Design sync to Claude Design + BottomNav hardening
+- Synced the app's client-safe component surface (20 components: 12 shadcn/ui
+  primitives + 8 custom widgets) to a "Progra Design System" project on
+  claude.ai/design, with the warm palette, Hanken/Newsreader fonts, and
+  authored preview cards. Sync config lives in `.design-sync/`.
+- `BottomNav` now falls back to `""` when `usePathname()` returns null (it
+  does outside a Next router, e.g. standalone design previews) instead of
+  crashing in the tab matchers.
+
+### 21:45 · Search tab placeholder
+- New /search route in Plan's old nav slot (magnifying-glass icon, second tab).
+  Static teaser page for now: "Coming soon…" with a hype line about searching
+  sessions, goals, habits, and calendar events. No data, no client component.
+
+### 21:30 · Plan tab removed — whole planner subsystem deleted
+- Deleted the /plan route (weekly grid, Generate, block edit dialogs) and its
+  nav tab; bottom nav is now 4 tabs (Home, Clock, Goals, Habits).
+- Removed the entire scheduled-blocks subsystem: `app/actions/scheduled-blocks.ts`,
+  `lib/db/scheduled-blocks.ts`, the greedy placement engine (`lib/placement.ts`),
+  and the missed-block sweep + "Needs reslotting" card (`missed-blocks-card.tsx`),
+  including its instance on Home.
+- Session plans killed everywhere: `app/actions/session-plans.ts` and
+  `lib/db/session-plans.ts` deleted (all CRUD was already dead code), orphaned
+  `plan-picker.tsx` removed. Vestigial `sessions.session_plan_id` dropped from
+  the `Session` type, `SESSION_COLUMNS`, and the clock-out plan-flip branch —
+  goal attribution already went directly through `sessions.goal_id`.
+- `listBusyTimes`/`BusyInterval` removed from `lib/db/calendar-events.ts`
+  (planner-only); `syncCalendar` no longer revalidates /plan.
+- Supabase: `scheduled_blocks`, `session_plans`, and `sessions.session_plan_id`
+  to be dropped via SQL editor (schema is not in-repo).
+
+### 20:39 · Session history — Google Calendar events in the feed
+- /sessions previously read only the `sessions` table, so synced calendar
+  events (separate `calendar_events` table) could never appear. New merged
+  read (`lib/db/history.ts` `listHistoryPage`) pages sessions and past events
+  together by start time; events carry their resolved category and a
+  "Calendar" badge, count toward day totals, and respect the category filter
+  chips (exclusions stay hidden).
+- New `listPastEventsPage` in `lib/db/calendar-events.ts` (cursor-paginated,
+  ended events only, batches past JS-side exclusion/category filtering so a
+  sparse category doesn't end pagination early); categorization mapping
+  extracted to a shared `toDayEvents` helper.
+- `syncCalendar` now also revalidates `/sessions`.
+
 ## 2026-07-09
 
 ### 22:48 · Habits — average per day uses elapsed days
