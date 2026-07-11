@@ -6,6 +6,32 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-10
 
+### 23:40 · AI-categorizer cost cap for beta
+- Per-run cap (`MAX_EVENTS_PER_RUN = 300`) on `categorizeEventsInRange`: a
+  single Auto-categorize press sends at most 300 uncategorized events to the
+  model (~4 Haiku calls); the rest finish over repeat presses (idempotent).
+  The `ok` result gained `remaining`; the three trigger buttons (Home, Clock,
+  History) show a "N more, tap again" hint.
+- Global kill-switch: `DISABLE_AI_CATEGORIZATION=1` (env) makes the action
+  return "Auto-categorization is paused right now." before any Anthropic call
+  — keyword-rule categorization still applies at read time, so nothing breaks.
+  One Vercel env change stops all AI spend.
+
+### 23:13 · Onboarding — History tour step (calendar sync + auto-categorize)
+- New `tour-history` step between the Home and Habits tours (wizard is now
+  9 steps): a History-page replica showing the real current-month rollup
+  (`computeMonthRollup` fetched in `app/onboarding/page.tsx`), with two
+  sequential spotlights over the calendar actions.
+- Spotlight 1 wraps a **live** `SyncCalendarButton` — users can pull their
+  Google Calendar in during onboarding; its `router.refresh()` updates the
+  month total in place (`syncCalendar` now also revalidates `/onboarding`).
+- Spotlight 2 is a static replica of the Auto-categorize button (real
+  uncategorized count when there is one) explaining AI categorization,
+  precedence (manual > rules > AI), and the review popup — and that the
+  button lives on /history.
+- Home tour's History-card spotlight button relabeled "Go to Habits" →
+  "See History".
+
 ### 23:05 · Onboarding flow for new users
 - New /onboarding first-run wizard recreated from the Claude Design handoff
   (`design_handoff_onboarding/`): welcome → how it works → set first goal

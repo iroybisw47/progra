@@ -16,12 +16,26 @@ export type AiAssignment = {
 };
 
 type Result =
-  | { ok: true; categorized: number; scanned: number; assignments: AiAssignment[] }
+  | {
+      ok: true;
+      categorized: number;
+      scanned: number;
+      assignments: AiAssignment[];
+      // Uncategorized events left unsent because this run hit the per-run cap;
+      // callers surface a "tap again" hint. 0/undefined = fully processed.
+      remaining?: number;
+    }
   | { error: string };
 
 const PAST_DAYS = 30;
 const FUTURE_DAYS = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Beta cost cap: the most events a single press sends to the model. With
+// BATCH_SIZE 80 (lib/anthropic/categorize-events.ts) that's ~4 Haiku calls —
+// cents. A calendar with more uncategorized events finishes over repeated
+// presses (idempotent). Tune freely; nothing else depends on the value.
+const MAX_EVENTS_PER_RUN = 300;
 
 // Classifies uncategorized calendar events overlapping [startMs, endMs] with
 // Claude and persists the results as `source: "ai"` rows in
@@ -40,6 +54,15 @@ export async function categorizeEventsInRange(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
+  // Global kill-switch: flip this env var (Vercel / .env.local) to stop all
+  // Anthropic spend instantly. Keyword-rule categorization still works — rules
+  // apply at read time in listEventsInRange — so untouched events simply stay
+  // in the Uncategorized bucket.
+  const off = process.env.DISABLE_AI_CATEGORIZATION;
+  if (off === "1" || off === "true") {
+    return { error: "Auto-categorization is paused right now." };
+  }
+
   const categories = await listCategories();
   if (categories.length === 0) {
     return { error: "Add a category first, then auto-categorize." };
@@ -48,12 +71,17 @@ export async function categorizeEventsInRange(
   const events = await listEventsInRange(startMs, endMs, categories);
 
   // Targets: genuinely uncategorized events with a title to classify.
-  const targets = events.filter(
+  const allTargets = events.filter(
     (e) => e.source === "uncategorized" && e.title && e.title.trim().length > 0
   );
-  if (targets.length === 0) {
+  if (allTargets.length === 0) {
     return { ok: true, categorized: 0, scanned: events.length, assignments: [] };
   }
+
+  // Per-run cap: send at most MAX_EVENTS_PER_RUN this press; the rest wait for
+  // the next tap. Bounds the cost of a single action on a huge calendar.
+  const targets = allTargets.slice(0, MAX_EVENTS_PER_RUN);
+  const remaining = allTargets.length - targets.length;
 
   let assignments: Map<string, string>;
   try {
@@ -75,7 +103,13 @@ export async function categorizeEventsInRange(
   }
 
   if (assignments.size === 0) {
-    return { ok: true, categorized: 0, scanned: events.length, assignments: [] };
+    return {
+      ok: true,
+      categorized: 0,
+      scanned: events.length,
+      assignments: [],
+      remaining,
+    };
   }
 
   // Mirror the manual-override upsert shape (event_id is the PK / conflict key).
@@ -109,6 +143,7 @@ export async function categorizeEventsInRange(
     categorized: assignments.size,
     scanned: events.length,
     assignments: decided,
+    remaining,
   };
 }
 

@@ -23,8 +23,11 @@ export function CategorizeEventsButton() {
     if (result.categorized === 0) {
       toast.success("Nothing new to categorize");
     } else {
+      const more = result.remaining
+        ? ` — ${result.remaining} more, tap again`
+        : "";
       toast.success(
-        `Categorized ${result.categorized} event${result.categorized === 1 ? "" : "s"}`
+        `Categorized ${result.categorized} event${result.categorized === 1 ? "" : "s"}${more}`
       );
     }
     router.refresh();

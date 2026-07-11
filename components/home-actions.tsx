@@ -38,10 +38,11 @@ export function HomeActions() {
       toast.error(r.error);
       return;
     }
+    const more = r.remaining ? ` — ${r.remaining} more, tap again` : "";
     toast.success(
       r.categorized === 0
         ? "Nothing new to categorize"
-        : `Categorized ${r.categorized} event${r.categorized === 1 ? "" : "s"}`
+        : `Categorized ${r.categorized} event${r.categorized === 1 ? "" : "s"}${more}`
     );
     router.refresh();
   }

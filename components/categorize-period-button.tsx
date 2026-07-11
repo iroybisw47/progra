@@ -54,6 +54,11 @@ export function CategorizePeriodButton({
         toast.success("Nothing new to categorize");
         return;
       }
+      if (result.remaining) {
+        toast.success(
+          `Categorized ${result.categorized} — ${result.remaining} more, tap again`
+        );
+      }
       setAssignments(result.assignments);
     } else {
       const existing = await listAiCategorizedInRange(startMs, endMs);
