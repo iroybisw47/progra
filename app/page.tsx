@@ -4,6 +4,7 @@ import { ChevronRightIcon } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AddToHomeHint } from "@/components/add-to-home-hint";
 import { GoalProgressBar } from "@/components/goal-progress";
 import { HomeActions } from "@/components/home-actions";
 import { ReplayOnboardingButton } from "@/components/replay-onboarding-button";
@@ -57,6 +58,8 @@ function SignedOutLanding() {
         >
           Sign in with Google
         </Link>
+
+        <AddToHomeHint />
       </main>
     </div>
   );

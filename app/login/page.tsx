@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { AddToHomeHint } from "@/components/add-to-home-hint";
 
 import { GoogleSignInButton } from "./google-sign-in-button";
 
@@ -34,6 +35,8 @@ export default async function LoginPage({
         {params.error && (
           <p className="text-destructive text-center text-sm">{params.error}</p>
         )}
+
+        <AddToHomeHint />
       </main>
     </div>
   );
