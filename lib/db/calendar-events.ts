@@ -4,40 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { categorizeTitle } from "@/lib/categorize";
 import type { Category } from "@/lib/storage";
 
-// Raw busy interval used for scheduling/placement and the /plan grid's
-// "fixed" overlay. Unlike `listEventsInRange`, this returns *every* synced
-// non-cancelled event in the window — including ones the user excluded
-// from time-spent totals — because an excluded class is still a real
-// commitment that blocks scheduling.
-export type BusyInterval = {
-  id: string;
-  title: string | null;
-  startMs: number;
-  endMs: number;
-};
-
-export async function listBusyTimes(
-  startMs: number,
-  endMs: number
-): Promise<BusyInterval[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("calendar_events")
-    .select("id, title, start_time, end_time")
-    .lt("start_time", new Date(endMs).toISOString())
-    .gt("end_time", new Date(startMs).toISOString())
-    .order("start_time", { ascending: true });
-  if (!data) return [];
-  return (
-    data as { id: string; title: string | null; start_time: string; end_time: string }[]
-  ).map((r) => ({
-    id: r.id,
-    title: r.title,
-    startMs: new Date(r.start_time).getTime(),
-    endMs: new Date(r.end_time).getTime(),
-  }));
-}
-
 export type DayEvent = {
   id: string;
   title: string | null;
@@ -67,42 +33,22 @@ type ExclusionRow = {
   event_id: string;
 };
 
-// Returns events overlapping [startMs, endMs), categorized. Manual overrides
-// win over rule matches. Excluded events are filtered out entirely.
-//
-// All three Supabase queries fire in parallel — exclusions and overrides
-// don't depend on the event-id list because RLS already scopes them to the
-// current user. We filter in JS against the events that are in this window.
-export async function listEventsInRange(
-  startMs: number,
-  endMs: number,
+// Categorize raw event rows: drop excluded events, then resolve each event's
+// category (manual override > keyword rule > AI guess > uncategorized).
+// Shared by the range read below and the paginated history read.
+function toDayEvents(
+  eventRows: Row[],
+  exclusions: ExclusionRow[],
+  overrides: OverrideRow[],
   categories: Category[]
-): Promise<DayEvent[]> {
-  const supabase = await createClient();
-
-  const [eventsResult, exclusionsResult, overridesResult] = await Promise.all([
-    supabase
-      .from("calendar_events")
-      .select("id, title, start_time, end_time")
-      .lt("start_time", new Date(endMs).toISOString())
-      .gt("end_time", new Date(startMs).toISOString())
-      .order("start_time", { ascending: true }),
-    supabase.from("event_exclusions").select("event_id"),
-    supabase.from("event_categorizations").select("event_id, category_id, source"),
-  ]);
-
-  const eventRows = eventsResult.data as Row[] | null;
-  if (!eventRows || eventRows.length === 0) return [];
-
-  const excludedIds = new Set(
-    ((exclusionsResult.data ?? []) as ExclusionRow[]).map((r) => r.event_id)
-  );
+): DayEvent[] {
+  const excludedIds = new Set(exclusions.map((r) => r.event_id));
   // Split stored categorizations by provenance. Manual overrides win over a
   // keyword rule; AI assignments sit below rules (a rule the user later adds
   // takes precedence over an earlier AI guess).
   const manualOverrides = new Map<string, string>();
   const aiOverrides = new Map<string, string>();
-  for (const r of (overridesResult.data ?? []) as OverrideRow[]) {
+  for (const r of overrides) {
     if (r.source === "ai") aiOverrides.set(r.event_id, r.category_id);
     else manualOverrides.set(r.event_id, r.category_id);
   }
@@ -152,4 +98,99 @@ export async function listEventsInRange(
       source,
     };
   });
+}
+
+// Returns events overlapping [startMs, endMs), categorized. Manual overrides
+// win over rule matches. Excluded events are filtered out entirely.
+//
+// All three Supabase queries fire in parallel — exclusions and overrides
+// don't depend on the event-id list because RLS already scopes them to the
+// current user. We filter in JS against the events that are in this window.
+export async function listEventsInRange(
+  startMs: number,
+  endMs: number,
+  categories: Category[]
+): Promise<DayEvent[]> {
+  const supabase = await createClient();
+
+  const [eventsResult, exclusionsResult, overridesResult] = await Promise.all([
+    supabase
+      .from("calendar_events")
+      .select("id, title, start_time, end_time")
+      .lt("start_time", new Date(endMs).toISOString())
+      .gt("end_time", new Date(startMs).toISOString())
+      .order("start_time", { ascending: true }),
+    supabase.from("event_exclusions").select("event_id"),
+    supabase.from("event_categorizations").select("event_id, category_id, source"),
+  ]);
+
+  const eventRows = eventsResult.data as Row[] | null;
+  if (!eventRows || eventRows.length === 0) return [];
+
+  return toDayEvents(
+    eventRows,
+    (exclusionsResult.data ?? []) as ExclusionRow[],
+    (overridesResult.data ?? []) as OverrideRow[],
+    categories
+  );
+}
+
+// One page of past (already-ended) events for the history surface, newest
+// first. Mirrors listSessionHistory's cursor pagination: pass the oldest
+// startMs from the prior page as `beforeMs`. Exclusions and the category
+// filter resolve in JS (categories come from rules/overrides, not a column),
+// so we fetch in oversized batches and keep going until the page is full or
+// the table is exhausted — otherwise a sparse category would return a short
+// page and the client would wrongly conclude there's nothing older.
+export async function listPastEventsPage(opts: {
+  categoryId?: string | "none" | null;
+  beforeMs?: number | null;
+  limit: number;
+  categories: Category[];
+}): Promise<DayEvent[]> {
+  const supabase = await createClient();
+  const nowIso = new Date().toISOString();
+
+  const [exclusionsResult, overridesResult] = await Promise.all([
+    supabase.from("event_exclusions").select("event_id"),
+    supabase.from("event_categorizations").select("event_id, category_id, source"),
+  ]);
+  const exclusions = (exclusionsResult.data ?? []) as ExclusionRow[];
+  const overrides = (overridesResult.data ?? []) as OverrideRow[];
+
+  const matchesFilter = (e: DayEvent): boolean => {
+    if (opts.categoryId === "none") return e.category === null;
+    if (opts.categoryId) return e.category?.id === opts.categoryId;
+    return true;
+  };
+
+  const batchSize = Math.max(opts.limit, 200);
+  const out: DayEvent[] = [];
+  let cursorIso =
+    opts.beforeMs != null ? new Date(opts.beforeMs).toISOString() : null;
+
+  while (out.length < opts.limit) {
+    let query = supabase
+      .from("calendar_events")
+      .select("id, title, start_time, end_time")
+      .lte("end_time", nowIso)
+      .order("start_time", { ascending: false })
+      .limit(batchSize);
+    if (cursorIso) query = query.lt("start_time", cursorIso);
+
+    const { data } = await query;
+    const batch = (data ?? []) as Row[];
+    if (batch.length === 0) break;
+
+    out.push(
+      ...toDayEvents(batch, exclusions, overrides, opts.categories).filter(
+        matchesFilter
+      )
+    );
+
+    if (batch.length < batchSize) break;
+    cursorIso = batch[batch.length - 1].start_time;
+  }
+
+  return out.slice(0, opts.limit);
 }

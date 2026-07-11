@@ -11,6 +11,7 @@ import { formatDuration } from "@/lib/duration";
 import { useNow } from "@/lib/hooks";
 import { sessionPausedMs, sessionWorkedMs } from "@/lib/session";
 import type { Category, Session } from "@/lib/storage";
+import type { HistoryItem } from "@/lib/db/history";
 
 import { loadSessionHistory } from "@/app/actions/sessions";
 
@@ -19,7 +20,7 @@ type Filter = "all" | "none" | string;
 
 type Props = {
   categories: Category[];
-  initialSessions: Session[];
+  initialItems: HistoryItem[];
   pageSize: number;
 };
 
@@ -36,11 +37,23 @@ function workedOf(s: Session): number {
   return sessionWorkedMs(s, s.endedAt ?? s.startedAt);
 }
 
-export function SessionsClient({ categories, initialSessions, pageSize }: Props) {
+function itemStartMs(item: HistoryItem): number {
+  return item.kind === "session" ? item.session.startedAt : item.event.startMs;
+}
+
+// Time counted toward the day total: worked time for sessions, full span for
+// calendar events (excluded events never reach this surface).
+function itemDurationMs(item: HistoryItem): number {
+  return item.kind === "session"
+    ? workedOf(item.session)
+    : item.event.endMs - item.event.startMs;
+}
+
+export function SessionsClient({ categories, initialItems, pageSize }: Props) {
   const now = useNow();
   const [filter, setFilter] = useState<Filter>("all");
-  const [sessions, setSessions] = useState<Session[]>(initialSessions);
-  const [hasMore, setHasMore] = useState(initialSessions.length >= pageSize);
+  const [items, setItems] = useState<HistoryItem[]>(initialItems);
+  const [hasMore, setHasMore] = useState(initialItems.length >= pageSize);
   const [, startTransition] = useTransition();
   const [loading, setLoading] = useState(false);
 
@@ -62,39 +75,39 @@ export function SessionsClient({ categories, initialSessions, pageSize }: Props)
     setLoading(true);
     startTransition(async () => {
       const rows = await loadSessionHistory({ categoryId: filterArg(next) });
-      setSessions(rows);
+      setItems(rows);
       setHasMore(rows.length >= pageSize);
       setLoading(false);
     });
   }
 
   function loadMore() {
-    const oldest = sessions[sessions.length - 1];
+    const oldest = items[items.length - 1];
     if (!oldest) return;
     setLoading(true);
     startTransition(async () => {
       const rows = await loadSessionHistory({
         categoryId: filterArg(filter),
-        beforeMs: oldest.startedAt,
+        beforeMs: itemStartMs(oldest),
       });
       if (rows.length === 0) {
         setHasMore(false);
       } else {
-        setSessions((cur) => [...cur, ...rows]);
+        setItems((cur) => [...cur, ...rows]);
         setHasMore(rows.length >= pageSize);
       }
       setLoading(false);
     });
   }
 
-  // Group the (already newest-first) sessions by local day, preserving order.
-  const groups: { key: string; date: Date; items: Session[] }[] = [];
-  for (const s of sessions) {
-    const d = new Date(s.startedAt);
+  // Group the (already newest-first) items by local day, preserving order.
+  const groups: { key: string; date: Date; items: HistoryItem[] }[] = [];
+  for (const item of items) {
+    const d = new Date(itemStartMs(item));
     const key = formatLocalDate(d);
     const last = groups[groups.length - 1];
-    if (last && last.key === key) last.items.push(s);
-    else groups.push({ key, date: d, items: [s] });
+    if (last && last.key === key) last.items.push(item);
+    else groups.push({ key, date: d, items: [item] });
   }
 
   // Real current time for relative day labels (Today/Yesterday). useNow returns
@@ -115,7 +128,7 @@ export function SessionsClient({ categories, initialSessions, pageSize }: Props)
             Session history
           </h1>
           <p className="text-muted-foreground text-sm">
-            Past sessions, newest first.
+            Past sessions and calendar events, newest first.
           </p>
         </header>
 
@@ -149,7 +162,10 @@ export function SessionsClient({ categories, initialSessions, pageSize }: Props)
         ) : (
           <div className="flex flex-col gap-5">
             {groups.map((group) => {
-              const dayTotal = group.items.reduce((s, x) => s + workedOf(x), 0);
+              const dayTotal = group.items.reduce(
+                (s, x) => s + itemDurationMs(x),
+                0
+              );
               return (
                 <div key={group.key} className="flex flex-col gap-2">
                   <div className="flex items-baseline justify-between">
@@ -162,11 +178,43 @@ export function SessionsClient({ categories, initialSessions, pageSize }: Props)
                   </div>
                   <Card>
                     <CardContent className="flex flex-col divide-y divide-border p-0">
-                      {group.items.map((s) => {
+                      {group.items.map((item) => {
+                        if (item.kind === "event") {
+                          const e = item.event;
+                          return (
+                            <div
+                              key={`e-${e.id}`}
+                              className="flex flex-col gap-1 px-4 py-3"
+                            >
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className="truncate text-sm font-medium">
+                                  {e.title ?? "(no title)"}
+                                </span>
+                                <span className="text-muted-foreground shrink-0 font-mono text-sm tabular-nums">
+                                  {formatDuration(e.endMs - e.startMs)}
+                                </span>
+                              </div>
+                              <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                                <span>
+                                  {formatClock(e.startMs)} –{" "}
+                                  {formatClock(e.endMs)}
+                                </span>
+                                <Badge variant="secondary" className="h-5">
+                                  {e.category?.name ?? "Uncategorized"}
+                                </Badge>
+                                <Badge variant="outline" className="h-5">
+                                  Calendar
+                                </Badge>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        const s = item.session;
                         const paused = sessionPausedMs(s, s.endedAt ?? s.startedAt);
                         return (
                           <div
-                            key={s.id}
+                            key={`s-${s.id}`}
                             className="flex flex-col gap-1 px-4 py-3"
                           >
                             <div className="flex items-baseline justify-between gap-2">

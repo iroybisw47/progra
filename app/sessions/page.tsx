@@ -1,18 +1,21 @@
 import { listCategories } from "@/lib/db/categories";
-import { listSessionHistory, SESSION_HISTORY_PAGE_SIZE } from "@/lib/db/sessions";
+import { listHistoryPage } from "@/lib/db/history";
+import { SESSION_HISTORY_PAGE_SIZE } from "@/lib/db/sessions";
 
 import { SessionsClient } from "./sessions-client";
 
 export default async function SessionsPage() {
-  const [categories, initialSessions] = await Promise.all([
-    listCategories(),
-    listSessionHistory({ limit: SESSION_HISTORY_PAGE_SIZE }),
-  ]);
+  // Categories first: event categorization (rules/overrides) needs them.
+  const categories = await listCategories();
+  const initialItems = await listHistoryPage({
+    limit: SESSION_HISTORY_PAGE_SIZE,
+    categories,
+  });
 
   return (
     <SessionsClient
       categories={categories}
-      initialSessions={initialSessions}
+      initialItems={initialItems}
       pageSize={SESSION_HISTORY_PAGE_SIZE}
     />
   );
