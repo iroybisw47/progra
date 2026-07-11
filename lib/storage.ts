@@ -17,12 +17,9 @@ export type Category = {
 export type Session = {
   id: string;
   // A session is attributed to EITHER a category OR a goal (mutually
-  // exclusive; enforced at clock-in and in updateSession). `sessionPlanId`
-  // is legacy — the planner still reads it, but the goal flow now links a
-  // session straight to a goal via `goalId`.
+  // exclusive; enforced at clock-in and in updateSession).
   categoryId: string | null;
   goalId: string | null;
-  sessionPlanId: string | null;
   taskName: string;
   description?: string;
   startedAt: number;

@@ -18,7 +18,6 @@ function sess(over: Partial<Session> = {}): Session {
     id: `s${idc++}`,
     categoryId: "c1",
     goalId: null,
-    sessionPlanId: null,
     taskName: "t",
     startedAt: 0,
     endedAt: null,

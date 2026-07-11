@@ -3,17 +3,19 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
-import { listSessionHistory } from "@/lib/db/sessions";
-import type { Session } from "@/lib/storage";
+import { listCategories } from "@/lib/db/categories";
+import { listHistoryPage, type HistoryItem } from "@/lib/db/history";
 
 type Result = { ok: true } | { error: string };
 
-// Paginated read for the /sessions history browser. RLS scopes to the user.
+// Paginated read for the /sessions history browser: timer sessions merged
+// with synced calendar events. RLS scopes to the user.
 export async function loadSessionHistory(opts: {
   categoryId?: string | "none" | null;
   beforeMs?: number | null;
-}): Promise<Session[]> {
-  return listSessionHistory(opts);
+}): Promise<HistoryItem[]> {
+  const categories = await listCategories();
+  return listHistoryPage({ ...opts, categories });
 }
 
 type ClockInInput = {
@@ -77,18 +79,17 @@ export async function clockOut(): Promise<Result> {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  // Read the active session first: needed to flip an attached plan to 'done'
-  // and to settle an in-progress pause into pausedMs at clock-out.
+  // Read the active session first: needed to settle an in-progress pause
+  // into pausedMs at clock-out.
   const { data: active } = await supabase
     .from("sessions")
-    .select("session_plan_id, paused_ms, paused_since")
+    .select("paused_ms, paused_since")
     .eq("user_id", user.id)
     .is("ended_at", null)
     .maybeSingle();
 
   const now = Date.now();
   const row = active as {
-    session_plan_id: string | null;
     paused_ms: number | string | null;
     paused_since: string | null;
   } | null;
@@ -111,14 +112,6 @@ export async function clockOut(): Promise<Result> {
     .is("ended_at", null);
 
   if (error) return { error: error.message };
-
-  const planId = row?.session_plan_id ?? null;
-  if (planId) {
-    await supabase
-      .from("session_plans")
-      .update({ status: "done" })
-      .eq("id", planId);
-  }
 
   revalidatePath("/clock");
   revalidatePath("/goals");

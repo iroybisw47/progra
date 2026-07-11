@@ -66,12 +66,12 @@ export async function syncCalendar(): Promise<SyncResult> {
 
   if (error) return { error: error.message };
   // Refresh every surface that reads calendar events, not just /clock — the
-  // month/year History, the weekly recap, and the /plan busy overlay all show
-  // synced events and would otherwise render stale after a sync.
+  // month/year History and the weekly recap also show synced events and
+  // would otherwise render stale after a sync.
   revalidatePath("/clock");
   revalidatePath("/");
   revalidatePath("/history");
   revalidatePath("/recap");
-  revalidatePath("/plan");
+  revalidatePath("/sessions");
   return { ok: true, count: rows.length };
 }
