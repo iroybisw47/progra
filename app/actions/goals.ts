@@ -42,6 +42,8 @@ type UpdateGoalPatch = {
   title?: string;
   description?: string | null;
   weeklyQuotaHours?: number;
+  // Social v2: true = owner-only, false = visible to accepted friends (Aspect 4).
+  isPrivate?: boolean;
 };
 
 export async function updateGoal(
@@ -65,6 +67,9 @@ export async function updateGoal(
       return { error: "Weekly quota must be a positive number" };
     }
     update.weekly_quota_hours = patch.weeklyQuotaHours;
+  }
+  if (patch.isPrivate !== undefined) {
+    update.is_private = patch.isPrivate;
   }
 
   const supabase = await createClient();

@@ -76,8 +76,9 @@ app/actions/<domain>.ts   ← "use server". Mutations. Re-checks auth, writes to
 lib/db/<domain>.ts   ← "server-only" READ helpers. Map snake_case DB rows →
    │                    camelCase domain types. The only place that SELECTs.
    ▼
-Supabase (Postgres + RLS)   ← RLS scopes every row to auth.uid(); the app rarely
-                              filters by user_id on reads because RLS does it.
+Supabase (Postgres + RLS)   ← RLS scopes every row to auth.uid(). Own-view reads
+                              ALSO filter .eq("user_id", me.id) as defense-in-depth
+                              (social v2); cross-user reads let RLS friend policies decide.
 ```
 
 Key consequences of this shape:
@@ -99,9 +100,16 @@ Key consequences of this shape:
 All feature routes are auth-gated and share the `BottomNav` (rendered in
 `app/layout.tsx` only when a user is present).
 
+Social v2 routes (`/me`, `/friends`, `/profile/[username]`) and the feed at `/`
+are all gated by `SOCIAL_ENABLED`; with the flag off they 404 (or, for `/`,
+fall back to the dashboard) and the beta is unaffected.
+
 | Route | Server page | Client | Purpose |
 |---|---|---|---|
-| `/` | `app/page.tsx` | — | Home: week summary card, habits, quick entry. |
+| `/` | `app/page.tsx` | — | Home. Flag off → personal dashboard (`components/dashboard.tsx`). Flag on → the social **feed** (`components/feed.tsx`): friends' recent finished sessions + comment threads. |
+| `/me` | `app/me/page.tsx` | — | **You** tab (social on only): the personal dashboard, relocated off Home. Shares `components/dashboard.tsx`. |
+| `/friends` | `friends/page.tsx` | `friends-client.tsx` | Friend search / requests / blocked (social on only). |
+| `/profile/[username]` | `profile/[username]/page.tsx` | `profile-actions.tsx` | Public profile: identity + a friend's non-private goals/habits/sessions (social on only). |
 | `/login` | `app/login/page.tsx` | `google-sign-in-button.tsx` | Google OAuth entry. |
 | `/auth/callback` | `route.ts` | — | OAuth code exchange → session. |
 | `/auth/signout` | `route.ts` | — | Sign out. |
@@ -136,6 +144,14 @@ is the interactive shell. `loading.tsx` provides route-level skeletons.
 | `event_exclusions` | `app/actions/event-exclusions.ts` | Hidden/excluded calendar events. |
 | `habits` (+ logs) | `lib/db/habits.ts` | Habit definitions and per-day completion. Tz-checked server-side. |
 | rollups / recap | `lib/db/rollups.ts`, `lib/db/recap.ts` | Read-side aggregation helpers for `/history` and `/recap`. |
+| `friendships` (social v2) | `lib/db/friends.ts` | One row per pair: `requester_id`/`addressee_id`, `status` (pending/accepted/blocked), `blocked_by`. RLS hides blocks from the blocked party; consent-critical transitions go through `SECURITY DEFINER` RPCs (`accept_friend_request`, `block_user`). |
+| `session_comments` (social v2) | `lib/db/comments.ts`, `app/actions/comments.ts` | Comments on feed sessions (`body` 1–500). RLS mirrors session visibility via the `can_see_session` definer helper; delete limited to author or session owner (`owns_session`). |
+
+**Social v2 also added:** `is_private` on `sessions`/`goals`/`habits`; the
+`public_profiles` view (id/username/display_name/bio only); and definer RPCs
+`are_friends`, `are_blocked`, `can_see_session`, `owns_session`, `search_users`.
+Cross-user reads (`*ForUser` helpers, `listFriendFeed`) omit the owner filter and
+let the friend-read RLS (`owner OR are_friends AND NOT is_private`) decide.
 
 ---
 
@@ -186,8 +202,13 @@ numbers reconcile across every surface.
   `react.cache`-wrapped so layout + page + db helpers share one auth round-trip
   per request. `requireUser()` redirects to `/login`; `getOptionalUser()` returns
   null.
-- **RLS does the row scoping.** Reads generally don't filter by `user_id` — the
-  policy enforces `auth.uid()`. Writes still set `user_id` explicitly on insert.
+- **RLS does the row scoping, reads now double up.** The policy enforces
+  `auth.uid()`, and since social v2 (Aspect 4) own-view read helpers also filter
+  `.eq("user_id", me.id)` explicitly — defense-in-depth so a policy regression
+  can't leak rows into your own screens. Cross-user reads (the `*ForUser(userId)`
+  helpers behind `/profile/[username]`) deliberately omit that filter and let the
+  friend-read RLS policies (`owner OR are_friends AND NOT is_private`) decide what
+  a viewer sees. Writes still set `user_id` explicitly on insert.
 
 ---
 

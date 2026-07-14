@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { PencilIcon, XIcon } from "lucide-react";
+import { LockIcon, PencilIcon, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +26,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
+import { PrivacyToggle } from "@/components/privacy-toggle";
 import { archiveGoal, createGoal, updateGoal } from "@/app/actions/goals";
+import { SOCIAL_ENABLED } from "@/lib/flags";
 import type { Goal } from "@/lib/db/goals";
 import { formatRelativeDay, formatTime } from "@/lib/dates";
 import { formatDuration } from "@/lib/duration";
@@ -60,6 +62,7 @@ export function GoalsClient({ goals, actualMsByGoal, sessionsByGoal }: Props) {
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editQuota, setEditQuota] = useState("");
+  const [editIsPrivate, setEditIsPrivate] = useState(false);
 
   const [pendingGoalArchive, setPendingGoalArchive] = useState<Goal | null>(
     null
@@ -95,6 +98,7 @@ export function GoalsClient({ goals, actualMsByGoal, sessionsByGoal }: Props) {
     setEditingGoal(goal);
     setEditTitle(goal.title);
     setEditQuota(String(goal.weeklyQuotaHours));
+    setEditIsPrivate(goal.isPrivate);
   }
 
   function handleSaveEdit() {
@@ -111,7 +115,11 @@ export function GoalsClient({ goals, actualMsByGoal, sessionsByGoal }: Props) {
     }
     const id = editingGoal.id;
     startTransition(async () => {
-      const r = await updateGoal(id, { title, weeklyQuotaHours: quota });
+      const r = await updateGoal(id, {
+        title,
+        weeklyQuotaHours: quota,
+        isPrivate: editIsPrivate,
+      });
       if ("error" in r) {
         toast.error(r.error);
         return;
@@ -173,7 +181,15 @@ export function GoalsClient({ goals, actualMsByGoal, sessionsByGoal }: Props) {
             return (
               <Card key={goal.id}>
                 <CardHeader>
-                  <CardTitle>{goal.title}</CardTitle>
+                  <CardTitle className="flex items-center gap-1.5">
+                    {goal.title}
+                    {SOCIAL_ENABLED && goal.isPrivate && (
+                      <LockIcon
+                        aria-label="Private"
+                        className="text-muted-foreground size-3.5 shrink-0"
+                      />
+                    )}
+                  </CardTitle>
                   <CardDescription>
                     {goal.weeklyQuotaHours.toFixed(1)}h / week
                   </CardDescription>
@@ -349,6 +365,13 @@ export function GoalsClient({ goals, actualMsByGoal, sessionsByGoal }: Props) {
                 onChange={(e) => setEditQuota(e.target.value)}
               />
             </div>
+            {SOCIAL_ENABLED && (
+              <PrivacyToggle
+                id="edit-goal-private"
+                checked={editIsPrivate}
+                onCheckedChange={setEditIsPrivate}
+              />
+            )}
           </div>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>

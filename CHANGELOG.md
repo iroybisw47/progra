@@ -4,6 +4,151 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-07-13
+
+### 09:03 · Social v2 — Phase 3 subplan 3: profile story cards
+The photo viewing surface. A session appears on a profile ONLY as a complete
+before+after **story card**; photo-less / half-complete sessions stay private
+(no "share anyway" toggle — the complete pair is the share). Behind
+`SOCIAL_ENABLED`; report/takedown still deferred to Phase 4.
+
+- `lib/db/stories.ts` → `listProfileStories(userId)`: complete-pair sessions
+  (`before_photo_path` AND `after_photo_path` not null, partial-index-backed),
+  RLS-filtered, with batched signed before/after URLs via `getSessionPhotoUrls`.
+  Rows whose URLs don't sign (storage denied) are dropped — belt-and-suspenders
+  with the tightened storage policy.
+- `components/story-card.tsx`: before/after images side-by-side + label +
+  duration + when.
+- `app/profile/[username]/page.tsx`: the plain "Recent sessions" text list is
+  **replaced** by a "Stories" section (enforcing photo-less = private on the
+  profile); Goals-this-week + Weekly-habits aggregates kept.
+- Also this session: tightened the **storage read policy** so a friend's signed
+  photo URLs resolve only for non-private, complete-pair sessions
+  (`can_see_session_photo`) — closes the enumeration/private-photo gap.
+
+### 22:04 · Social v2 — Emoji reactions on the feed
+The deferred Phase 2 interaction, added alongside comments. Behind
+`SOCIAL_ENABLED`; requires the `session_reactions` table + `toggle_reaction`
+RPC (run separately).
+
+- Fixed palette 👍 🔥 💪 👏 🎯 (`lib/social/reactions.ts`, shared by action,
+  reader, UI, and enforced again in the RPC). Tap to react, tap again to remove.
+- `session_reactions` table: RLS **SELECT mirrors session visibility** (reuses
+  the `can_see_session` helper); writes go only through the `toggle_reaction`
+  SECURITY DEFINER RPC (atomic insert-or-delete, re-checks visibility + emoji),
+  so a reaction can't target a session you can't see or be forged.
+- `app/actions/reactions.ts` (`toggleReaction`), `lib/db/reactions.ts`
+  (`listReactionsForSessions`, batched + aggregated + `mine` flag),
+  `components/reaction-bar.tsx` (highlights your reactions, shows counts), wired
+  into each feed item above the comment thread.
+
+### 21:51 · Social v2 — Phase 3 PR 2: photo capture in the clock flow
+Optional before/after capture, behind `SOCIAL_ENABLED` (photo columns/bucket
+from PR 1 required). Skipping is one tap and equal-weight — never a guilt
+pattern; the timer never waits on a photo.
+
+- `components/session-photo-step.tsx`: a `Dialog` with a camera input
+  (`<input type="file" accept="image/*" capture="environment">` — not
+  getUserMedia, for iOS PWA reliability), an equal-weight Skip, preview +
+  Retake, and an uploading state. Downscales client-side then calls
+  `uploadSessionPhoto`. Errors toast and keep the session intact for retry.
+- Wired into `app/clock/clock-client.tsx`: the before step opens after clock-in
+  (timer already running), the after step after clock-out (session already
+  ended; profile hint shown only when a before photo exists). Dismissing never
+  cancels the session.
+- `clockIn` now returns the new `sessionId`; `lib/images/downscale.ts` does a
+  canvas downscale (≤1600px/JPEG 0.8) that bakes in EXIF orientation before the
+  server re-encode; the active-session card shows the before-photo thumbnail via
+  a signed URL from `getSessionPhotoUrls`.
+
+### 21:34 · Social v2 — Phase 3 PR 1: server-side photo pipeline
+Server side only, no UI — inert until the capture UI (PR 2) lands, so safe to
+ship now. Requires the `session-photos` bucket + photo columns (run separately).
+
+- `app/actions/session-photos.ts` → `uploadSessionPhoto(sessionId, kind,
+  formData)`: validates the file (image/*, ≤8 MB), enforces ownership
+  explicitly (friend-read RLS means a non-empty session read no longer implies
+  ownership), applies the timing rules (`before` → active; `after` → ended
+  within a 10-min upload tolerance), re-encodes with **sharp**
+  (`rotate().resize(1600).jpeg(80)`) which strips all EXIF/GPS, upserts to
+  `{user_id}/{session_id}/{kind}.jpg`, and records the path on the session.
+- `lib/db/session-photos.ts` → `getSessionPhotoUrls`: 1-hour signed URLs for the
+  private bucket (batched when both photos exist).
+- `sessions` read layer (`lib/db/sessions.ts`, `lib/storage.ts`) gains
+  `beforePhotoPath`/`afterPhotoPath`; test factories updated.
+- Verified: tsc/eslint/tests/build green; a direct sharp run confirmed a
+  3000×2000 EXIF/GPS image comes out 1600×1067 with 0 EXIF bytes.
+The deferred Phase 2 live element. Behind `SOCIAL_ENABLED`; no new tables/SQL.
+
+- A "Clocked in now" strip at the top of the feed shows friends *currently* in a
+  session (`listClockedInNow` in `lib/db/feed.ts` — active sessions,
+  `ended_at IS NULL`, reusing the feed's friend-read RLS so private/non-friend
+  active sessions never appear). Each row: avatar → profile, goal/task label, a
+  live worked-duration (client-side second tick via `useNow`), and a
+  working/paused dot.
+- "Live" = polling, not Realtime: `components/feed-live-poll.tsx` refreshes the
+  server read every 30s, pausing while the tab is hidden and refreshing on
+  refocus, so new clock-ins/outs surface within ~30s.
+- `sessionWorkedMs`/`isPaused` (`lib/session.ts`) widened to accept just the
+  timing fields so the client computes the live duration from a minimal payload.
+- New: `components/{clocked-in-strip,feed-live-poll}.tsx`. Empty strip renders
+  nothing; the feed's empty-state now hides when someone is clocked in.
+
+## 2026-07-11
+
+### 21:39 · Social v2 — Phase 2 (the feed + comments)
+All behind `NEXT_PUBLIC_SOCIAL_ENABLED`; with the flag off the beta is
+unchanged (Home stays the personal dashboard, `/me` 404s, no feed/comments).
+
+- **Home becomes the feed.** When social is on, `/` renders friends' recent
+  finished sessions (`lib/db/feed.ts` → `listFriendFeed`, batched over accepted
+  friends, RLS-gated so only non-private / accepted-friend rows appear); the
+  personal dashboard (time this week, goals, habits, recap/history, profile)
+  moves to a new **You** tab at `/me`. The dashboard was extracted verbatim into
+  `components/dashboard.tsx` and is shared by both mount points, so the flag-off
+  path is byte-identical to before. Bottom nav swaps its Search slot for **You**
+  when the flag is on.
+- **Comments** (`session_comments` table): freeform text (1–500 chars) on feed
+  sessions. Visibility **mirrors session visibility** — a new `can_see_session`
+  `SECURITY DEFINER` helper encodes `owner OR are_friends AND NOT is_private`
+  once, and the SELECT/INSERT/DELETE policies build on it (+ `owns_session` for
+  owner-moderation delete). A comment can never reveal a session you couldn't
+  already see, authorship can't be forged, and deletes are limited to the author
+  or the session owner. Proven with a 10-point adversarial JWT test.
+- New: `app/actions/comments.ts` (`addComment`/`deleteComment`),
+  `lib/db/comments.ts`, `components/{feed,comment-composer,delete-comment-button}.tsx`,
+  `lib/dates.ts` `formatRelativeTime` ("12m ago").
+- Deferred: live "clocked in now" strip, emoji reactions, report/abuse tooling
+  (Phase 4), realtime, session photos (Phase 3).
+
+### 20:48 · Social v2 — Phase 0 (security foundation) + Phase 1 (profiles)
+All behind `NEXT_PUBLIC_SOCIAL_ENABLED` (off in the beta), so nothing here
+affects the live single-user app.
+
+- **Public identity:** `username`/`display_name`/`bio` on `profiles` (unique
+  index on `lower(username)`); `public_profiles` view exposing only those
+  fields; username onboarding + validation (`lib/social/username.ts`).
+- **Friend graph:** `friendships` table (pending/accepted/blocked) with RLS
+  that hides blocks from the blocked party; consent-critical mutations
+  (`accept_friend_request`, `block_user`) routed through `SECURITY DEFINER`
+  RPCs; prefix-search directory (`search_users`, block-aware). Minimal
+  `/friends` UI (search, incoming/outgoing requests, friends, blocked).
+- **Per-item privacy:** `is_private` on goals/habits/sessions (new items
+  shared, pre-existing back-filled private); `PrivacyToggle` in edit dialogs +
+  a lock indicator on private items.
+- **RLS friend-read rewrite (load-bearing):** SELECT policies loosened from
+  owner-only to `owner OR are_friends AND NOT is_private`; own-view reads
+  hardened first with explicit `.eq("user_id", me.id)` so friends' rows can
+  never leak into your own screens. Verified with a 5-persona adversarial
+  test (JWT impersonation).
+- **Profile pages (`/profile/[username]`):** identity header, per-person
+  friend actions, own-profile edit (display name + bio), and a friend's
+  non-private goals/habits/recent-sessions via `*ForUser(userId)` read
+  helpers. Blocked pairs 404 (block stays invisible). Entry points from Home
+  and `/friends`.
+- **Dev config:** pinned `turbopack.root` in `next.config.ts` to stop a stray
+  home-dir lockfile from wedging the dev server.
+
 ## 2026-07-10
 
 ### 23:40 · AI-categorizer cost cap for beta

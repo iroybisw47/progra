@@ -99,6 +99,7 @@ export default async function OnboardingPage() {
             }
           : null
       }
+      initialUsername={profile?.username ?? ""}
     />
   );
 }

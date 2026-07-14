@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { PencilIcon, XIcon } from "lucide-react";
+import { LockIcon, PencilIcon, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ColorSwatches } from "@/components/color-swatches";
+import { PrivacyToggle } from "@/components/privacy-toggle";
 import { WeeklyHabits } from "@/components/weekly-habits";
 
 import {
@@ -27,6 +28,7 @@ import {
   toggleHabitCompletion,
   updateHabit,
 } from "@/app/actions/habits";
+import { SOCIAL_ENABLED } from "@/lib/flags";
 import type { Habit, HabitCompletion } from "@/lib/db/habits";
 
 type Props = {
@@ -52,6 +54,7 @@ export function HabitsClient({
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [editName, setEditName] = useState("");
   const [editColor, setEditColor] = useState<string | null>(null);
+  const [editIsPrivate, setEditIsPrivate] = useState(false);
 
   // Today's status is derived from the week's completions, not a separate fetch.
   const todayCompletedSet = new Set(
@@ -107,6 +110,7 @@ export function HabitsClient({
     setEditingHabit(habit);
     setEditName(habit.name);
     setEditColor(habit.color);
+    setEditIsPrivate(habit.isPrivate);
   }
 
   function handleSaveHabit() {
@@ -116,7 +120,11 @@ export function HabitsClient({
     const id = editingHabit.id;
     const color = editColor;
     startTransition(async () => {
-      const r = await updateHabit(id, { name: trimmed, color });
+      const r = await updateHabit(id, {
+        name: trimmed,
+        color,
+        isPrivate: editIsPrivate,
+      });
       if ("error" in r) {
         toast.error(r.error);
         return;
@@ -189,6 +197,12 @@ export function HabitsClient({
                     >
                       {habit.name}
                     </span>
+                    {SOCIAL_ENABLED && habit.isPrivate && (
+                      <LockIcon
+                        aria-label="Private"
+                        className="text-muted-foreground size-3.5 shrink-0"
+                      />
+                    )}
                     <Button
                       size="icon-sm"
                       variant="ghost"
@@ -291,6 +305,13 @@ export function HabitsClient({
               </span>
               <ColorSwatches value={editColor} onChange={setEditColor} />
             </div>
+            {SOCIAL_ENABLED && (
+              <PrivacyToggle
+                id="edit-habit-private"
+                checked={editIsPrivate}
+                onCheckedChange={setEditIsPrivate}
+              />
+            )}
           </div>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>

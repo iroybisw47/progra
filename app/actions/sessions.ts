@@ -39,7 +39,11 @@ function resolveAxis(
   return { categoryId: cat, goalId: goal };
 }
 
-export async function clockIn(input: ClockInInput): Promise<Result> {
+// Returns the new session id so the caller (clock flow) can attach a "before"
+// photo to it without an extra round-trip.
+export async function clockIn(
+  input: ClockInInput
+): Promise<{ ok: true; sessionId: string } | { error: string }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -49,15 +53,19 @@ export async function clockIn(input: ClockInInput): Promise<Result> {
   const axis = resolveAxis(input.categoryId, input.goalId);
   if ("error" in axis) return axis;
 
-  const { error } = await supabase.from("sessions").insert({
-    user_id: user.id,
-    category_id: axis.categoryId,
-    goal_id: axis.goalId,
-    task_name: input.taskName.trim(),
-    description: input.description?.trim() || null,
-    started_at: new Date().toISOString(),
-    ended_at: null,
-  });
+  const { data, error } = await supabase
+    .from("sessions")
+    .insert({
+      user_id: user.id,
+      category_id: axis.categoryId,
+      goal_id: axis.goalId,
+      task_name: input.taskName.trim(),
+      description: input.description?.trim() || null,
+      started_at: new Date().toISOString(),
+      ended_at: null,
+    })
+    .select("id")
+    .single();
 
   if (error) {
     // Partial unique index enforces one active session per user.
@@ -69,7 +77,7 @@ export async function clockIn(input: ClockInInput): Promise<Result> {
 
   revalidatePath("/clock");
   revalidatePath("/goals");
-  return { ok: true };
+  return { ok: true, sessionId: (data as { id: string }).id };
 }
 
 export async function clockOut(): Promise<Result> {
@@ -193,6 +201,7 @@ type CreateSessionInput = {
   description?: string;
   startedAt: number; // ms
   endedAt: number; // ms
+  isPrivate?: boolean;
 };
 
 export async function createSession(input: CreateSessionInput): Promise<Result> {
@@ -213,6 +222,7 @@ export async function createSession(input: CreateSessionInput): Promise<Result> 
     description: input.description?.trim() || null,
     started_at: new Date(input.startedAt).toISOString(),
     ended_at: new Date(input.endedAt).toISOString(),
+    is_private: input.isPrivate ?? false,
   });
 
   if (error) return { error: error.message };
@@ -230,6 +240,8 @@ type UpdateSessionPatch = {
   description?: string;
   startedAt?: number;
   endedAt?: number | null;
+  // Social v2: true = owner-only, false = visible to accepted friends (Aspect 4).
+  isPrivate?: boolean;
 };
 
 export async function updateSession(
@@ -253,6 +265,9 @@ export async function updateSession(
   }
   if (patch.endedAt !== undefined) {
     update.ended_at = patch.endedAt === null ? null : new Date(patch.endedAt).toISOString();
+  }
+  if (patch.isPrivate !== undefined) {
+    update.is_private = patch.isPrivate;
   }
 
   const { error } = await supabase.from("sessions").update(update).eq("id", id);

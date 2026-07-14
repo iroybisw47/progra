@@ -24,11 +24,19 @@ type Props = {
   completions: HabitCompletion[];
   weekStart: string; // YYYY-MM-DD, Monday of this week in user's tz
   today: string; // YYYY-MM-DD in user's tz
+  // Viewing someone else's habits (a profile): render without any toggle/mutation.
+  readOnly?: boolean;
 };
 
 type ToggleAction = { habitId: string; date: string };
 
-export function WeeklyHabits({ habits, completions, weekStart, today }: Props) {
+export function WeeklyHabits({
+  habits,
+  completions,
+  weekStart,
+  today,
+  readOnly = false,
+}: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
@@ -62,6 +70,7 @@ export function WeeklyHabits({ habits, completions, weekStart, today }: Props) {
   );
 
   function handleToggle(habitId: string, date: string) {
+    if (readOnly) return; // viewing someone else's habits
     if (date > today) return; // can't fill future days
     startTransition(async () => {
       applyToggle({ habitId, date });
@@ -144,7 +153,9 @@ export function WeeklyHabits({ habits, completions, weekStart, today }: Props) {
       <CardContent className="flex flex-col gap-5">
         {habits.length === 0 ? (
           <p className="text-muted-foreground py-2 text-sm">
-            No habits yet. Add some on the Habits tab.
+            {readOnly
+              ? "No habits to show."
+              : "No habits yet. Add some on the Habits tab."}
           </p>
         ) : inDayMode ? (
           <div className="flex flex-col gap-2">
@@ -153,49 +164,60 @@ export function WeeklyHabits({ habits, completions, weekStart, today }: Props) {
                 const done =
                   completionsByDate.get(selectedDate!)?.has(h.id) ?? false;
                 const isFuture = selectedDate! > today;
+                const rowInner = (
+                  <>
+                    {done ? (
+                      <CheckIcon className="size-4 text-primary" />
+                    ) : (
+                      <CircleIcon className="size-4 text-muted-foreground" />
+                    )}
+                    {h.color && (
+                      <span
+                        aria-hidden
+                        className="size-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: h.color }}
+                      />
+                    )}
+                    <span
+                      className={
+                        "flex-1 text-sm " + (done ? "" : "text-muted-foreground")
+                      }
+                    >
+                      {h.name}
+                    </span>
+                  </>
+                );
                 return (
                   <li key={h.id}>
-                    <button
-                      type="button"
-                      disabled={isFuture}
-                      aria-pressed={done}
-                      onClick={() => handleToggle(h.id, selectedDate!)}
-                      className="-mx-2 flex min-h-11 w-full items-center gap-3 rounded-md px-2 py-1 text-left transition-colors hover:bg-muted/50 disabled:pointer-events-none disabled:opacity-50"
-                    >
-                      {done ? (
-                        <CheckIcon className="size-4 text-primary" />
-                      ) : (
-                        <CircleIcon className="size-4 text-muted-foreground" />
-                      )}
-                      {h.color && (
-                        <span
-                          aria-hidden
-                          className="size-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: h.color }}
-                        />
-                      )}
-                      <span
-                        className={
-                          "flex-1 text-sm " +
-                          (done ? "" : "text-muted-foreground")
-                        }
+                    {readOnly ? (
+                      <div className="-mx-2 flex min-h-11 w-full items-center gap-3 rounded-md px-2 py-1 text-left">
+                        {rowInner}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isFuture}
+                        aria-pressed={done}
+                        onClick={() => handleToggle(h.id, selectedDate!)}
+                        className="-mx-2 flex min-h-11 w-full items-center gap-3 rounded-md px-2 py-1 text-left transition-colors hover:bg-muted/50 disabled:pointer-events-none disabled:opacity-50"
                       >
-                        {h.name}
-                      </span>
-                    </button>
+                        {rowInner}
+                      </button>
+                    )}
                   </li>
                 );
               })}
             </ul>
-            {selectedDate! > today ? (
-              <p className="text-muted-foreground text-xs">
-                Future day — nothing to fill in yet.
-              </p>
-            ) : (
-              <p className="text-muted-foreground text-xs">
-                Tap a habit to mark it done for this day.
-              </p>
-            )}
+            {!readOnly &&
+              (selectedDate! > today ? (
+                <p className="text-muted-foreground text-xs">
+                  Future day — nothing to fill in yet.
+                </p>
+              ) : (
+                <p className="text-muted-foreground text-xs">
+                  Tap a habit to mark it done for this day.
+                </p>
+              ))}
           </div>
         ) : (
           <div className="flex flex-col gap-4">

@@ -14,6 +14,11 @@ export type Profile = {
   // Null until the first-run onboarding flow is completed (or after a
   // "Replay onboarding" reset). Home redirects to /onboarding while null.
   onboarded_at: string | null;
+  // Public identity (social v2). Null until the user claims a handle. `username`
+  // is the URL-safe, unique handle; `display_name` and `bio` are free text.
+  username: string | null;
+  display_name: string | null;
+  bio: string | null;
   created_at: string;
   updated_at: string;
 };

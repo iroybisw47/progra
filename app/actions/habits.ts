@@ -46,6 +46,8 @@ type UpdateHabitPatch = {
   name?: string;
   // A palette hex value, or null to clear. Omit to leave untouched.
   color?: string | null;
+  // Social v2: true = owner-only, false = visible to accepted friends (Aspect 4).
+  isPrivate?: boolean;
 };
 
 export async function updateHabit(
@@ -64,6 +66,9 @@ export async function updateHabit(
       return { error: "Pick a color from the palette" };
     }
     update.color = patch.color;
+  }
+  if (patch.isPrivate !== undefined) {
+    update.is_private = patch.isPrivate;
   }
   if (Object.keys(update).length === 0) return { ok: true };
 
@@ -124,6 +129,7 @@ export async function toggleHabitCompletion(
   const { data: existing } = await supabase
     .from("habit_completions")
     .select("id")
+    .eq("user_id", user.id)
     .eq("habit_id", habitId)
     .eq("completed_on", localDate)
     .maybeSingle();

@@ -25,8 +25,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { CategoryPicker } from "@/components/category-picker";
 import { GoalPicker } from "@/components/goal-picker";
+import { PrivacyToggle } from "@/components/privacy-toggle";
 
 import { type Category, type Session } from "@/lib/storage";
+import { SOCIAL_ENABLED } from "@/lib/flags";
 import type { Goal } from "@/lib/db/goals";
 import {
   createSession,
@@ -131,6 +133,9 @@ function SessionForm({
     defaultEnd ? formatTime(defaultEnd) : ""
   );
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(
+    isCreate ? false : session!.isPrivate
+  );
 
   const startTs = combine(startDate, startTime);
   const endTs = !isActive ? combine(endDate, endTime) : null;
@@ -170,6 +175,7 @@ function SessionForm({
           categoryId,
           goalId,
           startedAt: startTs,
+          isPrivate,
         });
         if ("error" in r) {
           toast.error(r.error);
@@ -196,6 +202,7 @@ function SessionForm({
           goalId,
           startedAt: startTs,
           endedAt: endTs,
+          isPrivate,
         });
         if ("error" in r) {
           toast.error(r.error);
@@ -214,6 +221,7 @@ function SessionForm({
           goalId,
           startedAt: startTs,
           endedAt: endTs,
+          isPrivate,
         });
         if ("error" in r) {
           toast.error(r.error);
@@ -356,6 +364,13 @@ function SessionForm({
         )}
         {startInFuture && (
           <p className="text-destructive text-xs">Start can&apos;t be in the future.</p>
+        )}
+        {SOCIAL_ENABLED && (
+          <PrivacyToggle
+            id="sess-private"
+            checked={isPrivate}
+            onCheckedChange={setIsPrivate}
+          />
         )}
       </div>
       <DialogFooter>

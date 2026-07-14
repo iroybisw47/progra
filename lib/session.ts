@@ -9,7 +9,15 @@ import type { Session } from "@/lib/storage";
 // This is the single source of truth for "how long did I actually work" —
 // every aggregation (week card, recap, rollups, day breakdown) routes through
 // it so worked-time numbers reconcile everywhere.
-export function sessionWorkedMs(s: Session, now: number): number {
+// Accepts just the timing fields so live surfaces (e.g. the "clocked in now"
+// strip) can compute worked time from a minimal payload; full Session callers
+// satisfy the Pick unchanged.
+type SessionTiming = Pick<
+  Session,
+  "startedAt" | "endedAt" | "pausedMs" | "pausedSince"
+>;
+
+export function sessionWorkedMs(s: SessionTiming, now: number): number {
   const end = s.endedAt ?? now;
   const span = end - s.startedAt;
   const currentPause =
@@ -24,6 +32,6 @@ export function sessionPausedMs(s: Session, now: number): number {
   return s.pausedMs + currentPause;
 }
 
-export function isPaused(s: Session): boolean {
+export function isPaused(s: Pick<Session, "endedAt" | "pausedSince">): boolean {
   return s.endedAt === null && s.pausedSince !== null;
 }

@@ -1,9 +1,10 @@
 import "server-only";
 
+import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import type { Session } from "@/lib/storage";
 
-type SessionRow = {
+export type SessionRow = {
   id: string;
   category_id: string | null;
   goal_id: string | null;
@@ -13,14 +14,19 @@ type SessionRow = {
   ended_at: string | null;
   paused_ms: number | string | null;
   paused_since: string | null;
+  is_private: boolean;
+  before_photo_path: string | null;
+  after_photo_path: string | null;
 };
 
 // Columns selected for every session read. Single constant so the pause
-// columns can't be forgotten on a new query.
-const SESSION_COLUMNS =
-  "id, category_id, goal_id, task_name, description, started_at, ended_at, paused_ms, paused_since";
+// columns can't be forgotten on a new query. Exported so cross-user readers
+// (e.g. the feed) select the same shape; add ", user_id" when the reader needs
+// to attribute a row to its author.
+export const SESSION_COLUMNS =
+  "id, category_id, goal_id, task_name, description, started_at, ended_at, paused_ms, paused_since, is_private, before_photo_path, after_photo_path";
 
-function rowToSession(row: SessionRow): Session {
+export function rowToSession(row: SessionRow): Session {
   return {
     id: row.id,
     categoryId: row.category_id,
@@ -33,6 +39,9 @@ function rowToSession(row: SessionRow): Session {
     // pre-migration rows the column was added to (0 / null).
     pausedMs: row.paused_ms != null ? Number(row.paused_ms) : 0,
     pausedSince: row.paused_since ? new Date(row.paused_since).getTime() : null,
+    isPrivate: row.is_private ?? false,
+    beforePhotoPath: row.before_photo_path ?? null,
+    afterPhotoPath: row.after_photo_path ?? null,
   };
 }
 
@@ -43,12 +52,15 @@ export async function listSessionsInRange(
   startMs: number,
   endMs: number
 ): Promise<Session[]> {
+  const me = await getCurrentUser();
+  if (!me) return [];
   const supabase = await createClient();
   const startIso = new Date(startMs).toISOString();
   const endIso = new Date(endMs).toISOString();
   const { data } = await supabase
     .from("sessions")
     .select(SESSION_COLUMNS)
+    .eq("user_id", me.id)
     .lt("started_at", endIso)
     .or(`ended_at.gt.${startIso},ended_at.is.null`)
     .order("started_at", { ascending: false });
@@ -62,6 +74,8 @@ export async function listSessionsInRange(
 // plus a tz-safety buffer); active sessions are returned via the OR clause
 // even if they started earlier.
 export async function listRecentSessions(daysBack = 14): Promise<Session[]> {
+  const me = await getCurrentUser();
+  if (!me) return [];
   const supabase = await createClient();
   const since = new Date();
   since.setDate(since.getDate() - daysBack);
@@ -69,6 +83,7 @@ export async function listRecentSessions(daysBack = 14): Promise<Session[]> {
   const { data } = await supabase
     .from("sessions")
     .select(SESSION_COLUMNS)
+    .eq("user_id", me.id)
     .or(`started_at.gte.${since.toISOString()},ended_at.is.null`)
     .order("started_at", { ascending: false });
 
@@ -88,12 +103,15 @@ export async function listSessionHistory(opts: {
   beforeMs?: number | null;
   limit?: number;
 }): Promise<Session[]> {
+  const me = await getCurrentUser();
+  if (!me) return [];
   const supabase = await createClient();
   const limit = opts.limit ?? SESSION_HISTORY_PAGE_SIZE;
 
   let query = supabase
     .from("sessions")
     .select(SESSION_COLUMNS)
+    .eq("user_id", me.id)
     .not("ended_at", "is", null);
 
   if (opts.categoryId === "none") {
@@ -108,6 +126,27 @@ export async function listSessionHistory(opts: {
   const { data } = await query
     .order("started_at", { ascending: false })
     .limit(limit);
+  if (!data) return [];
+  return (data as SessionRow[]).map(rowToSession);
+}
+
+// Cross-user read (social v2 profile pages): another user's recent sessions.
+// No owner guard — RLS decides visibility (owner → all incl. private; accepted
+// friend → non-private; stranger/blocked → none).
+export async function listRecentSessionsForUser(
+  userId: string,
+  daysBack = 14
+): Promise<Session[]> {
+  const supabase = await createClient();
+  const since = new Date();
+  since.setDate(since.getDate() - daysBack);
+
+  const { data } = await supabase
+    .from("sessions")
+    .select(SESSION_COLUMNS)
+    .eq("user_id", userId)
+    .or(`started_at.gte.${since.toISOString()},ended_at.is.null`)
+    .order("started_at", { ascending: false });
   if (!data) return [];
   return (data as SessionRow[]).map(rowToSession);
 }

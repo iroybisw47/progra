@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
+  AtSignIcon,
   ChevronRightIcon,
   ClockIcon,
   FlagIcon,
@@ -28,17 +29,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { createGoal } from "@/app/actions/goals";
-import { completeOnboarding } from "@/app/actions/profile";
+import { completeOnboarding, setUsername } from "@/app/actions/profile";
 import { clockIn, clockOut } from "@/app/actions/sessions";
+import { SOCIAL_ENABLED } from "@/lib/flags";
+import { checkUsername } from "@/lib/social/username";
 import type { CategoryBreakdownRow } from "@/lib/aggregate";
 import type { Goal } from "@/lib/db/goals";
 import type { Habit, HabitCompletion } from "@/lib/db/habits";
 
 const HOUR_MS = 60 * 60 * 1000;
 
-// Login is step 1 of 9 (the real /login page); the wizard starts at 2.
+// The real /login page is step 1; the wizard array below starts at step 2.
 type Step =
   | "welcome"
+  | "username"
   | "how"
   | "goal"
   | "practice"
@@ -47,16 +51,35 @@ type Step =
   | "tour-history"
   | "tour-habits";
 
-const STEP_NUM: Record<Step, number> = {
-  welcome: 2,
-  how: 3,
-  goal: 4,
-  practice: 5,
-  categories: 6,
-  "tour-home": 7,
-  "tour-history": 8,
-  "tour-habits": 9,
-};
+// Ordered wizard steps. The username step only exists when the social build is
+// switched on (SOCIAL_ENABLED); otherwise the flow is exactly the 9-step tour
+// current beta users see. Step numbers and the "of N" total are derived from
+// this array, so adding or removing a step needs no manual renumbering.
+const STEP_SEQUENCE: Step[] = SOCIAL_ENABLED
+  ? [
+      "welcome",
+      "username",
+      "how",
+      "goal",
+      "practice",
+      "categories",
+      "tour-home",
+      "tour-history",
+      "tour-habits",
+    ]
+  : [
+      "welcome",
+      "how",
+      "goal",
+      "practice",
+      "categories",
+      "tour-home",
+      "tour-history",
+      "tour-habits",
+    ];
+
+const TOTAL_STEPS = STEP_SEQUENCE.length + 1; // +1 for the /login step
+const stepNumber = (step: Step): number => STEP_SEQUENCE.indexOf(step) + 2;
 
 function formatHours(ms: number): string {
   return `${(ms / HOUR_MS).toFixed(1)}h`;
@@ -100,6 +123,8 @@ type Props = {
   monthCategoryRows: CategoryBreakdownRow[];
   monthUncategorizedCount: number;
   activeSession: { taskName: string; startedAt: number } | null;
+  // Existing handle (social v2) to prefill the username step; "" for new users.
+  initialUsername: string;
 };
 
 export function OnboardingClient({
@@ -117,12 +142,21 @@ export function OnboardingClient({
   monthCategoryRows,
   monthUncategorizedCount,
   activeSession,
+  initialUsername,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   const [step, setStep] = useState<Step>("welcome");
   const [homeTour, setHomeTour] = useState<"recap" | "history">("recap");
+
+  // Username step (social v2, flag-gated). Prefilled on replay so an existing
+  // handle shows rather than a blank field. Validation is the shared
+  // checkUsername, so it matches the server action exactly.
+  const [username, setUsernameInput] = useState(initialUsername);
+  const usernameCheck = username.trim() ? checkUsername(username) : null;
+  const usernameError =
+    usernameCheck && !usernameCheck.ok ? usernameCheck.error : null;
 
   // Goal step.
   const [goalTitle, setGoalTitle] = useState("");
@@ -157,6 +191,22 @@ export function OnboardingClient({
 
   const practiceGoalTitle =
     createdGoalTitle ?? goals[0]?.title ?? "your goal";
+
+  function handleClaimUsername() {
+    const check = checkUsername(username);
+    if (!check.ok) {
+      toast.error(check.error);
+      return;
+    }
+    startTransition(async () => {
+      const r = await setUsername(check.username);
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      setStep("how");
+    });
+  }
 
   function handleCreateGoal() {
     const title = goalTitle.trim();
@@ -267,7 +317,7 @@ export function OnboardingClient({
     <div key={step} className="flex flex-1 animate-[fade-up_.35s_ease] flex-col">
       <div className="flex h-11 items-center justify-center">
         <span className="text-caption text-xs tracking-[.05em] tabular-nums">
-          {STEP_NUM[step]} of 9
+          {stepNumber(step)} of {TOTAL_STEPS}
         </span>
       </div>
 
@@ -285,6 +335,43 @@ export function OnboardingClient({
                 Plan your week. Track deep work. See where your time goes — one
                 calm place for all of it.
               </p>
+            </>
+          )}
+
+          {step === "username" && (
+            <>
+              <span className="bg-brand flex size-14 items-center justify-center rounded-full">
+                <AtSignIcon
+                  className="size-6 text-[#fcf6ef]"
+                  strokeWidth={1.9}
+                />
+              </span>
+              <header className="flex flex-col gap-2">
+                <h1 className="text-ink text-[32px] leading-[1.15]">
+                  Claim your handle
+                </h1>
+                <p className="text-[15px] leading-normal text-muted-foreground text-pretty">
+                  This is how friends find you on Progra. Lowercase letters,
+                  numbers, and underscores — you can change it later.
+                </p>
+              </header>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="onboarding-username">Username</Label>
+                <Input
+                  id="onboarding-username"
+                  className="h-12 rounded-xl text-base"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  value={username}
+                  onChange={(e) => setUsernameInput(e.target.value)}
+                />
+                {usernameError && (
+                  <p className="text-destructive text-[13px] leading-normal">
+                    {usernameError}
+                  </p>
+                )}
+              </div>
             </>
           )}
 
@@ -467,7 +554,17 @@ export function OnboardingClient({
         </div>
 
         {step === "welcome" && (
-          <WizardCta onClick={() => setStep("how")}>Get started</WizardCta>
+          <WizardCta onClick={() => setStep(SOCIAL_ENABLED ? "username" : "how")}>
+            Get started
+          </WizardCta>
+        )}
+        {step === "username" && (
+          <WizardCta
+            onClick={handleClaimUsername}
+            disabled={!usernameCheck?.ok || pending}
+          >
+            Claim username
+          </WizardCta>
         )}
         {step === "how" && (
           <WizardCta onClick={() => setStep("goal")}>Next</WizardCta>

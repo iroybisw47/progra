@@ -8,18 +8,30 @@ import {
   FlagIcon,
   HomeIcon,
   SearchIcon,
+  UserIcon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { SOCIAL_ENABLED } from "@/lib/flags";
 
-// 5 tabs; Clock is the raised center FAB.
-const TABS = [
-  { href: "/", label: "Home", icon: HomeIcon, center: false, match: (p: string) => p === "/" },
-  { href: "/search", label: "Search", icon: SearchIcon, center: false, match: (p: string) => p.startsWith("/search") },
-  { href: "/clock", label: "Clock", icon: ClockIcon, center: true, match: (p: string) => p.startsWith("/clock") },
-  { href: "/goals", label: "Goals", icon: FlagIcon, center: false, match: (p: string) => p.startsWith("/goals") },
-  { href: "/habits", label: "Habits", icon: CheckSquareIcon, center: false, match: (p: string) => p.startsWith("/habits") },
-] as const;
+// 5 tabs; Clock is the raised center FAB. With social on, Home becomes the feed
+// and the Search slot becomes the "You" tab (the personal dashboard at /me);
+// the beta keeps its original Home/Search layout.
+const TABS = SOCIAL_ENABLED
+  ? ([
+      { href: "/", label: "Home", icon: HomeIcon, center: false, match: (p: string) => p === "/" },
+      { href: "/me", label: "You", icon: UserIcon, center: false, match: (p: string) => p.startsWith("/me") },
+      { href: "/clock", label: "Clock", icon: ClockIcon, center: true, match: (p: string) => p.startsWith("/clock") },
+      { href: "/goals", label: "Goals", icon: FlagIcon, center: false, match: (p: string) => p.startsWith("/goals") },
+      { href: "/habits", label: "Habits", icon: CheckSquareIcon, center: false, match: (p: string) => p.startsWith("/habits") },
+    ] as const)
+  : ([
+      { href: "/", label: "Home", icon: HomeIcon, center: false, match: (p: string) => p === "/" },
+      { href: "/search", label: "Search", icon: SearchIcon, center: false, match: (p: string) => p.startsWith("/search") },
+      { href: "/clock", label: "Clock", icon: ClockIcon, center: true, match: (p: string) => p.startsWith("/clock") },
+      { href: "/goals", label: "Goals", icon: FlagIcon, center: false, match: (p: string) => p.startsWith("/goals") },
+      { href: "/habits", label: "Habits", icon: CheckSquareIcon, center: false, match: (p: string) => p.startsWith("/habits") },
+    ] as const);
 
 const INACTIVE = "text-[#aba293] dark:text-[#837c6e]";
 

@@ -44,6 +44,7 @@ import { ColorSwatches } from "@/components/color-swatches";
 import { EventCategoryDialog } from "@/components/event-category-dialog";
 import { GoalPicker } from "@/components/goal-picker";
 import { SessionDialog, type SessionDialogMode } from "@/components/session-dialog";
+import { SessionPhotoStep } from "@/components/session-photo-step";
 import { WeekBreakdown } from "@/components/week-breakdown";
 
 import { type Category, type Session } from "@/lib/storage";
@@ -132,6 +133,9 @@ type ClockClientProps = {
   sessions: Session[];
   events: DayEvent[];
   goals: Goal[];
+  // Signed URL for the active session's before photo (Phase 3), or null. Wired
+  // into the active card in sub-step 3.
+  activeBeforeUrl: string | null;
 };
 
 export function ClockClient({
@@ -139,6 +143,7 @@ export function ClockClient({
   sessions,
   events,
   goals,
+  activeBeforeUrl,
 }: ClockClientProps) {
   const router = useRouter();
   const now = useNow();
@@ -168,6 +173,12 @@ export function ClockClient({
   const [editColor, setEditColor] = useState<string | null>(null);
   const [sessionDialog, setSessionDialog] = useState<SessionDialogState>(null);
   const [eventDialog, setEventDialog] = useState<DayEvent | null>(null);
+  // Optional before/after photo step (Phase 3), opened after clock-in/out.
+  const [photoStep, setPhotoStep] = useState<{
+    sessionId: string;
+    kind: "before" | "after";
+    showProfileHint: boolean;
+  } | null>(null);
   // null = week mode; 0..6 (Mon-first) = day mode for that weekday of this week.
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
 
@@ -286,6 +297,8 @@ export function ClockClient({
       setSelectedGoalId(null);
       toast.success(`Clocked into ${label}`);
       router.refresh();
+      // Timer is already running; the before step opens over it and is skippable.
+      setPhotoStep({ sessionId: r.sessionId, kind: "before", showProfileHint: false });
     });
   }
 
@@ -300,6 +313,13 @@ export function ClockClient({
       }
       toast.success(`Logged ${formatDuration(sessionWorkedMs(session, Date.now()))}`);
       router.refresh();
+      // Session already ended; the after step opens over the result, skippable.
+      // Profile hint only when a before photo exists (a complete pair can surface).
+      setPhotoStep({
+        sessionId: session.id,
+        kind: "after",
+        showProfileHint: session.beforePhotoPath != null,
+      });
     });
   }
 
@@ -480,6 +500,15 @@ export function ClockClient({
                   {sessionLabel(activeSession)}
                 </Badge>
               </div>
+
+              {activeBeforeUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={activeBeforeUrl}
+                  alt="Before photo for this session"
+                  className="size-16 rounded-md object-cover"
+                />
+              )}
 
               {/* Inline notes — jot as you work. Reuses the session note. */}
               <div className="flex flex-col gap-1.5">
@@ -991,6 +1020,16 @@ export function ClockClient({
         onOpenChange={(open) => {
           if (!open) setEventDialog(null);
         }}
+      />
+
+      <SessionPhotoStep
+        open={photoStep !== null}
+        onOpenChange={(o) => {
+          if (!o) setPhotoStep(null);
+        }}
+        sessionId={photoStep?.sessionId ?? null}
+        kind={photoStep?.kind ?? "before"}
+        showProfileHint={photoStep?.showProfileHint ?? false}
       />
     </div>
   );

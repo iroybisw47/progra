@@ -170,6 +170,21 @@ export function addDaysISO(dateStr: string, n: number): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
 }
 
+// Short, minute-granularity "time ago" for feed timestamps: "just now",
+// "12m ago", "3h ago". Past ~a day it defers to formatRelativeDay (Yesterday /
+// weekday / "Mon, Jan 5"). `fromMs`/`nowMs` are epoch ms. Future times (clock
+// skew) collapse to "just now".
+export function formatRelativeTime(fromMs: number, nowMs: number): string {
+  const diffMs = nowMs - fromMs;
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if (diffMs < minute) return "just now";
+  if (diffMs < hour) return `${Math.floor(diffMs / minute)}m ago`;
+  if (diffMs < day) return `${Math.floor(diffMs / hour)}h ago`;
+  return formatRelativeDay(new Date(fromMs), new Date(nowMs));
+}
+
 export function formatRelativeDay(d: Date, now: Date): string {
   const dayKey = formatLocalDate(d);
   if (dayKey === formatLocalDate(now)) return "Today";
