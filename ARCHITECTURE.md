@@ -11,14 +11,19 @@
 > first. When code and this doc disagree, the code wins — and the doc should be
 > fixed in the same session.
 >
-> _Last updated: 2026-07-10_
+> _Last updated: 2026-07-14_
 
 ---
 
 ## 1. What Progra is
 
-A personal, single-user productivity PWA (installs to the iPhone home screen).
-It unifies four loops:
+A personal productivity PWA (installs to the iPhone home screen), evolving into a
+friends-based social layer. The single-user tracker is the live beta; the entire
+**social v2** build (feed, profiles, friends, session photos/stories, comments,
+reactions, moderation, account deletion — Phases 0–4) ships behind the
+`SOCIAL_ENABLED` flag, dark unless `NEXT_PUBLIC_SOCIAL_ENABLED=1` in the host.
+
+The tracker unifies four loops:
 
 1. **Goals** — set weekly goals with hour quotas and track actual time against
    them. (The former weekly *planner* — session plans auto-placed into calendar
@@ -100,16 +105,18 @@ Key consequences of this shape:
 All feature routes are auth-gated and share the `BottomNav` (rendered in
 `app/layout.tsx` only when a user is present).
 
-Social v2 routes (`/me`, `/friends`, `/profile/[username]`) and the feed at `/`
-are all gated by `SOCIAL_ENABLED`; with the flag off they 404 (or, for `/`,
-fall back to the dashboard) and the beta is unaffected.
+Social v2 routes (`/me`, `/friends`, `/profile/[username]`, `/admin`) and the
+feed at `/` are all gated by `SOCIAL_ENABLED`; with the flag off they 404 (or,
+for `/`, fall back to the dashboard) and the beta is unaffected. `/admin`
+additionally 404s anyone who isn't the admin (`rpc('is_admin')`).
 
 | Route | Server page | Client | Purpose |
 |---|---|---|---|
 | `/` | `app/page.tsx` | — | Home. Flag off → personal dashboard (`components/dashboard.tsx`). Flag on → the social **feed** (`components/feed.tsx`): friends' recent finished sessions + comment threads. |
 | `/me` | `app/me/page.tsx` | — | **You** tab (social on only): the personal dashboard, relocated off Home. Shares `components/dashboard.tsx`. |
 | `/friends` | `friends/page.tsx` | `friends-client.tsx` | Friend search / requests / blocked (social on only). |
-| `/profile/[username]` | `profile/[username]/page.tsx` | `profile-actions.tsx` | Public profile: identity + a friend's non-private goals/habits/sessions (social on only). |
+| `/profile/[username]` | `profile/[username]/page.tsx` | `profile-actions.tsx` | Public profile: identity + a friend's non-private goals/habits + photo **stories** (social on only). |
+| `/admin` | `admin/page.tsx` | `admin-reports.tsx` | Moderation queue (social on + `is_admin()` only): open reports with target preview, take-down / dismiss. |
 | `/login` | `app/login/page.tsx` | `google-sign-in-button.tsx` | Google OAuth entry. |
 | `/auth/callback` | `route.ts` | — | OAuth code exchange → session. |
 | `/auth/signout` | `route.ts` | — | Sign out. |
@@ -117,7 +124,6 @@ fall back to the dashboard) and the beta is unaffected.
 | `/search` | `search/page.tsx` | — | Placeholder ("Coming soon") for a future search surface. |
 | `/clock` | `clock/page.tsx` | `clock-client.tsx` | Clock in/out/pause; live timer; week strip. |
 | `/goals` | `goals/page.tsx` | `goals-client.tsx` | Weekly quotas and progress. |
-| `/calendar` | `calendar/page.tsx` | `calendar-client.tsx` | Google Calendar events, categorized. |
 | `/habits` | `habits/page.tsx` | `habits-client.tsx` | Habit tracker (per-day, tz-aware). |
 | `/history` | `history/page.tsx` | `history-client.tsx` | Month/year rollups, category axis, session browser. |
 | `/recap` | `recap/page.tsx` | `recap-client.tsx` | Sunday weekly recap + share. |
@@ -137,7 +143,7 @@ is the interactive shell. `loading.tsx` provides route-level skeletons.
 |---|---|---|
 | `profiles` | `lib/auth/profile.ts`, `lib/google/oauth.ts` | One row per user (created by a Supabase trigger on auth signup). Stores Google `provider_token`, `provider_refresh_token`, `token_expires_at`, the user's IANA timezone, and `onboarded_at` (null until the first-run wizard completes; Home gates on it). |
 | `categories` | `lib/db/categories.ts` | `name`, `color`, `rules` (JSON, `titleContains[]` for auto-categorization). |
-| `sessions` | `lib/db/sessions.ts` | The clock-in record. `started_at`/`ended_at` (real wall-clock), `paused_ms` (banked), `paused_since` (set only while paused), `category_id`, `goal_id`. **Partial unique index** enforces one active (`ended_at IS NULL`) session per user → insert error `23505`. |
+| `sessions` | `lib/db/sessions.ts` | The clock-in record. `started_at`/`ended_at` (real wall-clock), `paused_ms` (banked), `paused_since` (set only while paused), `category_id`, `goal_id`, and (social v2) `before_photo_path`/`after_photo_path`. **Partial unique index** enforces one active (`ended_at IS NULL`) session per user → insert error `23505`. |
 | `goals` | `lib/db/goals.ts` | `weekly_quota_hours`, active flag, ordering. |
 | `calendar_events` | `lib/db/calendar-events.ts` | Synced Google events. Upsert keyed on `(user_id, google_event_id)`. All-day + cancelled events skipped on sync. |
 | `event_categorizations` | `app/actions/event-categorizations.ts` | Manual category overrides for specific calendar events. |
@@ -146,12 +152,20 @@ is the interactive shell. `loading.tsx` provides route-level skeletons.
 | rollups / recap | `lib/db/rollups.ts`, `lib/db/recap.ts` | Read-side aggregation helpers for `/history` and `/recap`. |
 | `friendships` (social v2) | `lib/db/friends.ts` | One row per pair: `requester_id`/`addressee_id`, `status` (pending/accepted/blocked), `blocked_by`. RLS hides blocks from the blocked party; consent-critical transitions go through `SECURITY DEFINER` RPCs (`accept_friend_request`, `block_user`). |
 | `session_comments` (social v2) | `lib/db/comments.ts`, `app/actions/comments.ts` | Comments on feed sessions (`body` 1–500). RLS mirrors session visibility via the `can_see_session` definer helper; delete limited to author or session owner (`owns_session`). |
+| `session_reactions` (social v2) | `lib/db/reactions.ts`, `app/actions/reactions.ts` | Fixed-palette emoji reactions on feed sessions. RLS SELECT mirrors session visibility; writes go **only** through the `toggle_reaction` definer RPC (atomic insert-or-delete, re-checks visibility + emoji) so a reaction can't target an unseen session or be forged. |
+| `reports` (social v2, Phase 4) | `lib/social/reports.ts`, `app/actions/reports.ts` | Abuse reports. **INSERT-only RLS** (`reporter_id = auth.uid()`) — users can file but never read; the admin reads via definer RPCs. `target_type` ∈ story/comment/profile, `target_id` (polymorphic, no FK), fixed reason set + optional note, `status`. |
 
 **Social v2 also added:** `is_private` on `sessions`/`goals`/`habits`; the
-`public_profiles` view (id/username/display_name/bio only); and definer RPCs
-`are_friends`, `are_blocked`, `can_see_session`, `owns_session`, `search_users`.
-Cross-user reads (`*ForUser` helpers, `listFriendFeed`) omit the owner filter and
-let the friend-read RLS (`owner OR are_friends AND NOT is_private`) decide.
+`public_profiles` view (id/username/display_name/bio only); a private
+**`session-photos` Storage bucket** (`{user_id}/{session_id}/{kind}.jpg`, 1-hour
+signed URLs, read policy `can_see_session_photo` = owner OR admin OR non-private
+complete-pair friend); and definer RPCs `are_friends`, `are_blocked`,
+`can_see_session`, `owns_session`, `search_users`, `toggle_reaction`,
+`can_see_session_photo`, plus the Phase 4 admin/account set: `is_admin`,
+`admin_list_reports`, `admin_resolve_report`, `admin_take_down_story`,
+`admin_delete_comment`, `delete_own_account`. Cross-user reads (`*ForUser`
+helpers, `listFriendFeed`, `listProfileStories`) omit the owner filter and let
+the friend-read RLS (`owner OR are_friends AND NOT is_private`) decide.
 
 ---
 
@@ -236,6 +250,25 @@ numbers reconcile across every surface.
 - **Time math is local-time** with Mon-first weeks and inclusive ends, except the
   habit tz helpers which use UTC arithmetic on a tz-resolved date string.
 - **One active session per user**, DB-enforced (error `23505`).
+- **No service-role key anywhere.** All privileged/admin power is `SECURITY
+  DEFINER` RPCs gated by a single `is_admin()` helper (holds one UUID). `/admin`
+  checks `is_admin()` to render *and* every `admin_*` RPC re-checks it (defense in
+  depth), so a direct RPC call from a non-admin fails even if the endpoint leaks.
+- **Take-down = hide.** `admin_take_down_story` nulls the photo path columns (the
+  session stops being a complete pair → drops off every profile, and
+  `can_see_session_photo` stops serving the blob); `admin_delete_comment` deletes
+  the row. Blob purge from Storage is deferred (hygiene, not visibility).
+- **Account deletion is cascade-driven.** Every user-owned table is `ON DELETE
+  CASCADE` from `auth.users` (verified via `pg_constraint`), so
+  `delete_own_account()` clears the polymorphic `reports` about the user, then
+  deletes the one `auth.users` row and the DB cascades the rest. The
+  `deleteAccount` action removes the user's photo blobs from Storage *first*
+  (rows are gone after), then calls the RPC, then signs out.
+- **Photo EXIF/GPS is stripped server-side.** The client canvas downscale
+  (`lib/images/downscale.ts`) only bakes in orientation; the security boundary is
+  the server `sharp.rotate().resize(1600).jpeg(80)` re-encode in
+  `uploadSessionPhoto`, which drops all metadata. Ownership is checked explicitly
+  there (friend-read RLS means a non-empty session read no longer implies owner).
 - **`SPEC.md` is historical**, not current scope.
 - **Sentinel** (`.sentinel.yaml`): the agent runtime is monitored. Notably it
   **denies tool-writes to `.claude/settings*.json` and `.sentinel.yaml`** (reads
@@ -258,6 +291,32 @@ numbers reconcile across every surface.
 > Append one entry per work session / feature set. Keep it terse: what changed
 > architecturally, why, and any new invariant or migration. Seeded from git
 > history; entries before this file existed are reconstructed.
+
+### 2026-07-14 — Social v2 Phases 2–4 (feed → moderation → deletion), first deploy
+- **Phase 2 — feed + comments + reactions + live.** Home becomes the feed
+  (`listFriendFeed`, friends' finished sessions) with a "clocked in now" strip
+  (`listClockedInNow`, 30s poll); the personal dashboard moved to `/me`
+  (`components/dashboard.tsx`, shared so flag-off is byte-identical). Comments
+  (`session_comments`) and emoji reactions (`session_reactions`) both gate on the
+  `can_see_session` definer helper; reactions write only via `toggle_reaction`.
+- **Phase 3 — session photos + stories.** Private `session-photos` bucket;
+  `uploadSessionPhoto` re-encodes with `sharp` (strips EXIF/GPS — the security
+  boundary) and enforces ownership + timing; optional before/after capture in the
+  clock flow (`session-photo-step.tsx`, skip is one equal-weight tap). A profile
+  shows a session ONLY as a complete before+after **story** (`listProfileStories`,
+  `story-card.tsx`) — photo-less/half-pairs stay private. Storage read policy
+  `can_see_session_photo` tightened to owner OR non-private complete-pair friend
+  (closed an enumeration/private-photo gap).
+- **Phase 4 — moderation + account deletion (the go-wider gate).** Write-only
+  `reports` table + `report-button.tsx` on others' stories/comments/profiles;
+  `/admin` queue gated by `is_admin()` (no service-role key) with take-down /
+  dismiss via self-gating `admin_*` RPCs. `delete_own_account()` (cascade-driven)
+  + `deleteAccount` action (blob purge → RPC → sign-out) with type-to-confirm UI.
+- **Invariants added:** no service-role key (admin = `is_admin()` definer RPCs,
+  double-gated); take-down = hide; user-owned tables are `ON DELETE CASCADE` from
+  `auth.users`; photo EXIF stripped server-side. Each phase verified with an
+  adversarial JWT test (5-persona RLS, 10-point comments, 14-check admin/reports,
+  deletion scoping). **Shipped to `main`** behind `SOCIAL_ENABLED`.
 
 ### 2026-07-10 — First-run onboarding
 - `/onboarding` wizard (from the Claude Design handoff) reusing real actions:

@@ -4,6 +4,46 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-07-14
+
+### 10:00 · Social v2 — Phase 4 (moderation + account deletion) & first deploy
+The last roadmap phase and the safety gate for exposing social beyond your own
+circle: users can report content, you can take it down, and anyone can delete
+their account. All behind `SOCIAL_ENABLED`. **Shipped to `main`** (Vercel
+auto-deploy) — dark unless `NEXT_PUBLIC_SOCIAL_ENABLED=1` is set in the host.
+
+- **Reporting (write-only for users).** New `reports` table with an INSERT-only
+  RLS policy — a reporter can file but never read reports; only the admin can,
+  via definer RPCs. Fixed reason set + optional note (`lib/social/reports.ts`).
+  `app/actions/reports.ts` → `reportContent`; a `Flag` control
+  (`components/report-button.tsx`) wired onto other people's stories, feed
+  comments, and profiles (never your own content).
+- **Admin moderation — no service-role key.** All admin power is `SECURITY
+  DEFINER` RPCs gated by a single `is_admin()` helper (holds one UUID); the
+  god-key stays out of the codebase entirely. `/admin` (`app/admin/`) 404s
+  everyone but the admin and lists open reports with an embedded target preview
+  (comment body / story photos re-signed for review via an `is_admin()` branch
+  in `can_see_session_photo`). Take-down = hide immediately: `admin_take_down_story`
+  nulls the photo columns (drops it from every profile + stops the storage
+  policy serving it), `admin_delete_comment` deletes the row; `admin_resolve_report`
+  flips status off the queue. A "Moderation" link appears on `/me` only when
+  `is_admin()`. `app/actions/admin.ts` wraps the RPCs (which self-gate).
+- **Account deletion.** `delete_own_account()` (`SECURITY DEFINER`, reads
+  `auth.uid()` internally so it can only ever delete the caller) clears the
+  polymorphic reports about the user, then deletes the `auth.users` row — every
+  owned table is `ON DELETE CASCADE`, confirmed via `pg_constraint`, so one
+  delete cascades sessions/comments/reactions/goals/categories/habits/
+  calendar/friendships/profile. `app/actions/account.ts` → `deleteAccount`
+  removes the user's photo blobs from Storage first (rows are gone after), then
+  calls the RPC and signs out; type-to-confirm UI (`components/delete-account-button.tsx`)
+  on `/me`.
+- **Verified:** tsc/eslint/build + 45 tests green; a 14-check adversarial JWT
+  suite confirmed non-admins are locked out of every admin surface, reports are
+  unreadable to users and unspoofable, and take-down actually removes content;
+  a scoping test confirmed deletion refuses unauthenticated and touches only the
+  caller. Pre-deploy security pass: every social route flag-gated, no
+  service-role key anywhere, all social reads behind RLS.
+
 ## 2026-07-13
 
 ### 09:03 · Social v2 — Phase 3 subplan 3: profile story cards
