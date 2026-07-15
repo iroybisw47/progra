@@ -7,9 +7,54 @@ import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { error: string; code?: "duplicate" };
 
-export async function createCategory(name: string): Promise<Result> {
+// Keyword auto-categorization rules live in the JSON `rules` column
+// ({ titleContains: string[] }); lib/categorize.ts reads it to classify imported
+// calendar events. The column already exists — this just adds a write path.
+// Sanitize: trim, drop empties, dedupe (case-insensitive), cap count/length.
+const MAX_KEYWORDS = 20;
+const MAX_KEYWORD_LEN = 50;
+
+function sanitizeKeywords(raw: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of raw) {
+    const v = item.trim().slice(0, MAX_KEYWORD_LEN);
+    if (!v) continue;
+    const key = v.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(v);
+    if (out.length >= MAX_KEYWORDS) break;
+  }
+  return out;
+}
+
+function revalidateCategorySurfaces() {
+  // Category names/colors/rules render on every aggregation surface.
+  revalidatePath("/");
+  revalidatePath("/clock");
+  revalidatePath("/categories");
+  revalidatePath("/history");
+  revalidatePath("/recap");
+}
+
+export async function createCategory(
+  name: string,
+  opts?: { color?: string | null; keywords?: string[] }
+): Promise<Result> {
   const trimmed = name.trim();
   if (!trimmed) return { error: "Name required" };
+
+  const insert: Record<string, unknown> = { name: trimmed };
+  if (opts?.color !== undefined && opts.color !== null) {
+    if (!isCategoryColor(opts.color)) {
+      return { error: "Pick a color from the palette" };
+    }
+    insert.color = opts.color;
+  }
+  if (opts?.keywords !== undefined) {
+    insert.rules = { titleContains: sanitizeKeywords(opts.keywords) };
+  }
 
   const supabase = await createClient();
   const {
@@ -19,7 +64,7 @@ export async function createCategory(name: string): Promise<Result> {
 
   const { error } = await supabase
     .from("categories")
-    .insert({ user_id: user.id, name: trimmed });
+    .insert({ user_id: user.id, ...insert });
 
   if (error) {
     // 23505 = unique_violation (postgres). Surface as a typed duplicate so UI
@@ -28,7 +73,7 @@ export async function createCategory(name: string): Promise<Result> {
     return { error: error.message };
   }
 
-  revalidatePath("/clock");
+  revalidateCategorySurfaces();
   return { ok: true };
 }
 
@@ -36,6 +81,8 @@ type UpdateCategoryPatch = {
   name?: string;
   // A palette hex value, or null to clear. Omit to leave untouched.
   color?: string | null;
+  // Keyword auto-categorization rules; omit to leave untouched, [] to clear.
+  keywords?: string[];
 };
 
 export async function updateCategory(
@@ -55,6 +102,9 @@ export async function updateCategory(
     }
     update.color = patch.color;
   }
+  if (patch.keywords !== undefined) {
+    update.rules = { titleContains: sanitizeKeywords(patch.keywords) };
+  }
   if (Object.keys(update).length === 0) return { ok: true };
 
   const supabase = await createClient();
@@ -70,11 +120,7 @@ export async function updateCategory(
     return { error: error.message };
   }
 
-  // Category names/colors render on every aggregation surface.
-  revalidatePath("/");
-  revalidatePath("/clock");
-  revalidatePath("/history");
-  revalidatePath("/recap");
+  revalidateCategorySurfaces();
   return { ok: true };
 }
 
@@ -84,6 +130,6 @@ export async function deleteCategory(id: string): Promise<Result> {
   // just become uncategorized.
   const { error } = await supabase.from("categories").delete().eq("id", id);
   if (error) return { error: error.message };
-  revalidatePath("/clock");
+  revalidateCategorySurfaces();
   return { ok: true };
 }

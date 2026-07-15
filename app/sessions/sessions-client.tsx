@@ -14,6 +14,7 @@ import type { Category, Session } from "@/lib/storage";
 import type { HistoryItem } from "@/lib/db/history";
 
 import { loadSessionHistory } from "@/app/actions/sessions";
+import { BackLink } from "@/components/v2/back-link";
 
 // "all" = every category, "none" = the Uncategorized bucket, else a category id.
 type Filter = "all" | "none" | string;
@@ -123,6 +124,7 @@ export function SessionsClient({ categories, initialItems, pageSize }: Props) {
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24 sm:pt-12">
       <main className="flex w-full max-w-md flex-col gap-5">
+        <BackLink />
         <header className="flex flex-col gap-1">
           <h1 className="text-3xl font-semibold tracking-tight">
             Session history

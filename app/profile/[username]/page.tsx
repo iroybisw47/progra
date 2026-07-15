@@ -3,8 +3,8 @@ import { LockIcon } from "lucide-react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { GoalProgressBar } from "@/components/goal-progress";
+import { HabitWeekGrid } from "@/components/v2/habit-week-grid";
 import { StoryCard } from "@/components/story-card";
-import { WeeklyHabits } from "@/components/weekly-habits";
 import {
   Card,
   CardContent,
@@ -157,13 +157,19 @@ async function ProfileContent({
         </Card>
       )}
 
-      <WeeklyHabits
-        habits={habits}
-        completions={completions}
-        weekStart={startDate}
-        today={today}
-        readOnly
-      />
+      <div className="flex flex-col gap-2">
+        <h2 className="text-sm font-semibold">Habits this week</h2>
+        <Card>
+          <CardContent className="py-4">
+            <HabitWeekGrid
+              habits={habits}
+              completions={completions}
+              weekStart={startDate}
+              today={today}
+            />
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Stories: sessions with a complete before+after pair. Photo-less /
           half-complete sessions are private, so nothing else surfaces here. */}

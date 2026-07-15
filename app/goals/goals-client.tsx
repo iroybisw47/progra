@@ -33,6 +33,7 @@ import type { Goal } from "@/lib/db/goals";
 import { formatRelativeDay, formatTime } from "@/lib/dates";
 import { formatDuration } from "@/lib/duration";
 import { useNow } from "@/lib/hooks";
+import { BackLink } from "@/components/v2/back-link";
 
 // One of this week's sessions clocked toward a goal (see app/goals/page.tsx).
 export type GoalSessionInfo = {
@@ -160,6 +161,7 @@ export function GoalsClient({ goals, actualMsByGoal, sessionsByGoal }: Props) {
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24 sm:pt-12">
       <main className="flex w-full max-w-md flex-col gap-5">
+        <BackLink />
         <header className="flex flex-col gap-1">
           <h1 className="text-3xl font-semibold tracking-tight">Goals</h1>
           <p className="text-muted-foreground text-sm">

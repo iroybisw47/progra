@@ -12,7 +12,7 @@ import type { Session } from "@/lib/storage";
 // Accepts just the timing fields so live surfaces (e.g. the "clocked in now"
 // strip) can compute worked time from a minimal payload; full Session callers
 // satisfy the Pick unchanged.
-type SessionTiming = Pick<
+export type SessionTiming = Pick<
   Session,
   "startedAt" | "endedAt" | "pausedMs" | "pausedSince"
 >;

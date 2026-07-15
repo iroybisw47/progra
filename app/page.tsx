@@ -5,13 +5,35 @@ import { buttonVariants } from "@/components/ui/button";
 import { AddToHomeHint } from "@/components/add-to-home-hint";
 import { Dashboard } from "@/components/dashboard";
 import { Feed } from "@/components/feed";
+import { ProgressClient } from "@/components/v2/progress-client";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
-import { SOCIAL_ENABLED } from "@/lib/flags";
+import { REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
+import { loadProgressData, loadWeekHabits } from "@/lib/db/progress";
 
 export default async function Page() {
   const user = await getCurrentUser();
   if (!user) return <SignedOutLanding />;
+
+  // In the redesign, Home is the Progress tab (Today / This week / History) —
+  // the consolidated dashboard + recap + history glance. The onboarding gate
+  // still fires first.
+  if (REDESIGN) {
+    const profile = await getProfile();
+    if (!profile?.onboarded_at) redirect("/onboarding");
+    const data = await loadProgressData();
+    const { habits, completions, minWeekStart } = await loadWeekHabits(
+      data.weekStart
+    );
+    return (
+      <ProgressClient
+        {...data}
+        habits={habits}
+        completions={completions}
+        minWeekStart={minWeekStart}
+      />
+    );
+  }
 
   // With social on, Home becomes the feed and the personal dashboard moves to
   // the `/me` tab. The onboarding gate still fires here (the dashboard does its

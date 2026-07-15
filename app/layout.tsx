@@ -1,25 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Hanken_Grotesk, Newsreader } from "next/font/google";
+import { PT_Sans } from "next/font/google";
 import "./globals.css";
 
 import { BottomNav } from "@/components/bottom-nav";
 import { EnsureProfileSync } from "@/components/ensure-profile-sync";
 import { Toaster } from "@/components/ui/sonner";
+import { getActiveSession } from "@/lib/db/sessions";
 import { getOptionalUser } from "@/lib/auth/require-user";
 
-// Hanken Grotesk — all UI text, labels, body, buttons (weights 300–700).
-const hankenSans = Hanken_Grotesk({
+// PT Sans everywhere (Progra V2). One family for both body and headings; the
+// serif/heading slot (--font-newsreader) is aliased to --font-hanken in
+// globals.css. PT Sans ships 400/700 (+ italic 400); 500/600 utilities fall back
+// to the nearest weight, matching the V2 prototype.
+const ptSans = PT_Sans({
   variable: "--font-hanken",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
-
-// Newsreader — serif for headings, hero numbers, goal/recap titles, and the
-// warm italic "human" lines. Italic is used for those closing lines.
-const newsreaderSerif = Newsreader({
-  variable: "--font-newsreader",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "700"],
   style: ["normal", "italic"],
 });
 
@@ -43,8 +39,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F8F6F1" },
-    { media: "(prefers-color-scheme: dark)", color: "#22352F" },
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#14181f" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -57,14 +53,27 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const user = await getOptionalUser();
+  // The nav's center Clock button ticks the live worked time when a session is
+  // running (V2). Only fetched when signed in (the nav renders only then).
+  const activeSession = user ? await getActiveSession() : null;
   return (
-    <html
-      lang="en"
-      className={`${hankenSans.variable} ${newsreaderSerif.variable} h-full antialiased`}
-    >
+    <html lang="en" className={`${ptSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         {children}
-        {user && <BottomNav />}
+        {user && (
+          <BottomNav
+            activeSession={
+              activeSession
+                ? {
+                    startedAt: activeSession.startedAt,
+                    endedAt: activeSession.endedAt,
+                    pausedMs: activeSession.pausedMs,
+                    pausedSince: activeSession.pausedSince,
+                  }
+                : null
+            }
+          />
+        )}
         {user && <EnsureProfileSync />}
         <Toaster />
       </body>

@@ -80,11 +80,11 @@ export function AdminReports({ reports }: { reports: AdminReport[] }) {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24">
+    <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-28">
       <main className="flex w-full max-w-md flex-col gap-5">
         <header className="flex flex-col gap-1">
-          <h1 className="text-3xl font-semibold tracking-tight">Moderation</h1>
-          <p className="text-muted-foreground text-sm">
+          <h1 className="text-[26px] font-bold tracking-tight">Moderation</h1>
+          <p className="text-caption text-sm">
             {reports.length === 0
               ? "No open reports."
               : `${reports.length} open report${reports.length === 1 ? "" : "s"}.`}
@@ -94,16 +94,16 @@ export function AdminReports({ reports }: { reports: AdminReport[] }) {
         {reports.map((report) => (
           <Card key={report.id}>
             <CardContent className="flex flex-col gap-3 py-4">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-sm font-medium">
+              <div className="flex items-center justify-between gap-2">
+                <span className="bg-brand/10 text-brand rounded-full px-2.5 py-0.5 text-xs font-bold">
                   {reasonLabel(report.reason)}
                 </span>
-                <span className="text-muted-foreground text-xs capitalize">
+                <span className="text-caption text-xs capitalize">
                   {report.target.kind}
                 </span>
               </div>
 
-              <p className="text-muted-foreground text-xs">
+              <p className="text-caption text-xs">
                 Reported by{" "}
                 {report.reporterUsername ? (
                   <Link
@@ -118,14 +118,14 @@ export function AdminReports({ reports }: { reports: AdminReport[] }) {
               </p>
 
               {report.note && (
-                <p className="bg-muted/40 rounded-md px-3 py-2 text-sm break-words">
+                <p className="bg-track rounded-lg px-3 py-2 text-sm break-words">
                   {report.note}
                 </p>
               )}
 
               <TargetPreview target={report.target} />
 
-              <div className="border-border/60 flex flex-wrap gap-2 border-t pt-3">
+              <div className="border-divider flex flex-wrap gap-2 border-t pt-3">
                 {report.target.kind === "story" && !report.target.gone && (
                   <TakeDownButton
                     label="Take down photos"
@@ -198,23 +198,16 @@ function TargetPreview({ target }: { target: AdminReport["target"] }) {
   if (target.kind === "story") {
     if (target.gone) {
       return (
-        <p className="text-muted-foreground text-sm italic">
-          Photos already removed.
-        </p>
+        <p className="text-caption text-sm italic">Photos already removed.</p>
       );
     }
     return (
       <div className="flex flex-col gap-1.5">
         <p className="text-sm">
-          {target.isGoal && (
-            <span className="text-muted-foreground">Goal: </span>
-          )}
+          {target.isGoal && <span className="text-caption">Goal: </span>}
           {target.label}
           {target.ownerUsername && (
-            <span className="text-muted-foreground">
-              {" "}
-              · @{target.ownerUsername}
-            </span>
+            <span className="text-caption"> · @{target.ownerUsername}</span>
           )}
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -225,12 +218,12 @@ function TargetPreview({ target }: { target: AdminReport["target"] }) {
                 key={i}
                 src={url}
                 alt={i === 0 ? "Before" : "After"}
-                className="aspect-square w-full rounded-md object-cover"
+                className="aspect-square w-full rounded-lg object-cover"
               />
             ) : (
               <div
                 key={i}
-                className="bg-muted aspect-square w-full rounded-md"
+                className="bg-track aspect-square w-full rounded-lg"
               />
             )
           )}
@@ -242,17 +235,13 @@ function TargetPreview({ target }: { target: AdminReport["target"] }) {
   if (target.kind === "comment") {
     if (target.gone) {
       return (
-        <p className="text-muted-foreground text-sm italic">
-          Comment already deleted.
-        </p>
+        <p className="text-caption text-sm italic">Comment already deleted.</p>
       );
     }
     return (
-      <div className="bg-muted/40 flex flex-col gap-1 rounded-md px-3 py-2">
+      <div className="bg-track flex flex-col gap-1 rounded-lg px-3 py-2">
         {target.authorUsername && (
-          <span className="text-muted-foreground text-xs">
-            @{target.authorUsername}
-          </span>
+          <span className="text-caption text-xs">@{target.authorUsername}</span>
         )}
         <span className="text-sm break-words">{target.body}</span>
       </div>
@@ -270,7 +259,7 @@ function TargetPreview({ target }: { target: AdminReport["target"] }) {
           {target.displayName || `@${target.username}`}
         </Link>
       ) : (
-        <span className="text-muted-foreground italic">Account gone</span>
+        <span className="text-caption italic">Account gone</span>
       )}
     </p>
   );

@@ -4,7 +4,87 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-07-15
+
+### · Clock flow — full-screen live timer + Finish & save (Subplan 2)
+The deferred clock flow, built behind `REDESIGN`. The existing `/clock` clock-in
+page is unchanged; clocking in now takes you to a full-screen live timer you can
+minimize and navigate away from (the nav pill keeps ticking), and Stop leads to a
+Finish & save screen. Faithful to handoff screens 05/06.
+
+- **`/clock/live`** (`live-timer-client.tsx`) — full-screen per design 05:
+  minimize chevron, `● Tracking`/`Paused` status, title + attribution chip +
+  description, breathing-glow 62px count-up timer, "Started … · paused …" line,
+  before-photo pill, Pause/Resume + Stop. **Edit (top-right)** opens a sheet to
+  correct the start time and, if the session's already over, set an end time and
+  finish — for when you forgot to clock out.
+- **`/clock/finish`** (`finish-client.tsx`) — design 06: session complete,
+  duration, attribution, before thumbnail (display-only — a before photo can only
+  be added while active), **Add after** (reuses `SessionPhotoStep`, gated to the
+  10-min upload window), **Private** toggle, Save → Progress.
+- **Actions:** `clockOut()` now returns the ended session id (so the flow can
+  route straight to finish); new `editActiveSessionTime({ startedAtMs, endedAtMs })`
+  adjusts an active session's start and optionally ends it (settling pause). No
+  schema change.
+- **Wiring:** the nav center button points at `/clock/live` while tracking;
+  `/clock` redirects there when `REDESIGN` && a session is active, so the old
+  inline timer never shows in the redesign. New `resolveAttribution` helper and a
+  `ToggleSwitch` primitive; added a `breathe` keyframe. `ClockClient` is untouched.
+
+### · Progress tab — habit check-off + Manage habits
+Made habits actionable from the Progress tab (redesign). No schema or action
+changes — `toggleHabitCompletion` already allowed past days, and habit CRUD
+already existed; this is all presentation.
+
+- **Today view:** the "Habits today" list is now tappable (optimistic toggle of
+  today's completion), and always renders so the Manage entry point is reachable
+  even with zero habits.
+- **Manage habits dialog** (`components/v2/manage-habits.tsx`), opened from a
+  "Manage" button in both Today and This-week: an **editable week grid** you can
+  page back through (last `HABIT_HISTORY_WEEKS` = 8 weeks) to backfill any past
+  or current day, plus **add / rename / recolor / delete** habits (delete =
+  archive; checked days stay in history). Reuses `ColorSwatches` and the habit
+  actions.
+- The Progress loader now fetches 8 weeks of completions (`loadWeekHabits` →
+  `{ habits, completions, minWeekStart }`); the This-week grid ignores
+  out-of-week dates so the wider window is harmless.
+
 ## 2026-07-14
+
+### 18:00 · V2 redesign — front-end restructure (behind `NEXT_PUBLIC_REDESIGN`)
+The bulk of the `design_handoff_progra_v2` restructure, built as parallel
+components behind the new `REDESIGN` flag (Subplan 0's global recolor already
+shipped the white/navy/PT-Sans theme app-wide). New information architecture:
+**Progress · Feed · [Clock] · Friends · You**. Everything reuses the existing
+data layer and server actions — this is a presentation/composition layer only,
+no schema changes. Clock flow (Subplan 2) is intentionally still deferred.
+
+- **Progress tab (Home).** `app/page.tsx` gains a `REDESIGN` branch rendering
+  `components/v2/progress-client.tsx` — a segmented Today / This week / History
+  view. Today = tz-correct day window (`loadProgressData` in `lib/db/progress.ts`)
+  with total, sessions-today, week-to-date goal quotas, and habits-today; This
+  week = `computeWeekRecap` + a hand-rolled SVG `components/v2/donut.tsx` +
+  `HabitWeekGrid` + share-as-text; History = current-month rollup donut with a
+  link to the full `/history` browser.
+- **Feed tab.** New `/feed` route (`components/v2/feed-v2.tsx`); live "clocked in
+  now" strip + friends' recent sessions. Comment threads collapse to a count +
+  one preview that tap through to the new session detail page.
+- **Session detail.** New `/session/[id]` + `getSessionForViewer`
+  (`lib/db/session-detail.ts`) — RLS-gated composition (author, goal label,
+  before/after signed URLs, reactions, full comment thread + composer, report).
+  Invisible/private sessions 404.
+- **Friends tab.** Restyled `app/friends/friends-client.tsx` to V2 (avatars in
+  rows, request-count badge, caption tokens).
+- **Onboarding (5 steps) + Sign in.** New `onboarding-client-v2.tsx` (welcome +
+  handle → first goal → practice timer → categories → habits intro), dropping the
+  spotlight tour; reuses `setUsername`/`createGoal`/`clockIn`/`clockOut`/
+  `completeOnboarding`. Login restyled with a real tagline + a post-deletion
+  notice (`?deleted=1`, which `HoldToDelete` now lands on).
+- **Moderation queue + report sheet.** Restyled `app/admin/admin-reports.tsx`
+  (reason chip, V2 tokens) and the `report-button.tsx` trigger.
+- Earlier this session (already landed): Subplan 0 foundation (flag, theme, nav
+  ticker), Settings hub, You/friend profiles + `HabitWeekGrid`, and the
+  standalone `/categories` route with keyword rules.
 
 ### 10:00 · Social v2 — Phase 4 (moderation + account deletion) & first deploy
 The last roadmap phase and the safety gate for exposing social beyond your own

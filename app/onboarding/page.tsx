@@ -11,6 +11,7 @@ import { listActiveGoals } from "@/lib/db/goals";
 import { listActiveHabits, listCompletionsInRange } from "@/lib/db/habits";
 import { computeMonthRollup } from "@/lib/db/rollups";
 import { listRecentSessions } from "@/lib/db/sessions";
+import { REDESIGN } from "@/lib/flags";
 import {
   endOfWeek,
   formatRange,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/dates";
 
 import { OnboardingClient } from "./onboarding-client";
+import { OnboardingClientV2 } from "./onboarding-client-v2";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -32,6 +34,26 @@ export default async function OnboardingPage() {
 
   const profile = await getProfile();
   const tz = profile?.timezone ?? "UTC";
+
+  // The redesign uses a leaner 5-step wizard (no spotlight tour), so it needs
+  // only the goals to attribute the practice session and any in-flight session.
+  if (REDESIGN) {
+    const goals = await listActiveGoals();
+    const sessions = await listRecentSessions();
+    const active = sessions.find((s) => s.endedAt === null) ?? null;
+    return (
+      <OnboardingClientV2
+        goals={goals}
+        initialUsername={profile?.username ?? ""}
+        activeSession={
+          active
+            ? { taskName: active.taskName, startedAt: active.startedAt }
+            : null
+        }
+      />
+    );
+  }
+
   const { startDate, endDate } = weekRangeInTimeZone(tz);
   const today = todayInTimeZone(tz);
 

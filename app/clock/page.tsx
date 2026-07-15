@@ -1,13 +1,23 @@
+import { redirect } from "next/navigation";
+
 import { listEventsInRange } from "@/lib/db/calendar-events";
 import { listCategories } from "@/lib/db/categories";
 import { listActiveGoals } from "@/lib/db/goals";
-import { listRecentSessions } from "@/lib/db/sessions";
+import { getActiveSession, listRecentSessions } from "@/lib/db/sessions";
 import { getSessionPhotoUrls } from "@/lib/db/session-photos";
+import { REDESIGN } from "@/lib/flags";
 import { endOfWeek, startOfWeek } from "@/lib/dates";
 
 import { ClockClient } from "./clock-client";
 
 export default async function ClockPage() {
+  // In the redesign, an active session lives on the full-screen /clock/live
+  // timer — never the old inline clock card. Clocking in (ClockClient refreshes)
+  // and tapping the nav center while tracking both land here, then bounce there.
+  if (REDESIGN && (await getActiveSession())) {
+    redirect("/clock/live");
+  }
+
   // Fetch this week's events with a 1-day buffer on each side so any timezone
   // drift between server and client doesn't drop edge-day events.
   const now = new Date();

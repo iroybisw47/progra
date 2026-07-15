@@ -68,7 +68,7 @@ export function ReportButton({
         aria-label={`Report ${targetType}`}
         onClick={() => setOpen(true)}
         className={cn(
-          "text-muted-foreground hover:text-foreground inline-flex shrink-0 items-center gap-1 text-xs transition-colors",
+          "text-caption hover:text-ink inline-flex shrink-0 items-center gap-1 text-xs transition-colors",
           className
         )}
       >

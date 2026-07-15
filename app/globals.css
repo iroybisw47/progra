@@ -71,119 +71,124 @@
 }
 
 :root {
-  /* Warm "paper" surfaces + soft ink. Mapped onto shadcn semantic tokens. */
-  --background: #f8f6f1; /* bg/screen */
-  --foreground: #3a352e; /* text/body */
+  /* Progra V2 (design_handoff_progra_v2): white surfaces, navy primary, cool
+     blue-gray ink. Mapped onto the same shadcn semantic tokens the warm palette
+     used, so every component follows without markup changes. */
+  --background: #ffffff; /* screen */
+  --foreground: #1b2129; /* ink */
   --card: #ffffff;
-  --card-foreground: #2b2722; /* text/primary */
+  --card-foreground: #1b2129;
   --popover: #ffffff;
-  --popover-foreground: #2b2722;
-  --primary: #355a52; /* brand/teal */
-  --primary-foreground: #fcf6ef;
-  --secondary: #f0ebe3; /* soft track/well */
-  --secondary-foreground: #3a352e;
-  --muted: #f0ebe3; /* progress track / subtle fill */
-  --muted-foreground: #6b6358; /* text/secondary */
-  --accent: #f8f4ee; /* inset / hover */
-  --accent-foreground: #2b2722;
-  --destructive: #a85842; /* muted clay — genuine delete only, never quota/missed */
-  --border: #eae4db; /* hairline */
-  --input: #eae4db;
-  --ring: #355a52;
-  /* Charts map to the soft category palette. */
-  --chart-1: #b07a52; /* clay */
-  --chart-2: #6e84a8; /* periwinkle */
-  --chart-3: #6e9277; /* sage */
-  --chart-4: #c2a24e; /* gold */
-  --chart-5: #c3b9a8; /* warm grey / uncategorized */
+  --popover-foreground: #1b2129;
+  --primary: #1c3a5e; /* brand/navy */
+  --primary-foreground: #ffffff;
+  --secondary: #ebedf0; /* segmented / track */
+  --secondary-foreground: #333a44;
+  --muted: #ebedf0; /* progress track / subtle fill */
+  --muted-foreground: #5d6672; /* text/secondary */
+  --accent: #f6f7f8; /* inset / hover */
+  --accent-foreground: #1b2129;
+  --destructive: #a85842; /* muted terracotta — genuine delete only, never alarmist */
+  --border: #e3e6ea; /* hairline */
+  --input: #e3e6ea;
+  --ring: #1c3a5e;
+  /* Charts map to the V2 category palette (Work/Study/Health/Personal + grey). */
+  --chart-1: #1c3a5e; /* work / navy */
+  --chart-2: #5c7f8e; /* study / slate */
+  --chart-3: #6f9077; /* health / green */
+  --chart-4: #8a6a7d; /* personal / mauve */
+  --chart-5: #7f8791; /* grey / uncategorized */
   --radius: 0.9rem;
 
   /* Extended Progra tokens */
-  --brand: #355a52;
-  --brand-deep: #22352f;
-  --sand: #e7c9a6;
-  --sand-ink: #3a2e20;
-  --screen: #f8f6f1;
-  --screen-recap: #fbf8f2;
-  --card-warm: #fbf6ef;
-  --inset: #f8f4ee;
-  --track: #f0ebe3;
-  --hairline: #eae4db;
-  --warm-border: #efe5d8;
-  --divider: #f2ede5;
-  --ink: #2b2722;
-  --body: #3a352e;
-  --secondary-ink: #6b6358;
-  --caption: #9a917f;
-  --faint: #a89f8e;
-  --done: #9dbca2;
-  --busy: #ece7df;
+  --brand: #1c3a5e;
+  --brand-deep: #142c49;
+  --sand: #d9e2ec; /* strong brand tint / selected */
+  --sand-ink: #142c49;
+  --screen: #ffffff;
+  --screen-recap: #ffffff;
+  --card-warm: #ffffff;
+  --inset: #f6f7f8;
+  --track: #ebedf0;
+  --hairline: #e3e6ea;
+  --warm-border: #e3e6ea;
+  --divider: #ebedf0;
+  --ink: #1b2129;
+  --body: #333a44;
+  --secondary-ink: #5d6672;
+  --caption: #8b929c;
+  --faint: #9fa6b0;
+  --done: #6f9077; /* met/complete — V2 green */
+  --busy: #ebedf0;
 
-  --sidebar: #fbf8f2;
-  --sidebar-foreground: #2b2722;
-  --sidebar-primary: #355a52;
-  --sidebar-primary-foreground: #fcf6ef;
-  --sidebar-accent: #f8f4ee;
-  --sidebar-accent-foreground: #2b2722;
-  --sidebar-border: #eae4db;
-  --sidebar-ring: #355a52;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1b2129;
+  --sidebar-primary: #1c3a5e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f6f7f8;
+  --sidebar-accent-foreground: #1b2129;
+  --sidebar-border: #e3e6ea;
+  --sidebar-ring: #1c3a5e;
+
+  /* PT Sans everywhere (V2). next/font sets --font-hanken on <html>; alias the
+     serif/heading slot to it so headings are PT Sans too (PT Sans has 400/700). */
+  --font-newsreader: var(--font-hanken);
 }
 
 .dark {
-  /* Warm-charcoal/green family per the brief — never pure black or blue-grey.
-     Category colors and "paused" blue carry over; no reds introduced. */
-  --background: #1a211d;
-  --foreground: #ece6da;
-  --card: #232c26;
-  --card-foreground: #ece6da;
-  --popover: #232c26;
-  --popover-foreground: #ece6da;
-  --primary: #7fb0a3; /* lifted teal for contrast on dark */
-  --primary-foreground: #14201c;
-  --secondary: #2c352e;
-  --secondary-foreground: #ece6da;
-  --muted: #2e382f;
-  --muted-foreground: #a7a091;
-  --accent: #2c352e;
-  --accent-foreground: #ece6da;
+  /* V2 dark — navy-tinted cool charcoal (design_handoff_progra_v2 dark tokens). */
+  --background: #14181f;
+  --foreground: #eef1f5;
+  --card: #1b212b;
+  --card-foreground: #eef1f5;
+  --popover: #1b212b;
+  --popover-foreground: #eef1f5;
+  --primary: #7fa3cc; /* lifted navy for contrast on dark */
+  --primary-foreground: #101722;
+  --secondary: #242c38;
+  --secondary-foreground: #eef1f5;
+  --muted: #242c38;
+  --muted-foreground: #a8b0bc;
+  --accent: #1f2630;
+  --accent-foreground: #eef1f5;
   --destructive: #c77b63;
-  --border: oklch(1 0 0 / 9%);
+  --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 12%);
-  --ring: #7fb0a3;
-  --chart-1: #b07a52;
-  --chart-2: #6e84a8;
-  --chart-3: #6e9277;
-  --chart-4: #c2a24e;
-  --chart-5: #c3b9a8;
+  --ring: #7fa3cc;
+  --chart-1: #7fa3cc;
+  --chart-2: #5c7f8e;
+  --chart-3: #6f9077;
+  --chart-4: #8a6a7d;
+  --chart-5: #7f8791;
 
-  --brand: #7fb0a3;
-  --brand-deep: #22352f;
-  --sand: #e7c9a6;
-  --sand-ink: #3a2e20;
-  --screen: #1a211d;
-  --screen-recap: #1e261f;
-  --card-warm: #26302a;
-  --inset: #232c26;
-  --track: #2e382f;
-  --hairline: oklch(1 0 0 / 9%);
+  --brand: #7fa3cc;
+  --brand-deep: #142c49;
+  --sand: #2e3b4d;
+  --sand-ink: #cfe0f2;
+  --screen: #14181f;
+  --screen-recap: #14181f;
+  --card-warm: #1b212b;
+  --inset: #1f2630;
+  --track: #242c38;
+  --hairline: oklch(1 0 0 / 10%);
   --warm-border: oklch(1 0 0 / 11%);
   --divider: oklch(1 0 0 / 7%);
-  --ink: #f2ece0;
-  --body: #ece6da;
-  --secondary-ink: #b8b0a1;
-  --caption: #9a9384;
-  --faint: #837c6e;
-  --done: #9dbca2;
-  --busy: #2e382f;
+  --ink: #eef1f5;
+  --body: #dfe4ea;
+  --secondary-ink: #a8b0bc;
+  --caption: #8b929c;
+  --faint: #737b88;
+  --done: #6f9077;
+  --busy: #242c38;
 
-  --sidebar: #232c26;
-  --sidebar-foreground: #ece6da;
-  --sidebar-primary: #7fb0a3;
-  --sidebar-primary-foreground: #14201c;
-  --sidebar-accent: #2c352e;
-  --sidebar-accent-foreground: #ece6da;
-  --sidebar-border: oklch(1 0 0 / 9%);
-  --sidebar-ring: #7fb0a3;
+  --sidebar: #1b212b;
+  --sidebar-foreground: #eef1f5;
+  --sidebar-primary: #7fa3cc;
+  --sidebar-primary-foreground: #101722;
+  --sidebar-accent: #1f2630;
+  --sidebar-accent-foreground: #eef1f5;
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: #7fa3cc;
 }
 
 @layer base {
@@ -213,7 +218,8 @@
   h2,
   h3 {
     font-family: var(--font-newsreader);
-    font-weight: 500;
+    /* PT Sans ships 400/700 only; V2 headers are 700. */
+    font-weight: 700;
   }
 }
 
@@ -235,5 +241,18 @@
   }
   50% {
     opacity: 0.3;
+  }
+}
+/* Live timer: the soft glow behind the elapsed time gently breathes. Keeps the
+   centering translate so the running animation doesn't knock it off-center. */
+@keyframes breathe {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(0.94);
+    opacity: 0.72;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.06);
+    opacity: 1;
   }
 }

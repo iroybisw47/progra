@@ -68,6 +68,25 @@ export async function listSessionsInRange(
   return (data as SessionRow[]).map(rowToSession);
 }
 
+// The single active (not-yet-ended) session for the current user, or null. Lean
+// read used by the root layout to drive the nav's live-ticking center button
+// (V2). At most one active session exists per user (partial unique index), so
+// maybeSingle is safe.
+export async function getActiveSession(): Promise<Session | null> {
+  const me = await getCurrentUser();
+  if (!me) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sessions")
+    .select(SESSION_COLUMNS)
+    .eq("user_id", me.id)
+    .is("ended_at", null)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data ? rowToSession(data as SessionRow) : null;
+}
+
 // Returns sessions started within the last `daysBack` days OR any still-active
 // session regardless of start time. The clock page only renders the current
 // week, so 14 days is plenty (covers Monday-week start when today is Sunday

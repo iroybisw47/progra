@@ -29,6 +29,7 @@ import {
   updateHabit,
 } from "@/app/actions/habits";
 import { SOCIAL_ENABLED } from "@/lib/flags";
+import { BackLink } from "@/components/v2/back-link";
 import type { Habit, HabitCompletion } from "@/lib/db/habits";
 
 type Props = {
@@ -150,6 +151,7 @@ export function HabitsClient({
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24 sm:pt-12">
       <main className="flex w-full max-w-md flex-col gap-5">
+        <BackLink />
         <header className="flex flex-col gap-1">
           <h1 className="text-3xl font-semibold tracking-tight">Habits</h1>
           <p className="text-muted-foreground text-sm">Today&apos;s check-list.</p>

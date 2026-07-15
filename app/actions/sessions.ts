@@ -80,7 +80,11 @@ export async function clockIn(
   return { ok: true, sessionId: (data as { id: string }).id };
 }
 
-export async function clockOut(): Promise<Result> {
+// Returns the ended session's id so the redesign clock flow can route straight
+// to the Finish & save screen for it.
+export async function clockOut(): Promise<
+  { ok: true; sessionId: string } | { error: string }
+> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -88,24 +92,26 @@ export async function clockOut(): Promise<Result> {
   if (!user) return { error: "Not authenticated" };
 
   // Read the active session first: needed to settle an in-progress pause
-  // into pausedMs at clock-out.
+  // into pausedMs at clock-out, and to return its id.
   const { data: active } = await supabase
     .from("sessions")
-    .select("paused_ms, paused_since")
+    .select("id, paused_ms, paused_since")
     .eq("user_id", user.id)
     .is("ended_at", null)
     .maybeSingle();
 
   const now = Date.now();
   const row = active as {
+    id: string;
     paused_ms: number | string | null;
     paused_since: string | null;
   } | null;
+  if (!row) return { error: "No active session" };
 
   // If we clock out mid-pause, bank that final pause segment so worked time is
   // computed correctly, and clear paused_since.
-  let pausedMs = row?.paused_ms != null ? Number(row.paused_ms) : 0;
-  if (row?.paused_since) {
+  let pausedMs = row.paused_ms != null ? Number(row.paused_ms) : 0;
+  if (row.paused_since) {
     pausedMs += Math.max(0, now - new Date(row.paused_since).getTime());
   }
 
@@ -116,14 +122,83 @@ export async function clockOut(): Promise<Result> {
       paused_ms: pausedMs,
       paused_since: null,
     })
-    .eq("user_id", user.id)
-    .is("ended_at", null);
+    .eq("id", row.id);
 
   if (error) return { error: error.message };
 
   revalidatePath("/clock");
   revalidatePath("/goals");
-  return { ok: true };
+  return { ok: true, sessionId: row.id };
+}
+
+// Correct an active session's start (and optionally end it at a chosen time) —
+// the Edit-time control on the live timer, for when you forgot to clock out.
+// Passing endedAtMs finalizes the session (settling any in-progress pause);
+// null leaves it running with the corrected start.
+export async function editActiveSessionTime(input: {
+  startedAtMs: number;
+  endedAtMs: number | null;
+}): Promise<
+  { ok: true; sessionId: string; ended: boolean } | { error: string }
+> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data: active } = await supabase
+    .from("sessions")
+    .select("id, paused_ms, paused_since")
+    .eq("user_id", user.id)
+    .is("ended_at", null)
+    .maybeSingle();
+  const row = active as {
+    id: string;
+    paused_ms: number | string | null;
+    paused_since: string | null;
+  } | null;
+  if (!row) return { error: "No active session" };
+
+  const now = Date.now();
+  const { startedAtMs, endedAtMs } = input;
+  if (!Number.isFinite(startedAtMs)) return { error: "Invalid start time" };
+  if (startedAtMs > now) return { error: "Start can't be in the future" };
+
+  const update: Record<string, unknown> = {
+    started_at: new Date(startedAtMs).toISOString(),
+  };
+  let ended = false;
+
+  if (endedAtMs !== null) {
+    if (!Number.isFinite(endedAtMs)) return { error: "Invalid end time" };
+    if (endedAtMs > now) return { error: "End can't be in the future" };
+    if (endedAtMs <= startedAtMs) return { error: "End must be after start" };
+
+    // Settle any in-progress pause into paused_ms; if the (edited) window is
+    // shorter than the accumulated pause, the pause is no longer plausible so
+    // reset it rather than produce negative worked time.
+    let pausedMs = row.paused_ms != null ? Number(row.paused_ms) : 0;
+    if (row.paused_since) {
+      pausedMs += Math.max(0, now - new Date(row.paused_since).getTime());
+    }
+    if (pausedMs > endedAtMs - startedAtMs) pausedMs = 0;
+
+    update.ended_at = new Date(endedAtMs).toISOString();
+    update.paused_ms = pausedMs;
+    update.paused_since = null;
+    ended = true;
+  }
+
+  const { error } = await supabase
+    .from("sessions")
+    .update(update)
+    .eq("id", row.id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/clock");
+  revalidatePath("/goals");
+  return { ok: true, sessionId: row.id, ended };
 }
 
 // Pause the active session: stamp paused_since so worked time stops

@@ -12,7 +12,7 @@ export const metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; next?: string }>;
+  searchParams: Promise<{ error?: string; next?: string; deleted?: string }>;
 }) {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
@@ -25,10 +25,18 @@ export default async function LoginPage({
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-5 pb-24">
       <main className="flex w-full max-w-sm flex-col gap-6">
-        <header className="flex flex-col gap-1 text-center">
-          <h1 className="text-3xl font-semibold tracking-tight">Progra</h1>
-          <p className="text-muted-foreground text-sm">Sign in to continue</p>
+        <header className="flex flex-col gap-1.5 text-center">
+          <h1 className="text-4xl font-bold tracking-tight">Progra</h1>
+          <p className="text-caption text-sm text-pretty">
+            Plan your week, track deep work, and share progress with friends.
+          </p>
         </header>
+
+        {params.deleted != null && (
+          <p className="border-hairline text-caption rounded-xl border px-4 py-3 text-center text-sm">
+            Your account was deleted. Sign in again any time to start fresh.
+          </p>
+        )}
 
         <GoogleSignInButton next={params.next} />
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { AvatarInitials } from "@/components/avatar-initials";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -103,11 +104,11 @@ export function FriendsClient({ friends, incoming, outgoing, blocked }: Props) {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24">
+    <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-28">
       <main className="flex w-full max-w-md flex-col gap-5">
         <header className="flex flex-col gap-1">
-          <h1 className="text-3xl font-semibold tracking-tight">Friends</h1>
-          <p className="text-muted-foreground text-sm">
+          <h1 className="text-[26px] font-bold tracking-tight">Friends</h1>
+          <p className="text-caption text-sm">
             Find people, manage requests, and see who you&rsquo;re connected to.
           </p>
         </header>
@@ -130,12 +131,10 @@ export function FriendsClient({ friends, incoming, outgoing, blocked }: Props) {
             {query.trim().length >= 2 && (
               <div className="flex flex-col gap-2">
                 {searching && (
-                  <p className="text-muted-foreground text-sm">Searching…</p>
+                  <p className="text-caption text-sm">Searching…</p>
                 )}
                 {!searching && results.length === 0 && (
-                  <p className="text-muted-foreground text-sm">
-                    No users found.
-                  </p>
+                  <p className="text-caption text-sm">No users found.</p>
                 )}
                 {results.map((u) => {
                   const requestId = incomingByUser.get(u.userId);
@@ -188,7 +187,12 @@ export function FriendsClient({ friends, incoming, outgoing, blocked }: Props) {
         {incoming.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Requests</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Requests
+                <span className="bg-brand text-primary-foreground inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold tabular-nums">
+                  {incoming.length}
+                </span>
+              </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               {incoming.map((r) => (
@@ -249,7 +253,7 @@ export function FriendsClient({ friends, incoming, outgoing, blocked }: Props) {
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {friends.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
+              <p className="text-caption text-sm">
                 No friends yet — search above to add someone.
               </p>
             ) : (
@@ -319,16 +323,23 @@ function UserRow({
     <div className="flex items-center justify-between gap-3">
       <Link
         href={`/profile/${user.username}`}
-        className="flex min-w-0 flex-col hover:underline"
+        className="flex min-w-0 items-center gap-2.5"
       >
-        <span className="truncate text-sm font-medium">
-          {user.displayName || `@${user.username}`}
-        </span>
-        {user.displayName && (
-          <span className="text-muted-foreground truncate text-xs">
-            @{user.username}
+        <AvatarInitials
+          name={user.displayName}
+          username={user.username}
+          className="size-9 text-xs"
+        />
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-sm font-medium hover:underline">
+            {user.displayName || `@${user.username}`}
           </span>
-        )}
+          {user.displayName && (
+            <span className="text-caption truncate text-xs">
+              @{user.username}
+            </span>
+          )}
+        </span>
       </Link>
       <div className="flex shrink-0 gap-2">{children}</div>
     </div>
