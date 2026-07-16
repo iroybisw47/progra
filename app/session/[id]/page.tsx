@@ -38,7 +38,10 @@ export default async function SessionDetailPage({
   const comments = commentsBySession.get(detail.sessionId) ?? [];
   const reactions = reactionsBySession.get(detail.sessionId) ?? [];
   const now = Date.now();
-  const hasPhotos = detail.beforeUrl || detail.afterUrl;
+  // Photos surface only as a COMPLETE before+after pair (same rule as profile
+  // stories in lib/db/stories.ts) — never a lone before/after, which would leak
+  // a photo the pair-only invariant is meant to keep private.
+  const hasPhotos = detail.beforeUrl && detail.afterUrl;
 
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-6 pb-28">

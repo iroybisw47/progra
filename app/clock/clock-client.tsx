@@ -53,6 +53,7 @@ import type { Goal } from "@/lib/db/goals";
 import { aggregateWeek, buildCategoryBreakdown } from "@/lib/aggregate";
 import { isPaused, sessionPausedMs, sessionWorkedMs } from "@/lib/session";
 import { useNow } from "@/lib/hooks";
+import { REDESIGN } from "@/lib/flags";
 import { cn } from "@/lib/utils";
 import {
   DAY_LABELS,
@@ -296,6 +297,14 @@ export function ClockClient({
       setSelectedCategoryId(null);
       setSelectedGoalId(null);
       toast.success(`Clocked into ${label}`);
+      if (REDESIGN) {
+        // The redesign runs the session on the full-screen /clock/live timer.
+        // Navigate there and let it prompt for the before photo (capture=before);
+        // refreshing here would trip the /clock → /clock/live redirect guard and
+        // destroy the before-photo dialog before it's usable.
+        router.push("/clock/live?capture=before");
+        return;
+      }
       router.refresh();
       // Timer is already running; the before step opens over it and is skippable.
       setPhotoStep({ sessionId: r.sessionId, kind: "before", showProfileHint: false });

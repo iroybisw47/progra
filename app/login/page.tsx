@@ -19,7 +19,9 @@ export default async function LoginPage({
 
   const params = await searchParams;
   if (data.user) {
-    redirect(params.next ?? "/clock");
+    // Default to home, not /clock, so the onboarding gate on `/` still fires
+    // for an authenticated-but-not-yet-onboarded visitor (e.g. a stale bookmark).
+    redirect(params.next ?? "/");
   }
 
   return (

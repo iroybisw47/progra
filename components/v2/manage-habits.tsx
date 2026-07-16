@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useOptimistic, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   CheckIcon,
@@ -73,8 +73,14 @@ export function ManageHabits({
   const router = useRouter();
   const [, startTransition] = useTransition();
 
-  // Which week the grid is showing. Resets to the current week each open.
+  // Which week the grid is showing. The dialog is mounted for the lifetime of
+  // the Progress tab, so snap back to the current week each time it opens (and
+  // if the week rolls over underneath it) — otherwise a reopen could land
+  // check-offs on weeks-old dates the user paged to earlier.
   const [viewWeek, setViewWeek] = useState(weekStart);
+  useEffect(() => {
+    if (open) setViewWeek(weekStart);
+  }, [open, weekStart]);
 
   // Optimistic completion set keyed `habitId|date`, seeded from the loaded
   // window so toggles flip instantly before the refresh lands.

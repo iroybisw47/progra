@@ -150,5 +150,7 @@ export async function toggleHabitCompletion(
   }
 
   revalidatePath("/habits");
+  // Progress (/) surfaces today's + this-week's completions in the redesign.
+  revalidatePath("/");
   return { ok: true };
 }

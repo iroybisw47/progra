@@ -175,12 +175,14 @@ export async function editActiveSessionTime(input: {
     if (endedAtMs > now) return { error: "End can't be in the future" };
     if (endedAtMs <= startedAtMs) return { error: "End must be after start" };
 
-    // Settle any in-progress pause into paused_ms; if the (edited) window is
-    // shorter than the accumulated pause, the pause is no longer plausible so
-    // reset it rather than produce negative worked time.
+    // Settle any in-progress pause into paused_ms, but only the portion inside
+    // the (possibly back-dated) session window — a pause segment after
+    // endedAtMs happened once the session was already over, so it must not
+    // count. If the accumulated pause still exceeds the window it's implausible,
+    // so drop it rather than record negative worked time.
     let pausedMs = row.paused_ms != null ? Number(row.paused_ms) : 0;
     if (row.paused_since) {
-      pausedMs += Math.max(0, now - new Date(row.paused_since).getTime());
+      pausedMs += Math.max(0, endedAtMs - new Date(row.paused_since).getTime());
     }
     if (pausedMs > endedAtMs - startedAtMs) pausedMs = 0;
 
@@ -188,6 +190,15 @@ export async function editActiveSessionTime(input: {
     update.paused_ms = pausedMs;
     update.paused_since = null;
     ended = true;
+  } else if (
+    row.paused_since &&
+    startedAtMs >= new Date(row.paused_since).getTime()
+  ) {
+    // Still running: the corrected start now sits at/after an in-progress
+    // pause, so that pause is dangling — keeping it would drive worked time
+    // negative (and clamp to 0). Drop it; the session accrues from the new
+    // start.
+    update.paused_since = null;
   }
 
   const { error } = await supabase

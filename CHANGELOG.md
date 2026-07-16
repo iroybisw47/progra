@@ -6,6 +6,46 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-15
 
+### · Fix: before-photo capture auto-skipped on clock-in (redesign)
+Regression from the clock-flow redirect: clocking in called `router.refresh()`
+before opening the before-photo dialog, which tripped the `/clock → /clock/live`
+guard and destroyed the dialog — and `/clock/live` had no capture UI, so no
+before photo was reachable in the redesign at all.
+
+- **Clock-in** (`app/clock/clock-client.tsx`): in the redesign, `handleClockIn`
+  now `router.push("/clock/live?capture=before")` instead of refreshing. Beta
+  path unchanged.
+- **Live timer** (`app/clock/live/live-timer-client.tsx`): consolidates
+  before-photo capture here — `?capture=before` auto-opens the skippable
+  `SessionPhotoStep` once (seeded in a `useState` initializer; param stripped on
+  mount so a reopen never re-prompts). The read-only pill becomes a tappable
+  **"Add before photo"** button until a photo exists, so a skipped photo can
+  still be added mid-session. Re-added the `sessionId` prop (passed from
+  `app/clock/live/page.tsx`).
+
+### · Redesign bug-fix pass (post-review)
+Fixes from a functional review of the redesign work.
+
+- **Clock timing (high):** `editActiveSessionTime` banked an in-progress pause up
+  to `now` instead of the chosen end time — finishing a paused session at a past
+  time understated (or zeroed) worked time. Now banks only the pause portion
+  inside the session window. Also: a still-running start edit that moved the
+  start past an in-progress pause could record ~0 worked — the dangling pause is
+  now dropped.
+- **Clock edit sheet:** datetime-local is minute-resolution, so re-saving crept
+  the start earlier each time and an immediate finish could be rejected for
+  sharing the start's minute. Untouched start keeps its exact value; an untouched
+  end means "finish now".
+- **Privacy (medium):** the session-detail page rendered a lone before/after
+  photo, breaking the "complete pairs only" rule — a friend could see an unpaired
+  before photo. Photos now show only when both exist.
+- **Flag footgun:** `SOCIAL_ENABLED` now includes `REDESIGN`, so enabling only
+  `NEXT_PUBLIC_REDESIGN` in prod can't leave the Friends/You tabs 404'ing.
+- **Manage habits:** `viewWeek` now resets to the current week on open (and on
+  week rollover), so a reopen can't land check-offs on weeks-old dates.
+- **Minor:** `toggleHabitCompletion` revalidates `/` (Progress); login redirect
+  defaults to `/` so the onboarding gate fires.
+
 ### · Clock flow — full-screen live timer + Finish & save (Subplan 2)
 The deferred clock flow, built behind `REDESIGN`. The existing `/clock` clock-in
 page is unchanged; clocking in now takes you to a full-screen live timer you can

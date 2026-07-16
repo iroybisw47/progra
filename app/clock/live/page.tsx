@@ -27,6 +27,7 @@ export default async function LiveTimerPage() {
 
   return (
     <LiveTimerClient
+      sessionId={active.id}
       label={active.taskName.trim() || "Untitled session"}
       description={active.description?.trim() || null}
       attribution={attribution}

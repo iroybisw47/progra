@@ -1,9 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ChevronDownIcon, ImageIcon, PencilIcon } from "lucide-react";
+import { CameraIcon, ChevronDownIcon, ImageIcon, PencilIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SessionPhotoStep } from "@/components/session-photo-step";
 import { ToggleSwitch } from "@/components/v2/toggle-switch";
 import {
   clockOut,
@@ -31,6 +32,7 @@ import type { Attribution } from "@/lib/session-attribution";
 import { cn } from "@/lib/utils";
 
 type Props = {
+  sessionId: string;
   label: string;
   description: string | null;
   attribution: Attribution;
@@ -65,6 +67,7 @@ function toLocalInput(ms: number): string {
 }
 
 export function LiveTimerClient({
+  sessionId,
   label,
   description,
   attribution,
@@ -74,7 +77,22 @@ export function LiveTimerClient({
   hasBeforePhoto,
 }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
+
+  // Before-photo capture (redesign home for it). Clock-in routes here with
+  // `?capture=before`, which auto-opens the step once — seeded in a useState
+  // initializer (not an effect) so it fires only on the initial mount, never on
+  // a nav-ticker reopen. The mount effect strips the param so a hard refresh
+  // won't re-prompt; it only navigates, so it's not a setState-in-effect.
+  const capture = searchParams.get("capture");
+  const [beforeOpen, setBeforeOpen] = useState(
+    () => capture === "before" && !hasBeforePhoto
+  );
+  useEffect(() => {
+    if (capture) router.replace("/clock/live");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Live tick. useNow is 0 during SSR; a lazy client Date.now() seeds a correct
   // first paint (no purity-rule violation — it's a useState initializer).
@@ -92,11 +110,14 @@ export function LiveTimerClient({
   const [startInput, setStartInput] = useState("");
   const [stillRunning, setStillRunning] = useState(true);
   const [endInput, setEndInput] = useState("");
+  const [seedEndInput, setSeedEndInput] = useState("");
 
   function openEdit() {
     setStartInput(toLocalInput(startedAt));
     setStillRunning(true);
-    setEndInput(toLocalInput(Date.now()));
+    const endSeed = toLocalInput(Date.now());
+    setEndInput(endSeed);
+    setSeedEndInput(endSeed);
     setEditOpen(true);
   }
 
@@ -123,15 +144,27 @@ export function LiveTimerClient({
   }
 
   function handleSaveEdit() {
-    const startedAtMs = new Date(startInput).getTime();
+    // datetime-local is minute-resolution, so re-parsing an untouched field
+    // would shave the seconds and creep the start earlier on every save — keep
+    // the exact original start when the field wasn't changed.
+    const startedAtMs =
+      startInput === toLocalInput(startedAt)
+        ? startedAt
+        : new Date(startInput).getTime();
     if (!Number.isFinite(startedAtMs)) {
       toast.error("Enter a valid start time");
       return;
     }
-    const endedAtMs = stillRunning ? null : new Date(endInput).getTime();
-    if (endedAtMs !== null && !Number.isFinite(endedAtMs)) {
-      toast.error("Enter a valid end time");
-      return;
+    let endedAtMs: number | null = null;
+    if (!stillRunning) {
+      // An untouched end means "finish now" — use the live clock so an
+      // immediate finish isn't rejected for landing in the start's minute.
+      endedAtMs =
+        endInput === seedEndInput ? Date.now() : new Date(endInput).getTime();
+      if (!Number.isFinite(endedAtMs)) {
+        toast.error("Enter a valid end time");
+        return;
+      }
     }
     startTransition(async () => {
       const r = await editActiveSessionTime({ startedAtMs, endedAtMs });
@@ -229,11 +262,20 @@ export function LiveTimerClient({
           {pausedTotalMs > 0 && ` · paused ${formatHM(pausedTotalMs)}`}
         </div>
 
-        {hasBeforePhoto && (
+        {hasBeforePhoto ? (
           <div className="border-hairline text-caption flex items-center gap-2 rounded-full border px-3 py-[7px] text-xs font-medium">
             <ImageIcon className="size-3.5" />
             Before photo attached
           </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setBeforeOpen(true)}
+            className="border-hairline text-caption hover:text-ink flex items-center gap-2 rounded-full border px-3 py-[7px] text-xs font-medium active:scale-95"
+          >
+            <CameraIcon className="size-3.5" />
+            Add before photo
+          </button>
         )}
       </div>
 
@@ -315,6 +357,15 @@ export function LiveTimerClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Before-photo capture — allowed while the session is active. */}
+      <SessionPhotoStep
+        open={beforeOpen}
+        onOpenChange={setBeforeOpen}
+        sessionId={sessionId}
+        kind="before"
+        onComplete={() => router.refresh()}
+      />
     </div>
   );
 }
