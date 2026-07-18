@@ -3,18 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { CameraIcon, CheckIcon } from "lucide-react";
+import { CheckIcon } from "lucide-react";
 
-import { SessionPhotoStep } from "@/components/session-photo-step";
 import { ToggleSwitch } from "@/components/v2/toggle-switch";
 import { updateSession } from "@/app/actions/sessions";
 import { formatDuration } from "@/lib/duration";
 import type { Attribution } from "@/lib/session-attribution";
 import { cn } from "@/lib/utils";
-
-// Must match AFTER_TOLERANCE_MS in app/actions/session-photos.ts — after that
-// window the server rejects an after photo, so we present the slot read-only.
-const AFTER_TOLERANCE_MS = 10 * 60 * 1000;
 
 type Props = {
   sessionId: string;
@@ -22,10 +17,8 @@ type Props = {
   description: string | null;
   attribution: Attribution;
   workedMs: number;
-  endedAt: number;
   isPrivate: boolean;
-  beforeUrl: string | null;
-  afterUrl: string | null;
+  photoUrl: string | null;
 };
 
 export function FinishClient({
@@ -34,21 +27,12 @@ export function FinishClient({
   description,
   attribution,
   workedMs,
-  endedAt,
   isPrivate: initialPrivate,
-  beforeUrl,
-  afterUrl,
+  photoUrl,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [priv, setPriv] = useState(initialPrivate);
-  const [afterOpen, setAfterOpen] = useState(false);
-
-  // An after photo only means "taken at clock-out", so it's addable only within
-  // the upload window (seeded once so it doesn't flip mid-session).
-  const [canAddAfter] = useState(
-    () => Date.now() - endedAt < AFTER_TOLERANCE_MS
-  );
 
   function handleSave() {
     startTransition(async () => {
@@ -93,39 +77,29 @@ export function FinishClient({
           </span>
         </div>
 
-        {/* Photos */}
-        <div className="border-hairline flex flex-col gap-3 rounded-[18px] border p-4">
-          <div className="text-[12.5px] font-bold">
-            Photos <span className="text-faint font-semibold">· optional</span>
+        {/* Photo — read-only. Capture happens during the session, so there's
+            nothing to add here; the block is omitted entirely when there's no
+            photo rather than showing a slot you can't act on. */}
+        {photoUrl && (
+          <div className="border-hairline flex flex-col gap-3 rounded-[18px] border p-4">
+            <div className="text-[12.5px] font-bold">Photo</div>
+            <div className="aspect-square w-full overflow-hidden rounded-[14px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={photoUrl}
+                alt="Session photo"
+                className="size-full object-cover"
+              />
+            </div>
           </div>
-          <div className="flex gap-2.5">
-            <PhotoSlot kind="Before" url={beforeUrl} />
-            {canAddAfter && !afterUrl ? (
-              <button
-                type="button"
-                onClick={() => setAfterOpen(true)}
-                className="border-hairline text-caption hover:border-brand/60 flex aspect-square flex-1 flex-col items-center justify-center gap-2 rounded-[14px] border border-dashed transition-colors"
-              >
-                <CameraIcon className="size-5" />
-                <span className="text-[11px] font-medium">Add after</span>
-              </button>
-            ) : (
-              <PhotoSlot kind="After" url={afterUrl} />
-            )}
-          </div>
-          <p className="text-faint text-[11.5px] leading-relaxed">
-            {beforeUrl && afterUrl
-              ? "A before + after pair shows up as a story on your profile."
-              : "Add a before and after photo for a session to appear on your profile."}
-          </p>
-        </div>
+        )}
 
         {/* Privacy */}
         <div className="border-hairline flex items-center gap-3 rounded-[18px] border px-4 py-3.5">
           <div className="flex-1">
             <div className="text-[13.5px] font-bold">Private session</div>
             <div className="text-faint mt-0.5 text-[11.5px]">
-              Hidden from friends and your profile
+              Hidden from friends and your profile{photoUrl ? ", photo included" : ""}
             </div>
           </div>
           <ToggleSwitch
@@ -146,35 +120,6 @@ export function FinishClient({
           {pending ? "Saving…" : "Save session"}
         </button>
       </div>
-
-      <SessionPhotoStep
-        open={afterOpen}
-        onOpenChange={setAfterOpen}
-        sessionId={sessionId}
-        kind="after"
-        showProfileHint={beforeUrl != null}
-        onComplete={() => router.refresh()}
-      />
-    </div>
-  );
-}
-
-function PhotoSlot({ kind, url }: { kind: "Before" | "After"; url: string | null }) {
-  if (url) {
-    return (
-      <div className="relative aspect-square flex-1 overflow-hidden rounded-[14px]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={url} alt={kind} className="size-full object-cover" />
-        <span className="absolute bottom-1.5 left-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white">
-          {kind} ✓
-        </span>
-      </div>
-    );
-  }
-  return (
-    <div className="border-hairline text-faint flex aspect-square flex-1 flex-col items-center justify-center gap-1.5 rounded-[14px] border">
-      <CameraIcon className="size-5" />
-      <span className="text-[11px]">No {kind.toLowerCase()}</span>
     </div>
   );
 }

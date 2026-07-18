@@ -9,7 +9,12 @@ import { ReactionBar } from "@/components/reaction-bar";
 import { ReportButton } from "@/components/report-button";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { listClockedInNow, listFriendFeed } from "@/lib/db/feed";
+import {
+  listClockedInNow,
+  listFriendFeed,
+  listFriendJoins,
+  type FeedEntry,
+} from "@/lib/db/feed";
 import { listCommentsForSessions } from "@/lib/db/comments";
 import { listReactionsForSessions } from "@/lib/db/reactions";
 import { formatDuration } from "@/lib/duration";
@@ -20,16 +25,26 @@ import { formatRelativeTime } from "@/lib/dates";
 // read, so only shareable (non-private, accepted-friend) sessions and their
 // visible comments reach here.
 export async function Feed() {
-  const [items, clockedIn] = await Promise.all([
+  const [sessionItems, clockedIn, joinItems] = await Promise.all([
     listFriendFeed(),
     listClockedInNow(),
+    listFriendJoins(),
   ]);
-  const sessionIds = items.map((i) => i.sessionId);
+  // Reactions/comments are session-keyed, so only real sessions look them up.
+  const sessionIds = sessionItems.map((i) => i.sessionId);
   const [commentsBySession, reactionsBySession] = await Promise.all([
     listCommentsForSessions(sessionIds),
     listReactionsForSessions(sessionIds),
   ]);
   const now = Date.now();
+
+  // Merge sessions + join announcements, newest-first. Sessions sort by when
+  // they ended, joins by when the member joined (onboarded_at).
+  const sortAt = (e: FeedEntry) =>
+    e.kind === "session" ? e.endedAt : e.joinedAt;
+  const entries: FeedEntry[] = [...sessionItems, ...joinItems].sort(
+    (a, b) => sortAt(b) - sortAt(a)
+  );
 
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24">
@@ -44,7 +59,7 @@ export async function Feed() {
         <FeedLivePoll />
         <ClockedInStrip items={clockedIn} serverNow={now} />
 
-        {items.length === 0 ? (
+        {entries.length === 0 ? (
           clockedIn.length === 0 && (
             <Card>
               <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
@@ -65,70 +80,135 @@ export async function Feed() {
             </Card>
           )
         ) : (
-          items.map((item) => (
-            <Card key={item.sessionId}>
-              <CardContent className="flex flex-col gap-3 py-4">
-                <div className="flex items-center gap-3">
-                  <Link href={`/profile/${item.author.username}`}>
-                    <AvatarInitials
-                      name={item.author.displayName}
-                      username={item.author.username}
-                      className="size-10 text-sm"
-                    />
-                  </Link>
-                  <div className="flex min-w-0 flex-col">
-                    <Link
-                      href={`/profile/${item.author.username}`}
-                      className="truncate text-sm font-medium hover:underline"
-                    >
-                      {item.author.displayName || `@${item.author.username}`}
+          entries.map((entry) => {
+            // "Just joined Progra" announcement — a lighter card, no
+            // reactions/comments (those need a real session).
+            if (entry.kind === "join") {
+              return (
+                <Card key={entry.id}>
+                  <CardContent className="flex flex-col gap-2 py-4">
+                    <div className="flex items-center gap-3">
+                      <Link href={`/profile/${entry.author.username}`}>
+                        <AvatarInitials
+                          name={entry.author.displayName}
+                          username={entry.author.username}
+                          className="size-10 text-sm"
+                        />
+                      </Link>
+                      <div className="flex min-w-0 flex-col">
+                        <Link
+                          href={`/profile/${entry.author.username}`}
+                          className="truncate text-sm font-medium hover:underline"
+                        >
+                          {entry.author.displayName ||
+                            `@${entry.author.username}`}
+                        </Link>
+                        <span className="text-muted-foreground text-xs">
+                          {formatRelativeTime(entry.joinedAt, now)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-sm">
+                      <span className="font-medium">Just joined Progra!</span>
+                      {entry.firstGoalTitle ? (
+                        <>
+                          {" "}
+                          Their first goal is{" "}
+                          <span className="text-muted-foreground">
+                            {entry.firstGoalTitle}
+                          </span>
+                          .
+                        </>
+                      ) : null}
+                    </p>
+                  </CardContent>
+                </Card>
+              );
+            }
+
+            const item = entry;
+            return (
+              <Card key={item.sessionId}>
+                <CardContent className="flex flex-col gap-3 py-4">
+                  <div className="flex items-center gap-3">
+                    <Link href={`/profile/${item.author.username}`}>
+                      <AvatarInitials
+                        name={item.author.displayName}
+                        username={item.author.username}
+                        className="size-10 text-sm"
+                      />
                     </Link>
-                    <span className="text-muted-foreground text-xs">
-                      {formatRelativeTime(item.endedAt, now)}
+                    <div className="flex min-w-0 flex-col">
+                      <Link
+                        href={`/profile/${item.author.username}`}
+                        className="truncate text-sm font-medium hover:underline"
+                      >
+                        {item.author.displayName || `@${item.author.username}`}
+                      </Link>
+                      <span className="text-muted-foreground text-xs">
+                        {formatRelativeTime(item.endedAt, now)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      {item.title}
+                    </span>
+                    <span className="flex shrink-0 flex-col items-end gap-0.5">
+                      {item.attribution ? (
+                        <span className="text-muted-foreground text-xs">
+                          {item.attribution.isGoal ? "Goal · " : ""}
+                          {item.attribution.text}
+                        </span>
+                      ) : null}
+                      <span className="text-muted-foreground font-mono text-sm tabular-nums">
+                        {formatDuration(item.workedMs)}
+                      </span>
                     </span>
                   </div>
-                </div>
 
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="min-w-0 truncate text-sm">
-                    {item.isGoal ? (
-                      <span className="text-muted-foreground">Goal: </span>
-                    ) : null}
-                    {item.label}
-                  </span>
-                  <span className="text-muted-foreground shrink-0 font-mono text-sm tabular-nums">
-                    {formatDuration(item.workedMs)}
-                  </span>
-                </div>
+                  {item.description ? (
+                    <p className="text-muted-foreground line-clamp-3 text-sm leading-snug">
+                      {item.description}
+                    </p>
+                  ) : null}
 
-                <ReactionBar
-                  sessionId={item.sessionId}
-                  reactions={reactionsBySession.get(item.sessionId) ?? []}
-                />
+                  <ReactionBar
+                    sessionId={item.sessionId}
+                    reactions={reactionsBySession.get(item.sessionId) ?? []}
+                  />
 
-                {/* Comment thread */}
-                <div className="border-border/60 flex flex-col gap-2 border-t pt-3">
-                  {(commentsBySession.get(item.sessionId) ?? []).map((c) => (
-                    <div key={c.id} className="flex items-start gap-2 text-sm">
-                      <Link
-                        href={`/profile/${c.author.username}`}
-                        className="shrink-0 font-medium hover:underline"
+                  {/* Comment thread */}
+                  <div className="border-border/60 flex flex-col gap-2 border-t pt-3">
+                    {(commentsBySession.get(item.sessionId) ?? []).map((c) => (
+                      <div
+                        key={c.id}
+                        className="flex items-start gap-2 text-sm"
                       >
-                        {c.author.displayName || `@${c.author.username}`}
-                      </Link>
-                      <span className="min-w-0 flex-1 break-words">{c.body}</span>
-                      {c.canDelete ? (
-                        <DeleteCommentButton commentId={c.id} />
-                      ) : (
-                        <ReportButton targetType="comment" targetId={c.id} />
-                      )}
-                    </div>
-                  ))}
-                  <CommentComposer sessionId={item.sessionId} />
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                        <Link
+                          href={`/profile/${c.author.username}`}
+                          className="shrink-0 font-medium hover:underline"
+                        >
+                          {c.author.displayName || `@${c.author.username}`}
+                        </Link>
+                        <span className="min-w-0 flex-1 break-words">
+                          {c.body}
+                        </span>
+                        {c.canDelete ? (
+                          <DeleteCommentButton commentId={c.id} />
+                        ) : (
+                          <ReportButton targetType="comment" targetId={c.id} />
+                        )}
+                      </div>
+                    ))}
+                    <CommentComposer sessionId={item.sessionId} />
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </main>
     </div>

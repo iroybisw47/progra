@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { LockIcon, PencilIcon, XIcon } from "lucide-react";
+import { EyeIcon, LockIcon, PencilIcon, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -48,13 +48,30 @@ type Props = {
   goals: Goal[];
   actualMsByGoal: Record<string, number>;
   sessionsByGoal: Record<string, GoalSessionInfo[]>;
+  backHref?: string;
+  backLabel?: string;
 };
 
-export function GoalsClient({ goals, actualMsByGoal, sessionsByGoal }: Props) {
+export function GoalsClient({
+  goals,
+  actualMsByGoal,
+  sessionsByGoal,
+  backHref,
+  backLabel,
+}: Props) {
   const router = useRouter();
   const now = useNow();
   const hydrated = now !== 0;
   const [, startTransition] = useTransition();
+
+  // Optimistic privacy overlay keyed by goal id, so the eye flips instantly
+  // before updateGoal + refresh lands. Base is empty; once the transition ends
+  // the override clears and the value falls back to the refreshed g.isPrivate.
+  const [privateOverrides, setPrivateOverride] = useOptimistic<
+    Record<string, boolean>,
+    { id: string; value: boolean }
+  >({}, (state, { id, value }) => ({ ...state, [id]: value }));
+  const isGoalPrivate = (g: Goal) => privateOverrides[g.id] ?? g.isPrivate;
 
   const [newGoalTitle, setNewGoalTitle] = useState("");
   const [newGoalDescription, setNewGoalDescription] = useState("");
@@ -131,6 +148,24 @@ export function GoalsClient({ goals, actualMsByGoal, sessionsByGoal }: Props) {
     });
   }
 
+  function togglePrivacy(goal: Goal) {
+    const next = !isGoalPrivate(goal);
+    startTransition(async () => {
+      setPrivateOverride({ id: goal.id, value: next });
+      const r = await updateGoal(goal.id, { isPrivate: next });
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success(
+        next
+          ? `${goal.title} is now private`
+          : `${goal.title} is now visible to friends`
+      );
+      router.refresh();
+    });
+  }
+
   function handleArchiveGoal() {
     if (!pendingGoalArchive) return;
     const g = pendingGoalArchive;
@@ -161,7 +196,7 @@ export function GoalsClient({ goals, actualMsByGoal, sessionsByGoal }: Props) {
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24 sm:pt-12">
       <main className="flex w-full max-w-md flex-col gap-5">
-        <BackLink />
+        <BackLink href={backHref} label={backLabel} />
         <header className="flex flex-col gap-1">
           <h1 className="text-3xl font-semibold tracking-tight">Goals</h1>
           <p className="text-muted-foreground text-sm">
@@ -180,6 +215,7 @@ export function GoalsClient({ goals, actualMsByGoal, sessionsByGoal }: Props) {
         ) : (
           goals.map((goal) => {
             const goalSessions = sessionsByGoal[goal.id] ?? [];
+            const priv = isGoalPrivate(goal);
             return (
               <Card key={goal.id}>
                 <CardHeader>
@@ -196,6 +232,26 @@ export function GoalsClient({ goals, actualMsByGoal, sessionsByGoal }: Props) {
                     {goal.weeklyQuotaHours.toFixed(1)}h / week
                   </CardDescription>
                   <CardAction className="flex gap-1">
+                    {SOCIAL_ENABLED && (
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label={
+                          priv
+                            ? `${goal.title} is private — tap to make it visible to friends`
+                            : `${goal.title} is visible to friends — tap to make it private`
+                        }
+                        aria-pressed={!priv}
+                        onClick={() => togglePrivacy(goal)}
+                        className={
+                          priv
+                            ? "text-muted-foreground opacity-40"
+                            : "text-foreground"
+                        }
+                      >
+                        <EyeIcon />
+                      </Button>
+                    )}
                     <Button
                       size="icon-sm"
                       variant="ghost"

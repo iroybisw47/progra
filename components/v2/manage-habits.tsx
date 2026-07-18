@@ -7,6 +7,7 @@ import {
   CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  EyeIcon,
   PencilIcon,
   PlusIcon,
   Trash2Icon,
@@ -94,6 +95,16 @@ export function ManageHabits({
   );
   const doneSet = new Set(optimisticKeys);
 
+  // Optimistic privacy overlay keyed by habit id, so the eye flips instantly
+  // before updateHabit + refresh lands. Base is empty; once the transition
+  // ends the override clears and the value falls back to the refreshed
+  // h.isPrivate from props — same lifecycle as the completions set above.
+  const [privateOverrides, setPrivateOverride] = useOptimistic<
+    Record<string, boolean>,
+    { id: string; value: boolean }
+  >({}, (state, { id, value }) => ({ ...state, [id]: value }));
+  const isHabitPrivate = (h: Habit) => privateOverrides[h.id] ?? h.isPrivate;
+
   // Add-habit + edit-habit dialog state.
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState<string | null>(null);
@@ -157,6 +168,24 @@ export function ManageHabits({
       }
       setEditing(null);
       toast.success(`Saved ${trimmed}`);
+      router.refresh();
+    });
+  }
+
+  function togglePrivacy(habit: Habit) {
+    const next = !isHabitPrivate(habit);
+    startTransition(async () => {
+      setPrivateOverride({ id: habit.id, value: next });
+      const r = await updateHabit(habit.id, { isPrivate: next });
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success(
+        next
+          ? `${habit.name} is now private`
+          : `${habit.name} is now visible to friends`
+      );
       router.refresh();
     });
   }
@@ -282,7 +311,9 @@ export function ManageHabits({
                 Your habits
               </h3>
               <ul className="border-hairline flex flex-col rounded-xl border">
-                {habits.map((h, i) => (
+                {habits.map((h, i) => {
+                  const priv = isHabitPrivate(h);
+                  return (
                   <li
                     key={h.id}
                     className={cn(
@@ -298,6 +329,22 @@ export function ManageHabits({
                     <span className="min-w-0 flex-1 truncate text-sm">
                       {h.name}
                     </span>
+                    <button
+                      type="button"
+                      aria-label={
+                        priv
+                          ? `${h.name} is private — tap to make it visible to friends`
+                          : `${h.name} is visible to friends — tap to make it private`
+                      }
+                      aria-pressed={!priv}
+                      onClick={() => togglePrivacy(h)}
+                      className={cn(
+                        "flex size-8 items-center justify-center rounded-full transition-colors",
+                        priv ? "text-caption opacity-40" : "text-ink"
+                      )}
+                    >
+                      <EyeIcon className="size-4" />
+                    </button>
                     <button
                       type="button"
                       aria-label={`Edit ${h.name}`}
@@ -335,7 +382,8 @@ export function ManageHabits({
                       </AlertDialogContent>
                     </AlertDialog>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </section>
           )}

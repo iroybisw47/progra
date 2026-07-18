@@ -4,7 +4,7 @@ import { LockIcon } from "lucide-react";
 import { AvatarInitials } from "@/components/avatar-initials";
 import { GoalProgressBar } from "@/components/goal-progress";
 import { HabitWeekGrid } from "@/components/v2/habit-week-grid";
-import { StoryCard } from "@/components/story-card";
+import { ProfileSessionCard } from "@/components/profile-session-card";
 import {
   Card,
   CardContent,
@@ -22,7 +22,7 @@ import {
   listCompletionsForUserInRange,
 } from "@/lib/db/habits";
 import { listRecentSessionsForUser } from "@/lib/db/sessions";
-import { listProfileStories } from "@/lib/db/stories";
+import { listProfileSessions } from "@/lib/db/profile-sessions";
 import { aggregateWeekByGoal } from "@/lib/aggregate";
 import { todayInTimeZone, weekRangeInTimeZone } from "@/lib/dates";
 
@@ -109,13 +109,14 @@ async function ProfileContent({
   const today = todayInTimeZone(tz);
   const now = Date.now();
 
-  const [goals, sessions, habits, completions, stories] = await Promise.all([
-    listActiveGoalsForUser(userId),
-    listRecentSessionsForUser(userId),
-    listActiveHabitsForUser(userId),
-    listCompletionsForUserInRange(userId, startDate, endDate),
-    listProfileStories(userId),
-  ]);
+  const [goals, sessions, habits, completions, pastSessions] =
+    await Promise.all([
+      listActiveGoalsForUser(userId),
+      listRecentSessionsForUser(userId),
+      listActiveHabitsForUser(userId),
+      listCompletionsForUserInRange(userId, startDate, endDate),
+      listProfileSessions(userId),
+    ]);
 
   const goalWeekly = aggregateWeekByGoal(sessions, now);
   const goalBreakdown = goals
@@ -171,24 +172,23 @@ async function ProfileContent({
         </Card>
       </div>
 
-      {/* Stories: sessions with a complete before+after pair. Photo-less /
-          half-complete sessions are private, so nothing else surfaces here. */}
+      {/* Sessions: their finished, non-private sessions, photo or not. RLS does
+          the filtering — private ones never reach us. */}
       <div className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">Stories</h2>
-        {stories.length === 0 ? (
+        <h2 className="text-sm font-semibold">Sessions</h2>
+        {pastSessions.length === 0 ? (
           <Card>
             <CardContent className="py-8">
               <p className="text-muted-foreground text-center text-sm">
-                No shared sessions yet. Sessions with a before and after photo
-                show up here.
+                No shared sessions yet.
               </p>
             </CardContent>
           </Card>
         ) : (
-          stories.map((story) => (
-            <StoryCard
-              key={story.sessionId}
-              story={story}
+          pastSessions.map((s) => (
+            <ProfileSessionCard
+              key={s.sessionId}
+              session={s}
               now={now}
               canReport={!isOwn}
             />

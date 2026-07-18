@@ -6,7 +6,7 @@ import { AvatarInitials } from "@/components/avatar-initials";
 import { Dashboard } from "@/components/dashboard";
 import { GoalProgressBar } from "@/components/goal-progress";
 import { HabitWeekGrid } from "@/components/v2/habit-week-grid";
-import { StoryCard } from "@/components/story-card";
+import { ProfileSessionCard } from "@/components/profile-session-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/require-user";
@@ -19,7 +19,7 @@ import {
   listCompletionsForUserInRange,
 } from "@/lib/db/habits";
 import { listRecentSessionsForUser } from "@/lib/db/sessions";
-import { listProfileStories } from "@/lib/db/stories";
+import { listProfileSessions } from "@/lib/db/profile-sessions";
 import { aggregateWeekByGoal } from "@/lib/aggregate";
 import { todayInTimeZone, weekRangeInTimeZone } from "@/lib/dates";
 
@@ -48,13 +48,14 @@ export default async function MePage() {
   const today = todayInTimeZone(tz);
   const now = Date.now();
 
-  const [goals, sessions, habits, completions, stories] = await Promise.all([
-    listActiveGoalsForUser(user.id),
-    listRecentSessionsForUser(user.id),
-    listActiveHabitsForUser(user.id),
-    listCompletionsForUserInRange(user.id, startDate, endDate),
-    listProfileStories(user.id),
-  ]);
+  const [goals, sessions, habits, completions, pastSessions] =
+    await Promise.all([
+      listActiveGoalsForUser(user.id),
+      listRecentSessionsForUser(user.id),
+      listActiveHabitsForUser(user.id),
+      listCompletionsForUserInRange(user.id, startDate, endDate),
+      listProfileSessions(user.id),
+    ]);
 
   const goalWeekly = aggregateWeekByGoal(sessions, now);
   const goalBreakdown = goals
@@ -167,20 +168,21 @@ export default async function MePage() {
           </Card>
         </section>
 
-        {/* Stories */}
+        {/* Sessions — your history. Private ones are included here (this is
+            your own profile); friends only ever see the non-private ones. */}
         <section className="flex flex-col gap-2">
-          <h2 className="text-sm font-bold">Stories</h2>
-          {stories.length === 0 ? (
+          <h2 className="text-sm font-bold">Sessions</h2>
+          {pastSessions.length === 0 ? (
             <Card>
               <CardContent className="py-8">
                 <p className="text-caption text-center text-sm">
-                  Sessions with a before and after photo show up here.
+                  Your finished sessions show up here.
                 </p>
               </CardContent>
             </Card>
           ) : (
-            stories.map((story) => (
-              <StoryCard key={story.sessionId} story={story} now={now} />
+            pastSessions.map((s) => (
+              <ProfileSessionCard key={s.sessionId} session={s} now={now} />
             ))
           )}
         </section>

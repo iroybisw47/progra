@@ -208,7 +208,9 @@ and account deletion.
   both counted (an event overlapping a session counts in both).
 - Visibility rule for all social reads: a viewer sees an item if they own it, or they
   are accepted friends with the owner and the item is not private.
-- A session appears as a shareable "story" on a profile only when it has both a before
-  and after photo.
+- A session may carry one optional photo, taken while the session is running. The photo
+  is an attachment only — it never affects who can see the session. A finished session
+  appears on the owner's profile and on friends' feeds unless it is marked private, with
+  its photo if it has one.
 - Reporting is available only on other users' content; moderation actions are
   restricted to a moderator; account deletion affects only the requesting user.

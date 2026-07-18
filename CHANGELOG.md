@@ -4,7 +4,172 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-07-16
+
+### · Session-photo uploads fixed via a server-only service-role write
+Photo uploads had silently failed for ~2 months and no session photo ever
+rendered. Root cause (found by an isolated `/api/photo-selftest` probe, since
+removed): this project's **Storage service does not authorize uploads from a
+valid user JWT** — it treats authenticated tokens as `anon` at the storage layer,
+so the bucket's INSERT policy (`roles = {authenticated}`) rejects every write
+("new row violates row-level security policy"). PostgREST honors the same token
+fine (reads and DB writes work), and this held for **both** the project's ES256
+signing key **and** after rolling back to legacy HS256 — so it is a Storage-service
+auth defect, not the signing algorithm and not app code.
+
+Fix: `uploadSessionPhoto` now performs the storage **write** through a
+server-only service-role client (`lib/supabase/admin.ts`) that bypasses the
+unsatisfiable storage RLS. The action still authenticates the user and verifies
+session ownership first, so authorization is enforced in code; the key stays in
+`SUPABASE_SERVICE_ROLE_KEY` (server env, never shipped to the browser). Reads are
+untouched (signed URLs don't depend on storage RLS). Verified end-to-end: the
+service-role write stores intact JPEG bytes (`ff d8 …`), which also confirms the
+current pipeline does **not** corrupt photos — the old corrupt blobs were a
+pre-existing legacy artifact, now moot.
+
+**Deploy note:** requires `SUPABASE_SERVICE_ROLE_KEY` in the Vercel environment,
+alongside the one-photo schema migration, shipped together.
+
+### · One photo per session — the before/after pair rule is gone
+A session now carries **one optional photo**, taken while it runs, and **privacy
+alone decides who sees it**. The "after" capture, its 10-minute upload tolerance,
+and the whole before/after concept are deleted.
+
+Phase 3 had overloaded photo completeness to mean two things at once — "this
+session has photos" *and* "this session is shared" — layering a second gate on
+top of `is_private`, which already worked and already drove RLS everywhere else.
+`lib/storage.ts` stated the old invariant outright ("visibility is derived from
+this pair, never stored as a boolean"); that comment and the rule are both gone.
+A photo is now an attachment with no visibility of its own.
+
+- **Capture:** one photo, on `/clock/live` only (`?capture=photo`), while the
+  session is active. `uploadSessionPhoto(sessionId, formData)` lost its `kind`
+  param; the finish screen's "Add after" button, `AFTER_TOLERANCE_MS` (both the
+  server constant *and* its hand-synced copy in `finish-client.tsx`), and the
+  legacy clock-out prompt are deleted. The finish screen is now confirmation +
+  privacy; its photo block is read-only and omitted entirely when there's none.
+  The sharp EXIF/GPS strip, 8 MB cap, and explicit ownership check are untouched.
+- **Data:** `before_photo_path`/`after_photo_path` → `photo_path` (`photoPath`);
+  new blobs land at `{user_id}/{session_id}/photo.jpg`. `getSessionPhotoUrls` →
+  `getSessionPhotoUrl` (single sign). `hydrateSessionPhotoUrls` kept — the batch
+  path still matters.
+- **Feed:** `FeedItem.photoUrl`. **Deleted `components/session-photo-swipe.tsx`**
+  — one photo, nothing to swipe.
+- **Profile:** "Stories" is now **Sessions** — a history, not a gallery.
+  `lib/db/stories.ts` → `lib/db/profile-sessions.ts`, `story-card.tsx` →
+  `profile-session-card.tsx`. Every finished visible session lists, photo or not,
+  newest first, capped at 50 (pagination is a follow-up, not a silent cap). Fixed
+  the N+1 it had: signing is now one batched call, not one per card. The `"story"`
+  **report target type keeps its name** — it's a `report_target_type` enum value
+  persisted on `reports` rows, so renaming means migrating data.
+- **Detail/admin:** the pair gate at `app/session/[id]/page.tsx` is gone —
+  reaching the page already means the session is visible. Admin preview is one
+  slot.
+
+**Requires Supabase SQL:** rename/drop the columns, and recreate
+`can_see_session_photo`, `admin_take_down_story`, and `admin_list_reports` (all
+three reference the old columns by name and break on the rename). See the plan.
+
+**Correction to the entry below:** it claimed the storage policy "declines to
+sign a half-pair" and that relaxing it needed SQL. That was wrong, and so was
+`ARCHITECTURE.md`'s "non-private complete-pair friend" description that it came
+from. The real `can_see_session_photo` matched `before_photo_path = object_name
+OR after_photo_path = object_name` and already carried `not is_private and
+ended_at is not null` — **no pair rule, no SQL blocker**. The pair rule lived
+only in app code. Schema is not in-repo; read the DDL from Supabase, never from
+the docs.
+
+### 14:14 · Session photos in the feed (part 1 of 3: complete pairs)
+Feed session cards now render the session's photos underneath the stats block —
+author row → title/chip/duration/description → **photos** → reactions → comments.
+New `components/session-photo-swipe.tsx` swipes between before/after using native
+CSS scroll-snap rather than a carousel dependency (a session has at most two
+photos); dots appear only when there are two. Photos are visually unlabelled by
+design, but Before/After survive as alt text. Raw `<img>` like
+`components/story-card.tsx` — srcs are short-lived signed URLs into a private
+bucket.
+
+`lib/db/feed.ts`'s `FeedItem` gains `beforeUrl`/`afterUrl`; `listFriendFeed`
+already selected the photo columns and was silently dropping them. New
+`hydrateSessionPhotoUrls(paths)` in `lib/db/session-photos.ts` signs **every**
+photo across **every** card in one `createSignedUrls` call — `getSessionPhotoUrls`
+is per-session and would have cost one round trip per card (the N+1
+`listProfileStories` still has). It keys its map by the `path` each item echoes
+back, never by array index: storage RLS adjudicates each path separately and
+reports a refusal as a per-item error rather than failing the batch, so
+positional indexing would hand a card someone else's photo. `listClockedInNow` is
+deliberately untouched — the clocked-in strip stays photo-free.
+
+**No Supabase change required.** The existing storage policy already serves
+complete before+after pairs, which is exactly what this part ships. Sessions with
+only *one* photo still render as today's text-only card: the policy declines to
+sign a half-pair, the hydrator maps it to null, and the swipe component returns
+null. Relaxing that is part 2 (SQL) — after which lone photos appear here with no
+further code change.
+
 ## 2026-07-15
+
+### · onboarded_at is now write-once (replay no longer resets the join date)
+`completeOnboarding` only stamps `onboarded_at` when it's null (via an
+`.is(onboarded_at, null)` filter), so replaying onboarding and finishing again no
+longer overwrites the original join date. Replay no longer nulls the column
+either — the "Replay onboarding" button just navigates to `/onboarding`
+directly (it renders for any user), so `replayOnboarding` is removed. This keeps
+the "just joined" feed item tied to the true first join. `app/actions/profile.ts`,
+`components/replay-onboarding-button.tsx`.
+
+### · Richer feed posts: title, goal/category chip, time, description
+Feed session cards now show the **task title** (left), the **goal or category**
+chip (top-right) with **time spent** directly under it, and the user's
+**description** below. Previously a card showed only the goal-or-taskname label +
+duration. The feed data layer (`lib/db/feed.ts`) now carries `title`,
+`attribution` ({text, isGoal}), and `description`; goal titles resolve as before
+(private goals never leak → no chip), and category names resolve through a new
+friend-gated `public_categories` view. `components/v2/feed-v2.tsx`,
+`components/feed.tsx`.
+
+**Requires a Supabase change:** create the `public_categories` view (friend-read,
+exposes id/name/color). Until applied, category-tracked posts simply show no
+category chip — no crash. See the plan/handoff for the exact SQL.
+
+### · Onboarding drops the practice session → "just joined" feed item
+Onboarding no longer clocks a real practice session. The redesign wizard is now
+four steps (welcome → goal → categories → habits); creating the goal is its only
+write, so a new member never leaves a stray micro-session on friends' feeds.
+Instead, new members surface on friends' feeds as a **"@username just joined
+Progra! Their first goal is Y"** card — a synthetic entry derived from
+`profiles.onboarded_at` + their first visible goal, merged chronologically into
+the feed (7-day window, no reactions/comments). A goal-less skip shows the plain
+"just joined" line and fills the goal in later; a private first goal is omitted.
+`app/onboarding/onboarding-client-v2.tsx`, `app/onboarding/page.tsx`,
+`lib/db/feed.ts`, `components/feed.tsx`.
+
+**Requires a Supabase change:** add `onboarded_at` to the `public_profiles` view
+(otherwise the join item stays empty — no crash). See the plan for the exact SQL.
+
+### · Skip onboarding option (redesign)
+The redesign onboarding wizard now has a **Skip** link in the top-right of the
+header that completes setup (`completeOnboarding` → stamps `onboarded_at`) and
+drops the user straight into the app. It's hidden on the welcome/username step
+and only appears once the handle is claimed, so a skipped user always keeps a
+public username; the goal / practice / categories / habits steps become
+optional. No confirmation dialog — onboarding stays replayable from Settings.
+`app/onboarding/onboarding-client-v2.tsx`.
+
+### · Habit & goal privacy toggle — eye button
+The redesign's "Manage habits" dialog (Progress tab) had no way to change a
+habit's public/private state — the toggle only survived on the legacy `/habits`
+page. Each row in "Your habits" now has an eye button left of the edit pencil:
+dark/solid when the habit is public (visible to friends), grey + faded when
+private. One tap flips it via the existing `updateHabit({ isPrivate })` — no
+confirmation dialog — with an optimistic flip and a toast confirming the new
+state. `components/v2/manage-habits.tsx`.
+
+The same eye toggle now sits left of the edit pencil on each goal card
+(`/goals`), flipping public/private via `updateGoal({ isPrivate })` with the same
+optimistic flip + toast. Gated behind `SOCIAL_ENABLED` (like the existing goal
+lock indicator and edit-dialog privacy checkbox), so it stays hidden in beta.
+`app/goals/goals-client.tsx`.
 
 ### · Fix: before-photo capture auto-skipped on clock-in (redesign)
 Regression from the clock-flow redirect: clocking in called `router.refresh()`

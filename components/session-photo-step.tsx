@@ -20,39 +20,25 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sessionId: string | null;
-  kind: "before" | "after";
-  // Whether to mention that a complete pair surfaces on the profile (only shown
-  // for the "after" step when a before photo already exists).
-  showProfileHint?: boolean;
   // Called once the step is done (skipped, dismissed, or uploaded). The session
-  // already exists/ended server-side — this is only for the parent to advance.
+  // already exists server-side — this is only for the parent to advance.
   onComplete?: () => void;
 };
 
-// One optional photo step in the clock flow. Skipping is one tap and equal
-// weight to taking a photo — never a guilt pattern. The session is never blocked
-// or cancelled by this step; dismissing it just proceeds.
+// The optional photo step in the clock flow. A session carries at most one
+// photo, taken while it runs. Skipping is one tap and equal weight to taking a
+// photo — never a guilt pattern. The session is never blocked or cancelled by
+// this step; dismissing it just proceeds.
 export function SessionPhotoStep({
   open,
   onOpenChange,
   sessionId,
-  kind,
-  showProfileHint = false,
   onComplete,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-
-  const title = kind === "before" ? "Add a before photo" : "Add an after photo";
-  const blurb =
-    kind === "before"
-      ? "Snap where you're starting — optional."
-      : "Show what you did — optional." +
-        (showProfileHint
-          ? " Sessions with both photos appear on your profile."
-          : "");
 
   function clearCapture() {
     if (preview) URL.revokeObjectURL(preview);
@@ -82,7 +68,7 @@ export function SessionPhotoStep({
       const optimized = await downscaleImage(file);
       const fd = new FormData();
       fd.append("photo", optimized);
-      const r = await uploadSessionPhoto(sessionId, kind, fd);
+      const r = await uploadSessionPhoto(sessionId, fd);
       if ("error" in r) {
         // Keep the dialog open so the user can retry; the session is untouched.
         toast.error(r.error);
@@ -102,8 +88,10 @@ export function SessionPhotoStep({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{blurb}</DialogDescription>
+          <DialogTitle>Add a photo</DialogTitle>
+          <DialogDescription>
+            Snap what you&apos;re working on — optional.
+          </DialogDescription>
         </DialogHeader>
 
         <input

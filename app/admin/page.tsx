@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
-import { getSessionPhotoUrls } from "@/lib/db/session-photos";
+import { getSessionPhotoUrl } from "@/lib/db/session-photos";
 import { SOCIAL_ENABLED } from "@/lib/flags";
 
 import { AdminReports, type AdminReport } from "./admin-reports";
@@ -19,12 +19,11 @@ type RawReport = {
   note: string | null;
   created_at: string;
   target: {
-    // story
+    // story (a reported session; "story" is the persisted report_target_type)
     session_id?: string;
     label?: string;
     is_goal?: boolean;
-    before_path?: string | null;
-    after_path?: string | null;
+    photo_path?: string | null;
     owner_username?: string | null;
     // comment
     body?: string | null;
@@ -64,13 +63,12 @@ export default async function AdminPage() {
       const t = row.target ?? {};
 
       if (row.target_type === "story") {
-        const gone = t.gone === true || (!t.before_path && !t.after_path);
-        const urls = gone
-          ? { before: null, after: null }
-          : await getSessionPhotoUrls({
-              beforePhotoPath: t.before_path ?? null,
-              afterPhotoPath: t.after_path ?? null,
-            });
+        // A taken-down session has its photo_path nulled by
+        // admin_take_down_story, which is what `gone` reflects here.
+        const gone = t.gone === true || !t.photo_path;
+        const photoUrl = gone
+          ? null
+          : await getSessionPhotoUrl({ photoPath: t.photo_path ?? null });
         return {
           ...base,
           target: {
@@ -78,8 +76,7 @@ export default async function AdminPage() {
             sessionId: row.target_id,
             label: t.label ?? "Session",
             isGoal: t.is_goal === true,
-            beforeUrl: urls.before,
-            afterUrl: urls.after,
+            photoUrl,
             ownerUsername: t.owner_username ?? null,
             gone,
           },

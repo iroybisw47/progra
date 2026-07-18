@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { AtSignIcon, ClockIcon, FlagIcon, PlayIcon } from "lucide-react";
+import { AtSignIcon, ClockIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,48 +11,20 @@ import { Label } from "@/components/ui/label";
 
 import { createGoal } from "@/app/actions/goals";
 import { completeOnboarding, setUsername } from "@/app/actions/profile";
-import { clockIn, clockOut } from "@/app/actions/sessions";
 import { checkUsername } from "@/lib/social/username";
-import type { Goal } from "@/lib/db/goals";
 
-const HOUR_MS = 60 * 60 * 1000;
-
-// m:ss under an hour, h:mm:ss past it.
-function formatElapsed(ms: number): string {
-  const totalSec = Math.max(0, Math.floor(ms / 1000));
-  const s = totalSec % 60;
-  const m = Math.floor(totalSec / 60) % 60;
-  const h = Math.floor(totalSec / 3600);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
-}
-
-// "42s" / "3m 12s" / "1.4h" for the success banner.
-function formatLogged(ms: number): string {
-  const totalSec = Math.max(1, Math.round(ms / 1000));
-  if (totalSec < 60) return `${totalSec}s`;
-  if (ms < HOUR_MS) return `${Math.floor(totalSec / 60)}m ${totalSec % 60}s`;
-  return `${(ms / HOUR_MS).toFixed(1)}h`;
-}
-
-type Step = "welcome" | "goal" | "practice" | "categories" | "habits";
-const SEQUENCE: Step[] = ["welcome", "goal", "practice", "categories", "habits"];
+type Step = "welcome" | "goal" | "categories" | "habits";
+const SEQUENCE: Step[] = ["welcome", "goal", "categories", "habits"];
 
 type Props = {
-  goals: Goal[];
   initialUsername: string;
-  activeSession: { taskName: string; startedAt: number } | null;
 };
 
-// The redesign onboarding: five compact steps (welcome + handle → first goal →
-// practice timer → categories explainer → habits intro), dropping the
-// pre-redesign spotlight tour. Reuses the same actions (setUsername, createGoal,
-// clockIn/clockOut, completeOnboarding) so it's a presentation change only.
-export function OnboardingClientV2({
-  goals,
-  initialUsername,
-  activeSession,
-}: Props) {
+// The redesign onboarding: four compact steps (welcome + handle → first goal →
+// categories explainer → habits intro), dropping the pre-redesign spotlight
+// tour. Creating the goal is the only write here (via createGoal) — no practice
+// session; a new member surfaces on friends' feeds as a "just joined" item.
+export function OnboardingClientV2({ initialUsername }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [step, setStep] = useState<Step>("welcome");
@@ -66,34 +38,6 @@ export function OnboardingClientV2({
   // Goal.
   const [goalTitle, setGoalTitle] = useState("");
   const [quota, setQuota] = useState(5);
-  const [createdGoalTitle, setCreatedGoalTitle] = useState<string | null>(null);
-
-  // Practice.
-  const [practicePhase, setPracticePhase] = useState<
-    "idle" | "running" | "done"
-  >("idle");
-  const [taskName, setTaskName] = useState("First practice session");
-  const [clockAtMs, setClockAtMs] = useState<number | null>(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  const [loggedMs, setLoggedMs] = useState(0);
-
-  const practiceGoalTitle = createdGoalTitle ?? goals[0]?.title ?? "your goal";
-
-  // Adopt a real in-flight session on replay so clockIn doesn't trip the
-  // one-active-session constraint.
-  useEffect(() => {
-    if (step === "practice" && practicePhase === "idle" && activeSession) {
-      setTaskName(activeSession.taskName);
-      setClockAtMs(activeSession.startedAt);
-      setPracticePhase("running");
-    }
-  }, [step, practicePhase, activeSession]);
-
-  useEffect(() => {
-    if (practicePhase !== "running") return;
-    const id = setInterval(() => setNowMs(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [practicePhase]);
 
   function handleClaimUsername() {
     const check = checkUsername(username);
@@ -120,44 +64,7 @@ export function OnboardingClientV2({
         toast.error(r.error);
         return;
       }
-      setCreatedGoalTitle(title);
-      router.refresh();
-      setStep("practice");
-    });
-  }
-
-  function handleClockIn() {
-    const goal =
-      goals.find((g) => g.title === createdGoalTitle) ?? goals[0] ?? null;
-    if (!goal) {
-      toast.error("Your goal is still saving — try again in a second.");
-      router.refresh();
-      return;
-    }
-    const name = taskName.trim() || "First practice session";
-    startTransition(async () => {
-      const r = await clockIn({ goalId: goal.id, taskName: name });
-      if ("error" in r) {
-        toast.error(r.error);
-        router.refresh();
-        return;
-      }
-      setClockAtMs(Date.now());
-      setNowMs(Date.now());
-      setPracticePhase("running");
-    });
-  }
-
-  function handleClockOut() {
-    startTransition(async () => {
-      const r = await clockOut();
-      if ("error" in r) {
-        toast.error(r.error);
-        return;
-      }
-      setLoggedMs(Date.now() - (clockAtMs ?? Date.now()));
-      setPracticePhase("done");
-      router.refresh();
+      setStep("categories");
     });
   }
 
@@ -172,9 +79,24 @@ export function OnboardingClientV2({
     });
   }
 
+  // Skip the rest of the wizard once the username step is done. Same completion
+  // path as handleFinish; only reachable past the welcome step, so the handle is
+  // always claimed by the time this can fire.
+  function handleSkip() {
+    startTransition(async () => {
+      const r = await completeOnboarding();
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success("You're all set");
+      router.push("/");
+    });
+  }
+
   return (
     <div key={step} className="flex flex-1 animate-[fade-up_.35s_ease] flex-col">
-      <div className="flex h-11 items-center justify-center gap-1.5">
+      <div className="relative flex h-11 items-center justify-center gap-1.5">
         {SEQUENCE.map((s, i) => (
           <span
             key={s}
@@ -186,6 +108,16 @@ export function OnboardingClientV2({
             }
           />
         ))}
+        {step !== "welcome" && (
+          <button
+            type="button"
+            onClick={handleSkip}
+            disabled={pending}
+            className="text-caption hover:text-ink absolute right-5 text-[13px] font-medium disabled:opacity-50"
+          >
+            Skip
+          </button>
+        )}
       </div>
 
       <main className="mx-auto flex w-full max-w-[420px] flex-1 flex-col px-5 pb-10">
@@ -283,84 +215,6 @@ export function OnboardingClientV2({
             </>
           )}
 
-          {step === "practice" && (
-            <>
-              <header className="flex flex-col gap-2">
-                <h1 className="text-ink text-[32px] leading-[1.15]">
-                  Try clocking in
-                </h1>
-                <p className="text-body text-[15px] leading-normal">
-                  This is the whole loop — clock in when you start, out when you
-                  stop. Give it a few seconds.
-                </p>
-              </header>
-              <div className="flex flex-col gap-2">
-                <span className="text-caption text-xs">Clocking in to</span>
-                <span className="text-brand border-brand/25 bg-brand/10 inline-flex items-center gap-2 self-start rounded-full border px-3.5 py-2 text-sm font-bold">
-                  <FlagIcon className="size-3.5" strokeWidth={2} />
-                  Goal: {practiceGoalTitle}
-                </span>
-              </div>
-
-              {practicePhase === "idle" && (
-                <>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="ob-task">What are you working on?</Label>
-                    <Input
-                      id="ob-task"
-                      className="h-12 rounded-xl text-base"
-                      value={taskName}
-                      onChange={(e) => setTaskName(e.target.value)}
-                    />
-                  </div>
-                  <Button
-                    onClick={handleClockIn}
-                    disabled={pending}
-                    className="h-14 w-full gap-2.5 rounded-2xl text-[17px] font-bold"
-                  >
-                    <PlayIcon className="size-4 fill-current" />
-                    Clock in
-                  </Button>
-                </>
-              )}
-
-              {practicePhase === "running" && (
-                <>
-                  <div className="border-hairline bg-card flex flex-col items-center gap-2.5 rounded-[18px] border px-5 py-7">
-                    <span className="text-caption flex items-center gap-2 text-xs">
-                      <span className="bg-brand size-[9px] animate-pulse rounded-full" />
-                      {taskName.trim() || "First practice session"}
-                    </span>
-                    <span className="text-ink text-[54px] font-bold tracking-[-0.01em] tabular-nums">
-                      {formatElapsed(nowMs - (clockAtMs ?? nowMs))}
-                    </span>
-                  </div>
-                  <Button
-                    onClick={handleClockOut}
-                    disabled={pending}
-                    variant="secondary"
-                    className="h-13 w-full rounded-[14px] text-base font-medium"
-                  >
-                    Clock out
-                  </Button>
-                </>
-              )}
-
-              {practicePhase === "done" && (
-                <div className="border-done/55 bg-done/15 flex items-center gap-3 rounded-[14px] border px-4 py-3.5">
-                  <span className="bg-done text-primary-foreground flex size-6 shrink-0 items-center justify-center rounded-full text-sm font-bold">
-                    ✓
-                  </span>
-                  <p className="text-body text-sm leading-snug">
-                    Logged <strong>{formatLogged(loggedMs)}</strong> toward{" "}
-                    <strong>{practiceGoalTitle}</strong>. Every session counts
-                    toward your weekly quota.
-                  </p>
-                </div>
-              )}
-            </>
-          )}
-
           {step === "categories" && (
             <>
               <header className="flex flex-col gap-2">
@@ -419,9 +273,6 @@ export function OnboardingClientV2({
           >
             Create goal
           </WizardCta>
-        )}
-        {step === "practice" && practicePhase === "done" && (
-          <WizardCta onClick={() => setStep("categories")}>Continue</WizardCta>
         )}
         {step === "categories" && (
           <WizardCta onClick={() => setStep("habits")}>Next</WizardCta>

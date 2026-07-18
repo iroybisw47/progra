@@ -33,10 +33,10 @@ export type Session = {
   // Social v2: false = visible to accepted friends (once Aspect 4 lands), true
   // = owner-only. Inert until then.
   isPrivate: boolean;
-  // Phase 3 photos: storage paths ({user_id}/{session_id}/before|after.jpg) into
-  // the private `session-photos` bucket, or null when not captured. A session
-  // surfaces on a profile only when BOTH are set (visibility is derived from
-  // this pair, never stored as a boolean).
-  beforePhotoPath: string | null;
-  afterPhotoPath: string | null;
+  // The session's one photo: a storage path ({user_id}/{session_id}/photo.jpg)
+  // into the private `session-photos` bucket, or null when not captured. It's
+  // taken while the session runs and is just an attachment — it carries no
+  // visibility of its own. Who can see it follows `isPrivate`, same as the
+  // session itself.
+  photoPath: string | null;
 };

@@ -8,7 +8,7 @@ import {
   rowToSession,
   type SessionRow,
 } from "@/lib/db/sessions";
-import { getSessionPhotoUrls } from "@/lib/db/session-photos";
+import { getSessionPhotoUrl } from "@/lib/db/session-photos";
 import { listCategories } from "@/lib/db/categories";
 import { listActiveGoals } from "@/lib/db/goals";
 import { resolveAttribution } from "@/lib/session-attribution";
@@ -16,10 +16,12 @@ import { sessionWorkedMs } from "@/lib/session";
 
 import { FinishClient } from "./finish-client";
 
-// Finish & save (redesign): the confirmation + after-photo + privacy step shown
-// right after a session ends (via Stop, or an Edit that set an end time). The
-// session is already ended in the DB; this screen only decorates it (after
-// photo, privacy) before dropping you back on Progress.
+// Finish & save (redesign): the confirmation + privacy step shown right after a
+// session ends (via Stop, or an Edit that set an end time). The session is
+// already ended in the DB; this screen only sets its privacy — and privacy is
+// the whole of who can see the session and its photo — before dropping you back
+// on Progress. The photo itself is captured during the session and is read-only
+// by the time you get here.
 export default async function FinishPage({
   searchParams,
 }: {
@@ -43,10 +45,10 @@ export default async function FinishPage({
   const session = rowToSession(row);
   if (session.endedAt == null) redirect("/clock/live");
 
-  const [categories, goals, photos] = await Promise.all([
+  const [categories, goals, photoUrl] = await Promise.all([
     listCategories(),
     listActiveGoals(),
-    getSessionPhotoUrls(session),
+    getSessionPhotoUrl(session),
   ]);
   const attribution = resolveAttribution(session, categories, goals);
   const workedMs = sessionWorkedMs(session, session.endedAt);
@@ -58,10 +60,8 @@ export default async function FinishPage({
       description={session.description?.trim() || null}
       attribution={attribution}
       workedMs={workedMs}
-      endedAt={session.endedAt}
       isPrivate={session.isPrivate}
-      beforeUrl={photos.before}
-      afterUrl={photos.after}
+      photoUrl={photoUrl}
     />
   );
 }

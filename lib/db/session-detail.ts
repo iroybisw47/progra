@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { hydrateUsers, type PublicUser } from "@/lib/db/friends";
 import { hydrateGoalTitles } from "@/lib/db/feed";
-import { getSessionPhotoUrls } from "@/lib/db/session-photos";
+import { getSessionPhotoUrl } from "@/lib/db/session-photos";
 import { SESSION_COLUMNS, rowToSession, type SessionRow } from "@/lib/db/sessions";
 import { sessionWorkedMs } from "@/lib/session";
 
@@ -20,8 +20,7 @@ export type SessionDetail = {
   workedMs: number;
   startedAt: number;
   endedAt: number | null;
-  beforeUrl: string | null;
-  afterUrl: string | null;
+  photoUrl: string | null;
 };
 
 type DetailRow = SessionRow & { user_id: string };
@@ -46,10 +45,10 @@ export async function getSessionForViewer(
   const row = data as DetailRow;
   const session = rowToSession(row);
 
-  const [authors, goalTitleById, photos] = await Promise.all([
+  const [authors, goalTitleById, photoUrl] = await Promise.all([
     hydrateUsers([row.user_id]),
     row.goal_id ? hydrateGoalTitles([row.goal_id]) : Promise.resolve(null),
-    getSessionPhotoUrls(session),
+    getSessionPhotoUrl(session),
   ]);
 
   const author = authors.get(row.user_id);
@@ -68,7 +67,6 @@ export async function getSessionForViewer(
     workedMs: sessionWorkedMs(session, Date.now()),
     startedAt: session.startedAt,
     endedAt: session.endedAt,
-    beforeUrl: photos.before,
-    afterUrl: photos.after,
+    photoUrl,
   };
 }

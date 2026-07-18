@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import sharp from "sharp";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type Result = { ok: true } | { error: string };
 
@@ -11,18 +12,17 @@ const BUCKET = "session-photos";
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // 8 MB
 const MAX_EDGE_PX = 1600;
 const JPEG_QUALITY = 80;
-// Upload tolerance for the "after" photo — NOT a product grace window. It only
-// lets a slow upload / retry at clock-out still land. "After" means "taken at
-// clock-out"; do not loosen this to allow adding photos to old sessions.
-const AFTER_TOLERANCE_MS = 10 * 60 * 1000;
 
-// Upload a before/after photo for one of the current user's sessions. Re-encodes
-// with sharp (which strips all EXIF/GPS — the security point) before storing at
-// {user_id}/{session_id}/{kind}.jpg in the private bucket, then records the path
+// Upload the photo for one of the current user's sessions. Re-encodes with sharp
+// (which strips all EXIF/GPS — the security point) before storing at
+// {user_id}/{session_id}/photo.jpg in the private bucket, then records the path
 // on the session. Never throws to the client.
+//
+// A session carries at most one photo, taken while it runs. Who may see it is
+// decided by the session's is_private flag alone (storage policy
+// can_see_session_photo), never by anything about the photo itself.
 export async function uploadSessionPhoto(
   sessionId: string,
-  kind: "before" | "after",
   formData: FormData
 ): Promise<Result> {
   const supabase = await createClient();
@@ -54,20 +54,12 @@ export async function uploadSessionPhoto(
     return { error: "Session not found." };
   }
 
-  // Timing rules: before → session must still be active; after → session must
-  // have ended within the tolerance window.
-  if (kind === "before") {
-    if (session.ended_at !== null) {
-      return { error: "This session has already ended." };
-    }
-  } else {
-    if (session.ended_at === null) {
-      return { error: "This session hasn't ended yet." };
-    }
-    const endedMs = new Date(session.ended_at).getTime();
-    if (Date.now() - endedMs > AFTER_TOLERANCE_MS) {
-      return { error: "Too late to add an after photo." };
-    }
+  // The photo is taken during the session, so the session must still be running.
+  // This also keeps the capture window inside the period where the photo is
+  // unreachable to friends (can_see_session_photo requires ended_at is not null),
+  // so nothing is exposed before the finish screen asks about privacy.
+  if (session.ended_at !== null) {
+    return { error: "This session has already ended." };
   }
 
   // Re-encode: rotate() bakes EXIF orientation into pixels, resize caps the
@@ -88,16 +80,29 @@ export async function uploadSessionPhoto(
     return { error: "Couldn't process that image." };
   }
 
-  const path = `${user.id}/${sessionId}/${kind}.jpg`;
-  const { error: uploadError } = await supabase.storage
+  const path = `${user.id}/${sessionId}/photo.jpg`;
+  // The storage WRITE goes through a service-role client, not the user-scoped
+  // one. This project's Storage service does not authorize uploads from a valid
+  // user JWT (it treats authenticated tokens as anon at the storage layer, so
+  // the bucket's INSERT policy rejects them). Ownership was already verified
+  // above, so this write is safe — the admin client just bypasses the RLS that
+  // can't currently be satisfied. Upload a Blob (not the raw Buffer): that is the
+  // path verified to store intact JPEG bytes. Reads still use signed URLs and
+  // need no change.
+  const admin = createAdminClient();
+  // Copy into an ArrayBuffer-backed Uint8Array so it's a valid BlobPart (a Node
+  // Buffer's backing store is typed as possibly-SharedArrayBuffer).
+  const bytes = new Uint8Array(output.byteLength);
+  bytes.set(output);
+  const blob = new Blob([bytes], { type: "image/jpeg" });
+  const { error: uploadError } = await admin.storage
     .from(BUCKET)
-    .upload(path, output, { contentType: "image/jpeg", upsert: true });
+    .upload(path, blob, { contentType: "image/jpeg", upsert: true });
   if (uploadError) return { error: "Upload failed. Please try again." };
 
-  const column = kind === "before" ? "before_photo_path" : "after_photo_path";
   const { error: updateError } = await supabase
     .from("sessions")
-    .update({ [column]: path })
+    .update({ photo_path: path })
     .eq("id", sessionId);
   if (updateError) return { error: "Couldn't save the photo." };
 

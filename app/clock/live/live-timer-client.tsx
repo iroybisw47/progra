@@ -39,7 +39,7 @@ type Props = {
   startedAt: number;
   pausedMs: number;
   pausedSince: number | null;
-  hasBeforePhoto: boolean;
+  hasPhoto: boolean;
 };
 
 // m:ss under an hour, h:mm:ss past it.
@@ -74,20 +74,21 @@ export function LiveTimerClient({
   startedAt,
   pausedMs,
   pausedSince,
-  hasBeforePhoto,
+  hasPhoto,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
 
-  // Before-photo capture (redesign home for it). Clock-in routes here with
-  // `?capture=before`, which auto-opens the step once — seeded in a useState
-  // initializer (not an effect) so it fires only on the initial mount, never on
-  // a nav-ticker reopen. The mount effect strips the param so a hard refresh
-  // won't re-prompt; it only navigates, so it's not a setState-in-effect.
+  // Photo capture lives here, and only here — a session's one photo is taken
+  // while it runs. Clock-in routes here with `?capture=photo`, which auto-opens
+  // the step once — seeded in a useState initializer (not an effect) so it fires
+  // only on the initial mount, never on a nav-ticker reopen. The mount effect
+  // strips the param so a hard refresh won't re-prompt; it only navigates, so
+  // it's not a setState-in-effect.
   const capture = searchParams.get("capture");
-  const [beforeOpen, setBeforeOpen] = useState(
-    () => capture === "before" && !hasBeforePhoto
+  const [photoOpen, setPhotoOpen] = useState(
+    () => capture === "photo" && !hasPhoto
   );
   useEffect(() => {
     if (capture) router.replace("/clock/live");
@@ -262,19 +263,19 @@ export function LiveTimerClient({
           {pausedTotalMs > 0 && ` · paused ${formatHM(pausedTotalMs)}`}
         </div>
 
-        {hasBeforePhoto ? (
+        {hasPhoto ? (
           <div className="border-hairline text-caption flex items-center gap-2 rounded-full border px-3 py-[7px] text-xs font-medium">
             <ImageIcon className="size-3.5" />
-            Before photo attached
+            Photo attached
           </div>
         ) : (
           <button
             type="button"
-            onClick={() => setBeforeOpen(true)}
+            onClick={() => setPhotoOpen(true)}
             className="border-hairline text-caption hover:text-ink flex items-center gap-2 rounded-full border px-3 py-[7px] text-xs font-medium active:scale-95"
           >
             <CameraIcon className="size-3.5" />
-            Add before photo
+            Add photo
           </button>
         )}
       </div>
@@ -358,12 +359,11 @@ export function LiveTimerClient({
         </DialogContent>
       </Dialog>
 
-      {/* Before-photo capture — allowed while the session is active. */}
+      {/* Photo capture — only possible while the session is active. */}
       <SessionPhotoStep
-        open={beforeOpen}
-        onOpenChange={setBeforeOpen}
+        open={photoOpen}
+        onOpenChange={setPhotoOpen}
         sessionId={sessionId}
-        kind="before"
         onComplete={() => router.refresh()}
       />
     </div>

@@ -15,8 +15,7 @@ export type SessionRow = {
   paused_ms: number | string | null;
   paused_since: string | null;
   is_private: boolean;
-  before_photo_path: string | null;
-  after_photo_path: string | null;
+  photo_path: string | null;
 };
 
 // Columns selected for every session read. Single constant so the pause
@@ -24,7 +23,7 @@ export type SessionRow = {
 // (e.g. the feed) select the same shape; add ", user_id" when the reader needs
 // to attribute a row to its author.
 export const SESSION_COLUMNS =
-  "id, category_id, goal_id, task_name, description, started_at, ended_at, paused_ms, paused_since, is_private, before_photo_path, after_photo_path";
+  "id, category_id, goal_id, task_name, description, started_at, ended_at, paused_ms, paused_since, is_private, photo_path";
 
 export function rowToSession(row: SessionRow): Session {
   return {
@@ -40,8 +39,7 @@ export function rowToSession(row: SessionRow): Session {
     pausedMs: row.paused_ms != null ? Number(row.paused_ms) : 0,
     pausedSince: row.paused_since ? new Date(row.paused_since).getTime() : null,
     isPrivate: row.is_private ?? false,
-    beforePhotoPath: row.before_photo_path ?? null,
-    afterPhotoPath: row.after_photo_path ?? null,
+    photoPath: row.photo_path ?? null,
   };
 }
 

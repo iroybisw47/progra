@@ -143,7 +143,7 @@ is the interactive shell. `loading.tsx` provides route-level skeletons.
 |---|---|---|
 | `profiles` | `lib/auth/profile.ts`, `lib/google/oauth.ts` | One row per user (created by a Supabase trigger on auth signup). Stores Google `provider_token`, `provider_refresh_token`, `token_expires_at`, the user's IANA timezone, and `onboarded_at` (null until the first-run wizard completes; Home gates on it). |
 | `categories` | `lib/db/categories.ts` | `name`, `color`, `rules` (JSON, `titleContains[]` for auto-categorization). |
-| `sessions` | `lib/db/sessions.ts` | The clock-in record. `started_at`/`ended_at` (real wall-clock), `paused_ms` (banked), `paused_since` (set only while paused), `category_id`, `goal_id`, and (social v2) `before_photo_path`/`after_photo_path`. **Partial unique index** enforces one active (`ended_at IS NULL`) session per user → insert error `23505`. |
+| `sessions` | `lib/db/sessions.ts` | The clock-in record. `started_at`/`ended_at` (real wall-clock), `paused_ms` (banked), `paused_since` (set only while paused), `category_id`, `goal_id`, and (social v2) `photo_path` (the session's one optional photo). **Partial unique index** enforces one active (`ended_at IS NULL`) session per user → insert error `23505`. |
 | `goals` | `lib/db/goals.ts` | `weekly_quota_hours`, active flag, ordering. |
 | `calendar_events` | `lib/db/calendar-events.ts` | Synced Google events. Upsert keyed on `(user_id, google_event_id)`. All-day + cancelled events skipped on sync. |
 | `event_categorizations` | `app/actions/event-categorizations.ts` | Manual category overrides for specific calendar events. |
@@ -157,14 +157,14 @@ is the interactive shell. `loading.tsx` provides route-level skeletons.
 
 **Social v2 also added:** `is_private` on `sessions`/`goals`/`habits`; the
 `public_profiles` view (id/username/display_name/bio only); a private
-**`session-photos` Storage bucket** (`{user_id}/{session_id}/{kind}.jpg`, 1-hour
-signed URLs, read policy `can_see_session_photo` = owner OR admin OR non-private
-complete-pair friend); and definer RPCs `are_friends`, `are_blocked`,
+**`session-photos` Storage bucket** (`{user_id}/{session_id}/photo.jpg`, 1-hour
+signed URLs, read policy `can_see_session_photo` = owner OR admin OR (accepted
+friend AND session not private AND session ended)); and definer RPCs `are_friends`, `are_blocked`,
 `can_see_session`, `owns_session`, `search_users`, `toggle_reaction`,
 `can_see_session_photo`, plus the Phase 4 admin/account set: `is_admin`,
 `admin_list_reports`, `admin_resolve_report`, `admin_take_down_story`,
 `admin_delete_comment`, `delete_own_account`. Cross-user reads (`*ForUser`
-helpers, `listFriendFeed`, `listProfileStories`) omit the owner filter and let
+helpers, `listFriendFeed`, `listProfileSessions`) omit the owner filter and let
 the friend-read RLS (`owner OR are_friends AND NOT is_private`) decide.
 
 ---
@@ -250,14 +250,24 @@ numbers reconcile across every surface.
 - **Time math is local-time** with Mon-first weeks and inclusive ends, except the
   habit tz helpers which use UTC arithmetic on a tz-resolved date string.
 - **One active session per user**, DB-enforced (error `23505`).
-- **No service-role key anywhere.** All privileged/admin power is `SECURITY
-  DEFINER` RPCs gated by a single `is_admin()` helper (holds one UUID). `/admin`
-  checks `is_admin()` to render *and* every `admin_*` RPC re-checks it (defense in
-  depth), so a direct RPC call from a non-admin fails even if the endpoint leaks.
-- **Take-down = hide.** `admin_take_down_story` nulls the photo path columns (the
-  session stops being a complete pair → drops off every profile, and
-  `can_see_session_photo` stops serving the blob); `admin_delete_comment` deletes
-  the row. Blob purge from Storage is deferred (hygiene, not visibility).
+- **Service-role key: one narrow, server-only use.** All privileged/admin power
+  is otherwise `SECURITY DEFINER` RPCs gated by a single `is_admin()` helper
+  (holds one UUID). `/admin` checks `is_admin()` to render *and* every `admin_*`
+  RPC re-checks it (defense in depth), so a direct RPC call from a non-admin fails
+  even if the endpoint leaks. The **one** exception is the session-photo storage
+  *write* (`lib/supabase/admin.ts`, used only by `uploadSessionPhoto`): this
+  project's Storage service does not authorize uploads from a valid user JWT (it
+  treats authenticated tokens as anon at the storage layer, independent of the
+  JWT signing algorithm — reads via signed URLs are unaffected). The action
+  authenticates the user and verifies session ownership *before* the admin write,
+  so the authorization the bucket's INSERT RLS would enforce is done in code. The
+  key lives in `SUPABASE_SERVICE_ROLE_KEY` (server env only, never `NEXT_PUBLIC_`,
+  never in a client bundle).
+- **Take-down = hide.** `admin_take_down_story` nulls `sessions.photo_path`, so
+  `can_see_session_photo` no longer matches the object and stops serving the blob;
+  `admin_delete_comment` deletes the row. Blob purge from Storage is deferred
+  (hygiene, not visibility). Note the session itself survives a take-down — only
+  its photo goes.
 - **Account deletion is cascade-driven.** Every user-owned table is `ON DELETE
   CASCADE` from `auth.users` (verified via `pg_constraint`), so
   `delete_own_account()` clears the polymorphic `reports` about the user, then
@@ -303,10 +313,8 @@ numbers reconcile across every surface.
   `uploadSessionPhoto` re-encodes with `sharp` (strips EXIF/GPS — the security
   boundary) and enforces ownership + timing; optional before/after capture in the
   clock flow (`session-photo-step.tsx`, skip is one equal-weight tap). A profile
-  shows a session ONLY as a complete before+after **story** (`listProfileStories`,
-  `story-card.tsx`) — photo-less/half-pairs stay private. Storage read policy
-  `can_see_session_photo` tightened to owner OR non-private complete-pair friend
-  (closed an enumeration/private-photo gap).
+  showed a session ONLY as a complete before+after **story** — photo-less/half-pairs
+  stayed private. **Superseded: see "One photo per session" below.**
 - **Phase 4 — moderation + account deletion (the go-wider gate).** Write-only
   `reports` table + `report-button.tsx` on others' stories/comments/profiles;
   `/admin` queue gated by `is_admin()` (no service-role key) with take-down /
@@ -317,6 +325,28 @@ numbers reconcile across every surface.
   `auth.users`; photo EXIF stripped server-side. Each phase verified with an
   adversarial JWT test (5-persona RLS, 10-point comments, 14-check admin/reports,
   deletion scoping). **Shipped to `main`** behind `SOCIAL_ENABLED`.
+
+### 2026-07-16 — One photo per session (supersedes Phase 3's pair rule)
+- **The pair rule is gone.** `before_photo_path`/`after_photo_path` collapsed to
+  a single `photo_path`; the "after" capture, its 10-minute upload tolerance, and
+  the before/after concept are deleted. A session carries **one optional photo**,
+  taken while it runs (`/clock/live`, `?capture=photo` — the only capture point).
+- **`is_private` is now the whole of visibility.** Phase 3 overloaded photo
+  completeness to mean "shared", which was a second gate on top of a privacy flag
+  that already worked. A photo is now just an attachment with no visibility of its
+  own. `lib/storage.ts` no longer claims visibility is "derived from this pair".
+- **Profiles show session history, not a gallery.** `listProfileStories` →
+  `listProfileSessions` (`lib/db/profile-sessions.ts`), `StoryCard` →
+  `ProfileSessionCard`: every finished visible session, photo or not, newest
+  first, capped at 50 (pagination is a follow-up). The `"story"` report target
+  type **kept its name** — it's a `report_target_type` enum value persisted on
+  `reports` rows, so renaming it would mean migrating stored data.
+- **Doc correction:** this file previously described `can_see_session_photo` as
+  "owner OR admin OR non-private complete-pair friend". That was never true —
+  the policy matched `before_photo_path = object_name OR after_photo_path =
+  object_name` and already carried `not is_private and ended_at is not null`.
+  The pair rule lived only in app code (`stories.ts`, `session/[id]/page.tsx`).
+  Verify DDL against Supabase, not against this file (see line ~139).
 
 ### 2026-07-10 — First-run onboarding
 - `/onboarding` wizard (from the Claude Design handoff) reusing real actions:

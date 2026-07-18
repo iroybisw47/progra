@@ -114,7 +114,7 @@ export function ProgressClient(props: {
 function ManageGoalsLink() {
   return (
     <Link
-      href="/goals"
+      href="/goals?from=progress"
       className="text-caption hover:text-ink flex items-center gap-1 text-xs font-medium"
     >
       <SlidersHorizontalIcon className="size-3.5" />
@@ -257,7 +257,7 @@ function TodayView({
           <Card>
             <CardContent className="py-1">
               <Link
-                href="/goals"
+                href="/goals?from=progress"
                 className="text-caption hover:text-ink block py-3 text-sm"
               >
                 No goals yet — tap to add one.

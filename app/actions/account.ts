@@ -23,10 +23,10 @@ export async function deleteAccount(): Promise<Result> {
   // shouldn't block account deletion (orphaned blobs are hygiene, not exposure).
   const { data: photoRows } = await supabase
     .from("sessions")
-    .select("before_photo_path, after_photo_path")
+    .select("photo_path")
     .eq("user_id", user.id);
   const paths = (photoRows ?? [])
-    .flatMap((r) => [r.before_photo_path, r.after_photo_path])
+    .map((r) => r.photo_path)
     .filter((p): p is string => typeof p === "string" && p.length > 0);
   if (paths.length > 0) {
     await supabase.storage.from(BUCKET).remove(paths);

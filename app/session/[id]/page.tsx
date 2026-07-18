@@ -38,10 +38,6 @@ export default async function SessionDetailPage({
   const comments = commentsBySession.get(detail.sessionId) ?? [];
   const reactions = reactionsBySession.get(detail.sessionId) ?? [];
   const now = Date.now();
-  // Photos surface only as a COMPLETE before+after pair (same rule as profile
-  // stories in lib/db/stories.ts) — never a lone before/after, which would leak
-  // a photo the pair-only invariant is meant to keep private.
-  const hasPhotos = detail.beforeUrl && detail.afterUrl;
 
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-6 pb-28">
@@ -111,36 +107,15 @@ export default async function SessionDetailPage({
           </CardContent>
         </Card>
 
-        {/* Before / after */}
-        {hasPhotos && (
-          <div className="grid grid-cols-2 gap-2">
-            {detail.beforeUrl && (
-              <figure className="flex flex-col gap-1">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={detail.beforeUrl}
-                  alt="Before"
-                  className="aspect-square w-full rounded-xl object-cover"
-                />
-                <figcaption className="text-caption text-center text-xs uppercase tracking-wider">
-                  Before
-                </figcaption>
-              </figure>
-            )}
-            {detail.afterUrl && (
-              <figure className="flex flex-col gap-1">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={detail.afterUrl}
-                  alt="After"
-                  className="aspect-square w-full rounded-xl object-cover"
-                />
-                <figcaption className="text-caption text-center text-xs uppercase tracking-wider">
-                  After
-                </figcaption>
-              </figure>
-            )}
-          </div>
+        {/* Photo. Reaching this page at all means the session is visible to us,
+            so there's no separate gate on the photo. */}
+        {detail.photoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={detail.photoUrl}
+            alt=""
+            className="aspect-square w-full rounded-xl object-cover"
+          />
         )}
 
         {/* Reactions */}

@@ -6,11 +6,19 @@ import { sessionWorkedMs } from "@/lib/session";
 
 import { GoalsClient, type GoalSessionInfo } from "./goals-client";
 
-export default async function GoalsPage() {
-  const [goals, sessions] = await Promise.all([
+export default async function GoalsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
+  const [{ from }, goals, sessions] = await Promise.all([
+    searchParams,
     listActiveGoals(),
     listRecentSessions(),
   ]);
+  // Reached from the Progress tab's "Manage" link (?from=progress) → back to
+  // Progress; otherwise it's Settings → Your data → Goals, so back to Settings.
+  const fromProgress = from === "progress";
 
   const now = Date.now();
   const { perGoal } = aggregateWeekByGoal(sessions, now);
@@ -48,6 +56,8 @@ export default async function GoalsPage() {
       goals={goals}
       actualMsByGoal={actualMsByGoal}
       sessionsByGoal={sessionsByGoal}
+      backHref={fromProgress ? "/" : "/settings"}
+      backLabel={fromProgress ? "Progress" : "Settings"}
     />
   );
 }

@@ -25,33 +25,19 @@ import { OnboardingClientV2 } from "./onboarding-client-v2";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// First-run wizard. Fetches the same week snapshot Home renders so the tour
-// steps show the user's REAL data — including the goal and practice session
-// created moments earlier in the flow (client router.refresh()es after each
-// mutation, so these props stay current between steps).
+// First-run wizard. The legacy (pre-redesign) tour fetches the week snapshot
+// Home renders so its steps show the user's REAL data. The redesign wizard just
+// claims a handle and creates a goal — no session, no snapshot needed.
 export default async function OnboardingPage() {
   await requireUser();
 
   const profile = await getProfile();
   const tz = profile?.timezone ?? "UTC";
 
-  // The redesign uses a leaner 5-step wizard (no spotlight tour), so it needs
-  // only the goals to attribute the practice session and any in-flight session.
+  // The redesign uses a leaner 4-step wizard (welcome → goal → categories →
+  // habits) with no practice session, so it needs nothing but the handle.
   if (REDESIGN) {
-    const goals = await listActiveGoals();
-    const sessions = await listRecentSessions();
-    const active = sessions.find((s) => s.endedAt === null) ?? null;
-    return (
-      <OnboardingClientV2
-        goals={goals}
-        initialUsername={profile?.username ?? ""}
-        activeSession={
-          active
-            ? { taskName: active.taskName, startedAt: active.startedAt }
-            : null
-        }
-      />
-    );
+    return <OnboardingClientV2 initialUsername={profile?.username ?? ""} />;
   }
 
   const { startDate, endDate } = weekRangeInTimeZone(tz);

@@ -98,7 +98,10 @@ export async function setProfileIdentity(input: {
 }
 
 // Stamps the first-run flow as finished; the Home gate stops redirecting to
-// /onboarding once this is set.
+// /onboarding once this is set. Write-once: the `.is(onboarded_at, null)` filter
+// means only the *first* completion stamps a date — replaying onboarding and
+// finishing again is a no-op, so the original join date is preserved (it feeds
+// the "just joined" feed item, which must reflect the true first join).
 export async function completeOnboarding(): Promise<
   { ok: true } | { error: string }
 > {
@@ -111,28 +114,8 @@ export async function completeOnboarding(): Promise<
   const { error } = await supabase
     .from("profiles")
     .update({ onboarded_at: new Date().toISOString() })
-    .eq("id", user.id);
-
-  if (error) return { error: error.message };
-  revalidatePath("/");
-  return { ok: true };
-}
-
-// Re-test switch: clears the stamp so the next Home load re-enters the real
-// onboarding flow end-to-end.
-export async function replayOnboarding(): Promise<
-  { ok: true } | { error: string }
-> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({ onboarded_at: null })
-    .eq("id", user.id);
+    .eq("id", user.id)
+    .is("onboarded_at", null);
 
   if (error) return { error: error.message };
   revalidatePath("/");

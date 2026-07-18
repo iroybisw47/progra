@@ -24,8 +24,7 @@ function sess(over: Partial<Session> = {}): Session {
     pausedMs: 0,
     pausedSince: null,
     isPrivate: false,
-    beforePhotoPath: null,
-    afterPhotoPath: null,
+    photoPath: null,
     ...over,
   };
 }

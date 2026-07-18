@@ -39,8 +39,7 @@ export type AdminReport = {
         sessionId: string;
         label: string;
         isGoal: boolean;
-        beforeUrl: string | null;
-        afterUrl: string | null;
+        photoUrl: string | null;
         ownerUsername: string | null;
         gone: boolean;
       }
@@ -198,7 +197,7 @@ function TargetPreview({ target }: { target: AdminReport["target"] }) {
   if (target.kind === "story") {
     if (target.gone) {
       return (
-        <p className="text-caption text-sm italic">Photos already removed.</p>
+        <p className="text-caption text-sm italic">Photo already removed.</p>
       );
     }
     return (
@@ -210,24 +209,16 @@ function TargetPreview({ target }: { target: AdminReport["target"] }) {
             <span className="text-caption"> · @{target.ownerUsername}</span>
           )}
         </p>
-        <div className="grid grid-cols-2 gap-2">
-          {[target.beforeUrl, target.afterUrl].map((url, i) =>
-            url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={i}
-                src={url}
-                alt={i === 0 ? "Before" : "After"}
-                className="aspect-square w-full rounded-lg object-cover"
-              />
-            ) : (
-              <div
-                key={i}
-                className="bg-track aspect-square w-full rounded-lg"
-              />
-            )
-          )}
-        </div>
+        {target.photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={target.photoUrl}
+            alt="Reported session photo"
+            className="aspect-square w-full rounded-lg object-cover"
+          />
+        ) : (
+          <div className="bg-track aspect-square w-full rounded-lg" />
+        )}
       </div>
     );
   }

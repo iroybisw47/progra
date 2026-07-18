@@ -134,9 +134,9 @@ type ClockClientProps = {
   sessions: Session[];
   events: DayEvent[];
   goals: Goal[];
-  // Signed URL for the active session's before photo (Phase 3), or null. Wired
-  // into the active card in sub-step 3.
-  activeBeforeUrl: string | null;
+  // Signed URL for the active session's photo, or null. Shown as a thumbnail on
+  // the active card.
+  activePhotoUrl: string | null;
 };
 
 export function ClockClient({
@@ -144,7 +144,7 @@ export function ClockClient({
   sessions,
   events,
   goals,
-  activeBeforeUrl,
+  activePhotoUrl,
 }: ClockClientProps) {
   const router = useRouter();
   const now = useNow();
@@ -174,12 +174,11 @@ export function ClockClient({
   const [editColor, setEditColor] = useState<string | null>(null);
   const [sessionDialog, setSessionDialog] = useState<SessionDialogState>(null);
   const [eventDialog, setEventDialog] = useState<DayEvent | null>(null);
-  // Optional before/after photo step (Phase 3), opened after clock-in/out.
-  const [photoStep, setPhotoStep] = useState<{
-    sessionId: string;
-    kind: "before" | "after";
-    showProfileHint: boolean;
-  } | null>(null);
+  // The optional photo step, opened after clock-in. One photo per session,
+  // captured while it runs.
+  const [photoStep, setPhotoStep] = useState<{ sessionId: string } | null>(
+    null
+  );
   // null = week mode; 0..6 (Mon-first) = day mode for that weekday of this week.
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
 
@@ -299,15 +298,15 @@ export function ClockClient({
       toast.success(`Clocked into ${label}`);
       if (REDESIGN) {
         // The redesign runs the session on the full-screen /clock/live timer.
-        // Navigate there and let it prompt for the before photo (capture=before);
+        // Navigate there and let it prompt for the photo (capture=photo);
         // refreshing here would trip the /clock → /clock/live redirect guard and
-        // destroy the before-photo dialog before it's usable.
-        router.push("/clock/live?capture=before");
+        // destroy the photo dialog before it's usable.
+        router.push("/clock/live?capture=photo");
         return;
       }
       router.refresh();
-      // Timer is already running; the before step opens over it and is skippable.
-      setPhotoStep({ sessionId: r.sessionId, kind: "before", showProfileHint: false });
+      // Timer is already running; the photo step opens over it and is skippable.
+      setPhotoStep({ sessionId: r.sessionId });
     });
   }
 
@@ -322,13 +321,8 @@ export function ClockClient({
       }
       toast.success(`Logged ${formatDuration(sessionWorkedMs(session, Date.now()))}`);
       router.refresh();
-      // Session already ended; the after step opens over the result, skippable.
-      // Profile hint only when a before photo exists (a complete pair can surface).
-      setPhotoStep({
-        sessionId: session.id,
-        kind: "after",
-        showProfileHint: session.beforePhotoPath != null,
-      });
+      // No photo step here: a session's one photo is taken while it runs, and
+      // this session has just ended.
     });
   }
 
@@ -510,11 +504,11 @@ export function ClockClient({
                 </Badge>
               </div>
 
-              {activeBeforeUrl && (
+              {activePhotoUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={activeBeforeUrl}
-                  alt="Before photo for this session"
+                  src={activePhotoUrl}
+                  alt="Photo for this session"
                   className="size-16 rounded-md object-cover"
                 />
               )}
@@ -1037,8 +1031,6 @@ export function ClockClient({
           if (!o) setPhotoStep(null);
         }}
         sessionId={photoStep?.sessionId ?? null}
-        kind={photoStep?.kind ?? "before"}
-        showProfileHint={photoStep?.showProfileHint ?? false}
       />
     </div>
   );

@@ -34,7 +34,7 @@ export default async function LiveTimerPage() {
       startedAt={active.startedAt}
       pausedMs={active.pausedMs}
       pausedSince={active.pausedSince}
-      hasBeforePhoto={active.beforePhotoPath != null}
+      hasPhoto={active.photoPath != null}
     />
   );
 }
