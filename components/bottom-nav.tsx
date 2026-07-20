@@ -7,6 +7,7 @@ import {
   ClockIcon,
   FlagIcon,
   HomeIcon,
+  NewspaperIcon,
   SearchIcon,
   UserIcon,
   UsersIcon,
@@ -28,7 +29,7 @@ import { REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
 const TABS = REDESIGN
   ? ([
       { href: "/", label: "Progress", icon: BarChart3Icon, center: false, match: (p: string) => p === "/" },
-      { href: "/feed", label: "Feed", icon: HomeIcon, center: false, match: (p: string) => p.startsWith("/feed") },
+      { href: "/feed", label: "Feed", icon: NewspaperIcon, center: false, match: (p: string) => p.startsWith("/feed") },
       { href: "/clock", label: "Clock", icon: ClockIcon, center: true, match: (p: string) => p.startsWith("/clock") },
       { href: "/friends", label: "Friends", icon: UsersIcon, center: false, match: (p: string) => p.startsWith("/friends") },
       { href: "/me", label: "You", icon: UserIcon, center: false, match: (p: string) => p.startsWith("/me") },

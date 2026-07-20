@@ -3,7 +3,13 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { CameraIcon, ChevronDownIcon, ImageIcon, PencilIcon } from "lucide-react";
+import {
+  CameraIcon,
+  ChevronDownIcon,
+  FileTextIcon,
+  ImageIcon,
+  PencilIcon,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +23,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { CategoryPicker } from "@/components/category-picker";
+import { GoalPicker } from "@/components/goal-picker";
 import { SessionPhotoStep } from "@/components/session-photo-step";
 import { ToggleSwitch } from "@/components/v2/toggle-switch";
 import {
@@ -24,11 +33,14 @@ import {
   editActiveSessionTime,
   pauseSession,
   resumeSession,
+  updateSession,
 } from "@/app/actions/sessions";
 import { sessionWorkedMs } from "@/lib/session";
 import { useNow } from "@/lib/hooks";
 import { formatTime } from "@/lib/dates";
 import type { Attribution } from "@/lib/session-attribution";
+import type { Category } from "@/lib/storage";
+import type { Goal } from "@/lib/db/goals";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -40,6 +52,12 @@ type Props = {
   pausedMs: number;
   pausedSince: number | null;
   hasPhoto: boolean;
+  // Raw fields + option lists for editing title/category/goal in place.
+  taskName: string;
+  categoryId: string | null;
+  goalId: string | null;
+  categories: Category[];
+  goals: Goal[];
 };
 
 // m:ss under an hour, h:mm:ss past it.
@@ -75,6 +93,11 @@ export function LiveTimerClient({
   pausedMs,
   pausedSince,
   hasPhoto,
+  taskName,
+  categoryId,
+  goalId,
+  categories,
+  goals,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -106,20 +129,53 @@ export function LiveTimerClient({
   const worked = sessionWorkedMs(timing, now);
   const pausedTotalMs = pausedMs + (pausedSince != null ? now - pausedSince : 0);
 
-  // Edit-time sheet.
+  // Edit sheet — title, category/goal, and time.
   const [editOpen, setEditOpen] = useState(false);
+  const [titleInput, setTitleInput] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    null
+  );
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+  const [pickerMode, setPickerMode] = useState<"category" | "goal">("category");
   const [startInput, setStartInput] = useState("");
   const [stillRunning, setStillRunning] = useState(true);
   const [endInput, setEndInput] = useState("");
   const [seedEndInput, setSeedEndInput] = useState("");
 
   function openEdit() {
+    setTitleInput(taskName);
+    setSelectedCategoryId(categoryId);
+    setSelectedGoalId(goalId);
+    setPickerMode(goalId ? "goal" : "category");
     setStartInput(toLocalInput(startedAt));
     setStillRunning(true);
     const endSeed = toLocalInput(Date.now());
     setEndInput(endSeed);
     setSeedEndInput(endSeed);
     setEditOpen(true);
+  }
+
+  // Notes sheet — writes the session's description (which also surfaces on the
+  // feed post for a public session).
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesDraft, setNotesDraft] = useState("");
+
+  function openNotes() {
+    setNotesDraft(description ?? "");
+    setNotesOpen(true);
+  }
+
+  function handleSaveNotes() {
+    startTransition(async () => {
+      const r = await updateSession(sessionId, { description: notesDraft });
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      setNotesOpen(false);
+      toast.success("Notes saved");
+      router.refresh();
+    });
   }
 
   function togglePause() {
@@ -145,6 +201,15 @@ export function LiveTimerClient({
   }
 
   function handleSaveEdit() {
+    const trimmedTitle = titleInput.trim();
+    if (!trimmedTitle) {
+      toast.error("Enter a task name");
+      return;
+    }
+    if (!selectedCategoryId && !selectedGoalId) {
+      toast.error("Pick a category or a goal");
+      return;
+    }
     // datetime-local is minute-resolution, so re-parsing an untouched field
     // would shave the seconds and creep the start earlier on every save — keep
     // the exact original start when the field wasn't changed.
@@ -168,6 +233,20 @@ export function LiveTimerClient({
       }
     }
     startTransition(async () => {
+      // Title + category/goal first. This never ends the session, so the time
+      // edit below still finds the active row. Exactly one axis is non-null
+      // (validated above), satisfying updateSession's resolveAxis.
+      const u = await updateSession(sessionId, {
+        taskName: trimmedTitle,
+        categoryId: selectedCategoryId,
+        goalId: selectedGoalId,
+      });
+      if ("error" in u) {
+        toast.error(u.error);
+        return;
+      }
+      // Time (and, if ending, pause settlement + finish routing) stays with the
+      // existing action, unchanged.
       const r = await editActiveSessionTime({ startedAtMs, endedAtMs });
       if ("error" in r) {
         toast.error(r.error);
@@ -177,7 +256,7 @@ export function LiveTimerClient({
       if (r.ended) {
         router.push(`/clock/finish?sid=${r.sessionId}`);
       } else {
-        toast.success("Time updated");
+        toast.success("Session updated");
         router.refresh();
       }
     });
@@ -263,21 +342,33 @@ export function LiveTimerClient({
           {pausedTotalMs > 0 && ` · paused ${formatHM(pausedTotalMs)}`}
         </div>
 
-        {hasPhoto ? (
-          <div className="border-hairline text-caption flex items-center gap-2 rounded-full border px-3 py-[7px] text-xs font-medium">
-            <ImageIcon className="size-3.5" />
-            Photo attached
-          </div>
-        ) : (
+        <div className="flex flex-col items-center gap-2.5">
+          {/* Notes sit above the photo affordance. */}
           <button
             type="button"
-            onClick={() => setPhotoOpen(true)}
+            onClick={openNotes}
             className="border-hairline text-caption hover:text-ink flex items-center gap-2 rounded-full border px-3 py-[7px] text-xs font-medium active:scale-95"
           >
-            <CameraIcon className="size-3.5" />
-            Add photo
+            <FileTextIcon className="size-3.5" />
+            {description ? "Edit notes" : "Add notes"}
           </button>
-        )}
+
+          {hasPhoto ? (
+            <div className="border-hairline text-caption flex items-center gap-2 rounded-full border px-3 py-[7px] text-xs font-medium">
+              <ImageIcon className="size-3.5" />
+              Photo attached
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setPhotoOpen(true)}
+              className="border-hairline text-caption hover:text-ink flex items-center gap-2 rounded-full border px-3 py-[7px] text-xs font-medium active:scale-95"
+            >
+              <CameraIcon className="size-3.5" />
+              Add photo
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Bottom: pause/resume + stop */}
@@ -305,13 +396,67 @@ export function LiveTimerClient({
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit session time</DialogTitle>
+            <DialogTitle>Edit session</DialogTitle>
             <DialogDescription>
-              Forgot to clock out? Correct when this session started — and, if
+              Change what you&rsquo;re working on, or correct the time — and, if
               it&rsquo;s already over, when it ended.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit-title">Task</Label>
+              <Input
+                id="edit-title"
+                className="h-11"
+                placeholder="What are you working on?"
+                value={titleInput}
+                onChange={(e) => setTitleInput(e.target.value)}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={pickerMode === "category" ? "secondary" : "outline"}
+                  className="h-9 flex-1"
+                  aria-pressed={pickerMode === "category"}
+                  onClick={() => setPickerMode("category")}
+                >
+                  Category
+                </Button>
+                <Button
+                  type="button"
+                  variant={pickerMode === "goal" ? "secondary" : "outline"}
+                  className="h-9 flex-1"
+                  aria-pressed={pickerMode === "goal"}
+                  onClick={() => setPickerMode("goal")}
+                >
+                  Goal
+                </Button>
+              </div>
+              {pickerMode === "category" ? (
+                <CategoryPicker
+                  categories={categories}
+                  selectedId={selectedCategoryId}
+                  onSelect={(id) => {
+                    setSelectedCategoryId(id);
+                    setSelectedGoalId(null);
+                  }}
+                  emptyHint="Add a category on the clock screen first."
+                />
+              ) : (
+                <GoalPicker
+                  goals={goals}
+                  selectedId={selectedGoalId}
+                  onSelect={(id) => {
+                    setSelectedGoalId(id);
+                    setSelectedCategoryId(null);
+                  }}
+                />
+              )}
+            </div>
+
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="edit-start">Started at</Label>
               <Input
@@ -354,6 +499,32 @@ export function LiveTimerClient({
             <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
             <Button onClick={handleSaveEdit} disabled={pending}>
               {stillRunning ? "Save" : "Finish session"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Notes sheet — saved as the session's description. */}
+      <Dialog open={notesOpen} onOpenChange={setNotesOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Session notes</DialogTitle>
+            <DialogDescription>
+              Jot down what happened this session. Saved with the session — and
+              shown on your post if it&rsquo;s public.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            autoFocus
+            rows={5}
+            placeholder="What's happening this session?"
+            value={notesDraft}
+            onChange={(e) => setNotesDraft(e.target.value)}
+          />
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+            <Button onClick={handleSaveNotes} disabled={pending}>
+              Save notes
             </Button>
           </DialogFooter>
         </DialogContent>

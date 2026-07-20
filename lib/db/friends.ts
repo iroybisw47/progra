@@ -82,6 +82,47 @@ export async function listFriends(): Promise<FriendEntry[]> {
   });
 }
 
+// Everyone else on Progra, for the "People on Progra" discovery section. Reads
+// the narrow public_profiles view (identity only), excludes me and anyone I've
+// blocked. Capped for now — beta is small. Caveat: RLS hides blocks made against
+// me, so a user who blocked *me* can still appear; an Add attempt then fails with
+// the generic sendFriendRequest error (no block revealed). The client further
+// declutters current friends. Empty-safe.
+export async function listSuggestedUsers(limit = 100): Promise<PublicUser[]> {
+  const me = await getCurrentUser();
+  if (!me) return [];
+
+  const supabase = await createClient();
+
+  // Ids I've blocked — never suggest them.
+  const { data: blockedRows } = await supabase
+    .from("friendships")
+    .select("requester_id, addressee_id")
+    .eq("status", "blocked")
+    .eq("blocked_by", me.id);
+  const blockedIds = new Set<string>();
+  for (const r of (blockedRows ?? []) as FriendshipRow[]) {
+    blockedIds.add(r.requester_id === me.id ? r.addressee_id : r.requester_id);
+  }
+
+  const { data } = await supabase
+    .from("public_profiles")
+    .select("id, username, display_name, bio")
+    .neq("id", me.id)
+    .order("username", { ascending: true })
+    .limit(limit);
+  if (!data) return [];
+
+  return (data as PublicProfileRow[])
+    .filter((r) => !blockedIds.has(r.id))
+    .map((r) => ({
+      userId: r.id,
+      username: r.username,
+      displayName: r.display_name,
+      bio: r.bio,
+    }));
+}
+
 // Pending requests where I'm the addressee (someone asked to be my friend).
 export async function listIncomingRequests(): Promise<RequestEntry[]> {
   const me = await getCurrentUser();

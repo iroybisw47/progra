@@ -35,6 +35,11 @@ export default async function LiveTimerPage() {
       pausedMs={active.pausedMs}
       pausedSince={active.pausedSince}
       hasPhoto={active.photoPath != null}
+      taskName={active.taskName}
+      categoryId={active.categoryId}
+      goalId={active.goalId}
+      categories={categories}
+      goals={goals}
     />
   );
 }

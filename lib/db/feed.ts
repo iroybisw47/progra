@@ -10,9 +10,14 @@ import {
 import { hydrateSessionPhotoUrls } from "@/lib/db/session-photos";
 import { sessionWorkedMs } from "@/lib/session";
 
-// The goal or category a session is filed under. isGoal drives the "Goal · "
-// prefix in the UI.
-export type FeedAttribution = { text: string; isGoal: boolean };
+// The goal or category a session is filed under. isGoal drives the goal star vs
+// category dot; color is the category's dot color (null for goals, which use the
+// star, and for colorless categories).
+export type FeedAttribution = {
+  text: string;
+  isGoal: boolean;
+  color: string | null;
+};
 
 // One entry in the Home feed: a friend's finished work session.
 export type FeedItem = {
@@ -151,15 +156,17 @@ export async function listFriendFeed(daysBack = 7): Promise<FeedItem[]> {
 function resolveFeedAttribution(
   row: FeedSessionRow,
   goalTitleById: Map<string, string>,
-  categoryNameById: Map<string, string>
+  categoryById: Map<string, { name: string; color: string | null }>
 ): FeedAttribution | null {
   if (row.goal_id) {
     const title = goalTitleById.get(row.goal_id);
-    return title ? { text: title, isGoal: true } : null;
+    return title ? { text: title, isGoal: true, color: null } : null;
   }
   if (row.category_id) {
-    const name = categoryNameById.get(row.category_id);
-    return name ? { text: name, isGoal: false } : null;
+    const cat = categoryById.get(row.category_id);
+    return cat
+      ? { text: cat.name, isGoal: false, color: cat.color }
+      : null;
   }
   return null;
 }
@@ -170,17 +177,21 @@ function resolveFeedAttribution(
 // than leaking. Empty set short-circuits (never an empty .in()).
 async function hydrateCategoryNames(
   ids: string[]
-): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
+): Promise<Map<string, { name: string; color: string | null }>> {
+  const map = new Map<string, { name: string; color: string | null }>();
   if (ids.length === 0) return map;
   const supabase = await createClient();
   const { data } = await supabase
     .from("public_categories")
-    .select("id, name")
+    .select("id, name, color")
     .in("id", ids);
   if (!data) return map;
-  for (const row of data as { id: string; name: string }[]) {
-    map.set(row.id, row.name);
+  for (const row of data as {
+    id: string;
+    name: string;
+    color: string | null;
+  }[]) {
+    map.set(row.id, { name: row.name, color: row.color ?? null });
   }
   return map;
 }

@@ -4,6 +4,43 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-07-20
+
+### · Feed session cards restyled to the handoff layout
+Feed cards (`components/v2/feed-v2.tsx`) now follow the design handoff: a header
+sub-line reading "clocked into ⟨marker⟩ {category} for {duration}" (reusing
+`CategoryMarker` — star for goals, colored dot for categories), a prominent title,
+a full-bleed photo, and a footer with a duration pill + a single **heart "kudos"**
+and a comment count. The comment preview line is kept. Layout-only match — the
+current navy theme and heading font are unchanged (no warm palette, no Newsreader).
+The emoji reaction bar is replaced by the heart, which stores the existing `👍`
+reaction under the hood (new `components/kudos-button.tsx`, optimistic) — **no DB
+change**, and it interoperates with the emoji bar still on the session detail page.
+`lib/db/feed.ts` now carries the category `color` (from the `public_categories`
+view, which already exposed it); `lib/social/reactions.ts` gains `LIKE_EMOJI`.
+
+### · Live timer: edit title/category, and add notes
+The `/clock/live` edit dialog now also edits the **title** and **category/goal**
+(full picker, like clock-in) alongside start/end time — title/axis save via
+`updateSession`, time via the unchanged `editActiveSessionTime` (pause settlement
++ finish routing preserved). A new **Add notes** button (above the photo button)
+opens a textarea popup that saves to the session's `description`, which already
+surfaces on the feed post for public sessions.
+
+### · Suggested friends: "People on Progra"
+`/friends` gains a "People on Progra" section listing every other member with
+one-tap **Add** (new `listSuggestedUsers` in `lib/db/friends.ts`; reuses
+`sendFriendRequest` + the status buttons, now extracted into a shared
+`renderAction`). Excludes yourself, current friends, and people you've blocked;
+new members appear automatically once they've set a username (live
+`public_profiles` read, capped at 100 for now). Empty state distinguishes "added
+everyone" from "no one else yet". No DB change (a someone-blocked-you edge is
+deferred to a future definer RPC).
+
+### · Feed tab icon
+The redesign's Feed tab now uses a newspaper icon instead of the house
+(`components/bottom-nav.tsx`).
+
 ## 2026-07-16
 
 ### · Session-photo uploads fixed via a server-only service-role write

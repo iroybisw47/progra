@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { MessageCircleIcon } from "lucide-react";
+import { ClockIcon, MessageCircleIcon } from "lucide-react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
+import { CategoryMarker } from "@/components/category-marker";
 import { ClockedInStrip } from "@/components/clocked-in-strip";
 import { FeedLivePoll } from "@/components/feed-live-poll";
-import { ReactionBar } from "@/components/reaction-bar";
+import { KudosButton } from "@/components/kudos-button";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/lib/db/feed";
 import { listCommentsForSessions } from "@/lib/db/comments";
 import { listReactionsForSessions } from "@/lib/db/reactions";
+import { LIKE_EMOJI } from "@/lib/social/reactions";
 import { formatDuration } from "@/lib/duration";
 import { formatRelativeTime } from "@/lib/dates";
 
@@ -130,11 +132,16 @@ export async function FeedV2() {
             const item = entry;
             const comments = commentsBySession.get(item.sessionId) ?? [];
             const preview = comments[0];
+            const a = item.attribution;
+            const durationLabel = formatDuration(item.workedMs);
+            const likeSummary = (
+              reactionsBySession.get(item.sessionId) ?? []
+            ).find((r) => r.emoji === LIKE_EMOJI);
             return (
-              <Card key={item.sessionId}>
-                <CardContent className="flex flex-col gap-3 py-4">
-                  {/* Author row */}
-                  <div className="flex items-center gap-3">
+              <Card key={item.sessionId} className="overflow-hidden">
+                <div className="flex flex-col">
+                  {/* Header: who + "clocked into ⟨marker⟩ {target} for {dur}" */}
+                  <div className="flex items-center gap-3 px-4 pt-4">
                     <Link href={`/profile/${item.author.username}`}>
                       <AvatarInitials
                         name={item.author.displayName}
@@ -142,74 +149,94 @@ export async function FeedV2() {
                         className="size-10 text-sm"
                       />
                     </Link>
-                    <div className="flex min-w-0 flex-col">
-                      <span className="text-sm">
-                        <Link
-                          href={`/profile/${item.author.username}`}
-                          className="font-bold hover:underline"
-                        >
-                          {item.author.displayName || `@${item.author.username}`}
-                        </Link>{" "}
-                        <span className="text-caption">finished</span>
-                      </span>
-                      <span className="text-faint text-xs">
-                        {formatRelativeTime(item.endedAt, now)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Tap-through to session detail: title left, goal/category
-                      chip top-right with time under it, description below. */}
-                  <Link
-                    href={`/session/${item.sessionId}`}
-                    className="hover:bg-track/40 -mx-1 flex flex-col gap-1 rounded-lg px-1 py-1 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                        {item.title}
-                      </span>
-                      <span className="flex shrink-0 flex-col items-end gap-0.5">
-                        {item.attribution ? (
-                          <span className="text-caption text-xs">
-                            {item.attribution.isGoal ? "Goal · " : ""}
-                            {item.attribution.text}
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <Link
+                        href={`/profile/${item.author.username}`}
+                        className="truncate text-sm font-bold hover:underline"
+                      >
+                        {item.author.displayName || `@${item.author.username}`}
+                      </Link>
+                      <span className="text-caption flex items-center gap-1 overflow-hidden text-xs whitespace-nowrap">
+                        {a ? (
+                          <>
+                            clocked into
+                            <CategoryMarker isGoal={a.isGoal} color={a.color} />
+                            <span className="text-body min-w-0 truncate font-medium">
+                              {a.text}
+                            </span>
+                          </>
+                        ) : (
+                          <>clocked in</>
+                        )}
+                        <span className="shrink-0">
+                          for{" "}
+                          <span className="text-body font-medium tabular-nums">
+                            {durationLabel}
                           </span>
-                        ) : null}
-                        <span className="text-body font-mono text-sm tabular-nums">
-                          {formatDuration(item.workedMs)}
                         </span>
                       </span>
                     </div>
+                    <span className="text-faint shrink-0 text-xs">
+                      {formatRelativeTime(item.endedAt, now)}
+                    </span>
+                  </div>
+
+                  {/* Body: title + description, taps through to the detail. */}
+                  <Link
+                    href={`/session/${item.sessionId}`}
+                    className="hover:bg-track/30 flex flex-col gap-1 px-4 py-3 transition-colors"
+                  >
+                    <span className="text-lg font-medium leading-snug tracking-[-0.01em]">
+                      {item.title}
+                    </span>
                     {item.description ? (
-                      <p className="text-body line-clamp-3 text-sm leading-snug">
+                      <p className="text-body line-clamp-3 text-sm leading-relaxed">
                         {item.description}
                       </p>
                     ) : null}
                   </Link>
 
-                  {/* The photo sits under the stats, not above them — the
-                      numbers are the point of the card; the photo is the
-                      evidence. Raw <img>: the src is a short-lived signed URL
-                      into a private bucket, which next/image can neither cache
-                      sanely nor reach without a remotePatterns allowlist. */}
+                  {/* Photo — full-bleed band. Raw <img>: the src is a short-lived
+                      signed URL into a private bucket that next/image can neither
+                      cache sanely nor reach without a remotePatterns allowlist. */}
                   {item.photoUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={item.photoUrl}
                       alt=""
-                      className="aspect-square w-full rounded-lg object-cover"
+                      className="aspect-square w-full object-cover"
                     />
                   )}
 
-                  <ReactionBar
-                    sessionId={item.sessionId}
-                    reactions={reactionsBySession.get(item.sessionId) ?? []}
-                  />
+                  {/* Footer — duration pill + kudos/comments */}
+                  <div className="border-divider flex items-center justify-between gap-3 border-t px-4 py-2.5">
+                    <span className="bg-brand/10 text-brand inline-flex h-[26px] items-center gap-1.5 rounded-full px-2.5 font-mono text-xs font-semibold tabular-nums">
+                      <ClockIcon className="size-3" />
+                      {durationLabel}
+                    </span>
+                    <div className="flex items-center gap-3.5">
+                      <KudosButton
+                        sessionId={item.sessionId}
+                        count={likeSummary?.count ?? 0}
+                        likedByMe={likeSummary?.mine ?? false}
+                      />
+                      <Link
+                        href={`/session/${item.sessionId}`}
+                        className="text-caption hover:text-body flex items-center gap-1.5 text-xs font-medium"
+                        aria-label={`${comments.length} comments`}
+                      >
+                        <MessageCircleIcon className="size-4" />
+                        {comments.length > 0 && (
+                          <span className="tabular-nums">{comments.length}</span>
+                        )}
+                      </Link>
+                    </div>
+                  </div>
 
-                  {/* Collapsed comment thread → session detail */}
+                  {/* Comment preview → session detail (kept alongside the count) */}
                   <Link
                     href={`/session/${item.sessionId}`}
-                    className="border-divider flex flex-col gap-1.5 border-t pt-3"
+                    className="border-divider flex flex-col gap-1.5 border-t px-4 py-3"
                   >
                     {preview ? (
                       <>
@@ -235,7 +262,7 @@ export async function FeedV2() {
                       </span>
                     )}
                   </Link>
-                </CardContent>
+                </div>
               </Card>
             );
           })

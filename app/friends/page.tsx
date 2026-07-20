@@ -7,6 +7,7 @@ import {
   listFriends,
   listIncomingRequests,
   listOutgoingRequests,
+  listSuggestedUsers,
 } from "@/lib/db/friends";
 
 import { FriendsClient } from "./friends-client";
@@ -17,11 +18,12 @@ export default async function FriendsPage() {
   if (!SOCIAL_ENABLED) notFound();
   await requireUser();
 
-  const [friends, incoming, outgoing, blocked] = await Promise.all([
+  const [friends, incoming, outgoing, blocked, suggested] = await Promise.all([
     listFriends(),
     listIncomingRequests(),
     listOutgoingRequests(),
     listBlockedUsers(),
+    listSuggestedUsers(),
   ]);
 
   return (
@@ -30,6 +32,7 @@ export default async function FriendsPage() {
       incoming={incoming}
       outgoing={outgoing}
       blocked={blocked}
+      suggested={suggested}
     />
   );
 }

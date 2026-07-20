@@ -35,11 +35,18 @@ type Props = {
   incoming: RequestEntry[];
   outgoing: RequestEntry[];
   blocked: BlockedEntry[];
+  suggested: PublicUser[];
 };
 
 type ActionResult = { ok: true } | { error: string };
 
-export function FriendsClient({ friends, incoming, outgoing, blocked }: Props) {
+export function FriendsClient({
+  friends,
+  incoming,
+  outgoing,
+  blocked,
+  suggested,
+}: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -103,6 +110,46 @@ export function FriendsClient({ friends, incoming, outgoing, blocked }: Props) {
     });
   }
 
+  // The right-hand action button for a user, by our relationship to them.
+  // Shared by search results and the "People on Progra" section.
+  function renderAction(userId: string) {
+    if (friendIds.has(userId)) {
+      return (
+        <Button size="sm" variant="ghost" disabled>
+          Friends
+        </Button>
+      );
+    }
+    if (outgoingIds.has(userId)) {
+      return (
+        <Button size="sm" variant="ghost" disabled>
+          Requested
+        </Button>
+      );
+    }
+    const requestId = incomingByUser.get(userId);
+    if (requestId) {
+      return (
+        <Button
+          size="sm"
+          disabled={pending}
+          onClick={() => run(() => acceptFriendRequest(requestId), "Friend added")}
+        >
+          Accept
+        </Button>
+      );
+    }
+    return (
+      <Button
+        size="sm"
+        disabled={pending}
+        onClick={() => run(() => sendFriendRequest(userId), "Request sent")}
+      >
+        Add
+      </Button>
+    );
+  }
+
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-28">
       <main className="flex w-full max-w-md flex-col gap-5">
@@ -136,52 +183,43 @@ export function FriendsClient({ friends, incoming, outgoing, blocked }: Props) {
                 {!searching && results.length === 0 && (
                   <p className="text-caption text-sm">No users found.</p>
                 )}
-                {results.map((u) => {
-                  const requestId = incomingByUser.get(u.userId);
-                  return (
-                    <UserRow key={u.userId} user={u}>
-                      {friendIds.has(u.userId) ? (
-                        <Button size="sm" variant="ghost" disabled>
-                          Friends
-                        </Button>
-                      ) : outgoingIds.has(u.userId) ? (
-                        <Button size="sm" variant="ghost" disabled>
-                          Requested
-                        </Button>
-                      ) : requestId ? (
-                        <Button
-                          size="sm"
-                          disabled={pending}
-                          onClick={() =>
-                            run(
-                              () => acceptFriendRequest(requestId),
-                              "Friend added"
-                            )
-                          }
-                        >
-                          Accept
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          disabled={pending}
-                          onClick={() =>
-                            run(
-                              () => sendFriendRequest(u.userId),
-                              "Request sent"
-                            )
-                          }
-                        >
-                          Add
-                        </Button>
-                      )}
-                    </UserRow>
-                  );
-                })}
+                {results.map((u) => (
+                  <UserRow key={u.userId} user={u}>
+                    {renderAction(u.userId)}
+                  </UserRow>
+                ))}
               </div>
             )}
           </CardContent>
         </Card>
+
+        {/* People on Progra — discovery. Excludes current friends (they're in
+            "Your friends" below); pending shows Requested/Accept. */}
+        {(() => {
+          const people = suggested.filter((u) => !friendIds.has(u.userId));
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle>People on Progra</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                {people.length === 0 ? (
+                  <p className="text-caption text-sm">
+                    {suggested.length > 0
+                      ? "You've added everyone on Progra. 🎉"
+                      : "No one else on Progra yet."}
+                  </p>
+                ) : (
+                  people.map((u) => (
+                    <UserRow key={u.userId} user={u}>
+                      {renderAction(u.userId)}
+                    </UserRow>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Incoming requests */}
         {incoming.length > 0 && (
