@@ -141,7 +141,7 @@ export async function FeedV2() {
               <Card key={item.sessionId} className="overflow-hidden">
                 <div className="flex flex-col">
                   {/* Header: who + "clocked into ⟨marker⟩ {target} for {dur}" */}
-                  <div className="flex items-center gap-3 px-4 pt-4">
+                  <div className="flex items-start gap-3 px-4 pt-4">
                     <Link href={`/profile/${item.author.username}`}>
                       <AvatarInitials
                         name={item.author.displayName}
@@ -150,25 +150,33 @@ export async function FeedV2() {
                       />
                     </Link>
                     <div className="flex min-w-0 flex-1 flex-col">
-                      <Link
-                        href={`/profile/${item.author.username}`}
-                        className="truncate text-sm font-bold hover:underline"
-                      >
-                        {item.author.displayName || `@${item.author.username}`}
-                      </Link>
-                      <span className="text-caption flex items-center gap-1 overflow-hidden text-xs whitespace-nowrap">
+                      {/* Top line: name left, timestamp hard right. */}
+                      <div className="flex items-baseline justify-between gap-2">
+                        <Link
+                          href={`/profile/${item.author.username}`}
+                          className="truncate text-sm font-bold hover:underline"
+                        >
+                          {item.author.displayName ||
+                            `@${item.author.username}`}
+                        </Link>
+                        <span className="text-faint shrink-0 text-xs">
+                          {formatRelativeTime(item.endedAt, now)}
+                        </span>
+                      </div>
+                      {/* Sub-line: full sentence, wraps rather than truncating. */}
+                      <span className="text-caption flex flex-wrap items-center gap-x-1 text-xs">
                         {a ? (
                           <>
                             clocked into
                             <CategoryMarker isGoal={a.isGoal} color={a.color} />
-                            <span className="text-body min-w-0 truncate font-medium">
+                            <span className="text-body font-medium break-words">
                               {a.text}
                             </span>
                           </>
                         ) : (
                           <>clocked in</>
                         )}
-                        <span className="shrink-0">
+                        <span>
                           for{" "}
                           <span className="text-body font-medium tabular-nums">
                             {durationLabel}
@@ -176,9 +184,6 @@ export async function FeedV2() {
                         </span>
                       </span>
                     </div>
-                    <span className="text-faint shrink-0 text-xs">
-                      {formatRelativeTime(item.endedAt, now)}
-                    </span>
                   </div>
 
                   {/* Body: title + description, taps through to the detail. */}
