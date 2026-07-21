@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -47,7 +46,6 @@ export function FriendsClient({
   blocked,
   suggested,
 }: Props) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   const [query, setQuery] = useState("");
@@ -106,7 +104,6 @@ export function FriendsClient({
         return;
       }
       if (okMsg) toast.success(okMsg);
-      router.refresh();
     });
   }
 

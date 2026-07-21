@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateSocialSurfaces } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { isReactionEmoji } from "@/lib/social/reactions";
 
@@ -34,6 +33,6 @@ export async function toggleReaction(
     return { error: "Couldn't react." };
   }
 
-  revalidatePath("/");
+  revalidateSocialSurfaces();
   return { ok: true, reacted: data === true };
 }

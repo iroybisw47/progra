@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateFriendSurfaces } from "@/lib/revalidate";
 import { normalizeUsername } from "@/lib/social/username";
 import { createClient } from "@/lib/supabase/server";
 
@@ -38,7 +37,7 @@ export async function sendFriendRequest(targetUserId: string): Promise<Result> {
     if (error.code === "23505") return { error: "Couldn't send request." };
     return { error: error.message };
   }
-  revalidatePath("/friends");
+  revalidateFriendSurfaces();
   return { ok: true };
 }
 
@@ -56,7 +55,7 @@ export async function acceptFriendRequest(requestId: string): Promise<Result> {
     request_id: requestId,
   });
   if (error) return { error: error.message };
-  revalidatePath("/friends");
+  revalidateFriendSurfaces();
   return { ok: true };
 }
 
@@ -71,7 +70,7 @@ export async function removeFriendship(id: string): Promise<Result> {
 
   const { error } = await supabase.from("friendships").delete().eq("id", id);
   if (error) return { error: error.message };
-  revalidatePath("/friends");
+  revalidateFriendSurfaces();
   return { ok: true };
 }
 
@@ -90,7 +89,7 @@ export async function blockUser(targetUserId: string): Promise<Result> {
 
   const { error } = await supabase.rpc("block_user", { target: targetUserId });
   if (error) return { error: error.message };
-  revalidatePath("/friends");
+  revalidateFriendSurfaces();
   return { ok: true };
 }
 
@@ -110,7 +109,7 @@ export async function unblockUser(targetUserId: string): Promise<Result> {
     .eq("blocked_by", user.id)
     .or(`requester_id.eq.${targetUserId},addressee_id.eq.${targetUserId}`);
   if (error) return { error: error.message };
-  revalidatePath("/friends");
+  revalidateFriendSurfaces();
   return { ok: true };
 }
 

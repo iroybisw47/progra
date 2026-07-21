@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { LockIcon, PencilIcon, XIcon } from "lucide-react";
@@ -47,7 +46,6 @@ export function HabitsClient({
   todayLocal,
   weekStart,
 }: Props) {
-  const router = useRouter();
   const [, startTransition] = useTransition();
   const [name, setName] = useState("");
   // Habit edit dialog: rename + palette color, same pattern as the clock
@@ -88,7 +86,6 @@ export function HabitsClient({
         toast.error(r.error);
         return;
       }
-      router.refresh();
     });
   }
 
@@ -103,7 +100,6 @@ export function HabitsClient({
       }
       setName("");
       toast.success(`Added ${trimmed}`);
-      router.refresh();
     });
   }
 
@@ -132,7 +128,6 @@ export function HabitsClient({
       }
       setEditingHabit(null);
       toast.success(`Saved ${trimmed}`);
-      router.refresh();
     });
   }
 
@@ -144,7 +139,6 @@ export function HabitsClient({
         return;
       }
       toast.success(`Archived ${habitName}`);
-      router.refresh();
     });
   }
 

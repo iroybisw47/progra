@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { XIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -10,7 +9,6 @@ import { deleteComment } from "@/app/actions/comments";
 // Small inline "remove my comment" control. Shown only when the server marked
 // the comment deletable (author, or session owner). RLS is the real gate.
 export function DeleteCommentButton({ commentId }: { commentId: string }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   return (
@@ -25,7 +23,6 @@ export function DeleteCommentButton({ commentId }: { commentId: string }) {
             toast.error(r.error);
             return;
           }
-          router.refresh();
         })
       }
       className="text-muted-foreground hover:text-foreground shrink-0 transition-colors disabled:opacity-50"

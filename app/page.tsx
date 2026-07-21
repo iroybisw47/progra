@@ -9,7 +9,11 @@ import { ProgressClient } from "@/components/v2/progress-client";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 import { REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
-import { loadProgressData, loadWeekHabits } from "@/lib/db/progress";
+import {
+  currentWeekStart,
+  loadProgressData,
+  loadWeekHabits,
+} from "@/lib/db/progress";
 
 export default async function Page() {
   const user = await getCurrentUser();
@@ -21,10 +25,13 @@ export default async function Page() {
   if (REDESIGN) {
     const profile = await getProfile();
     if (!profile?.onboarded_at) redirect("/onboarding");
-    const data = await loadProgressData();
-    const { habits, completions, minWeekStart } = await loadWeekHabits(
-      data.weekStart
-    );
+    // The week start is derivable from the profile alone, so both loaders run
+    // in parallel instead of habits waiting on the full progress read.
+    const weekStart = currentWeekStart(profile.timezone ?? "UTC");
+    const [data, { habits, completions, minWeekStart }] = await Promise.all([
+      loadProgressData(),
+      loadWeekHabits(weekStart),
+    ]);
     return (
       <ProgressClient
         {...data}

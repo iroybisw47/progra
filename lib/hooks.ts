@@ -27,3 +27,17 @@ function getNowServerSnap(): number {
 export function useNow(): number {
   return useSyncExternalStore(subscribeNow, getNowSnap, getNowServerSnap);
 }
+
+function getMinuteSnap(): number {
+  return Math.floor(getNowSnap() / 60_000) * 60_000;
+}
+
+// useNowMinute: same shared 1s store, but the snapshot is floored to the
+// minute — useSyncExternalStore bails out of re-rendering while the snapshot
+// is unchanged, so subscribers re-render at most once per minute. For surfaces
+// that only need minute/day granularity (totals, day labels, week boundaries);
+// keep second-precision timers on useNow in small leaf components.
+// Returns 0 during SSR, same "not hydrated yet" convention as useNow.
+export function useNowMinute(): number {
+  return useSyncExternalStore(subscribeNow, getMinuteSnap, getNowServerSnap);
+}

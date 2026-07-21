@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -8,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { syncCalendar } from "@/app/actions/sync-calendar";
 
 export function SyncCalendarButton() {
-  const router = useRouter();
   const [pending, setPending] = useState(false);
 
   async function handleClick() {
@@ -19,7 +17,6 @@ export function SyncCalendarButton() {
       toast.error(result.error);
     } else {
       toast.success(`Synced ${result.count} event${result.count === 1 ? "" : "s"}`);
-      router.refresh();
     }
   }
 

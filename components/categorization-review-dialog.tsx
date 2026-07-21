@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { XIcon } from "lucide-react";
 
@@ -42,7 +41,6 @@ export function CategorizationReviewDialog({
   assignments,
   categories,
 }: Props) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [rows, setRows] = useState<Row[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -62,10 +60,9 @@ export function CategorizationReviewDialog({
   const categoryById = new Map(categories.map((c) => [c.id, c] as const));
 
   function handleOpenChange(next: boolean) {
+    // No close-refresh needed: every action taken in here revalidates the
+    // event surfaces, so the History bars already have the fresh payload.
     onOpenChange(next);
-    // On close, refresh so the History bars reflect the new AI rows and any
-    // corrections made in here.
-    if (!next) router.refresh();
   }
 
   function handleReassign(eventId: string, categoryId: string) {
@@ -104,7 +101,6 @@ export function CategorizationReviewDialog({
               toast.error(undo.error);
               return;
             }
-            router.refresh();
           },
         },
       });

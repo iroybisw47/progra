@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -40,7 +42,9 @@ function rowToGoal(row: GoalRow): Goal {
   };
 }
 
-export async function listActiveGoals(): Promise<Goal[]> {
+// Cached per request — the recap, rollup, and clock composers all read active
+// goals during one render; they share a single round-trip.
+export const listActiveGoals = cache(async (): Promise<Goal[]> => {
   const me = await getCurrentUser();
   if (!me) return [];
   const supabase = await createClient();
@@ -52,7 +56,7 @@ export async function listActiveGoals(): Promise<Goal[]> {
     .order("created_at", { ascending: true });
   if (!data) return [];
   return (data as GoalRow[]).map(rowToGoal);
-}
+});
 
 // Returns goals by id regardless of status. Used by the "needs reslotting"
 // surface to backfill titles for missed blocks pointing at goals the user

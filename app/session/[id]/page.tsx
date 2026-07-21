@@ -114,6 +114,8 @@ export default async function SessionDetailPage({
           <img
             src={detail.photoUrl}
             alt=""
+            loading="lazy"
+            decoding="async"
             className="aspect-square w-full rounded-xl object-cover"
           />
         )}

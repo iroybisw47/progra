@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateSocialSurfaces } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { COMMENT_MAX_LENGTH } from "@/lib/social/comments";
 
@@ -40,7 +39,7 @@ export async function addComment(
     // author, and we don't confirm whether it exists / is private / is blocked.
     return { error: "Couldn't post comment." };
   }
-  revalidatePath("/");
+  revalidateSocialSurfaces();
   return { ok: true };
 }
 
@@ -61,6 +60,6 @@ export async function deleteComment(commentId: string): Promise<Result> {
     .eq("id", commentId);
 
   if (error) return { error: "Couldn't delete comment." };
-  revalidatePath("/");
+  revalidateSocialSurfaces();
   return { ok: true };
 }

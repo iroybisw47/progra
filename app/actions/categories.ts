@@ -1,8 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { isCategoryColor } from "@/lib/category-colors";
+import { revalidateCategorySurfaces } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { error: string; code?: "duplicate" };
@@ -27,15 +26,6 @@ function sanitizeKeywords(raw: string[]): string[] {
     if (out.length >= MAX_KEYWORDS) break;
   }
   return out;
-}
-
-function revalidateCategorySurfaces() {
-  // Category names/colors/rules render on every aggregation surface.
-  revalidatePath("/");
-  revalidatePath("/clock");
-  revalidatePath("/categories");
-  revalidatePath("/history");
-  revalidatePath("/recap");
 }
 
 export async function createCategory(

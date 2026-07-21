@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
@@ -71,7 +70,6 @@ export function ManageHabits({
   today,
   minWeekStart,
 }: Props) {
-  const router = useRouter();
   const [, startTransition] = useTransition();
 
   // Which week the grid is showing. The dialog is mounted for the lifetime of
@@ -127,7 +125,6 @@ export function ManageHabits({
         toast.error(r.error);
         return;
       }
-      router.refresh();
     });
   }
 
@@ -144,7 +141,6 @@ export function ManageHabits({
       setNewName("");
       setNewColor(null);
       toast.success(`Added ${trimmed}`);
-      router.refresh();
     });
   }
 
@@ -168,7 +164,6 @@ export function ManageHabits({
       }
       setEditing(null);
       toast.success(`Saved ${trimmed}`);
-      router.refresh();
     });
   }
 
@@ -186,7 +181,6 @@ export function ManageHabits({
           ? `${habit.name} is now private`
           : `${habit.name} is now visible to friends`
       );
-      router.refresh();
     });
   }
 
@@ -198,7 +192,6 @@ export function ManageHabits({
         return;
       }
       toast.success(`Deleted ${habit.name}`);
-      router.refresh();
     });
   }
 

@@ -1,8 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { CATEGORY_COLORS, isCategoryColor } from "@/lib/category-colors";
+import { revalidateHabitSurfaces } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { todayInTimeZone } from "@/lib/dates";
 
@@ -37,8 +36,7 @@ export async function createHabit(
     .insert({ user_id: user.id, name: trimmed, color: chosenColor });
 
   if (error) return { error: error.message };
-  revalidatePath("/habits");
-  revalidatePath("/");
+  revalidateHabitSurfaces();
   return { ok: true };
 }
 
@@ -80,8 +78,7 @@ export async function updateHabit(
   if (error) return { error: error.message };
 
   // Habits render on /habits and the home dashboard.
-  revalidatePath("/habits");
-  revalidatePath("/");
+  revalidateHabitSurfaces();
   return { ok: true };
 }
 
@@ -92,8 +89,7 @@ export async function archiveHabit(habitId: string): Promise<Result> {
     .update({ archived_at: new Date().toISOString() })
     .eq("id", habitId);
   if (error) return { error: error.message };
-  revalidatePath("/habits");
-  revalidatePath("/");
+  revalidateHabitSurfaces();
   return { ok: true };
 }
 
@@ -149,8 +145,6 @@ export async function toggleHabitCompletion(
     if (error) return { error: error.message };
   }
 
-  revalidatePath("/habits");
-  // Progress (/) surfaces today's + this-week's completions in the redesign.
-  revalidatePath("/");
+  revalidateHabitSurfaces();
   return { ok: true };
 }

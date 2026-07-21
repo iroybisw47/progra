@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateEventSurfaces } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { error: string };
@@ -20,9 +19,7 @@ export async function excludeEvent(eventId: string): Promise<Result> {
     .upsert({ event_id: eventId, user_id: user.id });
   if (error) return { error: error.message };
 
-  revalidatePath("/clock");
-  revalidatePath("/history");
-  revalidatePath("/recap");
+  revalidateEventSurfaces();
   return { ok: true };
 }
 
@@ -34,6 +31,6 @@ export async function restoreEvent(eventId: string): Promise<Result> {
     .eq("event_id", eventId);
   if (error) return { error: error.message };
 
-  revalidatePath("/clock");
+  revalidateEventSurfaces();
   return { ok: true };
 }

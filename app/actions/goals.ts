@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateGoalSurfaces } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { error: string };
@@ -33,8 +32,7 @@ export async function createGoal(input: CreateGoalInput): Promise<Result> {
   });
 
   if (error) return { error: error.message };
-  revalidatePath("/goals");
-  revalidatePath("/clock");
+  revalidateGoalSurfaces();
   return { ok: true };
 }
 
@@ -75,8 +73,7 @@ export async function updateGoal(
   const supabase = await createClient();
   const { error } = await supabase.from("goals").update(update).eq("id", id);
   if (error) return { error: error.message };
-  revalidatePath("/goals");
-  revalidatePath("/clock");
+  revalidateGoalSurfaces();
   return { ok: true };
 }
 
@@ -87,7 +84,6 @@ export async function archiveGoal(id: string): Promise<Result> {
     .update({ status: "archived" })
     .eq("id", id);
   if (error) return { error: error.message };
-  revalidatePath("/goals");
-  revalidatePath("/clock");
+  revalidateGoalSurfaces();
   return { ok: true };
 }

@@ -53,7 +53,6 @@ export function ProfileActions({
       }
       if (opts?.okMsg) toast.success(opts.okMsg);
       if (opts?.then) opts.then();
-      else router.refresh();
     });
   }
 
@@ -188,10 +187,7 @@ export function ProfileActions({
                 onClick={() =>
                   run(() => setProfileIdentity({ displayName, bio }), {
                     okMsg: "Saved",
-                    then: () => {
-                      setEditing(false);
-                      router.refresh();
-                    },
+                    then: () => setEditing(false),
                   })
                 }
               >

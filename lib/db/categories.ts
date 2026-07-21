@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { createClient } from "@/lib/supabase/server";
 import type { Category } from "@/lib/storage";
 
@@ -25,7 +27,9 @@ function rowToCategory(row: CategoryRow): Category {
   };
 }
 
-export async function listCategories(): Promise<Category[]> {
+// Cached per request — several composers (rollups, recap, progress, clock)
+// read categories during one render; they share a single round-trip.
+export const listCategories = cache(async (): Promise<Category[]> => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("categories")
@@ -33,4 +37,4 @@ export async function listCategories(): Promise<Category[]> {
     .order("created_at", { ascending: true });
   if (!data) return [];
   return (data as CategoryRow[]).map(rowToCategory);
-}
+});

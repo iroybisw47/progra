@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { CheckIcon, CircleIcon } from "lucide-react";
@@ -37,7 +36,6 @@ export function WeeklyHabits({
   today,
   readOnly = false,
 }: Props) {
-  const router = useRouter();
   const [, startTransition] = useTransition();
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
 
@@ -79,7 +77,6 @@ export function WeeklyHabits({
         toast.error(r.error);
         return;
       }
-      router.refresh();
     });
   }
 

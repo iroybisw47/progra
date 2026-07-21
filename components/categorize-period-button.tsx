@@ -1,11 +1,21 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ListChecksIcon, SparklesIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { CategorizationReviewDialog } from "@/components/categorization-review-dialog";
+
+// Lazy chunk — the review popup only appears after running/reopening the AI
+// categorizer, so keep it out of /history's critical bundle.
+const CategorizationReviewDialog = dynamic(
+  () =>
+    import("@/components/categorization-review-dialog").then(
+      (m) => m.CategorizationReviewDialog
+    ),
+  { ssr: false }
+);
 import {
   categorizeEventsInRange,
   listAiCategorizedInRange,

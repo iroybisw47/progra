@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateEventSurfaces } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { error: string };
@@ -32,6 +31,6 @@ export async function setEventCategory(
     if (error) return { error: error.message };
   }
 
-  revalidatePath("/clock");
+  revalidateEventSurfaces();
   return { ok: true };
 }

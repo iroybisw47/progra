@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import type { Session } from "@/lib/storage";
@@ -46,10 +48,11 @@ export function rowToSession(row: SessionRow): Session {
 // Returns sessions overlapping [startMs, endMs). Overlap test: started_at <
 // endMs AND (ended_at > startMs OR ended_at IS NULL). Used by the recap to
 // fetch arbitrary historical weeks — listRecentSessions caps at ~14 days.
-export async function listSessionsInRange(
+// Cached per request, keyed on the numeric window.
+export const listSessionsInRange = cache(async (
   startMs: number,
   endMs: number
-): Promise<Session[]> {
+): Promise<Session[]> => {
   const me = await getCurrentUser();
   if (!me) return [];
   const supabase = await createClient();
@@ -64,13 +67,14 @@ export async function listSessionsInRange(
     .order("started_at", { ascending: false });
   if (!data) return [];
   return (data as SessionRow[]).map(rowToSession);
-}
+});
 
 // The single active (not-yet-ended) session for the current user, or null. Lean
 // read used by the root layout to drive the nav's live-ticking center button
 // (V2). At most one active session exists per user (partial unique index), so
-// maybeSingle is safe.
-export async function getActiveSession(): Promise<Session | null> {
+// maybeSingle is safe. Cached per request — the layout and the clock surfaces
+// share one round-trip.
+export const getActiveSession = cache(async (): Promise<Session | null> => {
   const me = await getCurrentUser();
   if (!me) return null;
   const supabase = await createClient();
@@ -83,7 +87,7 @@ export async function getActiveSession(): Promise<Session | null> {
     .limit(1)
     .maybeSingle();
   return data ? rowToSession(data as SessionRow) : null;
-}
+});
 
 // Returns sessions started within the last `daysBack` days OR any still-active
 // session regardless of start time. The clock page only renders the current

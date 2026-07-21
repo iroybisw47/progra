@@ -1,8 +1,9 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useOptimistic } from "react";
 import {
@@ -41,18 +42,36 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CategoryPicker } from "@/components/category-picker";
 import { ColorSwatches } from "@/components/color-swatches";
-import { EventCategoryDialog } from "@/components/event-category-dialog";
 import { GoalPicker } from "@/components/goal-picker";
-import { SessionDialog, type SessionDialogMode } from "@/components/session-dialog";
-import { SessionPhotoStep } from "@/components/session-photo-step";
+import type { SessionDialogMode } from "@/components/session-dialog";
+import { Ticking } from "@/components/ticking";
 import { WeekBreakdown } from "@/components/week-breakdown";
+
+// Click-gated dialogs load as lazy chunks after hydration instead of shipping
+// in /clock's critical bundle (they render nothing while closed).
+const SessionDialog = dynamic(
+  () => import("@/components/session-dialog").then((m) => m.SessionDialog),
+  { ssr: false }
+);
+const EventCategoryDialog = dynamic(
+  () =>
+    import("@/components/event-category-dialog").then(
+      (m) => m.EventCategoryDialog
+    ),
+  { ssr: false }
+);
+const SessionPhotoStep = dynamic(
+  () =>
+    import("@/components/session-photo-step").then((m) => m.SessionPhotoStep),
+  { ssr: false }
+);
 
 import { type Category, type Session } from "@/lib/storage";
 import type { DayEvent } from "@/lib/db/calendar-events";
 import type { Goal } from "@/lib/db/goals";
 import { aggregateWeek, buildCategoryBreakdown } from "@/lib/aggregate";
 import { isPaused, sessionPausedMs, sessionWorkedMs } from "@/lib/session";
-import { useNow } from "@/lib/hooks";
+import { useNowMinute } from "@/lib/hooks";
 import { REDESIGN } from "@/lib/flags";
 import { cn } from "@/lib/utils";
 import {
@@ -147,7 +166,10 @@ export function ClockClient({
   activePhotoUrl,
 }: ClockClientProps) {
   const router = useRouter();
-  const now = useNow();
+  // Minute-quantized tick: totals and week/day boundaries only need minute
+  // resolution. The second-live timer lives in a <Ticking> leaf below, so the
+  // 1000-line screen re-renders once a minute instead of once a second.
+  const now = useNowMinute();
   const [, startTransition] = useTransition();
 
   // Optimistic exclusion: clicking "Hide event" drops the event from the
@@ -224,20 +246,31 @@ export function ClockClient({
 
   const hydrated = now !== 0;
   const nowDate = new Date(hydrated ? now : 0);
-  const categoryById = new Map(categories.map((c) => [c.id, c] as const));
-  const goalById = new Map(goals.map((g) => [g.id, g] as const));
+  // Memoized so keystrokes into the controlled inputs (task name, notes, new
+  // category) re-render without re-running the aggregation passes — these only
+  // recompute when the data or the minute changes.
+  const categoryById = useMemo(
+    () => new Map(categories.map((c) => [c.id, c] as const)),
+    [categories]
+  );
+  const goalById = useMemo(
+    () => new Map(goals.map((g) => [g.id, g] as const)),
+    [goals]
+  );
 
   const weekStartDate = hydrated ? startOfWeek(nowDate) : null;
   const weekEndDate = hydrated ? endOfWeek(nowDate) : null;
   const todayIndex = hydrated ? dayIndexMonFirst(nowDate) : -1;
-  const weekly = aggregateWeek(sessions, optimisticEvents, hydrated ? now : 0);
+  const weekly = useMemo(
+    () => aggregateWeek(sessions, optimisticEvents, hydrated ? now : 0),
+    [sessions, optimisticEvents, hydrated, now]
+  );
 
   // Goal clock-ins surface here as "Goal: {name}" rows, same as the home and
   // History breakdowns (shared buildCategoryBreakdown).
-  const categoryBreakdown = buildCategoryBreakdown(
-    weekly.perCategory,
-    categories,
-    goals
+  const categoryBreakdown = useMemo(
+    () => buildCategoryBreakdown(weekly.perCategory, categories, goals),
+    [weekly, categories, goals]
   );
 
   function categoryName(id: string | null): string {
@@ -260,9 +293,15 @@ export function ClockClient({
   const isTodaySelected =
     selectedDate !== null &&
     formatLocalDate(selectedDate) === formatLocalDate(nowDate);
-  const day = selectedDate
-    ? dayBreakdown(sessions, optimisticEvents, now, selectedDate)
-    : { rows: [] as DayRow[], total: 0 };
+  // Self-contained deps (re-derives the date from primitives) so the memo
+  // survives selectedDate's per-render object identity.
+  const day = useMemo(() => {
+    if (selectedDayIndex === null || !hydrated) {
+      return { rows: [] as DayRow[], total: 0 };
+    }
+    const date = addDays(startOfWeek(new Date(now)), selectedDayIndex);
+    return dayBreakdown(sessions, optimisticEvents, now, date);
+  }, [sessions, optimisticEvents, hydrated, now, selectedDayIndex]);
   const dayLabel =
     selectedDate === null
       ? ""
@@ -304,7 +343,6 @@ export function ClockClient({
         router.push("/clock/live?capture=photo");
         return;
       }
-      router.refresh();
       // Timer is already running; the photo step opens over it and is skippable.
       setPhotoStep({ sessionId: r.sessionId });
     });
@@ -320,7 +358,6 @@ export function ClockClient({
         return;
       }
       toast.success(`Logged ${formatDuration(sessionWorkedMs(session, Date.now()))}`);
-      router.refresh();
       // No photo step here: a session's one photo is taken while it runs, and
       // this session has just ended.
     });
@@ -335,7 +372,6 @@ export function ClockClient({
         toast.error(r.error);
         return;
       }
-      router.refresh();
     });
   }
 
@@ -350,7 +386,6 @@ export function ClockClient({
         return;
       }
       toast.success("Notes saved");
-      router.refresh();
     });
   }
 
@@ -374,7 +409,6 @@ export function ClockClient({
       }
       setNewCategoryName("");
       toast.success(`Added ${name}`);
-      router.refresh();
     });
   }
 
@@ -398,7 +432,6 @@ export function ClockClient({
       }
       setEditingCategory(null);
       toast.success(`Saved ${name}`);
-      router.refresh();
     });
   }
 
@@ -414,7 +447,6 @@ export function ClockClient({
       if (selectedCategoryId === cat.id) setSelectedCategoryId(null);
       toast.success(`Removed ${cat.name}`);
       setPendingCategoryDelete(null);
-      router.refresh();
     });
   }
 
@@ -471,32 +503,38 @@ export function ClockClient({
               </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1">
-                <div className="font-mono text-5xl tabular-nums tracking-tight">
-                  {formatElapsed(
-                    hydrated ? sessionWorkedMs(activeSession, now) : 0
-                  )}
-                </div>
-                {/* Worked time is the big number; paused is shown plainly. */}
-                {hydrated &&
-                  (() => {
-                    const paused = isPaused(activeSession);
-                    const pausedTotal = sessionPausedMs(activeSession, now);
-                    if (!paused && pausedTotal <= 0) return null;
-                    return (
-                      <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                        {paused && (
-                          <Badge variant="outline" className="gap-1">
-                            <PauseIcon className="size-3" /> Paused
-                          </Badge>
-                        )}
-                        {pausedTotal > 0 && (
-                          <span>paused {formatDuration(pausedTotal)}</span>
-                        )}
-                      </div>
-                    );
-                  })()}
-              </div>
+              {/* Second-live numbers render inside the <Ticking> leaf so only
+                  this block re-renders every second, not the whole screen. */}
+              <Ticking>
+                {(tick) => (
+                  <div className="flex flex-col gap-1">
+                    <div className="font-mono text-5xl tabular-nums tracking-tight">
+                      {formatElapsed(
+                        tick !== 0 ? sessionWorkedMs(activeSession, tick) : 0
+                      )}
+                    </div>
+                    {/* Worked time is the big number; paused is shown plainly. */}
+                    {tick !== 0 &&
+                      (() => {
+                        const paused = isPaused(activeSession);
+                        const pausedTotal = sessionPausedMs(activeSession, tick);
+                        if (!paused && pausedTotal <= 0) return null;
+                        return (
+                          <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                            {paused && (
+                              <Badge variant="outline" className="gap-1">
+                                <PauseIcon className="size-3" /> Paused
+                              </Badge>
+                            )}
+                            {pausedTotal > 0 && (
+                              <span>paused {formatDuration(pausedTotal)}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                  </div>
+                )}
+              </Ticking>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{activeSession.taskName}</span>
                 <Badge variant="secondary">
@@ -509,6 +547,8 @@ export function ClockClient({
                 <img
                   src={activePhotoUrl}
                   alt="Photo for this session"
+                  loading="lazy"
+                  decoding="async"
                   className="size-16 rounded-md object-cover"
                 />
               )}

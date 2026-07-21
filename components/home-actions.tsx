@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -14,7 +13,6 @@ import { autoCategorizeEvents } from "@/app/actions/categorize-events";
 // Calendar events in; auto-categorize labels recent uncategorized ones. Both
 // guard against double-submit via their pending state.
 export function HomeActions() {
-  const router = useRouter();
   const [syncing, setSyncing] = useState(false);
   const [categorizing, setCategorizing] = useState(false);
 
@@ -27,7 +25,6 @@ export function HomeActions() {
       return;
     }
     toast.success(`Synced ${r.count} event${r.count === 1 ? "" : "s"}`);
-    router.refresh();
   }
 
   async function handleCategorize() {
@@ -44,7 +41,6 @@ export function HomeActions() {
         ? "Nothing new to categorize"
         : `Categorized ${r.categorized} event${r.categorized === 1 ? "" : "s"}${more}`
     );
-    router.refresh();
   }
 
   return (

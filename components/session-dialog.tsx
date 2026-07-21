@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -91,7 +90,6 @@ function SessionForm({
   now,
   onClose,
 }: SessionDialogProps & { onClose: () => void }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const isCreate = mode === "create";
   const isActive = mode === "edit-active";
@@ -182,7 +180,6 @@ function SessionForm({
           return;
         }
         toast.success("Saved");
-        router.refresh();
         onClose();
       });
       return;
@@ -209,7 +206,6 @@ function SessionForm({
           return;
         }
         toast.success("Added");
-        router.refresh();
         onClose();
       });
     } else {
@@ -228,7 +224,6 @@ function SessionForm({
           return;
         }
         toast.success("Saved");
-        router.refresh();
         onClose();
       });
     }
@@ -237,15 +232,17 @@ function SessionForm({
   function handleDelete() {
     if (!session) return;
     startTransition(async () => {
+      // Close optimistically — a delete confirm has no form state to lose, so
+      // don't hold the dialog open for the round-trip. Errors surface as a
+      // toast after the fact.
+      setConfirmDelete(false);
+      onClose();
       const r = await deleteSession(session.id);
       if ("error" in r) {
         toast.error(r.error);
         return;
       }
       toast.success("Deleted");
-      setConfirmDelete(false);
-      router.refresh();
-      onClose();
     });
   }
 

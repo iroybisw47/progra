@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -26,8 +27,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CategoryPicker } from "@/components/category-picker";
 import { GoalPicker } from "@/components/goal-picker";
-import { SessionPhotoStep } from "@/components/session-photo-step";
+import { Ticking } from "@/components/ticking";
 import { ToggleSwitch } from "@/components/v2/toggle-switch";
+
+// Lazy chunk — the photo step only matters after a click (or the one-shot
+// ?capture=photo auto-open, which still works: the dialog mounts open once
+// the chunk arrives).
+const SessionPhotoStep = dynamic(
+  () =>
+    import("@/components/session-photo-step").then((m) => m.SessionPhotoStep),
+  { ssr: false }
+);
 import {
   clockOut,
   editActiveSessionTime,
@@ -36,7 +46,6 @@ import {
   updateSession,
 } from "@/app/actions/sessions";
 import { sessionWorkedMs } from "@/lib/session";
-import { useNow } from "@/lib/hooks";
 import { formatTime } from "@/lib/dates";
 import type { Attribution } from "@/lib/session-attribution";
 import type { Category } from "@/lib/storage";
@@ -118,16 +127,14 @@ export function LiveTimerClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Live tick. useNow is 0 during SSR; a lazy client Date.now() seeds a correct
-  // first paint (no purity-rule violation — it's a useState initializer).
+  // Live tick lives in the <Ticking> leaves below — this 500-line component
+  // itself never re-renders on the timer. useNow is 0 during SSR; a lazy client
+  // Date.now() seeds a correct first paint (no purity-rule violation — it's a
+  // useState initializer).
   const [seedNow] = useState(() => Date.now());
-  const tick = useNow();
-  const now = tick === 0 ? seedNow : tick;
 
   const timing = { startedAt, endedAt: null, pausedMs, pausedSince };
   const paused = pausedSince != null;
-  const worked = sessionWorkedMs(timing, now);
-  const pausedTotalMs = pausedMs + (pausedSince != null ? now - pausedSince : 0);
 
   // Edit sheet — title, category/goal, and time.
   const [editOpen, setEditOpen] = useState(false);
@@ -174,7 +181,6 @@ export function LiveTimerClient({
       }
       setNotesOpen(false);
       toast.success("Notes saved");
-      router.refresh();
     });
   }
 
@@ -185,7 +191,6 @@ export function LiveTimerClient({
         toast.error(r.error);
         return;
       }
-      router.refresh();
     });
   }
 
@@ -257,7 +262,6 @@ export function LiveTimerClient({
         router.push(`/clock/finish?sid=${r.sessionId}`);
       } else {
         toast.success("Session updated");
-        router.refresh();
       }
     });
   }
@@ -333,13 +337,28 @@ export function LiveTimerClient({
               paused ? "text-faint" : "text-ink"
             )}
           >
-            {formatElapsed(worked)}
+            <Ticking>
+              {(tick) =>
+                formatElapsed(
+                  sessionWorkedMs(timing, tick === 0 ? seedNow : tick)
+                )
+              }
+            </Ticking>
           </span>
         </div>
 
         <div className="text-faint text-xs">
           Started {formatTime(new Date(startedAt))}
-          {pausedTotalMs > 0 && ` · paused ${formatHM(pausedTotalMs)}`}
+          <Ticking>
+            {(tick) => {
+              const now = tick === 0 ? seedNow : tick;
+              const pausedTotalMs =
+                pausedMs + (pausedSince != null ? now - pausedSince : 0);
+              return pausedTotalMs > 0
+                ? ` · paused ${formatHM(pausedTotalMs)}`
+                : null;
+            }}
+          </Ticking>
         </div>
 
         <div className="flex flex-col items-center gap-2.5">
@@ -531,11 +550,12 @@ export function LiveTimerClient({
       </Dialog>
 
       {/* Photo capture — only possible while the session is active. */}
+      {/* No onComplete refresh: uploadSessionPhoto revalidates the session
+          surfaces, so its POST already carries the updated hasPhoto state. */}
       <SessionPhotoStep
         open={photoOpen}
         onOpenChange={setPhotoOpen}
         sessionId={sessionId}
-        onComplete={() => router.refresh()}
       />
     </div>
   );

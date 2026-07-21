@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 
 // Keeps the feed roughly live without Supabase Realtime: re-runs the server read
 // on an interval so new clock-ins / clock-outs / pause changes surface. Pauses
-// while the tab is hidden and refreshes immediately on refocus. Renders nothing;
-// always mounted (so a first clock-in appears even when the strip is empty).
-export function FeedLivePoll({ intervalMs = 30_000 }: { intervalMs?: number }) {
+// while the tab is hidden and refreshes immediately on refocus — the refocus
+// refresh is what covers the common "reopen the tab" case, so the background
+// cadence can stay slow (each tick re-renders the feed + root layout). Renders
+// nothing; always mounted (so a first clock-in appears even when the strip is
+// empty).
+export function FeedLivePoll({ intervalMs = 60_000 }: { intervalMs?: number }) {
   const router = useRouter();
 
   useEffect(() => {

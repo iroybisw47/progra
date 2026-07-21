@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { PlusIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -44,7 +43,6 @@ type Editing =
   | null;
 
 export function CategoriesClient({ categories }: { categories: Category[] }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<Editing>(null);
 
@@ -87,7 +85,6 @@ export function CategoriesClient({ categories }: { categories: Category[] }) {
       }
       toast.success(okMsg);
       setEditing(null);
-      router.refresh();
     });
   }
 

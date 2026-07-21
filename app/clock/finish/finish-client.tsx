@@ -43,7 +43,6 @@ export function FinishClient({
       }
       toast.success(`Saved ${formatDuration(workedMs)}`);
       router.push("/");
-      router.refresh();
     });
   }
 
@@ -88,6 +87,8 @@ export function FinishClient({
               <img
                 src={photoUrl}
                 alt="Session photo"
+                loading="lazy"
+                decoding="async"
                 className="size-full object-cover"
               />
             </div>

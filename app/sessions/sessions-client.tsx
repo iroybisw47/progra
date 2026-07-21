@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatLocalDate, formatRelativeDay } from "@/lib/dates";
 import { formatDuration } from "@/lib/duration";
-import { useNow } from "@/lib/hooks";
+import { useNowMinute } from "@/lib/hooks";
 import { sessionPausedMs, sessionWorkedMs } from "@/lib/session";
 import type { Category, Session } from "@/lib/storage";
 import type { HistoryItem } from "@/lib/db/history";
@@ -51,7 +51,9 @@ function itemDurationMs(item: HistoryItem): number {
 }
 
 export function SessionsClient({ categories, initialItems, pageSize }: Props) {
-  const now = useNow();
+  // Minute-quantized: the tick only feeds day-granularity relative labels, so
+  // there's no reason to re-render this list every second.
+  const now = useNowMinute();
   const [filter, setFilter] = useState<Filter>("all");
   const [items, setItems] = useState<HistoryItem[]>(initialItems);
   const [hasMore, setHasMore] = useState(initialItems.length >= pageSize);

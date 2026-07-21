@@ -45,6 +45,8 @@ export function ProfileSessionCard({
           <img
             src={session.photoUrl}
             alt=""
+            loading="lazy"
+            decoding="async"
             className="aspect-square w-full rounded-md object-cover"
           />
         )}

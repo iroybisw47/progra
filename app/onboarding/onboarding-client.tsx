@@ -15,6 +15,7 @@ import {
 import { BottomNav } from "@/components/bottom-nav";
 import { GoalProgressBar } from "@/components/goal-progress";
 import { SyncCalendarButton } from "@/components/sync-calendar-button";
+import { Ticking } from "@/components/ticking";
 import { WeekBreakdown } from "@/components/week-breakdown";
 import { WeeklyHabits } from "@/components/weekly-habits";
 import { Button } from "@/components/ui/button";
@@ -169,7 +170,6 @@ export function OnboardingClient({
   >("idle");
   const [taskName, setTaskName] = useState("First practice session");
   const [clockAtMs, setClockAtMs] = useState<number | null>(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
   const [loggedMs, setLoggedMs] = useState(0);
 
   // A replay may start while a real session is running — adopt it so clockIn
@@ -181,13 +181,6 @@ export function OnboardingClient({
       setPracticePhase("running");
     }
   }, [step, practicePhase, activeSession]);
-
-  // 1s ticker while the practice session runs.
-  useEffect(() => {
-    if (practicePhase !== "running") return;
-    const id = setInterval(() => setNowMs(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [practicePhase]);
 
   const practiceGoalTitle =
     createdGoalTitle ?? goals[0]?.title ?? "your goal";
@@ -218,7 +211,6 @@ export function OnboardingClient({
         return;
       }
       setCreatedGoalTitle(title);
-      router.refresh();
       setStep("practice");
     });
   }
@@ -240,7 +232,6 @@ export function OnboardingClient({
         return;
       }
       setClockAtMs(Date.now());
-      setNowMs(Date.now());
       setPracticePhase("running");
     });
   }
@@ -254,8 +245,6 @@ export function OnboardingClient({
       }
       setLoggedMs(Date.now() - (clockAtMs ?? Date.now()));
       setPracticePhase("done");
-      // Pull the fresh week snapshot so the tour shows this session's time.
-      router.refresh();
     });
   }
 
@@ -501,7 +490,17 @@ export function OnboardingClient({
                       {taskName.trim() || "First practice session"}
                     </span>
                     <span className="text-ink text-[54px] font-semibold tracking-[-0.01em] tabular-nums">
-                      {formatElapsed(nowMs - (clockAtMs ?? nowMs))}
+                      {/* Tick leaf: only this number re-renders per second,
+                          not the whole wizard. */}
+                      <Ticking>
+                        {(tick) =>
+                          formatElapsed(
+                            clockAtMs !== null && tick !== 0
+                              ? tick - clockAtMs
+                              : 0
+                          )
+                        }
+                      </Ticking>
                     </span>
                   </div>
                   <Button

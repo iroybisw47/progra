@@ -4,6 +4,90 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-07-21
+
+### · Bundle splitting + feed polish (perf phase 4, final)
+First `next/dynamic` usage in the app: the four click-gated dialogs now load as
+lazy chunks after hydration instead of shipping in the critical bundles —
+`ManageHabits` (485 lines, was always in the Progress tab bundle),
+`SessionDialog` (405) + `EventCategoryDialog` + `SessionPhotoStep` (from
+`/clock`), `SessionPhotoStep` (from `/clock/live`), and
+`CategorizationReviewDialog` (from `/history`). All hosts are client
+components (`ssr: false` requirement per the bundled Next 16 docs); type-only
+imports (`SessionDialogMode`) stay static. Onboarding wizards deliberately NOT
+converted — they're imported by a server page, so only the rendered variant's
+chunk ships anyway. Also: feed poll default slowed 30s → 60s
+(`feed-live-poll.tsx`; refresh-on-refocus unchanged and covers tab reopens —
+each tick re-renders feed + layout, so this halves background load), and all
+six signed-URL session photos gained `loading="lazy" decoding="async"` (feed's
+full-bleed scroller being the one that matters; aspect boxes already existed,
+so no layout shift). This completes the 4-phase performance pass.
+
+### · Mutation performance pass: one round-trip per action
+Every mutation used to cost two server round-trips — the action POST, then a
+client `router.refresh()` GET. Server actions now revalidate all their affected
+surfaces themselves (new shared helpers in `lib/revalidate.ts`, replacing
+scattered per-action `revalidatePath` lists — several of which were wrong:
+reactions/comments revalidated `/` but render on `/feed` + `/session/[id]`;
+event categorization/restore missed `/history`). The action's own POST response
+carries the updated UI, so ~40 success-path `router.refresh()` calls across
+~25 client files are gone. Key details: **session actions revalidate the root
+layout** (`revalidatePath("/", "layout")`) because the BottomNav live ticker
+renders from the layout; `clockOut`/`editActiveSessionTime(ended)` use a
+pages-only variant that skips `/clock/live` so its no-active-session redirect
+guard can't race the client's push to the finish screen. Load-bearing refreshes
+kept: feed polling, delete-account (clears the signed-in layout), onboarding
+error-path resyncs. Also: **`EnsureProfileSync` no longer writes on every page
+load** — the layout passes the stored timezone down and the action only fires
+when the browser tz actually differs (a real change now revalidates the whole
+layout, since day boundaries shift); **`reaction-bar.tsx` is now optimistic**
+(same pattern as the kudos heart); session-dialog's delete confirm closes
+optimistically. Net effect: button actions settle in one round-trip, habit
+toggles/kudos/reactions are instant with server reconcile in the same POST.
+
+### · Client performance pass: 1s-tick isolation
+`useNow()` was called at the top of whole screens, so the 1s tick re-rendered
+the entire 1037-line clock client (re-running `aggregateWeek` +
+`buildCategoryBreakdown` + `dayBreakdown` on every second AND every keystroke),
+the live timer, sessions, goals, the feed strip, and — via the root layout —
+the bottom nav on every page, even idle. Fixes: **(1)** new `useNowMinute()` in
+`lib/hooks.ts` — same shared 1s store, minute-floored snapshot, so
+`useSyncExternalStore` bails out 59 of 60 ticks; **(2)** new
+`components/ticking.tsx` `<Ticking>` render-prop leaf — the only per-second
+render surface; parents stop subscribing entirely. Applied: clock client now
+uses `useNowMinute` + `useMemo` on the Maps/aggregations (keystrokes recompute
+nothing) with the big timer + paused badge in a `<Ticking>` leaf; live-timer
+and the clocked-in strip tick only in their number leaves; sessions/goals
+clients (day-label-only) swap to `useNowMinute`; the bottom nav mounts a tick
+leaf only while tracking — idle pages now run **no interval at all**; the
+onboarding practice timer's own `setInterval` is replaced by a `<Ticking>` leaf
+so the wizard stops re-rendering per second. First `useMemo` usage in the repo
+(there was none). No visual/behavior change; week totals advance in 60s steps
+while clocked in (live timers stay second-live).
+
+### · Server-side performance pass: request dedupe, parallel fetches, skeletons
+One Home load was firing ~25–30 Supabase round-trips (uncached helpers re-read
+by every composer) behind sequential waterfalls, and 8 routes had no
+`loading.tsx`, so tab switches froze on the old page. Fixes: **(1)** domain read
+helpers are now per-request cached with React `cache()` — `listCategories`,
+`listActiveGoals`, `listActiveHabits`, `listCompletionsInRange`,
+`getHabitsWithTodayStatus`, `listSessionsInRange`, `getActiveSession`,
+`listFriends` (kills the feed's 3× duplicate friendships read). **(2)**
+`listEventsInRange` split into a cached `fetchEventsRaw(startMs, endMs)` (the 3
+queries, keyed on the window) + pure `categorizeEvents` so composers sharing a
+window share the fetch. **(3)** Waterfalls flattened to single `Promise.all`
+waves: `computeRollup` (was 4 sequential awaits), `computeWeekRecap`,
+`loadProgressData` (day-window reads merged into the main wave), Home page
+(`loadWeekHabits` now parallel with `loadProgressData` via a new
+`currentWeekStart(tz)` helper), and the root layout (`getOptionalUser` ∥
+`getActiveSession`). **(4)** `loading.tsx` skeletons added for /feed, /goals,
+/recap, /me, /friends, /history, /sessions, /categories. **(5)** Middleware
+(`lib/supabase/proxy.ts`) now calls `auth.getClaims()` instead of `getUser()` —
+local JWT verification instead of a network hop per navigation once the
+Supabase project migrates to asymmetric signing keys (falls back to server
+validation until then). No behavior/UI change; client-side render work (1s-tick
+isolation) is a planned follow-up.
+
 ## 2026-07-20
 
 ### · Feed session cards restyled to the handoff layout

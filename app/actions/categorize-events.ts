@@ -1,8 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { classifyEventTitles } from "@/lib/anthropic/categorize-events";
+import { revalidateEventSurfaces } from "@/lib/revalidate";
 import { listCategories } from "@/lib/db/categories";
 import { listEventsInRange } from "@/lib/db/calendar-events";
 import { createClient } from "@/lib/supabase/server";
@@ -134,10 +133,7 @@ export async function categorizeEventsInRange(
     })
   );
 
-  revalidatePath("/clock");
-  revalidatePath("/history");
-  revalidatePath("/recap");
-  revalidatePath("/");
+  revalidateEventSurfaces();
   return {
     ok: true,
     categorized: assignments.size,

@@ -14,7 +14,7 @@ import {
   startOfMonth,
   startOfYear,
 } from "@/lib/dates";
-import { listEventsInRange } from "@/lib/db/calendar-events";
+import { categorizeEvents, fetchEventsRaw } from "@/lib/db/calendar-events";
 import { listCategories } from "@/lib/db/categories";
 import { listActiveGoals } from "@/lib/db/goals";
 import { listSessionsInRange } from "@/lib/db/sessions";
@@ -75,14 +75,20 @@ export type Rollup = {
 // numbers reconcile with the weekly recap, and it's hard to replicate exactly
 // in PostgREST. For a single user a month/year of sessions is a small set.
 async function computeRollup(startMs: number, endMs: number): Promise<Rollup> {
-  const goals = await listActiveGoals();
-  const categories = await listCategories();
-  const sessions = await listSessionsInRange(startMs, endMs);
+  // All four reads are independent (categorization is applied in JS after the
+  // raw event fetch), so they fire in one parallel wave. Each is per-request
+  // cached, so other composers sharing a window reuse these round-trips.
+  const [goals, categories, sessions, rawEvents] = await Promise.all([
+    listActiveGoals(),
+    listCategories(),
+    listSessionsInRange(startMs, endMs),
+    fetchEventsRaw(startMs, endMs),
+  ]);
   // Categorized calendar events overlapping the window. Excluded events are
-  // already filtered out by listEventsInRange; uncategorized ones flow into the
+  // already filtered out by categorizeEvents; uncategorized ones flow into the
   // null bucket via aggregateRange. (Future: parse a category from the event
   // title with Claude instead of leaving title-only events Uncategorized.)
-  const events = await listEventsInRange(startMs, endMs, categories);
+  const events = categorizeEvents(rawEvents, categories);
 
   // Events still in the Uncategorized bucket that the AI could label (need a
   // title). Reuses the events already fetched above — no extra query.

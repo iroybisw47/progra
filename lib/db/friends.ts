@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -59,7 +61,9 @@ export async function hydrateUsers(
 }
 
 // Accepted friendships. RLS returns only rows I'm a participant in.
-export async function listFriends(): Promise<FriendEntry[]> {
+// Cached per request — the feed's three composers (feed, clocked-in strip,
+// joins) each need the friend list; they share one friendships+hydrate read.
+export const listFriends = cache(async (): Promise<FriendEntry[]> => {
   const me = await getCurrentUser();
   if (!me) return [];
 
@@ -80,7 +84,7 @@ export async function listFriends(): Promise<FriendEntry[]> {
     const user = users.get(otherId(r));
     return user ? [{ friendshipId: r.id, user }] : [];
   });
-}
+});
 
 // Everyone else on Progra, for the "People on Progra" discovery section. Reads
 // the narrow public_profiles view (identity only), excludes me and anyone I've

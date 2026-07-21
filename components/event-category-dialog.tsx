@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -66,7 +65,6 @@ function EventCategoryForm({
   onClose: () => void;
   onHide?: (eventId: string) => void;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [selectedId, setSelectedId] = useState<string | null>(
     event.category?.id ?? null
@@ -88,7 +86,6 @@ function EventCategoryForm({
         return;
       }
       toast.success("Saved");
-      router.refresh();
       onClose();
     });
   }
@@ -101,7 +98,6 @@ function EventCategoryForm({
         return;
       }
       toast.success("Reverted to auto");
-      router.refresh();
       onClose();
     });
   }
@@ -118,7 +114,6 @@ function EventCategoryForm({
         toast.error(r.error);
         return;
       }
-      router.refresh();
       toast.success("Event hidden", {
         action: {
           label: "Undo",
@@ -128,7 +123,6 @@ function EventCategoryForm({
               toast.error(undo.error);
               return;
             }
-            router.refresh();
           },
         },
       });

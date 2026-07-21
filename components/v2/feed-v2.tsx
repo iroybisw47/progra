@@ -209,6 +209,8 @@ export async function FeedV2() {
                     <img
                       src={item.photoUrl}
                       alt=""
+                      loading="lazy"
+                      decoding="async"
                       className="aspect-square w-full object-cover"
                     />
                   )}

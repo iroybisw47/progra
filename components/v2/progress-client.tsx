@@ -1,14 +1,22 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
 import { CheckIcon, ChevronRightIcon, SlidersHorizontalIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Donut } from "@/components/v2/donut";
 import { HabitWeekGrid } from "@/components/v2/habit-week-grid";
-import { ManageHabits } from "@/components/v2/manage-habits";
+
+// The manage-habits editor (485 lines) only matters after tapping "Manage" —
+// load it as a lazy chunk after hydration instead of shipping it in the
+// Progress tab's critical bundle. It stays always-mounted (its own state
+// survives open/close); only the chunk fetch is deferred.
+const ManageHabits = dynamic(
+  () => import("@/components/v2/manage-habits").then((m) => m.ManageHabits),
+  { ssr: false }
+);
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toggleHabitCompletion } from "@/app/actions/habits";
@@ -166,7 +174,6 @@ function TodayView({
   today: string;
   onManage: () => void;
 }) {
-  const router = useRouter();
   const [, startTransition] = useTransition();
 
   // Optimistic today-toggle: flip instantly, reconcile on refresh.
@@ -184,7 +191,6 @@ function TodayView({
         toast.error(r.error);
         return;
       }
-      router.refresh();
     });
   }
 

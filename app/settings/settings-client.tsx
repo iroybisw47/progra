@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   CalendarIcon,
@@ -85,7 +84,6 @@ export function SettingsClient({
   isAdmin: boolean;
   openReports: number;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   const [editing, setEditing] = useState(false);
@@ -105,7 +103,6 @@ export function SettingsClient({
       }
       if (opts?.okMsg) toast.success(opts.okMsg);
       if (opts?.then) opts.then();
-      else router.refresh();
     });
   }
 
@@ -126,7 +123,6 @@ export function SettingsClient({
       }
       toast.success("Saved");
       setEditing(false);
-      router.refresh();
     });
   }
 
@@ -312,10 +308,7 @@ export function SettingsClient({
               onClick={() =>
                 run(() => setProfileTimezone(tzDraft), {
                   okMsg: "Time zone saved",
-                  then: () => {
-                    setTzOpen(false);
-                    router.refresh();
-                  },
+                  then: () => setTzOpen(false),
                 })
               }
             >

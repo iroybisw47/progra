@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -60,7 +62,9 @@ function rowToCompletion(row: CompletionRow): HabitCompletion {
 }
 
 // Active habits only (archived_at is null), ordered by creation time.
-export async function listActiveHabits(): Promise<Habit[]> {
+// Cached per request — the progress loader and week-habits loader both read
+// habits during one Home render; they share a single round-trip.
+export const listActiveHabits = cache(async (): Promise<Habit[]> => {
   const me = await getCurrentUser();
   if (!me) return [];
   const supabase = await createClient();
@@ -72,14 +76,15 @@ export async function listActiveHabits(): Promise<Habit[]> {
     .order("created_at", { ascending: true });
   if (!data) return [];
   return (data as HabitRow[]).map(rowToHabit);
-}
+});
 
 // All habit completions for the user in [startLocalDate, endLocalDate]
-// inclusive. RLS scopes to the current user.
-export async function listCompletionsInRange(
+// inclusive. RLS scopes to the current user. Cached per request, keyed on the
+// date-string window.
+export const listCompletionsInRange = cache(async (
   startLocalDate: string,
   endLocalDate: string
-): Promise<HabitCompletion[]> {
+): Promise<HabitCompletion[]> => {
   const me = await getCurrentUser();
   if (!me) return [];
   const supabase = await createClient();
@@ -91,13 +96,13 @@ export async function listCompletionsInRange(
     .lte("completed_on", endLocalDate);
   if (!data) return [];
   return (data as CompletionRow[]).map(rowToCompletion);
-}
+});
 
 // Returns active habits plus a boolean per habit indicating whether there's
-// a completion row for `localDate`.
-export async function getHabitsWithTodayStatus(
+// a completion row for `localDate`. Cached per request.
+export const getHabitsWithTodayStatus = cache(async (
   localDate: string
-): Promise<HabitWithStatus[]> {
+): Promise<HabitWithStatus[]> => {
   const me = await getCurrentUser();
   if (!me) return [];
   const habits = await listActiveHabits();
@@ -122,7 +127,7 @@ export async function getHabitsWithTodayStatus(
     habit: h,
     completedToday: doneIds.has(h.id),
   }));
-}
+});
 
 // Returns all habit completions for a given local date. Currently unused —
 // kept for the future day-overview integration outside the dashboard.

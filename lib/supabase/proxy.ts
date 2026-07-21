@@ -25,9 +25,14 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: do not run code between createServerClient and getUser — any
+  // IMPORTANT: do not run code between createServerClient and getClaims — any
   // logic that reads cookies in between can break session refresh.
-  await supabase.auth.getUser();
+  //
+  // getClaims verifies the JWT locally via Web Crypto when the Supabase project
+  // uses asymmetric signing keys — no network hop on every navigation (getUser
+  // hit the Auth server each request). Expired tokens still refresh first, and
+  // on a legacy symmetric secret it falls back to server-side validation.
+  await supabase.auth.getClaims();
 
   return supabaseResponse;
 }

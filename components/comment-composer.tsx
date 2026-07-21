@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -13,7 +12,6 @@ import { COMMENT_MAX_LENGTH } from "@/lib/social/comments";
 // pending, clears + refreshes the server component (which re-reads comments) on
 // success. Mirrors the run()/toast/transition pattern in friends-client.
 export function CommentComposer({ sessionId }: { sessionId: string }) {
-  const router = useRouter();
   const [value, setValue] = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -27,7 +25,6 @@ export function CommentComposer({ sessionId }: { sessionId: string }) {
         return;
       }
       setValue("");
-      router.refresh();
     });
   }
 

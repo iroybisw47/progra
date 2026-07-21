@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTransition } from "react";
 import { toast } from "sonner";
@@ -63,7 +62,6 @@ function reasonLabel(reason: string): string {
 }
 
 export function AdminReports({ reports }: { reports: AdminReport[] }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function run(action: () => Promise<Result>, okMsg: string) {
@@ -74,7 +72,6 @@ export function AdminReports({ reports }: { reports: AdminReport[] }) {
         return;
       }
       toast.success(okMsg);
-      router.refresh();
     });
   }
 
@@ -214,6 +211,8 @@ function TargetPreview({ target }: { target: AdminReport["target"] }) {
           <img
             src={target.photoUrl}
             alt="Reported session photo"
+            loading="lazy"
+            decoding="async"
             className="aspect-square w-full rounded-lg object-cover"
           />
         ) : (

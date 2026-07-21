@@ -1,7 +1,6 @@
 "use client";
 
 import { useOptimistic, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { HeartIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,7 +21,6 @@ export function KudosButton({
   count: number;
   likedByMe: boolean;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [optimistic, setLiked] = useOptimistic(
     { count, liked: likedByMe },
@@ -43,7 +41,6 @@ export function KudosButton({
         toast.error(r.error);
         return;
       }
-      router.refresh();
     });
   }
 

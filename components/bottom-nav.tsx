@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { useNow } from "@/lib/hooks";
+import { Ticking } from "@/components/ticking";
 import { sessionWorkedMs, isPaused, type SessionTiming } from "@/lib/session";
 import { REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
 
@@ -73,8 +73,6 @@ export function BottomNav({
   // Nullish outside a Next router (e.g. standalone previews) — match against
   // an empty path instead of crashing in the tab matchers.
   const realPathname = usePathname() ?? "";
-  // 1s tick; 0 during SSR so the first client paint matches the server.
-  const now = useNow();
   // The onboarding wizard owns the whole viewport (steps have a bottom-pinned
   // CTA where the nav would sit). Its tour screens opt back in by passing the
   // path they're recreating, which also drives the active-tab highlight.
@@ -86,8 +84,6 @@ export function BottomNav({
   // Only the V2 nav shows the live tick; compute once here.
   const tracking = REDESIGN && activeSession != null;
   const paused = tracking && isPaused(activeSession);
-  const tickLabel =
-    tracking && now > 0 ? formatTick(sessionWorkedMs(activeSession, now)) : null;
   // While tracking, the center button reopens the full-screen live timer.
   const centerHref = tracking ? "/clock/live" : "/clock";
 
@@ -102,8 +98,15 @@ export function BottomNav({
           const Icon = tab.icon;
 
           if (tab.center) {
-            return (
-              <li key={tab.href} className="flex-1">
+            // The FAB is the only subtree that needs the 1s tick, and only
+            // while tracking — idle pages mount no tick subscriber at all, so
+            // no interval runs and the nav never re-renders on a timer.
+            const renderCenter = (now: number) => {
+              const tickLabel =
+                tracking && now > 0
+                  ? formatTick(sessionWorkedMs(activeSession, now))
+                  : null;
+              return (
                 <Link
                   href={centerHref}
                   aria-current={active ? "page" : undefined}
@@ -134,6 +137,11 @@ export function BottomNav({
                     {tracking ? (paused ? "Paused" : "Tracking") : tab.label}
                   </span>
                 </Link>
+              );
+            };
+            return (
+              <li key={tab.href} className="flex-1">
+                {tracking ? <Ticking>{renderCenter}</Ticking> : renderCenter(0)}
               </li>
             );
           }

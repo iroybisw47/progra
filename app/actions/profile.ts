@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { revalidateIdentitySurfaces } from "@/lib/revalidate";
 import { checkUsername } from "@/lib/social/username";
 import { createClient } from "@/lib/supabase/server";
 
@@ -24,6 +25,10 @@ export async function setProfileTimezone(
     .eq("id", user.id);
 
   if (error) return { error: error.message };
+  // A real timezone change shifts every day/week boundary in the app, so
+  // re-render everything. Rare: EnsureProfileSync only calls this when the
+  // browser tz differs from the stored one.
+  revalidatePath("/", "layout");
   return { ok: true };
 }
 
@@ -54,7 +59,7 @@ export async function setUsername(
     if (error.code === "23505") return { error: "That username is taken." };
     return { error: error.message };
   }
-  revalidatePath("/");
+  revalidateIdentitySurfaces();
   return { ok: true, username: check.username };
 }
 
@@ -93,7 +98,7 @@ export async function setProfileIdentity(input: {
     .update(update)
     .eq("id", user.id);
   if (error) return { error: error.message };
-  revalidatePath("/profile/[username]", "page");
+  revalidateIdentitySurfaces();
   return { ok: true };
 }
 

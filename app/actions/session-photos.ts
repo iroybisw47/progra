@@ -1,7 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import sharp from "sharp";
+
+import { revalidateSessionSurfaces } from "@/lib/revalidate";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -106,7 +107,9 @@ export async function uploadSessionPhoto(
     .eq("id", sessionId);
   if (updateError) return { error: "Couldn't save the photo." };
 
-  revalidatePath("/clock");
-  revalidatePath("/sessions");
+  // Full session surfaces incl. the layout: the photo shows on /clock/live
+  // (hasPhoto pill), the finish screen, and feed/session cards. The session is
+  // still active here, so /clock/live's redirect guard can't fire.
+  revalidateSessionSurfaces();
   return { ok: true };
 }

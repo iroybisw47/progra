@@ -1,8 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { listPrimaryCalendarEvents } from "@/lib/google/calendar";
+import { revalidateEventSurfaces } from "@/lib/revalidate";
 import { GoogleAuthError, getValidGoogleAccessToken } from "@/lib/google/oauth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -68,12 +67,6 @@ export async function syncCalendar(): Promise<SyncResult> {
   // Refresh every surface that reads calendar events, not just /clock — the
   // month/year History and the weekly recap also show synced events and
   // would otherwise render stale after a sync.
-  revalidatePath("/clock");
-  revalidatePath("/");
-  revalidatePath("/history");
-  revalidatePath("/recap");
-  revalidatePath("/sessions");
-  // The onboarding History tour hosts a live Sync button over the month rollup.
-  revalidatePath("/onboarding");
+  revalidateEventSurfaces();
   return { ok: true, count: rows.length };
 }

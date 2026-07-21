@@ -1,7 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import {
+  revalidateSessionSurfaces,
+  revalidateSessionSurfacesExceptLive,
+} from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { listCategories } from "@/lib/db/categories";
 import { listHistoryPage, type HistoryItem } from "@/lib/db/history";
@@ -75,8 +77,7 @@ export async function clockIn(
     return { error: error.message };
   }
 
-  revalidatePath("/clock");
-  revalidatePath("/goals");
+  revalidateSessionSurfaces();
   return { ok: true, sessionId: (data as { id: string }).id };
 }
 
@@ -126,8 +127,9 @@ export async function clockOut(): Promise<
 
   if (error) return { error: error.message };
 
-  revalidatePath("/clock");
-  revalidatePath("/goals");
+  // Caller navigates from /clock/live to /clock/finish next — don't re-render
+  // the live page's redirect guard in this POST.
+  revalidateSessionSurfacesExceptLive();
   return { ok: true, sessionId: row.id };
 }
 
@@ -207,8 +209,11 @@ export async function editActiveSessionTime(input: {
     .eq("id", row.id);
   if (error) return { error: error.message };
 
-  revalidatePath("/clock");
-  revalidatePath("/goals");
+  // When the edit ends the session the caller pushes to /clock/finish — same
+  // guard concern as clockOut. Still running → full (layout) revalidation so
+  // the live page and nav ticker pick up the corrected start.
+  if (ended) revalidateSessionSurfacesExceptLive();
+  else revalidateSessionSurfaces();
   return { ok: true, sessionId: row.id, ended };
 }
 
@@ -238,7 +243,7 @@ export async function pauseSession(): Promise<Result> {
     .eq("id", row.id);
   if (error) return { error: error.message };
 
-  revalidatePath("/clock");
+  revalidateSessionSurfaces();
   return { ok: true };
 }
 
@@ -276,7 +281,7 @@ export async function resumeSession(): Promise<Result> {
     .eq("id", row.id);
   if (error) return { error: error.message };
 
-  revalidatePath("/clock");
+  revalidateSessionSurfaces();
   return { ok: true };
 }
 
@@ -312,8 +317,7 @@ export async function createSession(input: CreateSessionInput): Promise<Result> 
   });
 
   if (error) return { error: error.message };
-  revalidatePath("/clock");
-  revalidatePath("/goals");
+  revalidateSessionSurfaces();
   return { ok: true };
 }
 
@@ -358,8 +362,7 @@ export async function updateSession(
 
   const { error } = await supabase.from("sessions").update(update).eq("id", id);
   if (error) return { error: error.message };
-  revalidatePath("/clock");
-  revalidatePath("/goals");
+  revalidateSessionSurfaces();
   return { ok: true };
 }
 
@@ -367,9 +370,6 @@ export async function deleteSession(id: string): Promise<Result> {
   const supabase = await createClient();
   const { error } = await supabase.from("sessions").delete().eq("id", id);
   if (error) return { error: error.message };
-  revalidatePath("/clock");
-  revalidatePath("/goals");
-  revalidatePath("/history");
-  revalidatePath("/recap");
+  revalidateSessionSurfaces();
   return { ok: true };
 }

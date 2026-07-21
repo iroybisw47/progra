@@ -6,7 +6,7 @@ import {
   buildCategoryBreakdown,
   type CategoryBreakdownRow,
 } from "@/lib/aggregate";
-import { listEventsInRange } from "@/lib/db/calendar-events";
+import { categorizeEvents, fetchEventsRaw } from "@/lib/db/calendar-events";
 import { listCategories } from "@/lib/db/categories";
 import { listActiveGoals } from "@/lib/db/goals";
 import { listSessionsInRange } from "@/lib/db/sessions";
@@ -53,13 +53,15 @@ export async function computeWeekRecap(
   weekStartMs: number,
   weekEndMs: number
 ): Promise<WeekRecap> {
-  const goals = await listActiveGoals();
-  const categories = await listCategories();
-
-  const [sessions, events] = await Promise.all([
+  // All four reads are independent (categorization happens in JS afterwards),
+  // so they fire in one parallel wave; each is per-request cached.
+  const [goals, categories, sessions, rawEvents] = await Promise.all([
+    listActiveGoals(),
+    listCategories(),
     listSessionsInRange(weekStartMs, weekEndMs),
-    listEventsInRange(weekStartMs, weekEndMs, categories),
+    fetchEventsRaw(weekStartMs, weekEndMs),
   ]);
+  const events = categorizeEvents(rawEvents, categories);
 
   // For past-week recaps cap aggregate's "now" at weekEnd so an active
   // session that started during the week (rare but possible) is counted up

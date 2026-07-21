@@ -4,14 +4,15 @@ import Link from "next/link";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useNow } from "@/lib/hooks";
+import { Ticking } from "@/components/ticking";
 import { isPaused, sessionWorkedMs } from "@/lib/session";
 import { formatDuration } from "@/lib/duration";
 import type { ClockedInItem } from "@/lib/db/feed";
 
 // The live "Clocked in now" strip at the top of the feed: friends currently in a
-// session. Duration ticks every second (useNow); membership refreshes come from
-// <FeedLivePoll/>. Renders nothing when no one is clocked in.
+// session. Each row's duration ticks every second inside its <Ticking> leaf;
+// membership refreshes come from <FeedLivePoll/>. Renders nothing when no one
+// is clocked in.
 export function ClockedInStrip({
   items,
   serverNow,
@@ -19,11 +20,6 @@ export function ClockedInStrip({
   items: ClockedInItem[];
   serverNow: number;
 }) {
-  // useNow returns 0 during SSR; fall back to the server timestamp so the first
-  // paint shows a sensible duration, then the client tick takes over.
-  const tick = useNow();
-  const now = tick === 0 ? serverNow : tick;
-
   if (items.length === 0) return null;
 
   return (
@@ -43,15 +39,6 @@ export function ClockedInStrip({
             endedAt: null,
             pausedSince: item.pausedSince,
           });
-          const worked = sessionWorkedMs(
-            {
-              startedAt: item.startedAt,
-              endedAt: null,
-              pausedMs: item.pausedMs,
-              pausedSince: item.pausedSince,
-            },
-            now
-          );
           return (
             <div key={item.sessionId} className="flex items-center gap-3">
               <Link href={`/profile/${item.author.username}`}>
@@ -82,7 +69,23 @@ export function ClockedInStrip({
                   }
                 />
                 <span className="font-mono text-sm tabular-nums">
-                  {formatDuration(worked)}
+                  {/* useNow returns 0 during SSR; fall back to the server
+                      timestamp so the first paint shows a sensible duration. */}
+                  <Ticking>
+                    {(tick) =>
+                      formatDuration(
+                        sessionWorkedMs(
+                          {
+                            startedAt: item.startedAt,
+                            endedAt: null,
+                            pausedMs: item.pausedMs,
+                            pausedSince: item.pausedSince,
+                          },
+                          tick === 0 ? serverNow : tick
+                        )
+                      )
+                    }
+                  </Ticking>
                 </span>
               </div>
             </div>

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { createClient } from "@/lib/supabase/server";
 import { categorizeTitle } from "@/lib/categorize";
 import type { Category } from "@/lib/storage";
@@ -100,17 +102,26 @@ function toDayEvents(
   });
 }
 
-// Returns events overlapping [startMs, endMs), categorized. Manual overrides
-// win over rule matches. Excluded events are filtered out entirely.
+// The raw rows behind listEventsInRange, before categorization. Opaque to
+// callers — feed it to categorizeEvents with the categories of your choice.
+export type RawEvents = {
+  events: Row[];
+  exclusions: ExclusionRow[];
+  overrides: OverrideRow[];
+};
+
+// Fetches the raw window data (events + exclusions + categorizations). Cached
+// per request, keyed on the numeric window only — categorization is applied
+// afterwards in JS, so composers that share a window (recap, rollup, progress)
+// share these three queries no matter which Category[] instance they hold.
 //
 // All three Supabase queries fire in parallel — exclusions and overrides
 // don't depend on the event-id list because RLS already scopes them to the
 // current user. We filter in JS against the events that are in this window.
-export async function listEventsInRange(
+export const fetchEventsRaw = cache(async (
   startMs: number,
-  endMs: number,
-  categories: Category[]
-): Promise<DayEvent[]> {
+  endMs: number
+): Promise<RawEvents> => {
   const supabase = await createClient();
 
   const [eventsResult, exclusionsResult, overridesResult] = await Promise.all([
@@ -124,15 +135,30 @@ export async function listEventsInRange(
     supabase.from("event_categorizations").select("event_id, category_id, source"),
   ]);
 
-  const eventRows = eventsResult.data as Row[] | null;
-  if (!eventRows || eventRows.length === 0) return [];
+  return {
+    events: (eventsResult.data ?? []) as Row[],
+    exclusions: (exclusionsResult.data ?? []) as ExclusionRow[],
+    overrides: (overridesResult.data ?? []) as OverrideRow[],
+  };
+});
 
-  return toDayEvents(
-    eventRows,
-    (exclusionsResult.data ?? []) as ExclusionRow[],
-    (overridesResult.data ?? []) as OverrideRow[],
-    categories
-  );
+// Pure: applies exclusion filtering + categorization to a raw window fetch.
+export function categorizeEvents(
+  raw: RawEvents,
+  categories: Category[]
+): DayEvent[] {
+  if (raw.events.length === 0) return [];
+  return toDayEvents(raw.events, raw.exclusions, raw.overrides, categories);
+}
+
+// Returns events overlapping [startMs, endMs), categorized. Manual overrides
+// win over rule matches. Excluded events are filtered out entirely.
+export async function listEventsInRange(
+  startMs: number,
+  endMs: number,
+  categories: Category[]
+): Promise<DayEvent[]> {
+  return categorizeEvents(await fetchEventsRaw(startMs, endMs), categories);
 }
 
 // One page of past (already-ended) events for the history surface, newest

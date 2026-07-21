@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { SparklesIcon } from "lucide-react";
@@ -9,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { autoCategorizeEvents } from "@/app/actions/categorize-events";
 
 export function CategorizeEventsButton() {
-  const router = useRouter();
   const [pending, setPending] = useState(false);
 
   async function handleClick() {
@@ -30,7 +28,6 @@ export function CategorizeEventsButton() {
         `Categorized ${result.categorized} event${result.categorized === 1 ? "" : "s"}${more}`
       );
     }
-    router.refresh();
   }
 
   return (

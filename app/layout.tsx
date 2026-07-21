@@ -7,6 +7,7 @@ import { EnsureProfileSync } from "@/components/ensure-profile-sync";
 import { Toaster } from "@/components/ui/sonner";
 import { getActiveSession } from "@/lib/db/sessions";
 import { getOptionalUser } from "@/lib/auth/require-user";
+import { getProfile } from "@/lib/auth/profile";
 
 // PT Sans everywhere (Progra V2). One family for both body and headings; the
 // serif/heading slot (--font-newsreader) is aliased to --font-hanken in
@@ -52,10 +53,17 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await getOptionalUser();
   // The nav's center Clock button ticks the live worked time when a session is
-  // running (V2). Only fetched when signed in (the nav renders only then).
-  const activeSession = user ? await getActiveSession() : null;
+  // running (V2). All three reads are null-safe when signed out (their own
+  // user checks), so they fire in parallel instead of serializing on every
+  // page; the auth read inside each is shared via cache(). The profile feeds
+  // EnsureProfileSync's stored-timezone comparison (and is free on routes that
+  // fetch it anyway).
+  const [user, activeSession, profile] = await Promise.all([
+    getOptionalUser(),
+    getActiveSession(),
+    getProfile(),
+  ]);
   return (
     <html lang="en" className={`${ptSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
@@ -74,7 +82,7 @@ export default async function RootLayout({
             }
           />
         )}
-        {user && <EnsureProfileSync />}
+        {user && <EnsureProfileSync timezone={profile?.timezone ?? null} />}
         <Toaster />
       </body>
     </html>

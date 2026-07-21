@@ -1,7 +1,7 @@
 import "server-only";
 
 import { aggregateRange } from "@/lib/aggregate";
-import { listEventsInRange } from "@/lib/db/calendar-events";
+import { categorizeEvents, fetchEventsRaw } from "@/lib/db/calendar-events";
 import { listCategories } from "@/lib/db/categories";
 import {
   getHabitsWithTodayStatus,
@@ -45,6 +45,14 @@ export type ProgressData = {
   monthSegs: Seg[];
 };
 
+// The Monday (YYYY-MM-DD) of the current week in `tz`. Single source for the
+// week-start computation so page-level callers (which parallelize
+// loadProgressData with loadWeekHabits) stay on the same boundary as the
+// progress data itself.
+export function currentWeekStart(tz: string): string {
+  return mondayOfDateISO(todayInTimeZone(tz));
+}
+
 // Composes everything the Progress tab (Today / This week / History) needs in a
 // single server read. Windows are computed in the user's stored timezone so the
 // day/week/month boundaries match the rest of the app. Reuses the shared
@@ -62,19 +70,20 @@ export async function loadProgressData(): Promise<ProgressData> {
   const weekStartMs = zonedDayStartMs(monday, tz);
   const weekEndMs = zonedDayStartMs(addDaysISO(monday, 7), tz) - 1;
 
-  const [categories, weekRecap, monthRollup, habitsStatus] =
+  // One parallel wave for every read this page needs (the day-window event
+  // fetch categorizes in JS afterwards, so it no longer waits on categories).
+  const [categories, weekRecap, monthRollup, habitsStatus, daySessions, rawDayEvents] =
     await Promise.all([
       listCategories(),
       computeWeekRecap(weekStartMs, weekEndMs),
       computeMonthRollup(new Date()),
       getHabitsWithTodayStatus(today),
+      listSessionsInRange(dayStartMs, dayEndMs),
+      fetchEventsRaw(dayStartMs, dayEndMs),
     ]);
 
   // --- Today window ---
-  const [daySessions, dayEvents] = await Promise.all([
-    listSessionsInRange(dayStartMs, dayEndMs),
-    listEventsInRange(dayStartMs, dayEndMs, categories),
-  ]);
+  const dayEvents = categorizeEvents(rawDayEvents, categories);
   const dayNow = Math.min(now, dayEndMs);
   const { total: todayTotalMs } = aggregateRange(
     daySessions,

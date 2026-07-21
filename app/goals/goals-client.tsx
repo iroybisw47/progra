@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { EyeIcon, LockIcon, PencilIcon, XIcon } from "lucide-react";
@@ -32,7 +31,7 @@ import { SOCIAL_ENABLED } from "@/lib/flags";
 import type { Goal } from "@/lib/db/goals";
 import { formatRelativeDay, formatTime } from "@/lib/dates";
 import { formatDuration } from "@/lib/duration";
-import { useNow } from "@/lib/hooks";
+import { useNowMinute } from "@/lib/hooks";
 import { BackLink } from "@/components/v2/back-link";
 
 // One of this week's sessions clocked toward a goal (see app/goals/page.tsx).
@@ -59,8 +58,8 @@ export function GoalsClient({
   backHref,
   backLabel,
 }: Props) {
-  const router = useRouter();
-  const now = useNow();
+  // Minute-quantized: the tick only feeds day-granularity relative labels.
+  const now = useNowMinute();
   const hydrated = now !== 0;
   const [, startTransition] = useTransition();
 
@@ -108,7 +107,6 @@ export function GoalsClient({
       setNewGoalDescription("");
       setNewGoalQuota("");
       toast.success(`Added ${title}`);
-      router.refresh();
     });
   }
 
@@ -144,7 +142,6 @@ export function GoalsClient({
       }
       setEditingGoal(null);
       toast.success("Saved");
-      router.refresh();
     });
   }
 
@@ -162,7 +159,6 @@ export function GoalsClient({
           ? `${goal.title} is now private`
           : `${goal.title} is now visible to friends`
       );
-      router.refresh();
     });
   }
 
@@ -177,7 +173,6 @@ export function GoalsClient({
       }
       setPendingGoalArchive(null);
       toast.success(`Archived ${g.title}`);
-      router.refresh();
     });
   }
 
