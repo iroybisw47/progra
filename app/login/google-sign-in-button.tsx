@@ -19,8 +19,10 @@ export function GoogleSignInButton({ next }: { next?: string }) {
       provider: "google",
       options: {
         redirectTo: redirectTo.toString(),
+        // Narrowest Calendar read scope: events only — Progra never touches
+        // calendar settings, sharing, or ACLs.
         scopes:
-          "openid email profile https://www.googleapis.com/auth/calendar.readonly",
+          "openid email profile https://www.googleapis.com/auth/calendar.events.readonly",
         queryParams: {
           // Required to receive a refresh token on first consent.
           access_type: "offline",

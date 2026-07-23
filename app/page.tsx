@@ -56,12 +56,15 @@ export default async function Page() {
 
 function SignedOutLanding() {
   return (
-    <div className="flex flex-1 items-center justify-center px-5 pb-24">
-      <main className="flex w-full max-w-sm flex-col items-center gap-6 text-center">
+    <div className="flex flex-1 flex-col items-center px-5">
+      {/* my-auto keeps the hero vertically centered while the footer sits at
+          the viewport bottom without introducing scroll. */}
+      <main className="my-auto flex w-full max-w-sm flex-col items-center gap-6 pt-16 text-center">
         <header className="flex flex-col gap-2">
           <h1 className="text-4xl font-semibold tracking-tight">Progra</h1>
           <p className="text-muted-foreground text-sm">
-            Plan your week. Track deep work. See where your time goes.
+            Log your study sessions, see your Google Calendar schedule, and
+            track your progress with friends.
           </p>
         </header>
         <Link
@@ -73,6 +76,17 @@ function SignedOutLanding() {
 
         <AddToHomeHint />
       </main>
+
+      <footer className="text-muted-foreground pt-6 pb-[max(env(safe-area-inset-bottom),24px)] text-xs">
+        © 2026 Progra ·{" "}
+        <Link href="/privacy" className="hover:underline">
+          Privacy Policy
+        </Link>{" "}
+        ·{" "}
+        <Link href="/terms" className="hover:underline">
+          Terms of Service
+        </Link>
+      </footer>
     </div>
   );
 }

@@ -30,7 +30,8 @@ export default async function LoginPage({
         <header className="flex flex-col gap-1.5 text-center">
           <h1 className="text-4xl font-bold tracking-tight">Progra</h1>
           <p className="text-caption text-sm text-pretty">
-            Plan your week, track deep work, and share progress with friends.
+            Log study sessions, see your calendar, and share progress with
+            friends.
           </p>
         </header>
 

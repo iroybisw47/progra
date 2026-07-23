@@ -4,6 +4,38 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-07-22
+
+### · Narrower Google OAuth scope: calendar.events.readonly
+Sign-in now requests `calendar.events.readonly` instead of the broader
+`calendar.readonly` (app/login/google-sign-in-button.tsx — the only place the
+scope appeared). The sync only calls the events API, which the narrower scope
+fully covers; existing users pick it up on next sign-in (the flow already
+forces the consent prompt). The Google Cloud Console consent-screen scope
+list must be updated to match before verification.
+
+### · Signed-out landing: accurate copy + legal footer
+The landing tagline claimed a weekly planner that no longer exists ("Plan
+your week…"). Rewritten to what the app actually does — log study sessions,
+see your Google Calendar schedule, track progress with friends — on both the
+landing (`SignedOutLanding`, app/page.tsx) and the /login page it funnels to.
+The landing also gains a bottom footer ("© 2026 Progra · Privacy Policy ·
+Terms of Service") linking the new legal pages; hero stays vertically
+centered via my-auto, no scroll introduced. Signed-in experience untouched.
+
+### · Public legal pages: /privacy and /terms
+Two plain server-component pages, reachable logged-out (no auth helpers; the
+middleware only refreshes sessions, never redirects). The privacy policy
+carries the Google OAuth verification requirements for the read-only Calendar
+scope: what's collected, Google-data usage limits, the AI-processing
+disclosure (Anthropic categorizes event titles only; no ads, no model
+training), the verbatim Google API Services User Data Policy / Limited Use
+sentence, storage/sharing, revoke + delete instructions
+(support@progra.world, 30 days), 13+ age floor. Terms cover the standard
+short set (acceptance, eligibility, account, acceptable use, content
+ownership with display license, termination, warranty/liability, changes).
+Both cross-link each other and Home in a footer.
+
 ## 2026-07-21
 
 ### · Bundle splitting + feed polish (perf phase 4, final)
