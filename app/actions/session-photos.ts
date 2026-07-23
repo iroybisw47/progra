@@ -4,6 +4,7 @@ import sharp from "sharp";
 
 import { revalidateSessionSurfaces } from "@/lib/revalidate";
 
+import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -27,9 +28,7 @@ export async function uploadSessionPhoto(
   formData: FormData
 ): Promise<Result> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   // Validate the incoming file cheaply before touching storage.

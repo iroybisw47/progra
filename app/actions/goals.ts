@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidateGoalSurfaces } from "@/lib/revalidate";
+import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { error: string };
@@ -19,9 +20,7 @@ export async function createGoal(input: CreateGoalInput): Promise<Result> {
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const { error } = await supabase.from("goals").insert({

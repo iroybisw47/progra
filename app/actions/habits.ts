@@ -2,6 +2,7 @@
 
 import { CATEGORY_COLORS, isCategoryColor } from "@/lib/category-colors";
 import { revalidateHabitSurfaces } from "@/lib/revalidate";
+import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { todayInTimeZone } from "@/lib/dates";
 
@@ -15,9 +16,7 @@ export async function createHabit(
   if (!trimmed) return { error: "Name required" };
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   // Auto-assign from the shared 12-swatch palette (same one categories use),
@@ -105,9 +104,7 @@ export async function toggleHabitCompletion(
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const { data: profile } = await supabase

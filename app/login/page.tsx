@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/require-user";
 import { AddToHomeHint } from "@/components/add-to-home-hint";
 
 import { GoogleSignInButton } from "./google-sign-in-button";
@@ -14,11 +14,10 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string; next?: string; deleted?: string }>;
 }) {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const params = await searchParams;
-  if (data.user) {
+  if (user) {
     // Default to home, not /clock, so the onboarding gate on `/` still fires
     // for an authenticated-but-not-yet-onboarded visitor (e.g. a stale bookmark).
     redirect(params.next ?? "/");

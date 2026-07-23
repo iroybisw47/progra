@@ -4,6 +4,7 @@ import {
   revalidateSessionSurfaces,
   revalidateSessionSurfacesExceptLive,
 } from "@/lib/revalidate";
+import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { listCategories } from "@/lib/db/categories";
 import { listHistoryPage, type HistoryItem } from "@/lib/db/history";
@@ -47,9 +48,7 @@ export async function clockIn(
   input: ClockInInput
 ): Promise<{ ok: true; sessionId: string } | { error: string }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const axis = resolveAxis(input.categoryId, input.goalId);
@@ -87,9 +86,7 @@ export async function clockOut(): Promise<
   { ok: true; sessionId: string } | { error: string }
 > {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   // Read the active session first: needed to settle an in-progress pause
@@ -144,9 +141,7 @@ export async function editActiveSessionTime(input: {
   { ok: true; sessionId: string; ended: boolean } | { error: string }
 > {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const { data: active } = await supabase
@@ -221,9 +216,7 @@ export async function editActiveSessionTime(input: {
 // accumulating. No-op if there's no active session or it's already paused.
 export async function pauseSession(): Promise<Result> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const { data: active } = await supabase
@@ -251,9 +244,7 @@ export async function pauseSession(): Promise<Result> {
 // paused_ms and clear paused_since. No-op if not currently paused.
 export async function resumeSession(): Promise<Result> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const { data: active } = await supabase
@@ -297,9 +288,7 @@ type CreateSessionInput = {
 
 export async function createSession(input: CreateSessionInput): Promise<Result> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const axis = resolveAxis(input.categoryId, input.goalId);

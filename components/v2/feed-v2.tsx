@@ -26,17 +26,25 @@ import { formatRelativeTime } from "@/lib/dates";
 // the whole card taps through to `/session/[id]` where reactions and the full
 // thread live. RLS gates every read, so only shareable sessions arrive here.
 export async function FeedV2() {
-  const [sessionItems, clockedIn, joinItems] = await Promise.all([
-    listFriendFeed(),
-    listClockedInNow(),
-    listFriendJoins(),
-  ]);
-  // Reactions/comments are session-keyed, so only real sessions look them up.
-  const sessionIds = sessionItems.map((i) => i.sessionId);
-  const [commentsBySession, reactionsBySession] = await Promise.all([
-    listCommentsForSessions(sessionIds),
-    listReactionsForSessions(sessionIds),
-  ]);
+  // Reactions/comments are session-keyed, so they chain off listFriendFeed
+  // alone — NOT the whole first wave. Chaining inside one Promise.all keeps
+  // clocked-in/joins from gating them: total latency is max(feed→extras,
+  // clockedIn, joins) instead of slowest(wave A) + slowest(wave B).
+  const feedPromise = listFriendFeed();
+  const commentsPromise = feedPromise.then((items) =>
+    listCommentsForSessions(items.map((i) => i.sessionId))
+  );
+  const reactionsPromise = feedPromise.then((items) =>
+    listReactionsForSessions(items.map((i) => i.sessionId))
+  );
+  const [sessionItems, clockedIn, joinItems, commentsBySession, reactionsBySession] =
+    await Promise.all([
+      feedPromise,
+      listClockedInNow(),
+      listFriendJoins(),
+      commentsPromise,
+      reactionsPromise,
+    ]);
   const now = Date.now();
 
   // Merge sessions + join announcements, newest-first (sessions by end time,

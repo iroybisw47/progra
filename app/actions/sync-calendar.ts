@@ -3,6 +3,7 @@
 import { listPrimaryCalendarEvents } from "@/lib/google/calendar";
 import { revalidateEventSurfaces } from "@/lib/revalidate";
 import { GoogleAuthError, getValidGoogleAccessToken } from "@/lib/google/oauth";
+import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 
 type SyncResult = { ok: true; count: number } | { error: string };
@@ -16,9 +17,7 @@ const SYNC_WINDOW_FUTURE_DAYS = 90;
 
 export async function syncCalendar(): Promise<SyncResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   let accessToken: string;

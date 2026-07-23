@@ -1,5 +1,6 @@
 "use server";
 
+import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { error: string };
@@ -13,9 +14,7 @@ const BUCKET = "session-photos";
 // tell us the object paths.
 export async function deleteAccount(): Promise<Result> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   // Collect this user's photo object paths and remove the blobs. The own-object

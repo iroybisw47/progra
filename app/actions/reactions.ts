@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidateSocialSurfaces } from "@/lib/revalidate";
+import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { isReactionEmoji } from "@/lib/social/reactions";
 
@@ -16,9 +17,7 @@ export async function toggleReaction(
   emoji: string
 ): Promise<Result> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
   if (!sessionId || !isReactionEmoji(emoji)) {
     return { error: "Couldn't react." };

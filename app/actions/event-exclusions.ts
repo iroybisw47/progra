@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidateEventSurfaces } from "@/lib/revalidate";
+import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { error: string };
@@ -9,9 +10,7 @@ type Result = { ok: true } | { error: string };
 // untouched; un-hiding restores visibility.
 export async function excludeEvent(eventId: string): Promise<Result> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const { error } = await supabase

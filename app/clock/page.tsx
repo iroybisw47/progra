@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { listEventsInRange } from "@/lib/db/calendar-events";
+import { categorizeEvents, fetchEventsRaw } from "@/lib/db/calendar-events";
 import { listCategories } from "@/lib/db/categories";
 import { listActiveGoals } from "@/lib/db/goals";
 import { getActiveSession, listRecentSessions } from "@/lib/db/sessions";
@@ -25,17 +25,15 @@ export default async function ClockPage() {
   const weekEnd = endOfWeek(now).getTime();
   const day = 24 * 60 * 60 * 1000;
 
-  const [categories, sessions, goals] = await Promise.all([
+  // One parallel wave — the raw event fetch no longer depends on categories
+  // (categorization is applied in JS afterwards).
+  const [categories, sessions, goals, rawEvents] = await Promise.all([
     listCategories(),
     listRecentSessions(),
     listActiveGoals(),
+    fetchEventsRaw(weekStart - day, weekEnd + day),
   ]);
-  // Events fetched after categories so categorization can run server-side.
-  const events = await listEventsInRange(
-    weekStart - day,
-    weekEnd + day,
-    categories
-  );
+  const events = categorizeEvents(rawEvents, categories);
 
   // Signed URL for the active session's photo, if one was captured, so the
   // active card can show a thumbnail.

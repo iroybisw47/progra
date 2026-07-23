@@ -2,6 +2,7 @@
 
 import { revalidateFriendSurfaces } from "@/lib/revalidate";
 import { normalizeUsername } from "@/lib/social/username";
+import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { error: string };
@@ -19,9 +20,7 @@ export type UserSearchResult = {
 // deliberately generic so a hidden block never reveals itself.
 export async function sendFriendRequest(targetUserId: string): Promise<Result> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
   if (!targetUserId || targetUserId === user.id) {
     return { error: "Couldn't send request." };
@@ -46,9 +45,7 @@ export async function sendFriendRequest(targetUserId: string): Promise<Result> {
 // (a requester must not be able to fabricate a friendship via the raw API).
 export async function acceptFriendRequest(requestId: string): Promise<Result> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const { error } = await supabase.rpc("accept_friend_request", {
@@ -63,9 +60,7 @@ export async function acceptFriendRequest(requestId: string): Promise<Result> {
 // or unfriend. RLS's delete policy limits this to rows I'm a participant in.
 export async function removeFriendship(id: string): Promise<Result> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const { error } = await supabase.from("friendships").delete().eq("id", id);
@@ -79,9 +74,7 @@ export async function removeFriendship(id: string): Promise<Result> {
 // a row already exists.
 export async function blockUser(targetUserId: string): Promise<Result> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
   if (!targetUserId || targetUserId === user.id) {
     return { error: "Couldn't block this user." };
@@ -97,9 +90,7 @@ export async function blockUser(targetUserId: string): Promise<Result> {
 // created, so this can't touch anyone else's.
 export async function unblockUser(targetUserId: string): Promise<Result> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const { error } = await supabase
@@ -123,9 +114,7 @@ export async function searchUsers(
   if (q.length < 2) return { results: [] };
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const { data, error } = await supabase.rpc("search_users", { q });

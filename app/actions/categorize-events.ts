@@ -4,6 +4,7 @@ import { classifyEventTitles } from "@/lib/anthropic/categorize-events";
 import { revalidateEventSurfaces } from "@/lib/revalidate";
 import { listCategories } from "@/lib/db/categories";
 import { listEventsInRange } from "@/lib/db/calendar-events";
+import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 
 // One AI decision, surfaced to the History review popup so the user can see
@@ -48,9 +49,7 @@ export async function categorizeEventsInRange(
   endMs: number
 ): Promise<Result> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   // Global kill-switch: flip this env var (Vercel / .env.local) to stop all
@@ -151,10 +150,7 @@ export async function listAiCategorizedInRange(
   startMs: number,
   endMs: number
 ): Promise<AiAssignment[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return [];
 
   const categories = await listCategories();

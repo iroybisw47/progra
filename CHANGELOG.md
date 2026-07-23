@@ -4,6 +4,27 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-07-23
+
+### · Production latency pass: region pin, local auth, last waterfalls, client cache
+Diagnosed extreme slowness on the deployed site. Root causes and fixes:
+**(1) Region mismatch** — Vercel functions ran in the iad1 default while
+Supabase is us-west-1, so every query/auth hop crossed the country; new
+`vercel.json` pins functions to sfo1 (verified live: `x-vercel-id` now
+`sfo1::sfo1`). **(2) Network auth hop everywhere** — `getCurrentUser()` and
+all 30 direct `auth.getUser()` calls in server actions hit the Supabase Auth
+server per render/tap; `getCurrentUser` now verifies the JWT locally via
+`getClaims()` (asymmetric signing keys are active) returning `{ id, email }`,
+and every action uses it — zero auth network hops in the request path (RLS
+remains the authority on every query). **(3) Last two query waterfalls** —
+feed comments/reactions now chain off `listFriendFeed` alone inside one
+`Promise.all` (was: gated on the whole first wave); `/clock`'s events fetch
+joined its parallel block via `fetchEventsRaw` (its "after categories" comment
+had gone stale in the phase-1 split). **(4) Client cache** — experimental
+`staleTimes.dynamic = 30`: tab switches within 30s reuse the cached page
+payload; safe since every mutation revalidates its surfaces (own changes still
+instant, friends' activity lags ≤30s, feed poll/refocus unaffected).
+
 ## 2026-07-22
 
 ### · Landing: new summary + feature blurb

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { revalidateIdentitySurfaces } from "@/lib/revalidate";
 import { checkUsername } from "@/lib/social/username";
+import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 
 export async function setProfileTimezone(
@@ -14,9 +15,7 @@ export async function setProfileTimezone(
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const { error } = await supabase
@@ -44,9 +43,7 @@ export async function setUsername(
   if (!check.ok) return { error: check.error };
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const { error } = await supabase
@@ -71,9 +68,7 @@ export async function setProfileIdentity(input: {
   bio?: string | null;
 }): Promise<{ ok: true } | { error: string }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const update: Record<string, unknown> = {};
@@ -111,9 +106,7 @@ export async function completeOnboarding(): Promise<
   { ok: true } | { error: string }
 > {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const { error } = await supabase

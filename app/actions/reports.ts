@@ -1,5 +1,6 @@
 "use server";
 
+import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import {
   REPORT_NOTE_MAX,
@@ -22,9 +23,7 @@ export async function reportContent(
   note: string
 ): Promise<Result> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   if (!TARGET_TYPES.includes(targetType) || !targetId) {

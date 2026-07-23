@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidateSocialSurfaces } from "@/lib/revalidate";
+import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { COMMENT_MAX_LENGTH } from "@/lib/social/comments";
 
@@ -16,9 +17,7 @@ export async function addComment(
   body: string
 ): Promise<Result> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
   const trimmed = body.trim();
@@ -48,9 +47,7 @@ export async function addComment(
 // at the DB regardless of what id is passed.
 export async function deleteComment(commentId: string): Promise<Result> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
   if (!commentId) return { error: "Couldn't delete comment." };
 
