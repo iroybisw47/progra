@@ -6,6 +6,18 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-23
 
+### · History: browse past weeks (in the This-week format)
+`/history` gains a **Week** segment next to Month/Year (`?view=week&w=YYYY-MM-DD`,
+Monday-anchored in the user's timezone — same anchoring as /recap, same
+prev/next scrubber as month/year). Deliberately NOT the month/year analytical
+card: the week view renders the exact This-week presentation from the Progress
+tab — donut + category legend + goal quota bars — via a new shared
+`components/v2/week-summary.tsx` that both surfaces now render (extracted
+from `progress-client.tsx`'s WeekView; zero visual change there), so the two
+formats can never drift. Data via the existing `computeWeekRecap`. A muted
+"Weekly recap →" link connects each week to `/recap?w=`. Month/year views
+unchanged (hoisted into a `RollupBody` component, same look and delete flows).
+
 ### · Production latency pass: region pin, local auth, last waterfalls, client cache
 Diagnosed extreme slowness on the deployed site. Root causes and fixes:
 **(1) Region mismatch** — Vercel functions ran in the iad1 default while

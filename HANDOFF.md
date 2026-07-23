@@ -6,7 +6,10 @@
 > and how the user likes to work. Feed this to a session to seed/refresh memory.
 > When code and this doc disagree, the code wins — fix the doc the same session.
 >
-> _Last updated: 2026-07-14. Repo: `iroybisw47/progra`. Path: `C:\Users\iroyb\Progra\progra`._
+> _Last updated: 2026-07-23. Repo: `iroybisw47/progra`. Path: `C:\Users\iroyb\Progra\progra`._
+> _Major updates since 07-14: V2 REDESIGN live at progra.world; 5-part performance
+> overhaul (§8.5); auth/mutation conventions CHANGED (§3, §6 — old patterns now
+> forbidden); Google OAuth verification prep (§8.6)._
 
 ---
 
@@ -36,11 +39,12 @@ rollups). Plus habits and a first-run onboarding wizard.
 | Framework | **Next.js 16** (App Router, Turbopack) — APIs differ from older Next; see §7 |
 | Language | TypeScript 5, React 19 |
 | UI | shadcn/ui (Nova preset) on **Base UI** primitives (`components/ui/*`), Lucide icons |
-| Styling | Tailwind CSS v4 (PostCSS), `app/globals.css`; warm palette + Newsreader/Hanken fonts |
+| Styling | Tailwind CSS v4 (PostCSS), `app/globals.css`; V2 uses **PT Sans** everywhere (heading slot aliased) |
 | Toasts | `sonner` |
-| Auth + DB | **Supabase** (`@supabase/ssr`) — Postgres + RLS + Google OAuth + Storage |
-| External | Google Calendar API v3 (OAuth token on the profile, refreshed on demand) |
-| Deploy | **Vercel on push to `main`** (GitHub `iroybisw47/progra`). PWA via `app/manifest.ts` |
+| Auth + DB | **Supabase in us-west-1** (`@supabase/ssr`) — Postgres + RLS + Google OAuth + Storage. **Asymmetric JWT signing keys (ES256) active** — local `getClaims()` verification works |
+| External | Google Calendar API v3 (OAuth token on the profile, refreshed on demand). Scope: **`calendar.events.readonly`** (narrowed 2026-07-22) |
+| AI | `@anthropic-ai/sdk` server-only — categorizes event titles (`lib/anthropic/`); kill switch `DISABLE_AI_CATEGORIZATION` |
+| Deploy | **Vercel on push to `main`** (GitHub `iroybisw47/progra`), functions **pinned to sfo1 via `vercel.json`** (co-located with the DB — do not remove). PWA via `app/manifest.ts` |
 | Validation | **None** — no Zod/Yup/etc. (hand-rolled guards + DB CHECK constraints) |
 
 ---
@@ -52,50 +56,72 @@ Strict, repeating layering — learn once, every feature reads the same:
 ```
 Browser (PWA)
   → proxy.ts (Next 16's renamed middleware) → lib/supabase/proxy.ts refreshes the
-    auth cookie on every matched request. CRITICAL: no code runs between
-    createServerClient and getUser() — reading cookies in between breaks refresh.
+    auth cookie via getClaims() (LOCAL Web-Crypto JWT verification — no network).
+    CRITICAL: no code runs between createServerClient and the auth call.
   → app/<route>/page.tsx        Server Component. Auth-gates, reads via lib/db/*,
-                                 Promise.all for parallel reads, passes plain props.
+                                 ONE Promise.all wave (chain dependents off the
+                                 specific promise they need), passes plain props.
   → app/<route>/<route>-client.tsx  "use client". UI + local state; calls actions.
-  → app/actions/<domain>.ts     "use server". Mutations. Re-check auth → write →
-                                 revalidatePath() every affected route.
-  → lib/db/<domain>.ts          "server-only" READS. Map snake_case → camelCase.
+  → app/actions/<domain>.ts     "use server". Mutations. getCurrentUser() guard →
+                                 write → revalidate*Surfaces() from lib/revalidate.ts.
+  → lib/db/<domain>.ts          "server-only" READS, ALL wrapped in per-request
+                                 React cache(). Map snake_case → camelCase.
                                  The ONLY place that SELECTs.
-  → Supabase (Postgres + RLS)   RLS scopes every row to auth.uid().
+  → Supabase (Postgres + RLS)   RLS scopes every row to auth.uid() — the real
+                                 authority; app-side auth is identity, not security.
 ```
 
 - **Reads** live in `lib/db/*` (`server-only`, no `"use server"`). **Writes** live in
   `app/actions/*` (`"use server"`). A page may call `lib/db` directly; a client
   component may **only** call actions.
+- **Every `lib/db/*` helper is `cache()`-wrapped** (per-request dedup). Primitive args
+  only — for array/object args, split into a cached raw fetch keyed on primitives + a
+  pure transform (pattern: `fetchEventsRaw`/`categorizeEvents` in `lib/db/calendar-events.ts`).
 - **Row mapping centralized:** each `lib/db/*` owns a `rowToX` mapper + an `X_COLUMNS`
   constant so a query can't forget a column.
-- **Cache invalidation explicit:** every mutation ends with `revalidatePath()` for every
-  route whose data it touched.
+- **Cache invalidation centralized:** every mutation calls its matching
+  `revalidate*Surfaces()` helper from **`lib/revalidate.ts`** (never scattered
+  `revalidatePath` literals). Session actions use `revalidateSessionSurfaces()` (root
+  **layout** — the BottomNav ticker depends on it); actions followed by a client push
+  away from `/clock/live` use `revalidateSessionSurfacesExceptLive()`. The action's own
+  POST carries the updated UI — **clients do NOT `router.refresh()` after actions**
+  (exceptions: feed poll, delete-account, onboarding error-path resyncs).
 - **Three Supabase clients:** `lib/supabase/server.ts` (server components/actions),
-  `client.ts` (browser), `proxy.ts` (the cookie refresher).
+  `client.ts` (browser), `proxy.ts` (the cookie refresher). Plus the ONE service-role
+  exception: `lib/supabase/admin.ts`, used ONLY by `uploadSessionPhoto` (Storage rejects
+  user-JWT uploads as anon; ownership is verified in the action first).
 - **Auth helpers** (`lib/auth/require-user.ts`): `getCurrentUser` is `react.cache`-wrapped
-  (one auth round-trip/request); `requireUser()` redirects to `/login`; `getOptionalUser()`
-  returns null.
+  and verifies the JWT **locally via `getClaims()`**, returning `{ id, email }` — zero
+  auth-server round-trips in the request path. **Never call `supabase.auth.getUser()`**
+  in pages/actions (all 30 former sites swapped 2026-07-23). `requireUser()` redirects
+  to `/login`; `getOptionalUser()` returns null.
+- **Client rendering rules:** second-precision timers ONLY inside `<Ticking>` leaves
+  (`components/ticking.tsx`, the sole `useNow()` consumer); everything else uses
+  `useNowMinute()`; heavy client derivations get `useMemo`. Click-gated dialogs are
+  `next/dynamic(..., { ssr: false })` lazy chunks. `experimental.staleTimes.dynamic = 30`
+  is ON — safe only while the revalidation rule above holds.
 
 ---
 
 ## 4. Route map
 
-All routes auth-gated, sharing `BottomNav` (rendered in layout only when signed in).
-Social routes (`/me`, `/friends`, `/profile/[username]`, `/admin`) + the feed at `/`
-are gated by `SOCIAL_ENABLED`; flag off → they 404 (or `/` falls back to the dashboard).
+**`REDESIGN` (implies `SOCIAL_ENABLED`) is ON in production.** V2 IA: bottom nav is
+Progress `/` · Feed `/feed` · [Clock center FAB] · Friends `/friends` · You `/me`.
+All routes have `loading.tsx` skeletons. `BottomNav` renders in the layout only when
+signed in; its center FAB live-ticks while a session runs.
 
 | Route | Server | Client | Purpose |
 |---|---|---|---|
-| `/` | `app/page.tsx` | — | Home. Flag off → dashboard (`components/dashboard.tsx`). Flag on → social **feed** (`components/feed.tsx`). |
-| `/me` | `app/me/page.tsx` | — | "You" tab (social on): the dashboard, relocated off Home. Shows Moderation link if `is_admin()`. |
-| `/friends` | `friends/page.tsx` | `friends-client.tsx` | Friend search/requests/blocked. |
-| `/profile/[username]` | `profile/[username]/page.tsx` | `profile-actions.tsx` | Public profile: identity + a friend's non-private goals/habits + photo **stories**. |
-| `/admin` | `admin/page.tsx` | `admin-reports.tsx` | Moderation queue — social on **and** `is_admin()` only. |
-| `/onboarding` | `onboarding/page.tsx` | `onboarding-client.tsx` | First-run wizard; Home redirects here while `profiles.onboarded_at` is null. |
-| `/clock` `/goals` `/habits` `/history` `/recap` `/sessions` | each `page.tsx` | each `*-client.tsx` | Tracker surfaces. |
-| `/search` | `search/page.tsx` | — | Static "coming soon" placeholder (no data). |
-| `/login` `/auth/callback` `/auth/signout` | routes | — | Google OAuth. |
+| `/` | `app/page.tsx` | `v2/progress-client.tsx` | **Progress tab** (Today / This week / History) + onboarding gate. Signed-out → landing (hero, feature blurb, direct Google sign-in button, legal footer). |
+| `/feed` | `feed/page.tsx` | `v2/feed-v2.tsx` (server) | Friends' finished sessions (with photos), clocked-in-now strip, join announcements, kudos/comments. 60s poll + refocus refresh. |
+| `/clock` | `clock/page.tsx` | `clock-client.tsx` | Clock-in form + week view. Active session redirects to `/clock/live` (full-screen timer) → `/clock/finish` (save/privacy/photo). |
+| `/me` | `me/page.tsx` | — | "You" tab: identity, week quotas, habits, photo sessions, Settings link. |
+| `/friends` `/profile/[username]` `/admin` | pages | clients | Social surfaces (unchanged model, §8). |
+| `/goals` `/habits` `/history` `/recap` `/sessions` `/categories` `/settings` `/session/[id]` | pages | clients | Tracker + detail surfaces. |
+| `/onboarding` | `onboarding/page.tsx` | `onboarding-client-v2.tsx` (REDESIGN) / `onboarding-client.tsx` (legacy) | First-run wizard; Home redirects here while `profiles.onboarded_at` is null. |
+| `/privacy` `/terms` | plain server pages | — | **Public legal pages** (render logged-out; Google OAuth verification content). |
+| `/search` | `search/page.tsx` | — | Static "coming soon" placeholder. |
+| `/login` `/auth/callback` `/auth/signout` | routes | — | Google OAuth. Landing hero starts OAuth directly; `/login` remains for errors/`?next`/deleted-notice. |
 
 > Note: there is **no `/calendar` route** (calendar events surface in `/history` and `/clock`).
 
@@ -144,9 +170,14 @@ filter and let friend-read RLS decide. **Every FK to `auth.users` is `ON DELETE 
   (may carry payload, e.g. `{ ok:true, sessionId }`). Clients surface `error` via `sonner` toasts.
   DB reads return empty/null, never throw. Google layer throws typed `GoogleAuthError`. Definer
   RPCs `raise exception`; the action catches → generic `{ error }`.
-- **Optimistic updates: NONE.** Universal pattern is `useTransition` → call action →
-  `router.refresh()` on success (server re-renders truth); `pending` disables the control.
-  A shared `run(action, {okMsg, then})` helper wraps it. No local state mutated ahead of the server.
+- **Mutation pattern (CHANGED 2026-07-21, replaces the old "no optimistic + refresh" rule).**
+  `useTransition` → optionally `useOptimistic` flip → `await action` → done. **No
+  `router.refresh()` on success** — the action's revalidation delivers fresh props in the
+  same POST, which also reconciles/discards the optimistic layer. Optimistic surfaces:
+  habit toggles, kudos, reactions, event-hide, privacy toggles, delete-confirms.
+  Data-entry dialogs (session save, settings identity, etc.) deliberately close AFTER the
+  await so form state survives errors. The shared `run(action, {okMsg, then})` helpers
+  no longer refresh.
 - **Validation.** No schema library. Hand-rolled guards (`getUser()` first, then explicit
   membership/length checks, trim+slice to max) **plus DB CHECK constraints** enforcing the same
   sets. Shared allowed-value lists live in `lib/social/*.ts`.
@@ -167,11 +198,21 @@ filter and let friend-read RLS decide. **Every FK to `auth.users` is `ON DELETE 
 
 - **Never query Supabase from a client component.** Client → actions (writes) only; reads →
   server `page.tsx` via `lib/db/*`.
-- **No service-role key in user-facing paths** — none exists in the repo, keep it that way.
+- **No service-role key in user-facing paths** — with exactly ONE documented exception:
+  `uploadSessionPhoto` writes Storage via `lib/supabase/admin.ts` (Storage rejects user-JWT
+  uploads as anon; ownership verified in-action first). Do not add a second exception.
   Privileged power = `is_admin()`-gated `SECURITY DEFINER` RPCs, never a god-key.
 - **Reads only in `lib/db/*` (`server-only`); writes only in `app/actions/*` (`"use server"`).** Never mix.
 - **`"use server"` files export only async functions** — constants/types go to `lib/*` (build breaks otherwise).
-- **Every mutation `revalidatePath()`s every affected route.**
+- **Every mutation calls its `revalidate*Surfaces()` helper (`lib/revalidate.ts`)** — never
+  scattered `revalidatePath` literals, never a client `router.refresh()` on success.
+- **Never call `supabase.auth.getUser()` in pages/actions** — use `getCurrentUser()`
+  (local `getClaims()`); RLS is the security authority.
+- **Never call `useNow()` at the top of a screen** — tick inside a `<Ticking>` leaf;
+  quantize everything else with `useNowMinute()`.
+- **New read helpers must be `cache()`-wrapped; new dialogs must be `next/dynamic` lazy.**
+- **Don't remove `vercel.json`'s sfo1 pin or `staleTimes.dynamic`** without a decision —
+  both are load-bearing perf infrastructure.
 - **Never write Next.js code from training-data assumptions.** This Next 16 has breaking changes;
   **read `node_modules/next/dist/docs/` first** (`proxy.ts` not `middleware`; dynamic route params
   are `Promise<{…}>` and must be awaited; etc.). `AGENTS.md` mandates this.
@@ -192,18 +233,65 @@ Everything is on `main` behind `SOCIAL_ENABLED`. Detail is in `CHANGELOG.md` (da
 
 - **0/1** — usernames, `friendships`, `is_private`, RLS friend-read rewrite, `/profile/[username]`. 5-persona JWT test.
 - **2** — feed IS Home; dashboard → `/me`; comments; emoji reactions; live "clocked in now" strip (30s poll, not Realtime). 10-point comments test.
-- **3** — `session-photos` bucket; `uploadSessionPhoto` (sharp `.rotate().resize(1600).jpeg(80)` — **the** EXIF/GPS-strip security boundary; client canvas downscale only bakes orientation); skippable before/after capture in clock flow; profile **stories** (complete-pair only — a session shows on a profile ONLY if it has both photos; **the feed is intentionally photo-free**); storage read policy `can_see_session_photo` tightened to owner/admin/non-private-complete-pair-friend.
+- **3** — `session-photos` bucket; `uploadSessionPhoto` (sharp `.rotate().resize(1600).jpeg(80)` — **the** EXIF/GPS-strip security boundary; client canvas downscale only bakes orientation). **SUPERSEDED since (V2, ~07-19): ONE photo per session** (`photo_path`), captured while the session runs (clock flow / live timer); **the feed DOES show photos** (full-bleed on session cards) and profiles show photo sessions. Storage read policy `can_see_session_photo` gates by the session's `is_private` alone.
 - **4** — write-only `reports` + `report-button.tsx`; `/admin` queue gated by `is_admin()` (**no service-role key**; `admin_*` self-gating; take-down = null photo cols / delete comment); account deletion (`delete_own_account()` cascade + storage blob purge + type-to-confirm UI). 14-check admin/reports test + deletion-scoping test passed.
 
 **Admin identity:** the user (`tapa@quantluxdigital.io`) is the sole admin; UUID
 `5da4f579-b469-42cf-8dd5-de76121dd8b9` is hard-coded in `is_admin()`.
 
-**Open items (the user's, before inviting real people):**
-1. Set `NEXT_PUBLIC_SOCIAL_ENABLED=1` in **Vercel** + redeploy (build-time inlined — a plain env change won't take without a rebuild).
-2. On-device dogfood (can't be driven headlessly): photo capture; account deletion end-to-end (storage emptied, signed out, fresh re-onboarding, a friend's data intact); report → `/admin` → takedown.
-3. Then invite people. Deploying with the flag ON to test is low-risk while the user is the only real account.
+Flags are **ON in production** (REDESIGN + SOCIAL). All Phase-4 SQL is confirmed run.
+The V2 redesign (2026-07-15 → 07-20, see CHANGELOG) rebuilt the front-end IA on top of
+this model: Progress home, full-screen live timer, finish screen, feed cards with
+photos + kudos, suggested friends, onboarding v2.
 
-All Phase-4 SQL is confirmed run.
+---
+
+## 8.5 Performance architecture (2026-07-21 → 07-23 — all shipped, all load-bearing)
+
+Five passes, each in `CHANGELOG.md`; the resulting RULES are in §3/§6/§7. Summary:
+
+1. **Server round-trips**: `cache()` on all read helpers; `fetchEventsRaw`/`categorizeEvents`
+   split; waterfalls flattened (~25-30 Supabase calls per Home load → ~8 parallel);
+   `loading.tsx` on every route; middleware auth → local `getClaims()`.
+2. **1s-tick isolation**: `useNowMinute()` + `<Ticking>` leaf (`components/ticking.tsx` is
+   the ONLY `useNow` consumer); `useMemo` on clock aggregations; idle pages run no timer.
+3. **Single round-trip mutations**: `lib/revalidate.ts` surface helpers; ~40 client
+   `router.refresh()` calls removed; `EnsureProfileSync` writes only on real tz change;
+   reaction bar optimistic.
+4. **Bundles**: 5 click-gated dialogs are `next/dynamic ssr:false` chunks; feed poll 60s;
+   signed-URL photos `loading="lazy" decoding="async"` (raw `<img>` is deliberate —
+   signed URLs into a private bucket; keep it).
+5. **Deployed latency (07-23)**: `vercel.json` pins functions to **sfo1** (were iad1 vs
+   us-west-1 DB — cross-country per query; verified fixed via `x-vercel-id: sfo1::sfo1`);
+   fully local JWT auth (`getCurrentUser` + all 30 action sites); feed extras chain off
+   `listFriendFeed` alone; `/clock` events joined its parallel wave;
+   `staleTimes.dynamic = 30`.
+
+**Known open levers (un-implemented, in rough priority):** `prefetch={true}` on the 5 nav
+links (full-data prefetch + 5-min static staleTime); narrow `getProfile`'s `select("*")`
+(drags Google tokens every render); dedupe feed's double `hydrateGoalTitles`/`hydrateUsers`;
+optimistic data-entry dialogs; Supabase Realtime instead of the feed poll; per-page
+Postgres RPCs (heavy — only if measurements demand).
+
+---
+
+## 8.6 Google OAuth verification (in flight, 2026-07-22 → 23)
+
+- Scope narrowed to **`calendar.events.readonly`** (sole request:
+  `app/login/google-sign-in-button.tsx`; sync only calls the events API;
+  `prompt=consent` re-consents existing users). Repo has zero stale `calendar.readonly`.
+- **`/privacy` + `/terms`** public pages: verbatim Google API Services User Data Policy /
+  Limited Use sentence, AI-processing disclosure (Anthropic categorizes event titles only;
+  no ads, no training), revoke link + delete-by-email (support@progra.world, 30 days),
+  13+ clause. Landing: "The first community-based productivity app." + 3-row feature
+  blurb (spells out optional read-only Calendar for reviewers) + legal footer + hero
+  button starts OAuth directly.
+- Calendar mechanics for the reviewer story: manual Sync button → `syncCalendar` →
+  events API (365d back / 90d forward) → mirrored into `calendar_events`; page reads
+  never hit Google.
+- **User still owes the Cloud Console**: declare the narrowed scope on the consent
+  screen; enter `https://progra.world/privacy` + `/terms`; submit. A scope-justification
+  draft (feature mapping + why-no-narrower-scope) was written 2026-07-23.
 
 ---
 
@@ -215,7 +303,14 @@ All Phase-4 SQL is confirmed run.
   Reskin is recolor-only. Green-lights social phases one at a time.
 - **Docs workflow:** log changes in `CHANGELOG.md` (dated, newest first, `HH:MM` prefixes) as work
   happens; refresh `ARCHITECTURE.md` at the end of a feature set (there's an `/update-arch` skill).
+  **`ARCHITECTURE.md` has NOT been refreshed for the V2 redesign or the perf passes — stale; this
+  doc + CHANGELOG are more current until it is.**
 - **Roadmap:** `.claude/plans/kill-the-plan-tab-eventual-bachman.md` holds the approved social plan.
+- **Pre-existing lint debt (not regressions, don't "fix" casually):** `Date.now()` react-hooks/purity
+  errors in a few server components; `set-state-in-effect` in onboarding-client, manage-habits,
+  categorization-review-dialog.
+- **Verification style:** tsc → eslint (changed files) → vitest (45) → `npm run build` → signed-out
+  HTTP route smoke → after deploys, prod probes (`x-vercel-id`, TTFB). "Deploy" = commit + push `main`.
 - **Runtime gotcha:** orphaned `next dev` processes can hold port 3000 after a stop — kill the PID
   (PowerShell `Stop-Process -Id <PID> -Force`) then restart.
 
@@ -228,4 +323,5 @@ All Phase-4 SQL is confirmed run.
 - `CHANGELOG.md` — dated change log.
 - Existing memory files: `progra_project`, `update_architecture_doc`, `supabase_auth_setup`,
   `nextjs_16_docs`, `feedback_flag_stack_issues`, `feedback_reskin_recolor_only`,
-  `progra_changelog`, `social_v2_roadmap`.
+  `progra_changelog`, `social_v2_roadmap`, `supabase_storage_service_role`,
+  `progra_perf_roadmap` (perf phases + conventions).

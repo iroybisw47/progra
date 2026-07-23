@@ -26,6 +26,11 @@ import {
 import { CategorizePeriodButton } from "@/components/categorize-period-button";
 import { CategoryMarker } from "@/components/category-marker";
 import { SyncCalendarButton } from "@/components/sync-calendar-button";
+import {
+  WeekSummary,
+  type WeekSummaryGoal,
+  type WeekSummarySeg,
+} from "@/components/v2/week-summary";
 import { cn } from "@/lib/utils";
 import type { CategoryItem } from "@/lib/aggregate";
 import type { Rollup } from "@/lib/db/rollups";
@@ -47,11 +52,9 @@ const SOURCE_LABEL: Record<string, string> = {
   uncategorized: "uncat",
 };
 
-type View = "month" | "year";
+type View = "week" | "month" | "year";
 
-type Props = {
-  view: View;
-  rollup: Rollup;
+type CommonProps = {
   isCurrentPeriod: boolean;
   isFuturePeriod: boolean;
   prevParam: string;
@@ -59,18 +62,46 @@ type Props = {
   categories: Category[];
 };
 
+// Discriminated on `view`: the week branch carries This-week-format data
+// (rendered via the shared WeekSummary), month/year carry the rollup for the
+// analytical card. TS enforces the fork.
+type Props = CommonProps &
+  (
+    | {
+        view: "week";
+        weekStartMs: number;
+        weekEndMs: number;
+        // Monday anchor (YYYY-MM-DD) — links this week to /recap.
+        monday: string;
+        totalMs: number;
+        segs: WeekSummarySeg[];
+        goals: WeekSummaryGoal[];
+      }
+    | { view: "month" | "year"; rollup: Rollup }
+  );
+
 // Labels formatted client-side (locale lives on the client) to avoid SSR
 // locale drift — same approach the recap card uses.
-function periodLabel(view: View, startMs: number): string {
+function periodLabel(view: "month" | "year", startMs: number): string {
   const d = new Date(startMs);
   if (view === "year") return String(d.getFullYear());
   return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
+// "Jul 21 – Jul 27" — the week's Mon–Sun span.
+function weekLabel(startMs: number, endMs: number): string {
+  const fmt = (ms: number) =>
+    new Date(ms).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
+  return `${fmt(startMs)} – ${fmt(endMs)}`;
+}
+
 function navHref(view: View, param: string): string {
-  return view === "year"
-    ? `/history?view=year&y=${param}`
-    : `/history?view=month&m=${param}`;
+  if (view === "year") return `/history?view=year&y=${param}`;
+  if (view === "week") return `/history?view=week&w=${param}`;
+  return `/history?view=month&m=${param}`;
 }
 
 // "Jun 24" — the day an item happened, shown in the expanded breakdown.
@@ -82,19 +113,122 @@ function itemDate(startMs: number): string {
   });
 }
 
-export function HistoryClient({
+export function HistoryClient(props: Props) {
+  const { isCurrentPeriod, isFuturePeriod, prevParam, nextParam } = props;
+  const label =
+    props.view === "week"
+      ? weekLabel(props.weekStartMs, props.weekEndMs)
+      : periodLabel(props.view, props.rollup.startMs);
+
+  const currentLabel =
+    props.view === "year"
+      ? "This year"
+      : props.view === "month"
+        ? "This month"
+        : "This week";
+
+  return (
+    <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24 sm:pt-12">
+      <main className="flex w-full max-w-md flex-col gap-6">
+        <header className="flex flex-col gap-1">
+          <h1 className="text-3xl font-semibold tracking-tight">History</h1>
+          <p className="text-muted-foreground text-sm">
+            Where your time went, over a longer stretch.
+          </p>
+        </header>
+
+        {/* Week / Month / Year switch */}
+        <div className="bg-muted/50 flex rounded-lg p-1">
+          {(["week", "month", "year"] as const).map((v) => (
+            <Link
+              key={v}
+              href={`/history?view=${v}`}
+              className={cn(
+                "flex-1 rounded-md py-1.5 text-center text-sm capitalize transition-colors",
+                props.view === v
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {v}
+            </Link>
+          ))}
+        </div>
+
+        {/* Period scrubber */}
+        <div className="flex items-center justify-between">
+          <Link
+            href={navHref(props.view, prevParam)}
+            className={buttonVariants({ variant: "ghost", size: "sm" })}
+            aria-label={`Previous ${props.view}`}
+          >
+            <ChevronLeftIcon /> Previous
+          </Link>
+          {isCurrentPeriod || isFuturePeriod ? (
+            <span className="text-muted-foreground text-xs">
+              {isCurrentPeriod ? currentLabel : ""}
+            </span>
+          ) : (
+            <Link
+              href={navHref(props.view, nextParam)}
+              className={buttonVariants({ variant: "ghost", size: "sm" })}
+              aria-label={`Next ${props.view}`}
+            >
+              Next <ChevronRightIcon />
+            </Link>
+          )}
+        </div>
+
+        {props.view === "week" ? (
+          <>
+            {/* Same presentation as the Progress tab's This-week section — the
+                shared WeekSummary IS that section, so formats can't drift. */}
+            <div className="text-center text-sm font-medium">{label}</div>
+            <WeekSummary
+              totalMs={props.totalMs}
+              segs={props.segs}
+              goals={props.goals}
+            />
+            <Link
+              href={`/recap?w=${props.monday}`}
+              className="text-muted-foreground self-center text-sm hover:underline"
+            >
+              Weekly recap →
+            </Link>
+          </>
+        ) : (
+          <RollupBody
+            view={props.view}
+            rollup={props.rollup}
+            categories={props.categories}
+            label={label}
+            isFuturePeriod={isFuturePeriod}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+
+// The month/year analytical card + its delete/exclude flows — unchanged in
+// look and behavior, hoisted out of HistoryClient so the week branch can
+// render the Progress-style summary instead.
+function RollupBody({
   view,
   rollup,
-  isCurrentPeriod,
-  isFuturePeriod,
-  prevParam,
-  nextParam,
   categories,
-}: Props) {
+  label,
+  isFuturePeriod,
+}: {
+  view: "month" | "year";
+  rollup: Rollup;
+  categories: Category[];
+  label: string;
+  isFuturePeriod: boolean;
+}) {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<CategoryItem | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const label = periodLabel(view, rollup.startMs);
 
   async function handleDelete() {
     if (!pendingDelete || deleting) return;
@@ -122,60 +256,8 @@ export function HistoryClient({
         ? "in 1 category"
         : `across ${categoryCount} categories`;
 
-  const currentLabel = view === "year" ? "This year" : "This month";
-
   return (
-    <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24 sm:pt-12">
-      <main className="flex w-full max-w-md flex-col gap-6">
-        <header className="flex flex-col gap-1">
-          <h1 className="text-3xl font-semibold tracking-tight">History</h1>
-          <p className="text-muted-foreground text-sm">
-            Where your time went, over a longer stretch.
-          </p>
-        </header>
-
-        {/* Month / Year switch */}
-        <div className="bg-muted/50 flex rounded-lg p-1">
-          {(["month", "year"] as const).map((v) => (
-            <Link
-              key={v}
-              href={`/history?view=${v}`}
-              className={cn(
-                "flex-1 rounded-md py-1.5 text-center text-sm capitalize transition-colors",
-                view === v
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {v}
-            </Link>
-          ))}
-        </div>
-
-        {/* Period scrubber */}
-        <div className="flex items-center justify-between">
-          <Link
-            href={navHref(view, prevParam)}
-            className={buttonVariants({ variant: "ghost", size: "sm" })}
-            aria-label={`Previous ${view}`}
-          >
-            <ChevronLeftIcon /> Previous
-          </Link>
-          {isCurrentPeriod || isFuturePeriod ? (
-            <span className="text-muted-foreground text-xs">
-              {isCurrentPeriod ? currentLabel : ""}
-            </span>
-          ) : (
-            <Link
-              href={navHref(view, nextParam)}
-              className={buttonVariants({ variant: "ghost", size: "sm" })}
-              aria-label={`Next ${view}`}
-            >
-              Next <ChevronRightIcon />
-            </Link>
-          )}
-        </div>
-
+    <>
         <Card>
           <CardContent className="flex flex-col gap-8 px-6 py-8 sm:px-8">
             {/* Header */}
@@ -381,7 +463,6 @@ export function HistoryClient({
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </main>
-    </div>
+    </>
   );
 }
