@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getCurrentUser } from "@/lib/auth/require-user";
+import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeUsername } from "@/lib/social/username";
 import type { PublicUser } from "@/lib/db/friends";
@@ -31,7 +32,7 @@ export async function getPublicProfileByUsername(
   const supabase = await createClient();
   const { data } = await supabase
     .from("public_profiles")
-    .select("id, username, display_name, bio")
+    .select("id, username, display_name, bio, avatar_path")
     .eq("username", handle)
     .maybeSingle();
   if (!data) return null;
@@ -41,12 +42,14 @@ export async function getPublicProfileByUsername(
     username: string;
     display_name: string | null;
     bio: string | null;
+    avatar_path: string | null;
   };
   return {
     userId: row.id,
     username: row.username,
     displayName: row.display_name,
     bio: row.bio,
+    avatarUrl: avatarPublicUrl(row.avatar_path),
   };
 }
 

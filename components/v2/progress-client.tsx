@@ -3,7 +3,12 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useOptimistic, useState, useTransition } from "react";
-import { CheckIcon, ChevronRightIcon, SlidersHorizontalIcon } from "lucide-react";
+import {
+  CalendarIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  SlidersHorizontalIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Donut } from "@/components/v2/donut";
@@ -38,12 +43,16 @@ export type GoalRow = {
   status: "hit" | "close" | "under";
 };
 export type SessionToday = {
+  // "session" = clocked in Progra; "event" = imported Google Calendar event
+  // (shown with its start–end range, never live).
+  kind: "session" | "event";
   id: string;
   label: string;
   catName: string | null;
   catColor: string | null;
   isGoal: boolean;
   startedAt: number;
+  endedAt: number | null;
   workedMs: number;
   active: boolean;
 };
@@ -216,10 +225,19 @@ function TodayView({
                       )}
                     </span>
                     <span className="text-caption truncate text-xs">
+                      {s.kind === "event" && (
+                        <CalendarIcon
+                          aria-label="From Google Calendar"
+                          className="mr-1 inline size-3 align-[-2px]"
+                        />
+                      )}
                       <span style={{ color: s.catColor ?? undefined }}>
                         {s.isGoal ? "Goal" : s.catName ?? "Uncategorized"}
                       </span>{" "}
-                      · {formatTime(new Date(s.startedAt))}
+                      ·{" "}
+                      {s.kind === "event" && s.endedAt !== null
+                        ? `${formatTime(new Date(s.startedAt))} – ${formatTime(new Date(s.endedAt))}`
+                        : formatTime(new Date(s.startedAt))}
                     </span>
                   </div>
                   <span className="text-body ml-auto shrink-0 font-mono text-sm tabular-nums">

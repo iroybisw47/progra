@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { revalidateIdentitySurfaces } from "@/lib/revalidate";
+import { getProfile } from "@/lib/auth/profile";
+import {
+  revalidateCalendarSurfaces,
+  revalidateIdentitySurfaces,
+} from "@/lib/revalidate";
 import { checkUsername } from "@/lib/social/username";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
@@ -28,6 +32,48 @@ export async function setProfileTimezone(
   // re-render everything. Rare: EnsureProfileSync only calls this when the
   // browser tz differs from the stored one.
   revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+// Disconnect Google Calendar: best-effort revoke at Google, then clear the
+// stored tokens + scope so every surface reads "not connected". Sync stops;
+// already-mirrored calendar_events rows are untouched (history keeps working).
+export async function disconnectGoogleCalendar(): Promise<
+  { ok: true } | { error: string }
+> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const profile = await getProfile();
+  const refreshToken = profile?.google_provider_refresh_token;
+  if (refreshToken) {
+    // Best-effort: revoking at Google is a courtesy; a network failure must
+    // not block the local disconnect (the user can also revoke from their
+    // Google account page).
+    try {
+      await fetch("https://oauth2.googleapis.com/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ token: refreshToken }),
+      });
+    } catch {
+      // Ignore — local disconnect proceeds regardless.
+    }
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      google_provider_token: null,
+      google_provider_refresh_token: null,
+      google_token_expires_at: null,
+      google_scopes: null,
+    })
+    .eq("id", user.id);
+  if (error) return { error: error.message };
+
+  revalidateCalendarSurfaces();
   return { ok: true };
 }
 

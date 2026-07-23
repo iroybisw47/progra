@@ -62,6 +62,7 @@ export default async function ProfilePage({
           <AvatarInitials
             name={target.displayName}
             username={target.username}
+            avatarUrl={target.avatarUrl}
             className="size-20 text-2xl"
           />
           <div className="flex flex-col gap-0.5">

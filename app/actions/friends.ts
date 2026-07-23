@@ -1,5 +1,6 @@
 "use server";
 
+import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { revalidateFriendSurfaces } from "@/lib/revalidate";
 import { normalizeUsername } from "@/lib/social/username";
 import { getCurrentUser } from "@/lib/auth/require-user";
@@ -12,6 +13,7 @@ export type UserSearchResult = {
   username: string;
   displayName: string | null;
   bio: string | null;
+  avatarUrl: string | null;
 };
 
 // Send a friend request. RLS's insert policy already restricts this to a
@@ -120,11 +122,14 @@ export async function searchUsers(
   const { data, error } = await supabase.rpc("search_users", { q });
   if (error) return { error: error.message };
 
+  // avatar_path is optional in the row type so search keeps working until the
+  // user's search_users RPC is updated to return it (dashboard-side change).
   const rows = (data ?? []) as {
     id: string;
     username: string;
     display_name: string | null;
     bio: string | null;
+    avatar_path?: string | null;
   }[];
   return {
     results: rows.map((r) => ({
@@ -132,6 +137,7 @@ export async function searchUsers(
       username: r.username,
       displayName: r.display_name,
       bio: r.bio,
+      avatarUrl: avatarPublicUrl(r.avatar_path ?? null),
     })),
   };
 }

@@ -9,7 +9,8 @@
 > _Last updated: 2026-07-23. Repo: `iroybisw47/progra`. Path: `C:\Users\iroyb\Progra\progra`._
 > _Major updates since 07-14: V2 REDESIGN live at progra.world; 5-part performance
 > overhaul (§8.5); auth/mutation conventions CHANGED (§3, §6 — old patterns now
-> forbidden); Google OAuth verification prep (§8.6)._
+> forbidden); Google OAuth verification prep (§8.6); History week view via shared
+> WeekSummary (07-23); complete feature inventory added (§4.5)._
 
 ---
 
@@ -127,6 +128,67 @@ signed in; its center FAB live-ticks while a session runs.
 
 ---
 
+## 4.5 Complete feature inventory (everything a user can see/do — verified 2026-07-23)
+
+### Signed-out landing (`/`)
+- Hero: "Progra — The first community-based productivity app."; "Sign in with Google" starts OAuth directly (no `/login` stop)
+- Feature blurb (sessions / optional read-only Google Calendar / friends); iOS add-to-home hint; footer → Privacy/Terms
+
+### Home = Progress tab (`/`, signed-in; redirects to `/onboarding` if not onboarded)
+- Segmented Today / This week / History
+- **Today:** hero total w/ "N tracked · M imported"; sessions-today list (live pulse on active); goals-today grid (progress bars, % + hours-left); habits tap-to-check (optimistic) + Manage dialog
+- **This week:** shared `WeekSummary` (total + category segs + goal quota bars); habits Mon–Sun grid; "Share week as text" (clipboard)
+- **History:** month donut + legend; "Full history" link (browse by week/month/year)
+- Habit manager (lazy dialog): paginate back ≤8 weeks to backfill any day; add/rename/recolor/delete habits; per-habit privacy eye
+
+### `/onboarding`
+- **V2 wizard (4 steps):** progress dots + Skip; claim username (live validation); first goal w/ quota stepper (1–40h); categories explainer; "You're all set"
+- **Legacy wizard (8–9 steps, flag-off):** welcome → username → how-it-works → goal → LIVE practice clock-in/out (adopts running session) → categories → Home/History/Habits spotlight tours (History tour has a live Sync button) → finish stamps `onboarded_at` (write-once, preserves join date)
+
+### `/clock` · `/clock/live` · `/clock/finish`
+- Clock-in: task + optional description + Category OR Goal (mutually exclusive); redesign → `/clock/live?capture=photo`
+- `/clock` extras: clock-only dark/light theme (localStorage); "Add past session" dialog; categories manager (add/rename/recolor/delete, dedupe); this-week card w/ per-weekday bars → tap day for session+event breakdown; event rows → categorize/hide dialog (optimistic hide + undo); Session history link
+- `/clock/live` (full-screen, redirects away if no active session): breathing-glow live timer; notes sheet; add photo (only while running; auto-opens once from `?capture=photo`); Pause/Resume; Stop → finish; edit sheet (task, category/goal, start time, "Still running" off → set end and finish); minimize → Home
+- `/clock/finish`: worked total + attribution + description + photo; private-session toggle; Save → Home
+
+### `/feed` (+ `/session/[id]`)
+- 60s live poll (pauses hidden, refreshes on refocus); "Clocked in now" strip w/ per-row live durations + paused dots
+- Cards: author, "clocked into ⟨marker⟩ X for D", title/description, full-bleed photo, duration pill, kudos heart (optimistic), comment count + preview; "just joined Progra" announcements (with first goal); Find-friends empty state
+- `/session/[id]` (RLS-gated): full photo, emoji reaction bar (optimistic), comment thread (delete own, report others), composer, Report button
+
+### `/goals` · `/habits` · `/categories`
+- Goals: per-goal card (quota, progress bar, this-week sessions w/ relative times), add/edit/archive, privacy eye (optimistic), back-link respects `?from=progress`
+- Habits: today check-list (optimistic, strike-through), add/edit (name/color/privacy)/archive, weekly grid
+- Categories: list w/ color + keyword-rule chips; new/edit dialog (name, palette, keyword rules for auto-filing); delete (sessions → Uncategorized); precedence manual > rule > AI
+
+### `/history` · `/recap` · `/sessions`
+- History: Week/Month/Year switch + prev/next scrubber. Week = shared `WeekSummary` + "Weekly recap →". Month/Year = hero total, expandable per-category items w/ provenance tags (clock/goal/rule/manual/AI/uncat) + delete session / exclude event; by-goal bars; sessions-completed count; period-scoped auto-categorize/review + global Sync button
+- Recap: screenshot-friendly weekly card (range, hero total, category bars, goal quota bars, highlights); prev/next week; "Share this week" (Web Share → clipboard fallback)
+- Sessions: day-grouped list w/ day totals, category filter chips (incl. Uncategorized), session + calendar-event rows, "Load older" pagination
+
+### `/me` · `/friends` · `/profile/[username]` · `/settings` · `/admin`
+- Me: identity card + Settings gear; goal quotas this week; habits grid; own sessions (incl. private, w/ photos)
+- Friends: debounced search; "People on Progra" discovery; contextual Add/Requested/Accept/Friends; incoming (accept/decline + badge) / outgoing (cancel); friends (remove/block); blocked (unblock)
+- Profile: public identity for any signed-in user; relationship actions + Block + Report; goals/habits/sessions visible to self+friends only (RLS filters private)
+- Settings: edit profile dialog (display name, username w/ availability check, bio); timezone picker; Calendar connected indicator; Your-data links; "Replay onboarding"; admin-only report-queue link w/ badge; sign out; hold-to-delete account
+- Admin: report queue (reason/target/reporter/note), target previews (re-signed photo URLs), take down photos / delete comment / mark actioned / dismiss
+
+### `/search` · `/privacy` · `/terms`
+- Search: "coming soon" placeholder. Legal pages: public, logged-out-renderable (OAuth verification content, support@progra.world, 13+)
+
+### Cross-cutting
+- **Bottom nav:** 5 tabs, hidden during onboarding; center FAB idle=Clock icon, tracking=live ticking label (pulsing) → `/clock/live`, paused=grey "Paused"; ticker only mounts while tracking
+- **PWA:** manifest (standalone, icons), Apple meta, theme-color light/dark, add-to-home hints
+- **Calendar+AI:** read-only sync (365d back/90d fwd) into mirror table; keyword rules → AI (Anthropic) on titles → review dialog (inline re-assign or hide w/ undo); event dialog (set category / revert-to-auto / hide); exclusion = hidden from totals, stays on Google
+- **Photos:** one per session, captured while running only (camera capture, client downscale 1600px, server sharp re-encode strips EXIF/GPS); private bucket + 1h signed URLs; private session hides photo
+- **Avatars:** optional profile photo (Settings edit-profile dialog + onboarding welcome step) with a pan/zoom crop step at upload (`react-easy-crop`, lazy chunk; crop baked in — re-crop = re-upload); PUBLIC `avatars` bucket, immutable per-upload URLs, sharp 512px square re-encode (EXIF-stripped); shown at every avatar site via `AvatarInitials`'s `avatarUrl` prop (initials fallback); purged on account deletion
+- **Privacy flags:** `is_private` on sessions/goals/habits, RLS-enforced; own surfaces show Lock icons
+- **Timezone:** per-profile, drives all day/week boundaries; auto-syncs when device tz differs; locale labels formatted client-side
+- **Moderation:** report stories/comments/profiles (reason + note, admin-only visibility)
+- **Optimistic everywhere it's a toggle**; undo toasts on event hide; share-as-text on week + recap
+
+---
+
 ## 5. Data model & Supabase objects
 
 > Schema is **NOT in the repo** — reconstructed from queries. Confirm against Supabase for DDL.
@@ -198,10 +260,11 @@ filter and let friend-read RLS decide. **Every FK to `auth.users` is `ON DELETE 
 
 - **Never query Supabase from a client component.** Client → actions (writes) only; reads →
   server `page.tsx` via `lib/db/*`.
-- **No service-role key in user-facing paths** — with exactly ONE documented exception:
-  `uploadSessionPhoto` writes Storage via `lib/supabase/admin.ts` (Storage rejects user-JWT
-  uploads as anon; ownership verified in-action first). Do not add a second exception.
-  Privileged power = `is_admin()`-gated `SECURITY DEFINER` RPCs, never a god-key.
+- **No service-role key in user-facing paths** — with ONE documented pattern-exception:
+  **Storage WRITES** go through `lib/supabase/admin.ts` after explicit in-action ownership/
+  identity verification (Storage rejects ALL user-JWT uploads as anon). Current call sites:
+  `uploadSessionPhoto` and `uploadAvatar`/`removeAvatar`. Everything else is anon-key + RLS;
+  privileged power = `is_admin()`-gated `SECURITY DEFINER` RPCs, never a god-key.
 - **Reads only in `lib/db/*` (`server-only`); writes only in `app/actions/*` (`"use server"`).** Never mix.
 - **`"use server"` files export only async functions** — constants/types go to `lib/*` (build breaks otherwise).
 - **Every mutation calls its `revalidate*Surfaces()` helper (`lib/revalidate.ts`)** — never
@@ -218,7 +281,8 @@ filter and let friend-read RLS decide. **Every FK to `auth.users` is `ON DELETE 
   are `Promise<{…}>` and must be awaited; etc.). `AGENTS.md` mandates this.
 - **Never bypass RLS.** The app relies 100% on `auth.uid()` scoping; social reads must be provably
   DB-gated. Prove RLS/security changes with the adversarial JWT test before prod.
-- **No new dependencies without asking.**
+- **No new dependencies without asking.** (Approved so far: `react-easy-crop`
+  2026-07-23 — the avatar crop dialog, lazy-loaded only.)
 - **Reskin = recolor only** (warm palette + Newsreader/Hanken). Never change layout/spacing/widget sizes.
 - **Don't start a social phase unprompted** — the user green-lights each phase individually.
 - **Sentinel-enforced:** no tool-writes to `.claude/settings*.json` or `.sentinel.yaml`; no reads of `.env*`/credentials.

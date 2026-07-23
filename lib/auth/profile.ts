@@ -11,6 +11,9 @@ export type Profile = {
   google_provider_token: string | null;
   google_provider_refresh_token: string | null;
   google_token_expires_at: string | null;
+  // The scope string Google granted at the opt-in calendar connect
+  // (/auth/google-calendar). Null = never connected (or disconnected).
+  google_scopes: string | null;
   // Null until the first-run onboarding flow is completed (or after a
   // "Replay onboarding" reset). Home redirects to /onboarding while null.
   onboarded_at: string | null;
@@ -19,6 +22,8 @@ export type Profile = {
   username: string | null;
   display_name: string | null;
   bio: string | null;
+  // Blob path in the public `avatars` bucket (avatarPublicUrl derives the URL).
+  avatar_path: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -38,3 +43,18 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
 
   return data;
 });
+
+export const CALENDAR_SCOPE =
+  "https://www.googleapis.com/auth/calendar.events.readonly";
+
+// "Calendar connected" is a data predicate, never a stored boolean: a refresh
+// token exists AND the granted scope string covers calendar events. Legacy
+// grants (pre connect-flow) get google_scopes backfilled by SQL, so a null
+// scope with a token means deliberately disconnected mid-migration — treat as
+// not connected.
+export function isCalendarConnected(profile: Profile | null): boolean {
+  return (
+    profile?.google_provider_refresh_token != null &&
+    (profile.google_scopes ?? "").includes(CALENDAR_SCOPE)
+  );
+}

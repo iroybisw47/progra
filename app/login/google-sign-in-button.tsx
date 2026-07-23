@@ -21,21 +21,15 @@ export function GoogleSignInButton({
     const redirectTo = new URL("/auth/callback", window.location.origin);
     if (next) redirectTo.searchParams.set("next", next);
 
+    // Basic sign-in only (openid/email/profile — Supabase's defaults). The
+    // Calendar scope is NOT requested here: calendar access is a separate
+    // opt-in connect flow (/auth/google-calendar), so new users never hit the
+    // unverified-app screen or count against Google's unverified-user cap
+    // just to sign in.
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: redirectTo.toString(),
-        // Narrowest Calendar read scope: events only — Progra never touches
-        // calendar settings, sharing, or ACLs.
-        scopes:
-          "openid email profile https://www.googleapis.com/auth/calendar.events.readonly",
-        queryParams: {
-          // Required to receive a refresh token on first consent.
-          access_type: "offline",
-          // Force the consent screen so Google re-issues the refresh token
-          // even for users who've already granted access.
-          prompt: "consent",
-        },
       },
     });
 

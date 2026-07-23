@@ -93,6 +93,13 @@ export function revalidateEventSurfaces() {
   revalidatePath("/onboarding");
 }
 
+// Calendar connect/disconnect: every event surface plus Settings (the
+// Connected row) and onboarding (step 5 state).
+export function revalidateCalendarSurfaces() {
+  revalidateEventSurfaces();
+  revalidatePath("/settings");
+}
+
 // Comments + reactions (feed cards, session detail, legacy home feed).
 export function revalidateSocialSurfaces() {
   revalidatePath("/");

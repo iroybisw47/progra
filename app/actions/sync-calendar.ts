@@ -3,6 +3,7 @@
 import { listPrimaryCalendarEvents } from "@/lib/google/calendar";
 import { revalidateEventSurfaces } from "@/lib/revalidate";
 import { GoogleAuthError, getValidGoogleAccessToken } from "@/lib/google/oauth";
+import { getProfile, isCalendarConnected } from "@/lib/auth/profile";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -19,6 +20,15 @@ export async function syncCalendar(): Promise<SyncResult> {
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+
+  // Calendar is an opt-in connection now — a friendly nudge beats a
+  // GoogleAuthError when the user simply never connected.
+  const profile = await getProfile();
+  if (!isCalendarConnected(profile)) {
+    return {
+      error: "Google Calendar isn't connected — you can connect it in Settings.",
+    };
+  }
 
   let accessToken: string;
   try {

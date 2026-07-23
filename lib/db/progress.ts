@@ -94,20 +94,37 @@ export async function loadProgressData(): Promise<ProgressData> {
   );
 
   const catById = new Map(categories.map((c) => [c.id, c] as const));
-  const sessionsToday: SessionToday[] = daySessions
-    .map((s) => {
-      const cat = s.categoryId ? catById.get(s.categoryId) : null;
-      return {
-        id: s.id,
-        label: s.taskName.trim() || "Untitled session",
-        catName: cat?.name ?? null,
-        catColor: cat?.color ?? null,
-        isGoal: s.goalId !== null,
-        startedAt: s.startedAt,
-        workedMs: sessionWorkedMs(s, dayNow),
-        active: s.endedAt === null,
-      };
-    })
+  const sessionRows: SessionToday[] = daySessions.map((s) => {
+    const cat = s.categoryId ? catById.get(s.categoryId) : null;
+    return {
+      kind: "session" as const,
+      id: s.id,
+      label: s.taskName.trim() || "Untitled session",
+      catName: cat?.name ?? null,
+      catColor: cat?.color ?? null,
+      isGoal: s.goalId !== null,
+      startedAt: s.startedAt,
+      endedAt: s.endedAt,
+      workedMs: sessionWorkedMs(s, dayNow),
+      active: s.endedAt === null,
+    };
+  });
+  // Imported calendar events appear as rows alongside sessions — same shape,
+  // with a start–end range instead of a live clock. Already fetched above for
+  // the totals; exclusions filtered and categories resolved by categorizeEvents.
+  const eventRows: SessionToday[] = dayEvents.map((e) => ({
+    kind: "event" as const,
+    id: e.id,
+    label: e.title?.trim() || "(no title)",
+    catName: e.category?.name ?? "Uncategorized",
+    catColor: e.category?.color ?? null,
+    isGoal: false,
+    startedAt: e.startMs,
+    endedAt: e.endMs,
+    workedMs: e.endMs - e.startMs,
+    active: false,
+  }));
+  const sessionsToday: SessionToday[] = [...sessionRows, ...eventRows]
     .filter((s) => s.workedMs > 0)
     .sort((a, b) => b.startedAt - a.startedAt);
 

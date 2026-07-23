@@ -6,6 +6,89 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-23
 
+### · Onboarding welcome: Name field
+The welcome step now collects a display Name (optional, 50 chars, "Shown to
+friends alongside your handle") above the username claim; saved via the
+existing setProfileIdentity after setUsername (same ordering as the Settings
+identity save). Replay seeds the current name; the avatar preview uses the
+live name for initials. Header copy: "First, tell us who you are."
+
+### · Fix: /friends crashed on handle-less profiles
+A signed-in-but-never-onboarded account (no username yet — now reachable via
+the calendar connect flow stamping onboarded_at) crashed the Friends page:
+`listSuggestedUsers` didn't exclude null usernames and `initialsOf` called
+`.slice` on null. Fixed at both layers: suggestions and `hydrateUsers` now
+skip handle-less profiles (they can't be linked to anyway — matches
+`search_users`' DB-side filter), and the initials helper falls back to "?"
+instead of crashing if one ever slips through.
+
+### · Avatar crop: choose what shows
+Picking a profile photo now opens a pan/zoom crop dialog (round viewport —
+"the circle is what everyone sees") before upload, via the newly approved
+`react-easy-crop` dependency (lazy-loaded chunk, stays out of critical
+bundles). Flow: pick → `downscaleImage(1600)` normalizes EXIF orientation
+(react-easy-crop assumes upright pixels) → drag/pinch/slider framing → new
+`cropToSquareJpeg` (`lib/images/crop.ts`) bakes the chosen frame to a 512px
+square client-side → existing `uploadAvatar`. Server pipeline unchanged
+(sharp still validates/re-encodes as the security boundary; its cover-crop is
+now a no-op). Crop is baked in at upload — re-crop = re-upload (no originals
+kept, deliberate). Both picker surfaces (Settings, onboarding) get it free.
+
+### · Profile pictures
+Users can upload a profile photo, shown at every avatar site (feed cards +
+joins, clocked-in strip, comments, session detail, friends rows, search
+results, profile page, /me, Settings). Storage: PUBLIC `avatars` bucket —
+stable immutable URLs (fresh `avatar-<uuid>.jpg` per upload = cache-busting;
+old blob removed best-effort), sharp square-crop 512px re-encode strips
+EXIF/GPS (same boundary as session photos). Upload/remove via new
+`app/actions/avatar.ts` (admin-client storage write after session-derived
+path — the service-role storage-write pattern now covers session photos AND
+avatars); picker (`components/avatar-picker.tsx`) lives in the Settings
+edit-profile dialog and the onboarding welcome step (optional). Data:
+`profiles.avatar_path` + recreated `public_profiles` view + extended
+`search_users` RPC (SQL run by hand); `PublicUser.avatarUrl` plumbed through
+`hydrateUsers`/suggested/profile/search; `AvatarInitials` renders the photo
+when present, initials otherwise. Account deletion purges the avatar blob
+(owner-delete storage policy).
+
+### · Incremental Google Calendar auth + onboarding step 5
+Calendar scope is now decoupled from sign-in — new users sign in with basic
+Google scopes only (no unverified-app screen, no verified-user-cap impact) and
+calendar access is an opt-in connect flow. Phases:
+**(1) Sign-in stripped** — `signInWithOAuth` requests default scopes only;
+the sign-in callback no longer captures provider tokens (it used to overwrite
+the stored calendar tokens with a calendar-useless one + fresh expiry on every
+re-login — token writes are now exclusively the connect flow's).
+**(2) Connectedness is a data predicate** — `isCalendarConnected(profile)`
+(refresh token + `google_scopes` contains the calendar scope) in
+`lib/auth/profile.ts`; `syncCalendar` returns a friendly connect nudge when
+false; token refresh self-heals on `invalid_grant` (clears token columns so
+surfaces fall back to "not connected" instead of erroring forever).
+**(3) Hand-rolled connect flow** — `GET /auth/google-calendar` (stamps
+`onboarded_at` first so bailing at Google still leaves you onboarded; nonce
+cookie; consent URL with only `calendar.events.readonly` +
+offline/consent/include_granted_scopes) and its callback (session-bound
+identity, state validated before exchange, scope-echo + refresh-token checks,
+standard RLS client writes, `revalidateCalendarSurfaces()`), plus a
+best-effort-revoke `disconnectGoogleCalendar` action.
+**(4) UI** — onboarding v2 gains a 5th "See your whole week" step
+(connect / skip-for-now / connected states, deep-linked back from Google via
+`?step=calendar&status=`); Settings' calendar row gains Connect/Disconnect;
+both show a `NEXT_PUBLIC_SHOW_UNVERIFIED_WARNING`-gated walkthrough of
+Google's "Advanced → Go to progra.world (unsafe)" screen until verification
+clears. Requires (user actions): `google_scopes` column + legacy backfill SQL,
+redirect URIs in Cloud Console, consent screen In production, warning env var.
+
+### · Progress Today: calendar events appear in "Sessions today"
+Imported Google Calendar events now show as rows in the Today widget alongside
+clocked sessions, in the identical row layout: title bold, category (colored)
+underneath with the event's start–end time range, overall duration on the
+right, plus a small calendar glyph for provenance (same marker as the clock
+day view). Newest-first merge; no new queries — the day's events were already
+fetched for the hero total ("N tracked · M imported", which now matches the
+visible rows). `SessionToday` rows gained `kind` + `endedAt`; session rows
+render exactly as before.
+
 ### · History: browse past weeks (in the This-week format)
 `/history` gains a **Week** segment next to Month/Year (`?view=week&w=YYYY-MM-DD`,
 Monday-anchored in the user's timezone — same anchoring as /recap, same

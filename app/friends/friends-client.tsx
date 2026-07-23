@@ -363,6 +363,7 @@ function UserRow({
         <AvatarInitials
           name={user.displayName}
           username={user.username}
+          avatarUrl={user.avatarUrl}
           className="size-9 text-xs"
         />
         <span className="flex min-w-0 flex-col">

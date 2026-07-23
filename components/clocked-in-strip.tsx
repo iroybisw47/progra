@@ -45,6 +45,7 @@ export function ClockedInStrip({
                 <AvatarInitials
                   name={item.author.displayName}
                   username={item.author.username}
+                  avatarUrl={item.author.avatarUrl}
                   className="size-9 text-xs"
                 />
               </Link>

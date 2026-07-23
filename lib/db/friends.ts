@@ -3,15 +3,18 @@ import "server-only";
 import { cache } from "react";
 
 import { getCurrentUser } from "@/lib/auth/require-user";
+import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { createClient } from "@/lib/supabase/server";
 
-// The only shape of another user we ever expose to the client: the three public
-// identity columns, read through the public_profiles view (never token columns).
+// The only shape of another user we ever expose to the client: the public
+// identity columns, read through the public_profiles view (never token
+// columns). avatarUrl is the public-bucket URL derived from avatar_path.
 export type PublicUser = {
   userId: string;
   username: string;
   displayName: string | null;
   bio: string | null;
+  avatarUrl: string | null;
 };
 
 export type FriendEntry = { friendshipId: string; user: PublicUser };
@@ -23,6 +26,7 @@ type PublicProfileRow = {
   username: string;
   display_name: string | null;
   bio: string | null;
+  avatar_path: string | null;
 };
 
 type FriendshipRow = {
@@ -45,16 +49,20 @@ export async function hydrateUsers(
   const supabase = await createClient();
   const { data } = await supabase
     .from("public_profiles")
-    .select("id, username, display_name, bio")
+    .select("id, username, display_name, bio, avatar_path")
     .in("id", ids);
   if (!data) return map;
 
   for (const row of data as PublicProfileRow[]) {
+    // Skip handle-less profiles (never-onboarded accounts) — callers flatMap
+    // over this map, so missing entries drop cleanly.
+    if (!row.username) continue;
     map.set(row.id, {
       userId: row.id,
       username: row.username,
       displayName: row.display_name,
       bio: row.bio,
+      avatarUrl: avatarPublicUrl(row.avatar_path),
     });
   }
   return map;
@@ -111,8 +119,12 @@ export async function listSuggestedUsers(limit = 100): Promise<PublicUser[]> {
 
   const { data } = await supabase
     .from("public_profiles")
-    .select("id, username, display_name, bio")
+    .select("id, username, display_name, bio, avatar_path")
     .neq("id", me.id)
+    // Signed-in-but-never-onboarded accounts have no handle yet — they can't
+    // be linked to (/profile/[username]) so they must not be suggested.
+    // (search_users applies the same `username is not null` filter DB-side.)
+    .not("username", "is", null)
     .order("username", { ascending: true })
     .limit(limit);
   if (!data) return [];
@@ -124,6 +136,7 @@ export async function listSuggestedUsers(limit = 100): Promise<PublicUser[]> {
       username: r.username,
       displayName: r.display_name,
       bio: r.bio,
+      avatarUrl: avatarPublicUrl(r.avatar_path),
     }));
 }
 

@@ -31,6 +31,19 @@ export async function deleteAccount(): Promise<Result> {
     await supabase.storage.from(BUCKET).remove(paths);
   }
 
+  // Same treatment for the profile picture (public avatars bucket; the
+  // owner-delete storage policy permits this user-scoped remove).
+  const { data: profRow } = await supabase
+    .from("profiles")
+    .select("avatar_path")
+    .eq("id", user.id)
+    .maybeSingle();
+  const avatarPath = (profRow as { avatar_path: string | null } | null)
+    ?.avatar_path;
+  if (avatarPath) {
+    await supabase.storage.from("avatars").remove([avatarPath]);
+  }
+
   const { error } = await supabase.rpc("delete_own_account");
   if (error) return { error: "Couldn't delete your account. Please try again." };
 

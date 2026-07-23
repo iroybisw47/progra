@@ -48,7 +48,7 @@ export async function getValidGoogleAccessToken(userId: string): Promise<string>
 
   if (!profile.google_provider_refresh_token) {
     throw new GoogleAuthError(
-      "No Google refresh token. Sign out and sign back in to reconnect Google Calendar.",
+      "Google Calendar isn't connected. Connect it in Settings.",
       "no_refresh_token"
     );
   }
@@ -68,6 +68,25 @@ export async function getValidGoogleAccessToken(userId: string): Promise<string>
 
   if (!res.ok) {
     const text = await res.text();
+    // A revoked/expired grant can never succeed again — self-heal by clearing
+    // the stored tokens + scope so every surface falls back to the clean
+    // "not connected" state (reconnect from Settings) instead of erroring
+    // forever on each sync attempt.
+    if (res.status === 400 && text.includes("invalid_grant")) {
+      await supabase
+        .from("profiles")
+        .update({
+          google_provider_token: null,
+          google_provider_refresh_token: null,
+          google_token_expires_at: null,
+          google_scopes: null,
+        })
+        .eq("id", userId);
+      throw new GoogleAuthError(
+        "Google Calendar access was revoked. Reconnect it in Settings.",
+        "refresh_failed"
+      );
+    }
     throw new GoogleAuthError(
       `Google token refresh failed (${res.status}): ${text}`,
       "refresh_failed"

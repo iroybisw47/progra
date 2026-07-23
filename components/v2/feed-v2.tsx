@@ -101,6 +101,7 @@ export async function FeedV2() {
                         <AvatarInitials
                           name={entry.author.displayName}
                           username={entry.author.username}
+                          avatarUrl={entry.author.avatarUrl}
                           className="size-10 text-sm"
                         />
                       </Link>
@@ -154,6 +155,7 @@ export async function FeedV2() {
                       <AvatarInitials
                         name={item.author.displayName}
                         username={item.author.username}
+                        avatarUrl={item.author.avatarUrl}
                         className="size-10 text-sm"
                       />
                     </Link>

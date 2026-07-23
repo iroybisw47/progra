@@ -65,6 +65,7 @@ export default async function SessionDetailPage({
             <AvatarInitials
               name={detail.author.displayName}
               username={detail.author.username}
+              avatarUrl={detail.author.avatarUrl}
               className="size-11 text-base"
             />
           </Link>
@@ -140,6 +141,7 @@ export default async function SessionDetailPage({
                   <AvatarInitials
                     name={c.author.displayName}
                     username={c.author.username}
+                    avatarUrl={c.author.avatarUrl}
                     className="size-7 text-[10px]"
                   />
                 </Link>

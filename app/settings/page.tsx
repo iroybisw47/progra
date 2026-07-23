@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { requireUser } from "@/lib/auth/require-user";
-import { getProfile } from "@/lib/auth/profile";
+import { getProfile, isCalendarConnected } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
 import { REDESIGN } from "@/lib/flags";
 
@@ -10,9 +10,14 @@ import { SettingsClient } from "./settings-client";
 // The Settings hub (V2). Consolidates account/identity/timezone/calendar, links
 // to the user's data (goals/categories/habits/past sessions), sharing controls,
 // the moderator queue (admins only), sign out, and account deletion. Flag-gated.
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ calendar?: string }>;
+}) {
   if (!REDESIGN) notFound();
   const user = await requireUser();
+  const params = await searchParams;
   const profile = await getProfile();
 
   const supabase = await createClient();
@@ -30,7 +35,13 @@ export default async function SettingsPage() {
       displayName={profile?.display_name ?? null}
       bio={profile?.bio ?? null}
       timezone={profile?.timezone ?? null}
-      calendarConnected={!!profile?.google_provider_refresh_token}
+      avatarPath={profile?.avatar_path ?? null}
+      calendarConnected={isCalendarConnected(profile)}
+      calendarStatus={
+        params.calendar === "connected" || params.calendar === "error"
+          ? params.calendar
+          : null
+      }
       isAdmin={isAdmin === true}
       openReports={openReports}
     />

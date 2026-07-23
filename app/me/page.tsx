@@ -11,6 +11,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
+import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { createClient } from "@/lib/supabase/server";
 import { REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
 import { listActiveGoalsForUser } from "@/lib/db/goals";
@@ -89,6 +90,7 @@ export default async function MePage() {
             <AvatarInitials
               name={profile?.display_name ?? null}
               username={profile?.username ?? "?"}
+              avatarUrl={avatarPublicUrl(profile?.avatar_path ?? null)}
               className="size-14 text-lg"
             />
             <div className="flex min-w-0 flex-col">

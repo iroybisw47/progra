@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   CalendarIcon,
   CheckSquareIcon,
@@ -15,9 +15,10 @@ import {
 import { toast } from "sonner";
 
 import { AvatarInitials } from "@/components/avatar-initials";
+import { AvatarPicker } from "@/components/avatar-picker";
 import { HoldToDelete } from "@/components/v2/hold-to-delete";
 import { ReplayOnboardingButton } from "@/components/replay-onboarding-button";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -30,11 +31,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  disconnectGoogleCalendar,
   setProfileIdentity,
   setProfileTimezone,
   setUsername,
 } from "@/app/actions/profile";
+import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { cn } from "@/lib/utils";
+
+// Flipped to "0" once Google's app verification clears (build-time inlined).
+const SHOW_UNVERIFIED_WARNING =
+  process.env.NEXT_PUBLIC_SHOW_UNVERIFIED_WARNING === "1";
 
 type Result = { ok: true } | { ok: true; username: string } | { error: string };
 
@@ -71,7 +78,9 @@ export function SettingsClient({
   displayName,
   bio,
   timezone,
+  avatarPath,
   calendarConnected,
+  calendarStatus,
   isAdmin,
   openReports,
 }: {
@@ -80,11 +89,26 @@ export function SettingsClient({
   displayName: string | null;
   bio: string | null;
   timezone: string | null;
+  avatarPath: string | null;
   calendarConnected: boolean;
+  // One-shot return status from the connect flow (?calendar=connected|error).
+  calendarStatus: "connected" | "error" | null;
   isAdmin: boolean;
   openReports: number;
 }) {
   const [pending, startTransition] = useTransition();
+
+  // Toast-only effect (no state) — doesn't add to the set-state-in-effect debt.
+  const calendarToastFired = useRef(false);
+  useEffect(() => {
+    if (calendarToastFired.current || !calendarStatus) return;
+    calendarToastFired.current = true;
+    if (calendarStatus === "error") {
+      toast.error("Couldn't connect Google Calendar — you can try again.");
+    } else {
+      toast.success("Google Calendar connected");
+    }
+  }, [calendarStatus]);
 
   const [editing, setEditing] = useState(false);
   const [dnDraft, setDnDraft] = useState(displayName ?? "");
@@ -140,6 +164,7 @@ export function SettingsClient({
                 <AvatarInitials
                   name={displayName}
                   username={username ?? "?"}
+                  avatarUrl={avatarPublicUrl(avatarPath)}
                   className="size-12 text-base"
                 />
                 <div className="flex min-w-0 flex-col">
@@ -179,6 +204,47 @@ export function SettingsClient({
                 label="Google Calendar"
                 value={calendarConnected ? "Connected" : "Not connected"}
               />
+              {calendarConnected ? (
+                <div className="flex items-center justify-between gap-3 pl-[26px]">
+                  <span className="text-caption text-xs">
+                    Synced events count toward your time.
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pending}
+                    onClick={() =>
+                      run(() => disconnectGoogleCalendar(), {
+                        okMsg: "Google Calendar disconnected",
+                      })
+                    }
+                  >
+                    Disconnect
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 pl-[26px]">
+                  {SHOW_UNVERIFIED_WARNING && (
+                    <p className="text-caption text-xs leading-relaxed text-pretty">
+                      Google&rsquo;s verification of Progra is still in review —
+                      you&rsquo;ll see a &ldquo;Google hasn&rsquo;t verified this
+                      app&rdquo; screen. Tap <strong>Advanced</strong>, then{" "}
+                      <strong>Go to progra.world (unsafe)</strong> to continue.
+                      Access is read-only.
+                    </p>
+                  )}
+                  <a
+                    href="/auth/google-calendar?from=settings"
+                    className={buttonVariants({
+                      variant: "outline",
+                      size: "sm",
+                      className: "self-start",
+                    })}
+                  >
+                    Connect
+                  </a>
+                </div>
+              )}
             </CardContent>
           </Card>
         </section>
@@ -246,6 +312,13 @@ export function SettingsClient({
             <DialogTitle>Edit profile</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4">
+            {/* Uploads apply immediately, independent of the dialog's Save. */}
+            <AvatarPicker
+              name={displayName}
+              username={username ?? "?"}
+              avatarUrl={avatarPublicUrl(avatarPath)}
+              sizeClassName="size-16 text-lg"
+            />
             <Field label="Display name">
               <Input
                 className="h-10"

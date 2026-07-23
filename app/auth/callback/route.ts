@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
     return NextResponse.redirect(
@@ -22,26 +22,12 @@ export async function GET(request: Request) {
     );
   }
 
-  // Capture Google provider tokens — only available on the session right
-  // after the OAuth exchange. Persist to profiles for later API calls.
-  const session = data?.session;
-  const user = data?.user;
-  if (session?.provider_token && user) {
-    const updates: {
-      google_provider_token: string;
-      google_token_expires_at: string;
-      google_provider_refresh_token?: string;
-    } = {
-      google_provider_token: session.provider_token,
-      // Google access tokens last ~1h. Store an explicit expiry so the sync
-      // layer knows when to refresh.
-      google_token_expires_at: new Date(Date.now() + 55 * 60 * 1000).toISOString(),
-    };
-    if (session.provider_refresh_token) {
-      updates.google_provider_refresh_token = session.provider_refresh_token;
-    }
-    await supabase.from("profiles").update(updates).eq("id", user.id);
-  }
+  // NOTE: Google provider tokens are deliberately NOT captured here anymore.
+  // Sign-in requests only basic scopes, so the session's provider_token is
+  // calendar-useless — persisting it would clobber the calendar tokens the
+  // opt-in connect flow (/auth/google-calendar) stores with a fresh expiry,
+  // breaking sync for up to an hour after every re-login. Token writes are
+  // exclusively the connect flow's job.
 
   // When deployed behind a proxy (Vercel), honor x-forwarded-host so the
   // redirect lands on the public origin, not the internal host.
