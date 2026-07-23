@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { CalendarIcon, TimerIcon, UsersIcon } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
 import { AddToHomeHint } from "@/components/add-to-home-hint";
@@ -63,8 +64,7 @@ function SignedOutLanding() {
         <header className="flex flex-col gap-2">
           <h1 className="text-4xl font-semibold tracking-tight">Progra</h1>
           <p className="text-muted-foreground text-sm">
-            Log your study sessions, see your Google Calendar schedule, and
-            track your progress with friends.
+            The first community-based productivity app.
           </p>
         </header>
         <Link
@@ -73,6 +73,26 @@ function SignedOutLanding() {
         >
           Sign in with Google
         </Link>
+
+        {/* Feature blurb — also makes the optional Google Calendar connection
+            visible to signed-out visitors (and OAuth reviewers). */}
+        <ul className="text-muted-foreground flex w-full flex-col gap-3 text-left text-sm">
+          <li className="flex items-start gap-2.5">
+            <TimerIcon className="mt-0.5 size-4 shrink-0" strokeWidth={1.9} />
+            <span>Set goals and clock in to log your study sessions.</span>
+          </li>
+          <li className="flex items-start gap-2.5">
+            <CalendarIcon className="mt-0.5 size-4 shrink-0" strokeWidth={1.9} />
+            <span>
+              Optionally connect Google Calendar (read-only) to log your
+              calendar events alongside your tracked time.
+            </span>
+          </li>
+          <li className="flex items-start gap-2.5">
+            <UsersIcon className="mt-0.5 size-4 shrink-0" strokeWidth={1.9} />
+            <span>Share sessions and track progress with friends.</span>
+          </li>
+        </ul>
 
         <AddToHomeHint />
       </main>

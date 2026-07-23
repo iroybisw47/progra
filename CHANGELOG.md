@@ -6,6 +6,13 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-22
 
+### · Landing: new summary + feature blurb
+Signed-out landing tagline is now "The first community-based productivity
+app." Below the hero, a three-row
+feature blurb (timer/calendar/friends icons) spells out the core features —
+including that connecting Google Calendar is optional and read-only, so the
+calendar integration is visible to signed-out visitors and OAuth reviewers.
+
 ### · Narrower Google OAuth scope: calendar.events.readonly
 Sign-in now requests `calendar.events.readonly` instead of the broader
 `calendar.readonly` (app/login/google-sign-in-button.tsx — the only place the
