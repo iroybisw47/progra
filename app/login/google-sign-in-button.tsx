@@ -6,7 +6,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 
-export function GoogleSignInButton({ next }: { next?: string }) {
+export function GoogleSignInButton({
+  next,
+  label = "Continue with Google",
+}: {
+  next?: string;
+  label?: string;
+}) {
   const [loading, setLoading] = useState(false);
 
   async function handleClick() {
@@ -46,7 +52,7 @@ export function GoogleSignInButton({ next }: { next?: string }) {
       onClick={handleClick}
       disabled={loading}
     >
-      {loading ? "Redirecting…" : "Continue with Google"}
+      {loading ? "Redirecting…" : label}
     </Button>
   );
 }
