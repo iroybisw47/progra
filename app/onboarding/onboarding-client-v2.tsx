@@ -3,12 +3,28 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { AtSignIcon, CalendarIcon, CheckIcon, ClockIcon } from "lucide-react";
+import {
+  AlertCircleIcon,
+  BarChart3Icon,
+  CalendarIcon,
+  CheckIcon,
+  ClockIcon,
+  MinusIcon,
+  PlusIcon,
+  UsersIcon,
+} from "lucide-react";
 
 import { AvatarPicker } from "@/components/avatar-picker";
+import { PrograMark } from "@/components/progra-mark";
+import {
+  Conversation,
+  ControlBlock,
+  type Utterance,
+} from "@/components/onboarding/conversation";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 import { createGoal } from "@/app/actions/goals";
 import {
@@ -18,35 +34,98 @@ import {
 } from "@/app/actions/profile";
 import { checkUsername } from "@/lib/social/username";
 
-type Step = "welcome" | "goal" | "categories" | "habits" | "calendar";
-const SEQUENCE: Step[] = ["welcome", "goal", "categories", "habits", "calendar"];
+// Conversational onboarding: on each step Progra "types", the copy streams in
+// word-by-word (components/onboarding/conversation.tsx), then the controls +
+// CTA fade up. Structure/motion/copy follow the design handoff; all colors are
+// Progra's navy V2 tokens (recolor-only). Six steps; the actions/logic are the
+// same ones the previous static wizard used.
+type Step = "welcome" | "about" | "goal" | "categories" | "habits" | "calendar";
+const SEQUENCE: Step[] = [
+  "welcome",
+  "about",
+  "goal",
+  "categories",
+  "habits",
+  "calendar",
+];
 
-// Flipped to "0" once Google's app verification clears (build-time inlined —
-// changing it requires a redeploy).
+// Per-step conversation copy (title = big, then body lines).
+const SCRIPT: Record<Step, Utterance[]> = {
+  welcome: [
+    { big: true, text: "Welcome to Progra" },
+    {
+      big: false,
+      text: "Track deep work, see where your time goes, and share progress with friends.",
+    },
+    { big: false, text: "First — tell us who you are." },
+  ],
+  about: [
+    { big: true, text: "So, what is Progra?" },
+    {
+      big: false,
+      text: "A shared study room in your pocket. You clock in, put real time on the things that matter, and your friends see you showing up.",
+    },
+    {
+      big: false,
+      text: "Goals, habits and your calendar all land in one simple week view.",
+    },
+  ],
+  goal: [
+    { big: true, text: "Set your first goal" },
+    {
+      big: false,
+      text: "Something you want to put real hours into each week.",
+    },
+    {
+      big: false,
+      text: "Just one to start — you can add more goals any time later.",
+    },
+  ],
+  categories: [
+    { big: true, text: "Goals aren't everything" },
+    {
+      big: false,
+      text: "You can clock into plain categories too — Reading, Class, Gym — with no target attached.",
+    },
+    {
+      big: false,
+      text: "And if you sync your calendar, events file themselves into the right category.",
+    },
+  ],
+  habits: [
+    { big: true, text: "Habits, too" },
+    {
+      big: false,
+      text: "Daily habits live alongside timed goals — check them off to keep your weekly streak alive.",
+    },
+    { big: false, text: "Here's everything you get:" },
+  ],
+  calendar: [
+    { big: true, text: "See your whole week" },
+    {
+      big: false,
+      text: "Connect Google Calendar and your classes and meetings count themselves — no clocking in.",
+    },
+    {
+      big: false,
+      text: "Access is read-only. Progra never creates or edits your events.",
+    },
+  ],
+};
+
+// Flipped to "0" once Google's app verification clears (build-time inlined).
 const SHOW_UNVERIFIED_WARNING =
   process.env.NEXT_PUBLIC_SHOW_UNVERIFIED_WARNING === "1";
 
 type Props = {
   initialUsername: string;
   initialDisplayName: string | null;
-  // Current profile photo URL (null = initials) — the welcome step's optional
-  // picker; revalidation refreshes it after an upload.
   avatarUrl: string | null;
-  // Server-derived (refresh token + calendar scope present) — drives step 5's
-  // connected/disconnected state, incl. replays by already-connected users.
   calendarConnected: boolean;
-  // Deep-link from the connect flow's callback (?step=calendar).
   initialStep?: Step;
   status?: "connected" | "error" | null;
 };
 
-// The redesign onboarding: five compact steps (welcome + handle → first goal →
-// categories explainer → habits intro → optional Google Calendar connect),
-// dropping the pre-redesign spotlight tour. Creating the goal is the only
-// write here (via createGoal) — no practice session; a new member surfaces on
-// friends' feeds as a "just joined" item. The calendar step navigates to
-// /auth/google-calendar (which stamps onboarded_at first, so bailing at
-// Google still leaves the user onboarded).
 export function OnboardingClientV2({
   initialUsername,
   initialDisplayName,
@@ -59,14 +138,23 @@ export function OnboardingClientV2({
   const [pending, startTransition] = useTransition();
   const [step, setStep] = useState<Step>(initialStep ?? "welcome");
 
-  // One-shot toast for the connect flow's return status (toast only — no
-  // state, so this doesn't add to the set-state-in-effect lint debt).
+  // The CTA bar lives outside the message column, so it fades in when the
+  // conversation reports "ready". Derived (which step's text has finished) so
+  // it auto-resets when `step` changes — no effect needed.
+  // Conversation.onReady always fires (end of stream, or immediately under
+  // reduced-motion), so seeding null is safe for every entry incl. deep-links.
+  const [readyStep, setReadyStep] = useState<Step | null>(null);
+  const ready = readyStep === step;
+
+  // One-shot toast for the connect flow's return status.
   const statusToastFired = useRef(false);
   useEffect(() => {
     if (statusToastFired.current || !status) return;
     statusToastFired.current = true;
     if (status === "error") {
-      toast.error("Couldn't connect Google Calendar — you can try again or skip.");
+      toast.error(
+        "Google Calendar wasn't connected — you can try again from Settings."
+      );
     } else {
       toast.success("Google Calendar connected");
     }
@@ -78,10 +166,14 @@ export function OnboardingClientV2({
   const usernameCheck = username.trim() ? checkUsername(username) : null;
   const usernameError =
     usernameCheck && !usernameCheck.ok ? usernameCheck.error : null;
+  const usernameValid = !!usernameCheck?.ok;
 
   // Goal.
   const [goalTitle, setGoalTitle] = useState("");
   const [quota, setQuota] = useState(5);
+
+  const idx = SEQUENCE.indexOf(step);
+  const go = (s: Step) => setStep(s);
 
   function handleClaimUsername() {
     const check = checkUsername(username);
@@ -90,8 +182,6 @@ export function OnboardingClientV2({
       return;
     }
     startTransition(async () => {
-      // Handle first (it has the availability check); then the display name —
-      // same ordering the Settings identity save uses.
       const r = await setUsername(check.username);
       if ("error" in r) {
         toast.error(r.error);
@@ -102,7 +192,7 @@ export function OnboardingClientV2({
         toast.error(identity.error);
         return;
       }
-      setStep("goal");
+      go("about");
     });
   }
 
@@ -115,7 +205,7 @@ export function OnboardingClientV2({
         toast.error(r.error);
         return;
       }
-      setStep("categories");
+      go("categories");
     });
   }
 
@@ -126,13 +216,11 @@ export function OnboardingClientV2({
         toast.error(r.error);
         return;
       }
+      toast.success("You're all set — welcome to Progra.");
       router.push("/");
     });
   }
 
-  // Skip the rest of the wizard once the username step is done. Same completion
-  // path as handleFinish; only reachable past the welcome step, so the handle is
-  // always claimed by the time this can fire.
   function handleSkip() {
     startTransition(async () => {
       const r = await completeOnboarding();
@@ -140,297 +228,194 @@ export function OnboardingClientV2({
         toast.error(r.error);
         return;
       }
-      toast.success("You're all set");
+      toast.success("Onboarding skipped — replay it any time from Settings.");
       router.push("/");
     });
   }
 
+  // The Skip chrome shows on the middle steps only (not welcome or calendar,
+  // which has its own "Skip for now").
+  const showSkip = step !== "welcome" && step !== "calendar";
+
   return (
-    <div key={step} className="flex flex-1 animate-[fade-up_.35s_ease] flex-col">
-      <div className="relative flex h-11 items-center justify-center gap-1.5">
+    <div
+      data-onboarding
+      className="relative flex flex-1 flex-col"
+    >
+      {/* Progress dots + Skip */}
+      <div className="relative flex h-12 items-center justify-center gap-1.5 pt-[max(env(safe-area-inset-top),8px)]">
         {SEQUENCE.map((s, i) => (
           <span
             key={s}
-            className={
-              "h-1 rounded-full transition-all " +
-              (i <= SEQUENCE.indexOf(step)
-                ? "bg-brand w-6"
-                : "bg-track w-3")
-            }
+            className={cn(
+              "h-1.5 rounded-full transition-all duration-[450ms] ease-[cubic-bezier(0.4,0,0.2,1)]",
+              i === idx
+                ? "bg-brand w-[26px]"
+                : i < idx
+                  ? "bg-brand/50 w-4"
+                  : "bg-track w-1.5"
+            )}
           />
         ))}
-        {step !== "welcome" && step !== "calendar" && (
+        {showSkip && (
           <button
             type="button"
             onClick={handleSkip}
             disabled={pending}
-            className="text-caption hover:text-ink absolute right-5 text-[13px] font-medium disabled:opacity-50"
+            className="text-caption hover:text-ink absolute right-5 text-[14px] font-bold transition-opacity active:opacity-55 disabled:opacity-50"
           >
             Skip
           </button>
         )}
       </div>
 
-      <main className="mx-auto flex w-full max-w-[420px] flex-1 flex-col px-5 pb-10">
+      {/* Message + controls column */}
+      <main
+        key={step}
+        className="mx-auto flex w-full max-w-[420px] flex-1 animate-[fade-up_.35s_ease] flex-col px-5 pb-28"
+      >
         <div className="flex flex-1 flex-col justify-center gap-6">
-          {step === "welcome" && (
-            <>
-              <span className="bg-brand flex size-14 items-center justify-center rounded-full">
-                <ClockIcon
-                  className="text-primary-foreground size-6"
-                  strokeWidth={1.9}
-                />
-              </span>
-              <header className="flex flex-col gap-2">
-                <h1 className="text-ink text-4xl leading-[1.12] tracking-[-0.01em]">
-                  Welcome to Progra
-                </h1>
-                <p className="text-body text-base leading-relaxed text-pretty">
-                  Track deep work, see where your time goes, and share progress
-                  with friends. First, tell us who you are.
-                </p>
-              </header>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="ob-name">Name</Label>
-                <Input
-                  id="ob-name"
-                  className="h-12 rounded-xl text-base"
-                  placeholder="Your name"
-                  maxLength={50}
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                />
-                <p className="text-caption text-[13px]">
-                  Shown to friends alongside your handle.
-                </p>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="ob-username">
-                  <AtSignIcon className="text-caption size-3.5" />
-                  Username
-                </Label>
-                <Input
-                  id="ob-username"
-                  className="h-12 rounded-xl text-base"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  placeholder="yourhandle"
-                  value={username}
-                  onChange={(e) => setUsernameInput(e.target.value)}
-                />
-                {usernameError && (
-                  <p className="text-destructive text-[13px]">{usernameError}</p>
-                )}
-                <p className="text-caption text-[13px]">
-                  Lowercase letters, numbers, and underscores. You can change it
-                  later.
-                </p>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>Profile photo (optional)</Label>
-                <AvatarPicker
-                  name={displayName.trim() || initialDisplayName}
-                  username={username.trim() || initialUsername || "?"}
-                  avatarUrl={avatarUrl}
-                  sizeClassName="size-14 text-lg"
-                />
-              </div>
-            </>
+          {/* Step icon (pops in). Welcome/about show the Progra clock mark;
+              calendar shows the calendar glyph in a brand circle. */}
+          {(step === "welcome" || step === "about") && (
+            <PrograMark
+              size={58}
+              className="shadow-[0_10px_26px_rgba(28,58,94,.22)]"
+              style={{
+                animation: "pop-in 0.55s cubic-bezier(.34,1.56,.64,1) both",
+              }}
+            />
           )}
-
-          {step === "goal" && (
-            <>
-              <header className="flex flex-col gap-2">
-                <h1 className="text-ink text-[32px] leading-[1.15]">
-                  Set your first goal
-                </h1>
-                <p className="text-body text-[15px] leading-normal">
-                  Something you want to put real hours into each week.
-                </p>
-              </header>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="ob-goal">Goal</Label>
-                <Input
-                  id="ob-goal"
-                  className="h-12 rounded-xl text-base"
-                  placeholder="e.g. Learn Spanish"
-                  value={goalTitle}
-                  onChange={(e) => setGoalTitle(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>Weekly quota</Label>
-                <div className="border-hairline bg-card flex items-center gap-3 rounded-xl border p-2">
-                  <button
-                    type="button"
-                    aria-label="Decrease quota"
-                    onClick={() => setQuota((q) => Math.max(1, q - 1))}
-                    className="border-hairline bg-track hover:bg-track/70 size-11 rounded-[10px] border text-xl"
-                  >
-                    −
-                  </button>
-                  <div className="flex flex-1 flex-col items-center">
-                    <span className="text-ink text-2xl font-bold tabular-nums">
-                      {quota}h
-                    </span>
-                    <span className="text-caption text-[11px]">per week</span>
-                  </div>
-                  <button
-                    type="button"
-                    aria-label="Increase quota"
-                    onClick={() => setQuota((q) => Math.min(40, q + 1))}
-                    className="border-hairline bg-track hover:bg-track/70 size-11 rounded-[10px] border text-xl"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-
-          {step === "categories" && (
-            <>
-              <header className="flex flex-col gap-2">
-                <h1 className="text-ink text-[32px] leading-[1.15]">
-                  Goals aren&rsquo;t everything
-                </h1>
-                <p className="text-body text-[15px] leading-normal text-pretty">
-                  You can clock in to plain categories too — and merged calendar
-                  events get filed into them automatically, so meetings count
-                  without any clocking.
-                </p>
-              </header>
-              <div className="border-hairline bg-card flex flex-col rounded-[18px] border px-4 py-1.5">
-                <ExampleCategoryRow color="var(--chart-3)" name="Exercise" hours="2.5h" divider />
-                <ExampleCategoryRow color="var(--chart-2)" name="Reading" hours="1.2h" divider />
-                <ExampleCategoryRow color="var(--chart-4)" name="Admin" hours="0.8h" />
-              </div>
-              <p className="text-caption text-[13px]">
-                Manage categories any time from Settings → Categories.
-              </p>
-            </>
-          )}
-
-          {step === "habits" && (
-            <>
-              <header className="flex flex-col gap-2">
-                <h1 className="text-ink text-[32px] leading-[1.15]">
-                  Habits, too
-                </h1>
-                <p className="text-body text-[15px] leading-normal text-pretty">
-                  Track daily habits alongside your timed goals — a compact
-                  weekly grid on your profile shows your streak at a glance.
-                </p>
-              </header>
-              <ul className="flex flex-col gap-3">
-                <ReadyRow title="Progress" body="Today, this week, and your history in one place." />
-                <ReadyRow title="Feed" body="See what friends are working on." />
-                <ReadyRow title="Clock" body="Tap the center button any time to start a session." />
-              </ul>
-            </>
-          )}
-
           {step === "calendar" && (
-            <>
-              <span className="bg-brand flex size-14 items-center justify-center rounded-full">
-                <CalendarIcon
-                  className="text-primary-foreground size-6"
-                  strokeWidth={1.9}
-                />
-              </span>
-              <header className="flex flex-col gap-2">
-                <h1 className="text-ink text-[32px] leading-[1.15]">
-                  See your whole week
-                </h1>
-                <p className="text-body text-[15px] leading-normal text-pretty">
-                  Progra can count your classes and meetings automatically.
-                  Connect Google Calendar to see your whole week in one place.
-                  Access is read-only — Progra never creates or edits events.
-                </p>
-              </header>
-              {calendarConnected ? (
-                <div className="border-hairline bg-card flex items-center gap-3 rounded-[18px] border px-4 py-3.5">
-                  <span className="bg-brand text-primary-foreground flex size-6.5 shrink-0 items-center justify-center rounded-full">
-                    <CheckIcon className="size-3.5" strokeWidth={3} />
-                  </span>
-                  <span className="text-ink text-[15px] font-bold">
-                    Google Calendar connected
-                  </span>
-                </div>
-              ) : (
-                SHOW_UNVERIFIED_WARNING && (
-                  <div className="border-hairline bg-card rounded-[18px] border px-4 py-3.5">
-                    <p className="text-body text-[13px] leading-relaxed text-pretty">
-                      Google&rsquo;s verification of Progra is still in review,
-                      so you&rsquo;ll see a &ldquo;Google hasn&rsquo;t verified
-                      this app&rdquo; screen. To continue, tap{" "}
-                      <strong>Advanced</strong>, then{" "}
-                      <strong>Go to progra.world (unsafe)</strong>. Your
-                      calendar access is read-only.
-                    </p>
-                  </div>
-                )
-              )}
-            </>
+            <span
+              className="bg-brand flex size-[58px] items-center justify-center rounded-full shadow-[0_10px_26px_rgba(28,58,94,.22)]"
+              style={{ animation: "pop-in 0.55s cubic-bezier(.34,1.56,.64,1) both" }}
+            >
+              <CalendarIcon
+                className="text-primary-foreground size-6"
+                strokeWidth={1.9}
+              />
+            </span>
           )}
-        </div>
 
-        {step === "welcome" && (
-          <WizardCta
-            onClick={handleClaimUsername}
-            disabled={!usernameCheck?.ok || pending}
+          <Conversation
+            utterances={SCRIPT[step]}
+            stepKey={step}
+            onReady={() => setReadyStep(step)}
           >
-            Get started
-          </WizardCta>
-        )}
-        {step === "goal" && (
-          <WizardCta
-            onClick={handleCreateGoal}
-            disabled={!goalTitle.trim() || pending}
-          >
-            Create goal
-          </WizardCta>
-        )}
-        {step === "categories" && (
-          <WizardCta onClick={() => setStep("habits")}>Next</WizardCta>
-        )}
-        {step === "habits" && (
-          <WizardCta onClick={() => setStep("calendar")}>Next</WizardCta>
-        )}
-        {step === "calendar" &&
-          (calendarConnected ? (
-            <WizardCta onClick={handleFinish} disabled={pending}>
-              Finish
-            </WizardCta>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {/* Plain navigation, not an action — the route handler stamps
-                  onboarded_at before redirecting to Google. */}
-              <a
-                href="/auth/google-calendar?from=onboarding"
-                className={buttonVariants({
-                  className: "h-12 w-full rounded-xl text-base font-bold",
-                })}
-              >
-                Connect Google Calendar
-              </a>
-              <Button
-                variant="ghost"
-                onClick={handleFinish}
-                disabled={pending}
-                className="h-12 w-full rounded-xl text-base"
-              >
-                Skip for now
-              </Button>
-            </div>
-          ))}
+            {step === "welcome" && (
+              <WelcomeControls
+                displayName={displayName}
+                setDisplayName={setDisplayName}
+                username={username}
+                setUsername={setUsernameInput}
+                usernameError={usernameError}
+                usernameValid={usernameValid}
+                avatarUrl={avatarUrl}
+                initialDisplayName={initialDisplayName}
+                initialUsername={initialUsername}
+                onEnter={() => usernameValid && !pending && handleClaimUsername()}
+              />
+            )}
+            {step === "goal" && (
+              <GoalControls
+                goalTitle={goalTitle}
+                setGoalTitle={setGoalTitle}
+                quota={quota}
+                setQuota={setQuota}
+                onEnter={() =>
+                  goalTitle.trim() && !pending && handleCreateGoal()
+                }
+              />
+            )}
+            {step === "categories" && (
+              <ControlBlock>
+                <CategoriesExample />
+              </ControlBlock>
+            )}
+            {step === "habits" && (
+              <ControlBlock>
+                <HabitsExample />
+              </ControlBlock>
+            )}
+            {step === "calendar" && (
+              <ControlBlock>
+                <CalendarBody
+                  connected={calendarConnected}
+                  showWarning={SHOW_UNVERIFIED_WARNING}
+                />
+              </ControlBlock>
+            )}
+          </Conversation>
+        </div>
       </main>
+
+      {/* Pinned CTA bar — fades in once the text is done. */}
+      {ready && (
+        <div
+          className="pointer-events-none fixed inset-x-0 bottom-0 z-10 bg-gradient-to-t from-[var(--screen)] via-[var(--screen)] to-transparent px-5 pb-[max(env(safe-area-inset-bottom),20px)] pt-6"
+          style={{ animation: "fade-up 0.5s 0.1s ease both" }}
+        >
+          <div className="pointer-events-auto mx-auto w-full max-w-[420px]">
+            {step === "welcome" && (
+              <Cta
+                onClick={handleClaimUsername}
+                disabled={!usernameValid || pending}
+              >
+                Get started
+              </Cta>
+            )}
+            {step === "about" && <Cta onClick={() => go("goal")}>Next</Cta>}
+            {step === "goal" && (
+              <Cta
+                onClick={handleCreateGoal}
+                disabled={!goalTitle.trim() || pending}
+              >
+                Create goal
+              </Cta>
+            )}
+            {step === "categories" && (
+              <Cta onClick={() => go("habits")}>Next</Cta>
+            )}
+            {step === "habits" && (
+              <Cta onClick={() => go("calendar")}>Next</Cta>
+            )}
+            {step === "calendar" &&
+              (calendarConnected ? (
+                <Cta onClick={handleFinish} disabled={pending}>
+                  Finish
+                </Cta>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {/* Plain navigation — the route handler stamps onboarded_at
+                      before redirecting to Google. */}
+                  <a
+                    href="/auth/google-calendar?from=onboarding"
+                    className={buttonVariants({
+                      className:
+                        "h-12 w-full rounded-xl text-base font-bold active:scale-[.97]",
+                    })}
+                  >
+                    Connect Google Calendar
+                  </a>
+                  <Button
+                    variant="ghost"
+                    onClick={handleFinish}
+                    disabled={pending}
+                    className="text-caption h-11 w-full rounded-xl text-sm font-bold"
+                  >
+                    Skip for now
+                  </Button>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function WizardCta({
+function Cta({
   onClick,
   disabled,
   children,
@@ -443,49 +428,378 @@ function WizardCta({
     <Button
       onClick={onClick}
       disabled={disabled}
-      className="h-12 w-full rounded-xl text-base font-bold"
+      className="h-12 w-full rounded-xl text-base font-bold active:scale-[.97]"
     >
       {children}
     </Button>
   );
 }
 
-function ExampleCategoryRow({
-  color,
-  name,
-  hours,
-  divider,
+// ── Step controls ──────────────────────────────────────────────────────────
+
+function WelcomeControls({
+  displayName,
+  setDisplayName,
+  username,
+  setUsername,
+  usernameError,
+  usernameValid,
+  avatarUrl,
+  initialDisplayName,
+  initialUsername,
+  onEnter,
 }: {
-  color: string;
-  name: string;
-  hours: string;
-  divider?: boolean;
+  displayName: string;
+  setDisplayName: (v: string) => void;
+  username: string;
+  setUsername: (v: string) => void;
+  usernameError: string | null;
+  usernameValid: boolean;
+  avatarUrl: string | null;
+  initialDisplayName: string | null;
+  initialUsername: string;
+  onEnter: () => void;
 }) {
   return (
-    <div
-      className={`flex items-center gap-2.5 py-3 ${divider ? "border-divider border-b" : ""}`}
+    <>
+      <ControlBlock index={0}>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between">
+            <Label htmlFor="ob-name">Name</Label>
+            <span className="text-faint text-xs">Optional</span>
+          </div>
+          <Input
+            id="ob-name"
+            className="h-12 rounded-xl text-base"
+            placeholder="Your name"
+            maxLength={50}
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
+          <p className="text-faint text-[12.5px]">
+            Shown to friends alongside your handle.
+          </p>
+        </div>
+      </ControlBlock>
+
+      <ControlBlock index={1}>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="ob-username">Username</Label>
+          <div className="relative">
+            <span className="text-caption pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base">
+              @
+            </span>
+            <Input
+              id="ob-username"
+              className="h-12 rounded-xl pl-[35px] pr-10 text-base"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="yourhandle"
+              value={username}
+              onChange={(e) => setUsername(e.target.value.replace(/\s/g, ""))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  onEnter();
+                }
+              }}
+            />
+            {usernameValid && (
+              <span
+                className="text-brand absolute right-3 top-1/2 -translate-y-1/2"
+                style={{ animation: "pop-in 0.35s ease both" }}
+              >
+                <CheckIcon className="size-5" strokeWidth={2.2} />
+              </span>
+            )}
+          </div>
+          <p
+            className={cn(
+              "text-[12.5px]",
+              usernameError ? "text-destructive" : "text-faint"
+            )}
+          >
+            {usernameError ?? "Lowercase letters, numbers and underscores."}
+          </p>
+        </div>
+      </ControlBlock>
+
+      <ControlBlock index={2}>
+        <div className="flex flex-col gap-2">
+          <Label>Profile photo</Label>
+          <AvatarPicker
+            name={displayName.trim() || initialDisplayName}
+            username={username.trim() || initialUsername || "?"}
+            avatarUrl={avatarUrl}
+            sizeClassName="size-14 text-lg"
+          />
+        </div>
+      </ControlBlock>
+    </>
+  );
+}
+
+function GoalControls({
+  goalTitle,
+  setGoalTitle,
+  quota,
+  setQuota,
+  onEnter,
+}: {
+  goalTitle: string;
+  setGoalTitle: (v: string) => void;
+  quota: number;
+  setQuota: (fn: (q: number) => number) => void;
+  onEnter: () => void;
+}) {
+  return (
+    <>
+      <ControlBlock index={0}>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="ob-goal">Goal title</Label>
+          <Input
+            id="ob-goal"
+            className="h-12 rounded-xl text-base"
+            placeholder="Thesis writing"
+            maxLength={120}
+            value={goalTitle}
+            onChange={(e) => setGoalTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                onEnter();
+              }
+            }}
+          />
+        </div>
+      </ControlBlock>
+
+      <ControlBlock index={1}>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between">
+            <Label>Weekly target</Label>
+            <span className="text-faint text-xs">1–40h</span>
+          </div>
+          <div className="border-hairline bg-card flex items-center gap-3 rounded-[18px] border p-[18px]">
+            <StepperButton
+              label="Decrease target"
+              disabled={quota <= 1}
+              onClick={() => setQuota((q) => Math.max(1, q - 1))}
+            >
+              <MinusIcon className="size-5" />
+            </StepperButton>
+            <div className="flex flex-1 flex-col items-center">
+              <span className="text-ink font-mono text-4xl font-bold tabular-nums">
+                {quota}h
+              </span>
+              <span className="text-faint text-[12.5px]">per week</span>
+            </div>
+            <StepperButton
+              label="Increase target"
+              disabled={quota >= 40}
+              onClick={() => setQuota((q) => Math.min(40, q + 1))}
+            >
+              <PlusIcon className="size-5" />
+            </StepperButton>
+          </div>
+        </div>
+      </ControlBlock>
+    </>
+  );
+}
+
+function StepperButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="border-hairline bg-card text-ink flex size-[46px] items-center justify-center rounded-full border transition-transform active:scale-90 disabled:opacity-35"
     >
-      <span
-        aria-hidden
-        className="size-2.5 rounded-full"
-        style={{ backgroundColor: color }}
-      />
-      <span className="text-ink flex-1 text-[15px]">{name}</span>
-      <span className="text-caption text-[13px] tabular-nums">
-        {hours} this week
-      </span>
+      {children}
+    </button>
+  );
+}
+
+function CategoriesExample() {
+  const rows = [
+    { color: "var(--chart-1)", name: "Classes", hours: "6.5h" },
+    { color: "var(--chart-2)", name: "Reading", hours: "2.5h" },
+    { color: "var(--chart-3)", name: "Gym", hours: "1.5h" },
+  ];
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="border-hairline bg-card flex flex-col rounded-[18px] border px-[18px]">
+        {rows.map((r, i) => (
+          <div
+            key={r.name}
+            className={cn(
+              "flex items-center gap-2.5 py-[15px]",
+              i > 0 && "border-divider border-t"
+            )}
+          >
+            <span
+              aria-hidden
+              className="size-2.5 rounded-full"
+              style={{ backgroundColor: r.color }}
+            />
+            <span className="text-ink flex-1 text-[15px] font-bold">
+              {r.name}
+            </span>
+            <span className="text-ink font-mono text-[15px] tabular-nums">
+              {r.hours}
+            </span>
+            <span className="text-faint text-xs">this week</span>
+          </div>
+        ))}
+      </div>
+      <p className="text-caption text-[12.5px]">
+        Manage categories any time from Settings → Categories.
+      </p>
     </div>
   );
 }
 
-function ReadyRow({ title, body }: { title: string; body: string }) {
+function HabitsExample() {
+  // Mon–Thu done, Fri = today, Sat/Sun upcoming.
+  const days = ["M", "T", "W", "T", "F", "S", "S"];
+  const state = ["done", "done", "done", "done", "today", "future", "future"];
+  const overview = [
+    {
+      icon: BarChart3Icon,
+      name: "Progress",
+      body: "Your goals, habits and totals, at a glance.",
+    },
+    {
+      icon: UsersIcon,
+      name: "Feed",
+      body: "See friends' sessions and cheer them on.",
+    },
+    {
+      icon: ClockIcon,
+      name: "Clock",
+      body: "One tap to start tracking, right from the middle tab.",
+    },
+  ];
   return (
-    <li className="flex items-start gap-3">
-      <span className="bg-brand mt-1.5 size-2 shrink-0 rounded-full" />
-      <div className="flex flex-col gap-0.5">
-        <span className="text-ink text-[15px] font-bold">{title}</span>
-        <span className="text-body text-sm leading-normal">{body}</span>
+    <div className="flex flex-col gap-5">
+      <div className="border-hairline bg-card flex flex-col gap-3.5 rounded-[18px] border p-[18px]">
+        <div className="flex items-center gap-2">
+          <span className="bg-brand text-primary-foreground flex size-[19px] items-center justify-center rounded-full">
+            <CheckIcon className="size-3" strokeWidth={3} />
+          </span>
+          <span className="text-ink flex-1 text-[15px] font-bold">
+            Read 20 min
+          </span>
+          <span className="text-brand text-xs font-bold">4-day streak</span>
+        </div>
+        <div className="flex items-center justify-between">
+          {days.map((d, i) => (
+            <div key={i} className="flex flex-col items-center gap-1">
+              <span
+                className={cn(
+                  "flex size-[26px] items-center justify-center rounded-full",
+                  state[i] === "done" && "bg-brand text-primary-foreground",
+                  state[i] === "today" && "border-brand border-2",
+                  state[i] === "future" && "bg-track"
+                )}
+                style={
+                  state[i] === "today"
+                    ? { animation: "pulse-dot 2s ease-in-out infinite" }
+                    : undefined
+                }
+              >
+                {state[i] === "done" && (
+                  <CheckIcon className="size-3" strokeWidth={2.6} />
+                )}
+              </span>
+              <span
+                className={cn(
+                  "text-[10px] font-bold",
+                  state[i] === "today"
+                    ? "text-brand"
+                    : state[i] === "future"
+                      ? "text-faint/70"
+                      : "text-faint"
+                )}
+              >
+                {d}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
-    </li>
+
+      <div className="flex flex-col gap-3">
+        <span className="text-caption text-[11px] font-bold uppercase tracking-[0.06em]">
+          What&rsquo;s inside
+        </span>
+        {overview.map((o) => {
+          const Icon = o.icon;
+          return (
+            <div key={o.name} className="flex items-start gap-3">
+              <Icon className="text-brand mt-0.5 size-5 shrink-0" strokeWidth={1.9} />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-ink text-sm font-bold">{o.name}</span>
+                <span className="text-caption text-[12.5px]">{o.body}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CalendarBody({
+  connected,
+  showWarning,
+}: {
+  connected: boolean;
+  showWarning: boolean;
+}) {
+  if (connected) {
+    return (
+      <div
+        className="border-hairline bg-card flex items-center gap-3 rounded-[18px] border px-4 py-3.5"
+        style={{ animation: "pop-in 0.35s ease both" }}
+      >
+        <span className="bg-brand/10 text-brand flex size-[38px] shrink-0 items-center justify-center rounded-full">
+          <CheckIcon className="size-4" strokeWidth={3} />
+        </span>
+        <div className="flex flex-col">
+          <span className="text-ink text-[15px] font-bold">
+            Google Calendar connected
+          </span>
+          <span className="text-caption text-[12.5px]">
+            Read-only — disconnect any time in Settings.
+          </span>
+        </div>
+      </div>
+    );
+  }
+  if (!showWarning) return null;
+  return (
+    <div className="flex items-start gap-2.5 rounded-[14px] border border-[#eadfae] bg-[#faf3de] px-3.5 py-3">
+      <AlertCircleIcon className="mt-0.5 size-4 shrink-0 text-[#9c7c2c]" />
+      <p className="text-[12.5px] leading-relaxed text-[#7c6524]">
+        Google may show an &ldquo;unverified app&rdquo; screen. Tap{" "}
+        <strong>Advanced</strong>, then{" "}
+        <strong>Go to progra.world (unsafe)</strong> to continue. Access is
+        read-only.
+      </p>
+    </div>
   );
 }

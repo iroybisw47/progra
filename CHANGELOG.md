@@ -6,6 +6,33 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-23
 
+### · /clock reachable while clocked in (compact timer strip)
+`/clock` no longer hard-redirects to the full-screen stopwatch while a session
+is running, and the stopwatch's minimize chevron now lands on `/clock` (was
+Home). While tracking, `/clock` shows a compact live-timer strip at the top
+(pulsing dot — amber when paused — · live elapsed · task name · chevron; tap
+reopens `/clock/live` for pause/notes/photo/stop) with the full clock tools
+below it (categories manager, add past session, week view), so you can add or
+edit categories mid-session. The clock-in form is hidden while active (no
+double clock-in); legacy (`!REDESIGN`) clock page unchanged.
+
+### · Conversational onboarding (V2 redesign)
+The first-sign-in wizard is now a "conversation with Progra": each step shows a
+typing indicator, then the title + body copy stream in word-by-word with a
+blinking caret, then the controls + a pinned CTA fade up. Tap anywhere while
+streaming to fast-forward; `prefers-reduced-motion` mounts everything instantly.
+New reusable engine `components/onboarding/conversation.tsx` (state machine +
+timings faithful to the design prototype). Wizard grows 5→6 steps (adds "So,
+what is Progra?"); `onboarding-client-v2.tsx` rewritten as the presentational
+shell around it — all the existing actions/logic are reused unchanged
+(setUsername/setProfileIdentity, createGoal + quota stepper, the 3-state
+calendar step + deep-link, AvatarPicker, completeOnboarding/skip). Per the
+recolor-only convention, the handoff's warm-green palette maps onto Progra's
+live navy V2 tokens — structure/type/motion/copy match the handoff, colors are
+ours. Kept the shipped react-easy-crop cropper (no custom rebuild). New
+keyframes in globals.css (word-in/pop-in/dot-bounce/caret-blink) with a
+reduced-motion guard. Legacy flag-off wizard untouched.
+
 ### · Security hardening pass (post-audit)
 Code-level fixes from a three-agent security review (the two HIGH items —
 whether friend-privacy RLS and owner-scoped UPDATE/DELETE policies are actually

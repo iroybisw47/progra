@@ -9,6 +9,7 @@ import { useOptimistic } from "react";
 import {
   CalendarIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
   HistoryIcon,
   MoonIcon,
   PauseIcon,
@@ -484,6 +485,49 @@ export function ClockClient({
         </header>
 
         {activeSession ? (
+          REDESIGN ? (
+            // The active session lives on the full-screen /clock/live stopwatch;
+            // here it's a compact strip (tap to reopen) so this page's tools —
+            // categories, add-past-session, the week view — stay usable while
+            // tracking. No pause/clock-out here; those are on the stopwatch.
+            <div className="flex flex-col gap-2">
+              <Link
+                href="/clock/live"
+                aria-label="Open the live timer"
+                className="border-hairline bg-brand/10 flex items-center gap-3 rounded-2xl border px-4 py-3.5 transition-transform active:scale-[.99]"
+              >
+                <span
+                  className={cn(
+                    "size-2 shrink-0 rounded-full",
+                    isPaused(activeSession)
+                      ? "bg-faint"
+                      : "bg-brand animate-pulse"
+                  )}
+                />
+                <Ticking>
+                  {(tick) => (
+                    <span className="font-mono text-lg font-bold tabular-nums">
+                      {formatElapsed(
+                        tick !== 0 ? sessionWorkedMs(activeSession, tick) : 0
+                      )}
+                    </span>
+                  )}
+                </Ticking>
+                <span className="text-muted-foreground min-w-0 flex-1 truncate text-sm">
+                  {activeSession.taskName}
+                </span>
+                <ChevronUpIcon className="text-muted-foreground size-4 shrink-0" />
+              </Link>
+              <Button
+                variant="ghost"
+                className="h-10 w-full"
+                disabled={!hydrated || categories.length === 0}
+                onClick={() => setSessionDialog({ mode: "create" })}
+              >
+                <PlusIcon /> Add past session
+              </Button>
+            </div>
+          ) : (
           <Card>
             <CardHeader>
               <CardTitle className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -605,6 +649,7 @@ export function ClockClient({
               </div>
             </CardContent>
           </Card>
+          )
         ) : (
           <Card>
             <CardHeader>

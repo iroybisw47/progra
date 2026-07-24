@@ -273,7 +273,7 @@ export function LiveTimerClient({
         <button
           type="button"
           aria-label="Minimize"
-          onClick={() => router.push("/")}
+          onClick={() => router.push("/clock")}
           className="bg-track text-caption flex size-9 items-center justify-center rounded-full active:scale-90"
         >
           <ChevronDownIcon className="size-4" strokeWidth={2.2} />

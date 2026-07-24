@@ -1,11 +1,7 @@
-import { PageSkeleton } from "@/components/page-skeleton";
+import { PrograLoader } from "@/components/progra-mark";
 
+// Root route load (the Progress tab / first screen after sign-in): a branded
+// clock loader — the mark's hands sweep while the page resolves.
 export default function Loading() {
-  return (
-    <PageSkeleton
-      title="Progra"
-      subtitle="Where your week is going."
-      blocks={3}
-    />
-  );
+  return <PrograLoader />;
 }
