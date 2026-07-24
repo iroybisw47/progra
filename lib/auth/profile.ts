@@ -28,6 +28,11 @@ export type Profile = {
   bio: string | null;
   // Blob path in the public `avatars` bucket (avatarPublicUrl derives the URL).
   avatar_path: string | null;
+  // Nav-notification "last seen" stamps: the feed tab / friends tab clear their
+  // dot by setting these to now. Null = never seen. (May be absent until the
+  // column SQL is run — treated as null.)
+  feed_seen_at: string | null;
+  friend_requests_seen_at: string | null;
   created_at: string;
   updated_at: string;
 };

@@ -6,6 +6,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { EnsureProfileSync } from "@/components/ensure-profile-sync";
 import { Toaster } from "@/components/ui/sonner";
 import { getActiveSession } from "@/lib/db/sessions";
+import { getNavBadges } from "@/lib/db/notifications";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 
@@ -60,10 +61,11 @@ export default async function RootLayout({
   // page; the auth read inside each is shared via cache(). The profile feeds
   // EnsureProfileSync's stored-timezone comparison (and is free on routes that
   // fetch it anyway).
-  const [user, activeSession, profile] = await Promise.all([
+  const [user, activeSession, profile, navBadges] = await Promise.all([
     getOptionalUser(),
     getActiveSession(),
     getProfile(),
+    getNavBadges(),
   ]);
   return (
     <html lang="en" className={`${ptSans.variable} h-full antialiased`}>
@@ -81,6 +83,8 @@ export default async function RootLayout({
                   }
                 : null
             }
+            initialFeedBadge={navBadges.feed}
+            initialFriendsBadge={navBadges.friends}
           />
         )}
         {user && <EnsureProfileSync timezone={profile?.timezone ?? null} />}

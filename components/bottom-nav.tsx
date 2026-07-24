@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   CheckSquareIcon,
   ClockIcon,
@@ -18,6 +19,17 @@ import { cn } from "@/lib/utils";
 import { Ticking } from "@/components/ticking";
 import { sessionWorkedMs, isPaused, type SessionTiming } from "@/lib/session";
 import { REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
+import {
+  fetchNavBadges,
+  markFeedSeen,
+  markFriendsSeen,
+} from "@/app/actions/notifications";
+
+// How often the nav re-checks for new feed activity / friend requests. The nav
+// lives in the layout (which doesn't re-render on client tab nav), so a poll is
+// what keeps the dots live during a session. Gentle cadence — badges are
+// low-urgency — plus an immediate check on tab refocus.
+const BADGE_POLL_MS = 90_000;
 
 // 5 tabs; Clock is the raised center FAB. Three layouts:
 //  • V2 (REDESIGN): Progress · Feed · [Clock] · Friends · You — the new IA.
@@ -66,13 +78,86 @@ function formatTick(ms: number): string {
 export function BottomNav({
   activePath,
   activeSession = null,
+  initialFeedBadge = false,
+  initialFriendsBadge = false,
 }: {
   activePath?: string;
   activeSession?: SessionTiming | null;
+  initialFeedBadge?: boolean;
+  initialFriendsBadge?: boolean;
 } = {}) {
   // Nullish outside a Next router (e.g. standalone previews) — match against
   // an empty path instead of crashing in the tab matchers.
   const realPathname = usePathname() ?? "";
+
+  // Notification dots. Seeded from server-computed values (correct first paint),
+  // then kept live by the poll + reconciled on tab entry. setBadges is only
+  // ever called in async callbacks — no set-state-in-effect.
+  const [badges, setBadges] = useState({
+    feed: initialFeedBadge,
+    friends: initialFriendsBadge,
+  });
+  const onFeed = realPathname.startsWith("/feed");
+  const onFriends = realPathname.startsWith("/friends");
+  const onOnboarding = realPathname.startsWith("/onboarding");
+
+  // Poll for new activity (paused while hidden; immediate check on refocus).
+  useEffect(() => {
+    if (onOnboarding) return;
+    let id: ReturnType<typeof setInterval> | undefined;
+    const refresh = () => {
+      fetchNavBadges()
+        .then(setBadges)
+        .catch(() => {});
+    };
+    const start = () => {
+      if (id === undefined) id = setInterval(refresh, BADGE_POLL_MS);
+    };
+    const stop = () => {
+      if (id !== undefined) {
+        clearInterval(id);
+        id = undefined;
+      }
+    };
+    const onVisibility = () => {
+      if (document.hidden) stop();
+      else {
+        refresh();
+        start();
+      }
+    };
+    start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [onOnboarding]);
+
+  // Entering Feed/Friends stamps it seen server-side and reconciles the dots.
+  useEffect(() => {
+    if (!onFeed) return;
+    let live = true;
+    markFeedSeen()
+      .then(() => fetchNavBadges())
+      .then((b) => live && setBadges(b))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [onFeed]);
+  useEffect(() => {
+    if (!onFriends) return;
+    let live = true;
+    markFriendsSeen()
+      .then(() => fetchNavBadges())
+      .then((b) => live && setBadges(b))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [onFriends]);
+
   // The onboarding wizard owns the whole viewport (steps have a bottom-pinned
   // CTA where the nav would sit). Its tour screens opt back in by passing the
   // path they're recreating, which also drives the active-tab highlight.
@@ -80,6 +165,10 @@ export function BottomNav({
     return null;
   }
   const pathname = activePath ?? realPathname;
+
+  // A dot never shows on the tab you're currently viewing.
+  const showFeedDot = badges.feed && !onFeed;
+  const showFriendsDot = badges.friends && !onFriends;
 
   // Only the V2 nav shows the live tick; compute once here.
   const tracking = REDESIGN && activeSession != null;
@@ -150,6 +239,10 @@ export function BottomNav({
             );
           }
 
+          const showDot =
+            (tab.href === "/feed" && showFeedDot) ||
+            (tab.href === "/friends" && showFriendsDot);
+
           return (
             <li key={tab.href} className="flex-1">
               <Link
@@ -161,9 +254,18 @@ export function BottomNav({
                   active ? "text-brand" : INACTIVE
                 )}
               >
-                <Icon className="size-5" strokeWidth={active ? 1.9 : 1.75} />
+                <span className="relative">
+                  <Icon className="size-5" strokeWidth={active ? 1.9 : 1.75} />
+                  {showDot && (
+                    <span
+                      aria-hidden
+                      className="bg-brand absolute -right-1 -top-0.5 size-2 rounded-full ring-2 ring-[var(--screen)]"
+                    />
+                  )}
+                </span>
                 <span className={cn("text-[10px]", active ? "font-semibold" : "font-medium")}>
                   {tab.label}
+                  {showDot && <span className="sr-only"> (new)</span>}
                 </span>
               </Link>
             </li>

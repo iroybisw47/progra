@@ -4,6 +4,25 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-07-24
+
+### · Nav notification dots: Feed + Friends tabs
+The bottom-nav Feed and Friends tabs now show a small brand-navy dot when there's
+something new since you last opened that tab — a friend finished a session or a
+new friend joined (Feed), or a new incoming friend request arrived (Friends).
+Live clock-ins are excluded, and a dot never shows on the tab you're currently
+viewing. Opening the tab clears its dot (stamps a `feed_seen_at` /
+`friend_requests_seen_at` timestamp on the profile).
+
+Because the nav lives in the root layout (which doesn't re-render on client tab
+navigation), the dots are seeded from server-computed values for a correct first
+paint, then kept live by the nav polling a lightweight server action (~90s, paused
+while the tab is hidden, immediate re-check on refocus). New `lib/db/notifications.ts`
+(`getNavBadges`, timestamp-only reads inside the feed's 7-day window, RLS-scoped)
+and `app/actions/notifications.ts` (`fetchNavBadges` / `markFeedSeen` /
+`markFriendsSeen`). Requires two new nullable `timestamptz` columns on
+`public.profiles` (`feed_seen_at`, `friend_requests_seen_at`).
+
 ## 2026-07-23
 
 ### · Real app icon: the Progra clock mark (PWA + favicon)
