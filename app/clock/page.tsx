@@ -7,7 +7,14 @@ import { endOfWeek, startOfWeek } from "@/lib/dates";
 
 import { ClockClient } from "./clock-client";
 
-export default async function ClockPage() {
+export default async function ClockPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ goal?: string }>;
+}) {
+  // ?goal=<id> pre-selects that goal in the clock-in picker (tapped from the
+  // Progress tab's "Goals today"). Inert while a session is active.
+  const { goal } = await searchParams;
   // The redesign runs the active session on the full-screen /clock/live timer,
   // but /clock stays reachable while tracking (minimize lands here) so you can
   // manage categories, add past sessions, and see the week — with a compact
@@ -45,6 +52,7 @@ export default async function ClockPage() {
       events={events}
       goals={goals}
       activePhotoUrl={activePhotoUrl}
+      initialGoalId={goal ?? null}
     />
   );
 }

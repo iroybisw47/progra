@@ -274,25 +274,34 @@ function TodayView({
               const pct = quotaMs > 0 ? Math.min(100, (g.actualMs / quotaMs) * 100) : 0;
               const leftMs = Math.max(0, quotaMs - g.actualMs);
               return (
-                <Card key={g.id}>
-                  <CardContent className="flex flex-col gap-2 py-3">
-                    <span className="truncate text-sm font-bold">{g.title}</span>
-                    <span className="text-caption font-mono text-xs tabular-nums">
-                      {fmtH(g.actualMs)} / {g.quotaHours.toFixed(0)}h
-                    </span>
-                    <div className="bg-track h-1.5 w-full overflow-hidden rounded-full">
-                      <div
-                        className="bg-brand h-full"
-                        style={{ width: g.actualMs > 0 ? `${Math.max(3, pct)}%` : "0%" }}
-                      />
-                    </div>
-                    <span className="text-faint text-[11px]">
-                      {g.status === "hit"
-                        ? "Complete"
-                        : `${Math.round(pct)}% · ${fmtH(leftMs)} left`}
-                    </span>
-                  </CardContent>
-                </Card>
+                // Tap to clock in against this goal — lands on /clock with the
+                // goal picker pre-selected.
+                <Link
+                  key={g.id}
+                  href={`/clock?goal=${g.id}`}
+                  aria-label={`Clock in to ${g.title}`}
+                  className="block"
+                >
+                  <Card className="hover:bg-muted/30 h-full transition-colors active:scale-[.99]">
+                    <CardContent className="flex flex-col gap-2 py-3">
+                      <span className="truncate text-sm font-bold">{g.title}</span>
+                      <span className="text-caption font-mono text-xs tabular-nums">
+                        {fmtH(g.actualMs)} / {g.quotaHours.toFixed(0)}h
+                      </span>
+                      <div className="bg-track h-1.5 w-full overflow-hidden rounded-full">
+                        <div
+                          className="bg-brand h-full"
+                          style={{ width: g.actualMs > 0 ? `${Math.max(3, pct)}%` : "0%" }}
+                        />
+                      </div>
+                      <span className="text-faint text-[11px]">
+                        {g.status === "hit"
+                          ? "Complete"
+                          : `${Math.round(pct)}% · ${fmtH(leftMs)} left`}
+                      </span>
+                    </CardContent>
+                  </Card>
+                </Link>
               );
             })}
           </div>

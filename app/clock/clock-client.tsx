@@ -157,6 +157,8 @@ type ClockClientProps = {
   // Signed URL for the active session's photo, or null. Shown as a thumbnail on
   // the active card.
   activePhotoUrl: string | null;
+  // ?goal=<id> from a Progress "Goals today" tap — pre-selects the goal picker.
+  initialGoalId?: string | null;
 };
 
 export function ClockClient({
@@ -165,6 +167,7 @@ export function ClockClient({
   events,
   goals,
   activePhotoUrl,
+  initialGoalId = null,
 }: ClockClientProps) {
   const router = useRouter();
   // Minute-quantized tick: totals and week/day boundaries only need minute
@@ -184,10 +187,20 @@ export function ClockClient({
   const [taskName, setTaskName] = useState("");
   const [description, setDescription] = useState("");
   // A clock-in targets EITHER a category OR a goal. `pickerMode` is which list
-  // is currently revealed; selecting from one clears the other.
+  // is currently revealed; selecting from one clears the other. When ?goal=<id>
+  // points at a real active goal, seed the goal picker with it (guarded so a
+  // stale/archived id doesn't leave a phantom selection).
+  const preselectGoal =
+    initialGoalId !== null && goals.some((g) => g.id === initialGoalId)
+      ? initialGoalId
+      : null;
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
-  const [pickerMode, setPickerMode] = useState<"category" | "goal">("category");
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(
+    preselectGoal
+  );
+  const [pickerMode, setPickerMode] = useState<"category" | "goal">(
+    preselectGoal ? "goal" : "category"
+  );
   const [newCategoryName, setNewCategoryName] = useState("");
   const [pendingCategoryDelete, setPendingCategoryDelete] = useState<Category | null>(null);
   // Category edit dialog: rename + palette color. Draft state is seeded when

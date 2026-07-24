@@ -6,6 +6,24 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-23
 
+### · Real app icon: the Progra clock mark (PWA + favicon)
+The home-screen (PWA) and browser-tab icons are now the Progra clock mark
+instead of the solid-dark placeholders. `scripts/generate-icons.mjs` rewritten
+to rasterize the brand-mark SVG via sharp (full-bleed navy so iOS/Android
+rounding is clean; glyph inside the maskable safe zone) → regenerated
+icon-192/512 + apple-icon + a crisp favicon-32. Manifest theme_color → brand
+navy (#1c3a5e), added maskable icon entries, and both manifest/metadata
+descriptions refreshed off the stale "weekly planning" copy. Same clock used
+by the in-app logo and loading animation.
+
+### · Tap a goal in Progress → clock in with it pre-selected
+The "Goals today" cards on the Progress tab are now tappable: they link to
+`/clock?goal=<id>`, which seeds the clock-in goal picker with that goal (guarded
+against a stale/archived id → falls back to the category picker). Land, type a
+task, Clock In. Inert while a session is already active. (`clock/page.tsx` reads
+the param; `clock-client` seeds `selectedGoalId`/`pickerMode` via state
+initializers — no effect.)
+
 ### · /clock reachable while clocked in (compact timer strip)
 `/clock` no longer hard-redirects to the full-screen stopwatch while a session
 is running, and the stopwatch's minimize chevron now lands on `/clock` (was

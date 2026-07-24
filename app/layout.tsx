@@ -22,7 +22,7 @@ const ptSans = PT_Sans({
 
 export const metadata: Metadata = {
   title: "Progra",
-  description: "Personal productivity: weekly planning, deep-work clock-in, habits, and a Sunday recap.",
+  description: "Study-time tracker: set goals, clock in, build habits, and track progress with friends.",
   applicationName: "Progra",
   appleWebApp: {
     capable: true,
@@ -31,6 +31,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
