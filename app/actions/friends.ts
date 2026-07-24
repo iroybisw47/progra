@@ -3,6 +3,7 @@
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { revalidateFriendSurfaces } from "@/lib/revalidate";
 import { normalizeUsername } from "@/lib/social/username";
+import { isUuid } from "@/lib/validate";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -94,6 +95,9 @@ export async function unblockUser(targetUserId: string): Promise<Result> {
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  // Validate before interpolating into the .or() filter string below — a
+  // non-UUID value could otherwise alter the PostgREST filter expression.
+  if (!isUuid(targetUserId)) return { error: "Invalid user." };
 
   const { error } = await supabase
     .from("friendships")

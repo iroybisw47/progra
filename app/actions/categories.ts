@@ -13,6 +13,7 @@ type Result = { ok: true } | { error: string; code?: "duplicate" };
 // Sanitize: trim, drop empties, dedupe (case-insensitive), cap count/length.
 const MAX_KEYWORDS = 20;
 const MAX_KEYWORD_LEN = 50;
+const NAME_MAX = 60;
 
 function sanitizeKeywords(raw: string[]): string[] {
   const seen = new Set<string>();
@@ -33,7 +34,7 @@ export async function createCategory(
   name: string,
   opts?: { color?: string | null; keywords?: string[] }
 ): Promise<Result> {
-  const trimmed = name.trim();
+  const trimmed = name.trim().slice(0, NAME_MAX);
   if (!trimmed) return { error: "Name required" };
 
   const insert: Record<string, unknown> = { name: trimmed };
@@ -81,7 +82,7 @@ export async function updateCategory(
   const update: Record<string, unknown> = {};
 
   if (patch.name !== undefined) {
-    const trimmed = patch.name.trim();
+    const trimmed = patch.name.trim().slice(0, NAME_MAX);
     if (!trimmed) return { error: "Name required" };
     update.name = trimmed;
   }

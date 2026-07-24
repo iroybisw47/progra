@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/require-user";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeUsername } from "@/lib/social/username";
+import { isUuid } from "@/lib/validate";
 import type { PublicUser } from "@/lib/db/friends";
 
 export type RelationshipKind =
@@ -62,6 +63,9 @@ export async function getRelationship(
   const me = await getCurrentUser();
   if (!me) return { kind: "none" };
   if (me.id === targetUserId) return { kind: "self" };
+  // targetUserId comes from a username→id lookup (always a real UUID) in the
+  // live flow, but validate before interpolating into the .or() filter anyway.
+  if (!isUuid(targetUserId)) return { kind: "none" };
 
   const supabase = await createClient();
   const { data } = await supabase

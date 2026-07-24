@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 
+import { safeNextPath } from "@/lib/auth/safe-next";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   // Default to Home: it hosts the onboarding gate, so brand-new users get
-  // routed into /onboarding on their very first load.
-  const next = searchParams.get("next") ?? "/";
+  // routed into /onboarding on their very first load. safeNextPath rejects
+  // off-site targets (this value is concatenated onto the origin below, so an
+  // unvalidated `next` like `@evil.com` or `.evil.com` would poison the host).
+  const next = safeNextPath(searchParams.get("next"));
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=missing_code`);

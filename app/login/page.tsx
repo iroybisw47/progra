@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth/require-user";
+import { safeNextPath } from "@/lib/auth/safe-next";
 import { AddToHomeHint } from "@/components/add-to-home-hint";
 
 import { GoogleSignInButton } from "./google-sign-in-button";
@@ -20,7 +21,8 @@ export default async function LoginPage({
   if (user) {
     // Default to home, not /clock, so the onboarding gate on `/` still fires
     // for an authenticated-but-not-yet-onboarded visitor (e.g. a stale bookmark).
-    redirect(params.next ?? "/");
+    // safeNextPath rejects off-site redirect targets.
+    redirect(safeNextPath(params.next));
   }
 
   return (

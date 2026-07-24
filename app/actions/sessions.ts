@@ -8,8 +8,13 @@ import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { listCategories } from "@/lib/db/categories";
 import { listHistoryPage, type HistoryItem } from "@/lib/db/history";
+import { capText } from "@/lib/validate";
 
 type Result = { ok: true } | { error: string };
+
+// Server-side field caps (clients also cap; never trust the client).
+const TASK_MAX = 200;
+const SESSION_DESC_MAX = 1000;
 
 // Paginated read for the /sessions history browser: timer sessions merged
 // with synced calendar events. RLS scopes to the user.
@@ -60,8 +65,8 @@ export async function clockIn(
       user_id: user.id,
       category_id: axis.categoryId,
       goal_id: axis.goalId,
-      task_name: input.taskName.trim(),
-      description: input.description?.trim() || null,
+      task_name: capText(input.taskName, TASK_MAX),
+      description: capText(input.description, SESSION_DESC_MAX),
       started_at: new Date().toISOString(),
       ended_at: null,
     })
@@ -298,8 +303,8 @@ export async function createSession(input: CreateSessionInput): Promise<Result> 
     user_id: user.id,
     category_id: axis.categoryId,
     goal_id: axis.goalId,
-    task_name: input.taskName.trim(),
-    description: input.description?.trim() || null,
+    task_name: capText(input.taskName, TASK_MAX),
+    description: capText(input.description, SESSION_DESC_MAX),
     started_at: new Date(input.startedAt).toISOString(),
     ended_at: new Date(input.endedAt).toISOString(),
     is_private: input.isPrivate ?? false,
@@ -335,9 +340,11 @@ export async function updateSession(
     update.category_id = axis.categoryId;
     update.goal_id = axis.goalId;
   }
-  if (patch.taskName !== undefined) update.task_name = patch.taskName.trim();
+  if (patch.taskName !== undefined) {
+    update.task_name = capText(patch.taskName, TASK_MAX);
+  }
   if (patch.description !== undefined) {
-    update.description = patch.description.trim() || null;
+    update.description = capText(patch.description, SESSION_DESC_MAX);
   }
   if (patch.startedAt !== undefined) {
     update.started_at = new Date(patch.startedAt).toISOString();

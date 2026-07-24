@@ -110,12 +110,28 @@ export async function categorizeEventsInRange(
     };
   }
 
-  // Mirror the manual-override upsert shape (event_id is the PK / conflict key).
-  const rows = [...assignments.entries()].map(([event_id, category_id]) => ({
-    event_id,
-    category_id,
-    source: "ai",
-  }));
+  // Only persist assignments whose event_id was actually in this batch — the
+  // model returns ids, and a crafted event title could try to make it emit an
+  // assignment for a different event. (RLS would reject a cross-user event_id
+  // anyway, but this stops a title from mislabeling another of the user's own
+  // events, and avoids failing the whole batch on a stray id.)
+  const targetIds = new Set(targets.map((e) => e.id));
+  const rows = [...assignments.entries()]
+    .filter(([event_id]) => targetIds.has(event_id))
+    .map(([event_id, category_id]) => ({
+      event_id,
+      category_id,
+      source: "ai",
+    }));
+  if (rows.length === 0) {
+    return {
+      ok: true,
+      categorized: 0,
+      scanned: events.length,
+      assignments: [],
+      remaining,
+    };
+  }
   const { error } = await supabase
     .from("event_categorizations")
     .upsert(rows, { onConflict: "event_id" });

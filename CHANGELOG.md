@@ -6,6 +6,42 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-23
 
+### · Security hardening pass (post-audit)
+Code-level fixes from a three-agent security review (the two HIGH items —
+whether friend-privacy RLS and owner-scoped UPDATE/DELETE policies are actually
+deployed — are Supabase-dashboard verifications for the owner, not code):
+- **Open redirect closed**: new `safeNextPath()` (`lib/auth/safe-next.ts`)
+  rejects off-site `?next=` targets (absolute/`//`/`\`/scheme/userinfo) at both
+  sinks — the `/login` signed-in redirect and the OAuth callback's
+  `${origin}${next}` concat. Was a phishing primitive on our own domain.
+- **`setEventCategory` auth**: added the `getCurrentUser()` guard (the one
+  mutation missing it) + verifies the caller owns the assigned category.
+- **Admin defense-in-depth**: `resolveReport`/`takeDownStory`/
+  `deleteReportedComment` now server-side `is_admin()`-gate before the RPC, so
+  a single RPC's internal check isn't the sole barrier.
+- **Security headers** (`next.config.ts`): X-Frame-Options DENY,
+  X-Content-Type-Options nosniff, Referrer-Policy, Permissions-Policy on all
+  routes. (Full CSP deferred — needs per-host allowlisting; a wrong one breaks
+  the app.)
+- **Hardening batch**: UUID-validate `targetUserId` before the PostgREST
+  `.or()` interpolation in `unblockUser`/`getRelationship`; server-side length
+  caps on goal/session/category text (`lib/validate.ts` `capText`); intersect
+  AI-returned event ids with the sent batch before upsert; `ClientProfile` type
+  + `toClientProfile()` so Google tokens can't be serialized to a client
+  component (compile error, not runtime leak).
+
+Deferred (not code / bigger): RLS verification (owner's dashboard task), rate
+limiting (needs Vercel KV), full CSP.
+
+### · Nav tabs fully prefetch (kills first-tap slowness in prod)
+`prefetch={true}` on all 5 bottom-nav links: routes prefetch their DATA in
+the background (not just the loading skeleton), so the first tap on a tab is
+instant — and fully-prefetched pages use the 5-minute static staleTime
+instead of 30s, widening the instant-switch window. Production-only behavior
+(dev's compile-on-first-visit slowness is inherent to dev mode and unchanged).
+Cost: ~5 background page-fetches per full load. Heavier levers (per-page
+RPCs, Realtime, PPR) deliberately deferred past feature launches.
+
 ### · Onboarding welcome: Name field
 The welcome step now collects a display Name (optional, 50 chars, "Shown to
 friends alongside your handle") above the username claim; saved via the

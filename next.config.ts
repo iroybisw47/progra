@@ -13,6 +13,31 @@ const nextConfig: NextConfig = {
     // feed's poll/refocus refresh still forces freshness there.
     staleTimes: { dynamic: 30 },
   },
+  // Baseline security headers on every route. Clickjacking protection
+  // (X-Frame-Options + frame-ancestors), MIME-sniffing off, tight referrer,
+  // and no access to sensitive browser APIs. A full Content-Security-Policy is
+  // deliberately NOT set here yet — it needs per-host allowlisting (Supabase,
+  // Google, the public avatar/photo hosts, Next's inline styles, react-easy-crop)
+  // and a wrong CSP silently breaks the app, so it's a separate follow-up.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(self), geolocation=(), microphone=(), payment=()",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -5,6 +5,10 @@ import { cache } from "react";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 
+// The full profile row — INCLUDES live Google OAuth tokens. Server-only.
+// NEVER pass a `Profile` to a client component or serialize it to the browser:
+// use `toClientProfile()` (which structurally drops the token fields) for
+// anything crossing the server/client boundary.
 export type Profile = {
   id: string;
   timezone: string | null;
@@ -43,6 +47,30 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
 
   return data;
 });
+
+// Token-free view of a profile, safe to hand to a client component. Structural
+// omission (not just "don't select it") — the token fields can't be present on
+// this type, so a leak becomes a compile error rather than a runtime accident.
+export type ClientProfile = Omit<
+  Profile,
+  | "google_provider_token"
+  | "google_provider_refresh_token"
+  | "google_token_expires_at"
+  | "google_scopes"
+> & { calendarConnected: boolean };
+
+export function toClientProfile(p: Profile): ClientProfile {
+  /* eslint-disable @typescript-eslint/no-unused-vars */
+  const {
+    google_provider_token,
+    google_provider_refresh_token,
+    google_token_expires_at,
+    google_scopes,
+    ...rest
+  } = p;
+  /* eslint-enable @typescript-eslint/no-unused-vars */
+  return { ...rest, calendarConnected: isCalendarConnected(p) };
+}
 
 export const CALENDAR_SCOPE =
   "https://www.googleapis.com/auth/calendar.events.readonly";

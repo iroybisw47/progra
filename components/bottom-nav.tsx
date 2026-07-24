@@ -109,6 +109,10 @@ export function BottomNav({
               return (
                 <Link
                   href={centerHref}
+                  // Full prefetch (data incl.) — first tap is instant, and
+                  // fully-prefetched pages get the 5-min static staleTime
+                  // instead of 30s. Production-only, like all prefetching.
+                  prefetch={true}
                   aria-current={active ? "page" : undefined}
                   aria-label={tickLabel ? `Tracking ${tickLabel}` : tab.label}
                   className="flex h-full flex-col items-center justify-end gap-1 pb-3.5"
@@ -150,6 +154,7 @@ export function BottomNav({
             <li key={tab.href} className="flex-1">
               <Link
                 href={tab.href}
+                prefetch={true}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex h-full flex-col items-center justify-end gap-1 pb-2 transition-colors",
