@@ -5,6 +5,7 @@ import { cache } from "react";
 import { getProfile } from "@/lib/auth/profile";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { listFriends } from "@/lib/db/friends";
+import { hasUnseenNotifications } from "@/lib/db/notifications-activity";
 import { createClient } from "@/lib/supabase/server";
 
 export type NavBadges = { feed: boolean; friends: boolean };
@@ -35,7 +36,7 @@ export const getNavBadges = cache(async (): Promise<NavBadges> => {
     Date.now() - FEED_WINDOW_DAYS * 24 * 60 * 60 * 1000
   ).toISOString();
 
-  const [latestSession, latestJoin, latestRequest] = await Promise.all([
+  const [latestSession, latestJoin, latestRequest, unseenNotifications] = await Promise.all([
     // Newest finished friend session in-window.
     friendIds.length === 0
       ? Promise.resolve(null)
@@ -73,11 +74,16 @@ export const getNavBadges = cache(async (): Promise<NavBadges> => {
       .limit(1)
       .maybeSingle()
       .then((r) => (r.data as { created_at: string } | null)?.created_at ?? null),
+    // Likes/comments on my own sessions (Phase 3): shares getCurrentUser/getProfile
+    // via cache(), so this only adds its two timestamp-only reads to the poll.
+    hasUnseenNotifications(),
   ]);
 
   const latestFeed = Math.max(ms(latestSession), ms(latestJoin));
   return {
     feed: latestFeed > feedSeen,
-    friends: ms(latestRequest) > reqSeen,
+    // New friend request OR unseen like/comment. The request half clears on
+    // visiting Friends; the like/comment half clears only on opening the panel.
+    friends: ms(latestRequest) > reqSeen || unseenNotifications,
   };
 });

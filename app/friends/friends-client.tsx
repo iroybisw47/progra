@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { AvatarInitials } from "@/components/avatar-initials";
+import { NotificationsBell } from "@/components/notifications-bell";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -35,6 +36,7 @@ type Props = {
   outgoing: RequestEntry[];
   blocked: BlockedEntry[];
   suggested: PublicUser[];
+  initialUnseen: boolean;
 };
 
 type ActionResult = { ok: true } | { error: string };
@@ -45,6 +47,7 @@ export function FriendsClient({
   outgoing,
   blocked,
   suggested,
+  initialUnseen,
 }: Props) {
   const [pending, startTransition] = useTransition();
 
@@ -150,11 +153,14 @@ export function FriendsClient({
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-28">
       <main className="flex w-full max-w-md flex-col gap-5">
-        <header className="flex flex-col gap-1">
-          <h1 className="text-[26px] font-bold tracking-tight">Friends</h1>
-          <p className="text-caption text-sm">
-            Find people, manage requests, and see who you&rsquo;re connected to.
-          </p>
+        <header className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-[26px] font-bold tracking-tight">Friends</h1>
+            <p className="text-caption text-sm">
+              Find people, manage requests, and see who you&rsquo;re connected to.
+            </p>
+          </div>
+          <NotificationsBell initialUnseen={initialUnseen} />
         </header>
 
         {/* Search */}

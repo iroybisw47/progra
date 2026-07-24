@@ -33,6 +33,11 @@ export type Profile = {
   // column SQL is run — treated as null.)
   feed_seen_at: string | null;
   friend_requests_seen_at: string | null;
+  // When the user last opened the Notifications panel (likes/comments on their
+  // own sessions). Independent of friend_requests_seen_at so the like/comment dot
+  // clears only on opening the panel, never on merely visiting Friends. Null =
+  // never opened. (May be absent until the column SQL is run — treated as null.)
+  notifications_seen_at: string | null;
   created_at: string;
   updated_at: string;
 };

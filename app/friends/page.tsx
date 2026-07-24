@@ -9,6 +9,7 @@ import {
   listOutgoingRequests,
   listSuggestedUsers,
 } from "@/lib/db/friends";
+import { hasUnseenNotifications } from "@/lib/db/notifications-activity";
 
 import { FriendsClient } from "./friends-client";
 
@@ -18,13 +19,15 @@ export default async function FriendsPage() {
   if (!SOCIAL_ENABLED) notFound();
   await requireUser();
 
-  const [friends, incoming, outgoing, blocked, suggested] = await Promise.all([
-    listFriends(),
-    listIncomingRequests(),
-    listOutgoingRequests(),
-    listBlockedUsers(),
-    listSuggestedUsers(),
-  ]);
+  const [friends, incoming, outgoing, blocked, suggested, unseenNotifications] =
+    await Promise.all([
+      listFriends(),
+      listIncomingRequests(),
+      listOutgoingRequests(),
+      listBlockedUsers(),
+      listSuggestedUsers(),
+      hasUnseenNotifications(),
+    ]);
 
   return (
     <FriendsClient
@@ -33,6 +36,7 @@ export default async function FriendsPage() {
       outgoing={outgoing}
       blocked={blocked}
       suggested={suggested}
+      initialUnseen={unseenNotifications}
     />
   );
 }

@@ -6,6 +6,50 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-24
 
+### · Likes/comments notifications — Phase 3 (bottom-nav dot)
+Closes the loop: the Friends bottom-nav tab dot now lights on unseen likes/comments
+too, not just friend requests, so engagement is noticed without already being on
+Friends. One-file change — `getNavBadges()` (`lib/db/notifications.ts`) now ORs
+`hasUnseenNotifications()` into the friends dot. The friend-request half still clears
+on visiting Friends; the like/comment half clears only on opening the Notifications
+panel (shared `notifications_seen_at` stamp), so the nav dot and the bell dot stay
+in sync via the existing 90s poll. No new SQL, no UI changes. Feature complete.
+
+### · Likes/comments notifications — Phase 2 (panel + bell)
+The visible half of the feature. A bell now sits at the top-right of the Friends
+header with a server-seeded "unseen" dot; tapping it opens a right-side slide-over
+Notifications panel listing who engaged with your own sessions — 👍 likes collapsed
+per post Instagram-style ("C, B and 3 others liked your session '…'"), comments
+individual with a body preview. Each row links to the session and closes the panel;
+opening the panel clears the dot (stamps `notifications_seen_at`). New
+`components/notifications-bell.tsx` (client: lazy-loads on open, marks seen,
+renders the list) and `components/ui/sheet.tsx` (a right-edge slide-over over the
+existing Base UI dialog primitive — no new dependency). New actions
+`fetchMyNotifications` / `markNotificationsSeen` (the latter mirrors
+`markFriendsSeen`). `app/friends/page.tsx` seeds the dot via `hasUnseenNotifications`;
+the Friends header became a `justify-between` row to host the bell. Reuses
+`AvatarInitials` and `formatRelativeTime`. No new SQL (Phase 1 columns cover it).
+Still to come (Phase 3): light the Friends *bottom-nav* dot on the same signal.
+
+### · Likes/comments notifications — Phase 1 (data foundation, no UI)
+Server-side read layer for "who engaged with my sessions", ahead of the
+Notifications panel (Phase 2) and its bottom-nav dot (Phase 3). New
+`lib/db/notifications-activity.ts`: `listMyNotifications()` returns recent
+engagement by *other* users on *my own* sessions — 👍 likes collapsed per session
+(distinct reactors, most-recent first, Instagram-style), comments kept individual,
+merged newest-first within a 30-day window. Scope is enforced by an embedded
+`sessions!inner` + `sessions.user_id = me` filter (and RLS, the real authority),
+excluding my own likes/comments and non-👍 reactions. Also `hasUnseenNotifications()`
+— a cheap timestamp-only yes/no for the future poll-driven dot. Labels reuse the
+feed's `hydrateGoalTitles` (goal title, else task name); actors resolve through the
+`public_profiles` view via `hydrateUsers`.
+
+Adds a `notifications_seen_at` column to the `Profile` type (independent of
+`friend_requests_seen_at` so the like/comment dot will clear only on opening the
+panel). Requires SQL: a `created_at timestamptz` on `session_reactions` (the table
+had no timestamp), the `profiles.notifications_seen_at` column with an existing-user
+baseline, and two supporting indexes. No UI yet.
+
 ### · Nav notification dots: Feed + Friends tabs
 The bottom-nav Feed and Friends tabs now show a small brand-navy dot when there's
 something new since you last opened that tab — a friend finished a session or a
