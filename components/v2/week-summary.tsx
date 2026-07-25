@@ -53,26 +53,69 @@ export function WeekSummary({
   segs,
   goals,
   goalsHeaderExtra,
+  heroDonut = false,
+  rangeLabel,
+  tracked,
+  imported,
 }: {
   totalMs: number;
   segs: WeekSummarySeg[];
   goals: WeekSummaryGoal[];
   // Progress passes its "Manage" link here; History passes nothing.
   goalsHeaderExtra?: ReactNode;
+  // Progress's This-week tab opts into the big centered donut (matching its
+  // Today tab); History's week view keeps the compact side-by-side layout.
+  heroDonut?: boolean;
+  // Hero-only caption (mirrors the Today tab): week date range + row counts.
+  rangeLabel?: string;
+  tracked?: number;
+  imported?: number;
 }) {
+  const donutSegments = segs.map((s) => ({ color: s.color, value: s.ms }));
+  const hasLegend = segs.length > 0;
   return (
     <div className="flex flex-col gap-5">
       <Card>
-        <CardContent className="flex items-center gap-5 py-5">
-          <Donut
-            segments={segs.map((s) => ({ color: s.color, value: s.ms }))}
-            size={128}
-            stroke={13}
-            label={formatDuration(totalMs)}
-            sub="Tracked"
-          />
-          <Legend segs={segs} total={totalMs} />
-        </CardContent>
+        {heroDonut ? (
+          // Tight spacing so the donut hero doesn't leave dead space — extra
+          // trim on the bottom when there's no legend (empty week).
+          <CardContent
+            className={`flex flex-col gap-2 px-4 pt-4 ${hasLegend ? "pb-4" : "pb-2"}`}
+          >
+            {rangeLabel && (
+              <div className="flex items-baseline justify-between">
+                <span className="text-caption text-[11px] font-bold uppercase tracking-wide">
+                  This week · {rangeLabel}
+                </span>
+                <span className="text-caption text-xs">
+                  {tracked ?? 0} tracked · {imported ?? 0} imported
+                </span>
+              </div>
+            )}
+            <div className="flex justify-center">
+              <Donut
+                segments={donutSegments}
+                size={240}
+                stroke={22}
+                label={formatDuration(totalMs)}
+                labelClassName="text-4xl"
+                sub="Tracked"
+              />
+            </div>
+            {hasLegend && <Legend segs={segs} total={totalMs} />}
+          </CardContent>
+        ) : (
+          <CardContent className="flex items-center gap-5 py-5">
+            <Donut
+              segments={donutSegments}
+              size={128}
+              stroke={13}
+              label={formatDuration(totalMs)}
+              sub="Tracked"
+            />
+            <Legend segs={segs} total={totalMs} />
+          </CardContent>
+        )}
       </Card>
 
       {goals.length > 0 && (

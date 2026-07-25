@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Donut } from "@/components/v2/donut";
 import { HabitWeekGrid } from "@/components/v2/habit-week-grid";
 import { Legend, WeekSummary } from "@/components/v2/week-summary";
+// Donut + Legend are also used below for the Today view's category chart.
 
 // The manage-habits editor (485 lines) only matters after tapping "Manage" —
 // load it as a lazy chunk after hydration instead of shipping it in the
@@ -68,11 +69,15 @@ export function ProgressClient(props: {
   todayTotalMs: number;
   todayTracked: number;
   todayImported: number;
+  todaySegs: Seg[];
   sessionsToday: SessionToday[];
   goals: GoalRow[];
   habitsToday: HabitToday[];
   weekTotalMs: number;
   weekSegs: Seg[];
+  weekRangeLabel: string;
+  weekTracked: number;
+  weekImported: number;
   habits: Habit[];
   completions: HabitCompletion[];
   weekStart: string;
@@ -149,6 +154,7 @@ function TodayView({
   todayTotalMs,
   todayTracked,
   todayImported,
+  todaySegs,
   sessionsToday,
   goals,
   habitsToday,
@@ -159,6 +165,7 @@ function TodayView({
   todayTotalMs: number;
   todayTracked: number;
   todayImported: number;
+  todaySegs: Seg[];
   sessionsToday: SessionToday[];
   goals: GoalRow[];
   habitsToday: HabitToday[];
@@ -187,9 +194,9 @@ function TodayView({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Hero total */}
+      {/* Hero: big centered category donut with today's total in the middle. */}
       <Card>
-        <CardContent className="flex flex-col gap-1 py-4">
+        <CardContent className="flex flex-col gap-4 py-6">
           <div className="flex items-baseline justify-between">
             <span className="text-caption text-[11px] font-bold uppercase tracking-wide">
               Today · {dateLabel}
@@ -198,9 +205,17 @@ function TodayView({
               {todayTracked} tracked · {todayImported} imported
             </span>
           </div>
-          <span className="font-mono text-[33px] font-bold tabular-nums">
-            {formatDuration(todayTotalMs)}
-          </span>
+          <div className="flex justify-center py-2">
+            <Donut
+              segments={todaySegs.map((s) => ({ color: s.color, value: s.ms }))}
+              size={240}
+              stroke={22}
+              label={formatDuration(todayTotalMs)}
+              labelClassName="text-5xl"
+              sub="Tracked"
+            />
+          </div>
+          {todaySegs.length > 0 && <Legend segs={todaySegs} total={todayTotalMs} />}
         </CardContent>
       </Card>
 
@@ -385,6 +400,9 @@ function TodayView({
 function WeekView({
   weekTotalMs,
   weekSegs,
+  weekRangeLabel,
+  weekTracked,
+  weekImported,
   goals,
   habits,
   completions,
@@ -394,6 +412,9 @@ function WeekView({
 }: {
   weekTotalMs: number;
   weekSegs: Seg[];
+  weekRangeLabel: string;
+  weekTracked: number;
+  weekImported: number;
   goals: GoalRow[];
   habits: Habit[];
   completions: HabitCompletion[];
@@ -421,6 +442,10 @@ function WeekView({
         segs={weekSegs}
         goals={goals}
         goalsHeaderExtra={<ManageGoalsLink />}
+        heroDonut
+        rangeLabel={weekRangeLabel}
+        tracked={weekTracked}
+        imported={weekImported}
       />
 
       <section className="flex flex-col gap-2">

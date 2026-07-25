@@ -1,9 +1,10 @@
 import "server-only";
 
-import { aggregateRange } from "@/lib/aggregate";
+import { aggregateRange, buildCategoryBreakdown } from "@/lib/aggregate";
 import { categorizeEvents, fetchEventsRaw } from "@/lib/db/calendar-events";
 import { listCategories } from "@/lib/db/categories";
 import { hydrateGoalTitles } from "@/lib/db/feed";
+import { listActiveGoals } from "@/lib/db/goals";
 import {
   getHabitsWithTodayStatus,
   listActiveHabits,
@@ -34,11 +35,15 @@ export type ProgressData = {
   todayTotalMs: number;
   todayTracked: number;
   todayImported: number;
+  todaySegs: Seg[];
   sessionsToday: SessionToday[];
   goals: GoalRow[];
   habitsToday: HabitToday[];
   weekTotalMs: number;
   weekSegs: Seg[];
+  weekRangeLabel: string;
+  weekTracked: number;
+  weekImported: number;
   weekStart: string;
   today: string;
   monthLabel: string;
@@ -73,26 +78,42 @@ export async function loadProgressData(): Promise<ProgressData> {
 
   // One parallel wave for every read this page needs (the day-window event
   // fetch categorizes in JS afterwards, so it no longer waits on categories).
-  const [categories, weekRecap, monthRollup, habitsStatus, daySessions, rawDayEvents] =
-    await Promise.all([
-      listCategories(),
-      computeWeekRecap(weekStartMs, weekEndMs),
-      computeMonthRollup(new Date()),
-      getHabitsWithTodayStatus(today),
-      listSessionsInRange(dayStartMs, dayEndMs),
-      fetchEventsRaw(dayStartMs, dayEndMs),
-    ]);
+  const [
+    categories,
+    weekRecap,
+    monthRollup,
+    habitsStatus,
+    daySessions,
+    rawDayEvents,
+    activeGoals,
+  ] = await Promise.all([
+    listCategories(),
+    computeWeekRecap(weekStartMs, weekEndMs),
+    computeMonthRollup(new Date()),
+    getHabitsWithTodayStatus(today),
+    listSessionsInRange(dayStartMs, dayEndMs),
+    fetchEventsRaw(dayStartMs, dayEndMs),
+    listActiveGoals(),
+  ]);
 
   // --- Today window ---
   const dayEvents = categorizeEvents(rawDayEvents, categories);
   const dayNow = Math.min(now, dayEndMs);
-  const { total: todayTotalMs } = aggregateRange(
+  const { total: todayTotalMs, perCategory: todayPerCategory } = aggregateRange(
     daySessions,
     dayEvents,
     dayStartMs,
     dayEndMs,
     dayNow
   );
+
+  // Today's category donut segments (same helper + accent rules as the week/month
+  // breakdowns, so the same category/goal renders identically across views).
+  const todaySegs: Seg[] = buildCategoryBreakdown(
+    todayPerCategory,
+    categories,
+    activeGoals
+  ).map((r) => ({ name: r.name, color: r.color ?? CHART_FALLBACK, ms: r.ms }));
 
   const catById = new Map(categories.map((c) => [c.id, c] as const));
   // Goal titles for goal-tracked sessions (own goals, RLS-gated → always resolve),
@@ -139,11 +160,15 @@ export async function loadProgressData(): Promise<ProgressData> {
     .filter((s) => s.workedMs > 0)
     .sort((a, b) => a.startedAt - b.startedAt);
 
-  const dateLabel = new Intl.DateTimeFormat("en-US", {
+  const dayFmt = new Intl.DateTimeFormat("en-US", {
     timeZone: tz,
     month: "short",
     day: "numeric",
-  }).format(new Date());
+  });
+  const dateLabel = dayFmt.format(new Date());
+  // "Jul 21 – Jul 27" for the week window, formatted in the user's tz (weekEndMs
+  // is the last ms of Sunday, so it renders as Sunday's date).
+  const weekRangeLabel = `${dayFmt.format(new Date(weekStartMs))} – ${dayFmt.format(new Date(weekEndMs))}`;
 
   // --- Goals: week-to-date vs weekly quota (shared by Today + This week) ---
   const goalRows: GoalRow[] = weekRecap.goalRows.map((g) => ({
@@ -186,11 +211,15 @@ export async function loadProgressData(): Promise<ProgressData> {
     todayTotalMs,
     todayTracked: daySessions.length,
     todayImported: dayEvents.length,
+    todaySegs,
     sessionsToday,
     goals: goalRows,
     habitsToday,
     weekTotalMs: weekRecap.totalTrackedMs,
     weekSegs,
+    weekRangeLabel,
+    weekTracked: weekRecap.sessionCount,
+    weekImported: weekRecap.importedCount,
     weekStart: monday,
     today,
     monthLabel,

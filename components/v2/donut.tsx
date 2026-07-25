@@ -9,12 +9,16 @@ export function Donut({
   stroke = 14,
   label,
   sub,
+  labelClassName = "text-lg",
 }: {
   segments: Segment[];
   size?: number;
   stroke?: number;
   label?: string;
   sub?: string;
+  // Tailwind text-size for the center label. Defaults to the compact size the
+  // week/history donuts use; the big Today donut passes a larger one.
+  labelClassName?: string;
 }) {
   const total = segments.reduce((s, x) => s + x.value, 0);
   const r = (size - stroke) / 2;
@@ -60,7 +64,9 @@ export function Donut({
       {(label || sub) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           {label && (
-            <span className="font-mono text-lg font-bold tabular-nums">
+            <span
+              className={`font-mono font-bold tabular-nums leading-none ${labelClassName}`}
+            >
               {label}
             </span>
           )}

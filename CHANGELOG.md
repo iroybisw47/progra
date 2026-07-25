@@ -6,6 +6,21 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-24
 
+### · Progress tab: big category donut on both Today and This week
+The Today view now opens with a large, centered category donut (total hours in the
+middle, colored per-category segments around it) plus a compact legend, with
+"Sessions today" directly beneath — replacing the old text-only total hero. Today's
+segments come from the `perCategory` map `aggregateRange` already computes in
+`loadProgressData`, fed through `buildCategoryBreakdown` with the active goals so
+colors/labels match the week and month breakdowns.
+
+The **This week** tab gets the same hero donut (via a new `heroDonut` opt-in on the
+shared `WeekSummary`, so History's week view keeps its compact side-by-side layout),
+with a caption mirroring Today — "This week · {range}" plus "N tracked · M imported"
+(week row counts newly exposed from `computeWeekRecap`). The `Donut` center label is
+now sizable via a `labelClassName` prop (Today `text-5xl`, This week `text-4xl` since
+week totals are larger); hero card spacing tightened. Goals/habits sections unchanged.
+
 ### · Feed card footer: comments left of the heart
 Swapped the order of the two footer controls on feed session cards so the comment
 (speech-bubble) control sits to the left of the like (heart). Counts, links, and

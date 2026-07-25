@@ -36,6 +36,10 @@ export type WeekRecap = {
   totalFocusedMs: number;
   goalRows: RecapGoalRow[];
   highlights: string[];
+  // Row counts for the week (mirrors the Today caption's "N tracked · M
+  // imported"): clocked sessions and imported calendar events in the window.
+  sessionCount: number;
+  importedCount: number;
 };
 
 function statusForGoal(actualMs: number, quotaHours: number): GoalRecapStatus {
@@ -126,5 +130,7 @@ export async function computeWeekRecap(
     totalFocusedMs,
     goalRows,
     highlights,
+    sessionCount: sessions.length,
+    importedCount: events.length,
   };
 }
