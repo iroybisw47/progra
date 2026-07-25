@@ -28,7 +28,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toggleHabitCompletion } from "@/app/actions/habits";
 import type { Habit, HabitCompletion } from "@/lib/db/habits";
 import { formatDuration } from "@/lib/duration";
-import { formatTime } from "@/lib/dates";
+import { formatTime12 } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -51,6 +51,9 @@ export type SessionToday = {
   catName: string | null;
   catColor: string | null;
   isGoal: boolean;
+  // The goal's title when goal-tracked (drives the "Goal: {name}" label); null
+  // for category sessions and imported events.
+  goalName: string | null;
   startedAt: number;
   endedAt: number | null;
   workedMs: number;
@@ -232,12 +235,16 @@ function TodayView({
                         />
                       )}
                       <span style={{ color: s.catColor ?? undefined }}>
-                        {s.isGoal ? "Goal" : s.catName ?? "Uncategorized"}
+                        {s.isGoal
+                          ? s.goalName
+                            ? `Goal: ${s.goalName}`
+                            : "Goal"
+                          : s.catName ?? "Uncategorized"}
                       </span>{" "}
                       ·{" "}
-                      {s.kind === "event" && s.endedAt !== null
-                        ? `${formatTime(new Date(s.startedAt))} – ${formatTime(new Date(s.endedAt))}`
-                        : formatTime(new Date(s.startedAt))}
+                      {s.endedAt !== null
+                        ? `${formatTime12(new Date(s.startedAt))} – ${formatTime12(new Date(s.endedAt))}`
+                        : formatTime12(new Date(s.startedAt))}
                     </span>
                   </div>
                   <span className="text-body ml-auto shrink-0 font-mono text-sm tabular-nums">

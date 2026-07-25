@@ -84,6 +84,16 @@ export function formatTime(d: Date): string {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
+// 12-hour clock with AM/PM, e.g. "2:05 PM" / "12:30 AM". Minutes zero-padded.
+// Separate from formatTime (24h) because that one also feeds <input type="time">
+// values (components/session-dialog.tsx), which require an HH:MM string.
+export function formatTime12(d: Date): string {
+  const h = d.getHours();
+  const ampm = h < 12 ? "AM" : "PM";
+  const h12 = h % 12 || 12;
+  return `${h12}:${pad2(d.getMinutes())} ${ampm}`;
+}
+
 // Returns YYYY-MM-DD (ISO-style) for the current moment in the given IANA
 // timezone. Used by the habits server actions to verify the client's
 // claimed "today" matches the user's stored timezone.

@@ -3,6 +3,7 @@ import "server-only";
 import { aggregateRange } from "@/lib/aggregate";
 import { categorizeEvents, fetchEventsRaw } from "@/lib/db/calendar-events";
 import { listCategories } from "@/lib/db/categories";
+import { hydrateGoalTitles } from "@/lib/db/feed";
 import {
   getHabitsWithTodayStatus,
   listActiveHabits,
@@ -94,6 +95,11 @@ export async function loadProgressData(): Promise<ProgressData> {
   );
 
   const catById = new Map(categories.map((c) => [c.id, c] as const));
+  // Goal titles for goal-tracked sessions (own goals, RLS-gated → always resolve),
+  // so the row can read "Goal: {name}" instead of a bare "Goal".
+  const goalTitles = await hydrateGoalTitles(
+    [...new Set(daySessions.map((s) => s.goalId).filter((g): g is string => g != null))]
+  );
   const sessionRows: SessionToday[] = daySessions.map((s) => {
     const cat = s.categoryId ? catById.get(s.categoryId) : null;
     return {
@@ -103,6 +109,7 @@ export async function loadProgressData(): Promise<ProgressData> {
       catName: cat?.name ?? null,
       catColor: cat?.color ?? null,
       isGoal: s.goalId !== null,
+      goalName: s.goalId ? goalTitles.get(s.goalId) ?? null : null,
       startedAt: s.startedAt,
       endedAt: s.endedAt,
       workedMs: sessionWorkedMs(s, dayNow),
@@ -119,14 +126,18 @@ export async function loadProgressData(): Promise<ProgressData> {
     catName: e.category?.name ?? "Uncategorized",
     catColor: e.category?.color ?? null,
     isGoal: false,
+    goalName: null,
     startedAt: e.startMs,
     endedAt: e.endMs,
     workedMs: e.endMs - e.startMs,
     active: false,
   }));
+  // Chronological, earliest → latest, so the day reads top-to-bottom and the live
+  // session (always the most recently started, per the one-active-session rule)
+  // sits at the bottom.
   const sessionsToday: SessionToday[] = [...sessionRows, ...eventRows]
     .filter((s) => s.workedMs > 0)
-    .sort((a, b) => b.startedAt - a.startedAt);
+    .sort((a, b) => a.startedAt - b.startedAt);
 
   const dateLabel = new Intl.DateTimeFormat("en-US", {
     timeZone: tz,

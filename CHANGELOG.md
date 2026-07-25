@@ -6,6 +6,21 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-24
 
+### · Feed card footer: comments left of the heart
+Swapped the order of the two footer controls on feed session cards so the comment
+(speech-bubble) control sits to the left of the like (heart). Counts, links, and
+aria-labels unchanged (`components/v2/feed-v2.tsx`).
+
+### · "Sessions today" widget: chronological, named goals, AM/PM ranges
+The Progress tab's "Sessions today" list now reads top-to-bottom earliest→latest
+(so the live session sits at the bottom), shows the goal name ("Goal: {name}"
+instead of a bare "Goal"), and shows a start–end time range for finished sessions
+just like imported calendar events — all in 12-hour AM/PM time. New `formatTime12`
+helper in `lib/dates.ts` (kept separate from `formatTime`, which still backs the
+24-hour `<input type="time">` values in the session dialog); goal titles resolved
+in `lib/db/progress.ts` via the feed's `hydrateGoalTitles`; sort flipped to
+ascending. The live session keeps a single start time + its pulse dot.
+
 ### · Likes/comments notifications — Phase 3 (bottom-nav dot)
 Closes the loop: the Friends bottom-nav tab dot now lights on unseen likes/comments
 too, not just friend requests, so engagement is noticed without already being on

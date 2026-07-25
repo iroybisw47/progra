@@ -232,11 +232,6 @@ export async function FeedV2() {
                       {durationLabel}
                     </span>
                     <div className="flex items-center gap-3.5">
-                      <KudosButton
-                        sessionId={item.sessionId}
-                        count={likeSummary?.count ?? 0}
-                        likedByMe={likeSummary?.mine ?? false}
-                      />
                       <Link
                         href={`/session/${item.sessionId}`}
                         className="text-caption hover:text-body flex items-center gap-1.5 text-xs font-medium"
@@ -247,6 +242,11 @@ export async function FeedV2() {
                           <span className="tabular-nums">{comments.length}</span>
                         )}
                       </Link>
+                      <KudosButton
+                        sessionId={item.sessionId}
+                        count={likeSummary?.count ?? 0}
+                        likedByMe={likeSummary?.mine ?? false}
+                      />
                     </div>
                   </div>
 
