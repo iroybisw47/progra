@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { AvatarPicker } from "@/components/avatar-picker";
+import { InviteShare } from "@/components/v2/invite-share";
 import { PrograMark } from "@/components/progra-mark";
 import {
   Conversation,
@@ -39,7 +40,14 @@ import { checkUsername } from "@/lib/social/username";
 // CTA fade up. Structure/motion/copy follow the design handoff; all colors are
 // Progra's navy V2 tokens (recolor-only). Six steps; the actions/logic are the
 // same ones the previous static wizard used.
-type Step = "welcome" | "about" | "goal" | "categories" | "habits" | "calendar";
+type Step =
+  | "welcome"
+  | "about"
+  | "goal"
+  | "categories"
+  | "habits"
+  | "calendar"
+  | "invite";
 const SEQUENCE: Step[] = [
   "welcome",
   "about",
@@ -47,6 +55,7 @@ const SEQUENCE: Step[] = [
   "categories",
   "habits",
   "calendar",
+  "invite",
 ];
 
 // Per-step conversation copy (title = big, then body lines).
@@ -110,6 +119,14 @@ const SCRIPT: Record<Step, Utterance[]> = {
       big: false,
       text: "Access is read-only. Progra never creates or edits your events.",
     },
+  ],
+  invite: [
+    { big: true, text: "Bring your friends" },
+    {
+      big: false,
+      text: "Progra's better with friends — they'll see you show up, and you'll see them. Invite the people who'll keep you honest.",
+    },
+    { big: false, text: "You can always invite more later." },
   ],
 };
 
@@ -233,9 +250,11 @@ export function OnboardingClientV2({
     });
   }
 
-  // The Skip chrome shows on the middle steps only (not welcome or calendar,
-  // which has its own "Skip for now").
-  const showSkip = step !== "welcome" && step !== "calendar";
+  // The Skip chrome shows on the middle steps only (not welcome; not calendar,
+  // which has its own "Skip for now"; not invite, whose "Enter Progra" CTA is
+  // the finish and is itself skippable — a top-right skip would be redundant).
+  const showSkip =
+    step !== "welcome" && step !== "calendar" && step !== "invite";
 
   return (
     <div
@@ -346,6 +365,11 @@ export function OnboardingClientV2({
                 />
               </ControlBlock>
             )}
+            {step === "invite" && (
+              <ControlBlock>
+                <InviteShare username={username} />
+              </ControlBlock>
+            )}
           </Conversation>
         </div>
       </main>
@@ -382,9 +406,7 @@ export function OnboardingClientV2({
             )}
             {step === "calendar" &&
               (calendarConnected ? (
-                <Cta onClick={handleFinish} disabled={pending}>
-                  Finish
-                </Cta>
+                <Cta onClick={() => go("invite")}>Next</Cta>
               ) : (
                 <div className="flex flex-col gap-2">
                   {/* Plain navigation — the route handler stamps onboarded_at
@@ -400,14 +422,18 @@ export function OnboardingClientV2({
                   </a>
                   <Button
                     variant="ghost"
-                    onClick={handleFinish}
-                    disabled={pending}
+                    onClick={() => go("invite")}
                     className="text-caption h-11 w-full rounded-xl text-sm font-bold"
                   >
                     Skip for now
                   </Button>
                 </div>
               ))}
+            {step === "invite" && (
+              <Cta onClick={handleFinish} disabled={pending}>
+                Enter Progra
+              </Cta>
+            )}
           </div>
         </div>
       )}

@@ -6,6 +6,20 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-25
 
+### · Invite links — PR 2 (onboarding invite step + empty-feed share)
+Surfaces the invite link (PR 1's `/i/{username}`) at two moments. New shared client
+component `components/v2/invite-share.tsx`: a Share button (Web Share API, reusing the
+`recap-client` pattern) + a Copy-link row; the actual URL is built from
+`window.location.origin` at click time (hydration-safe, no effect). Onboarding
+(`onboarding-client-v2.tsx`) gains a new final **invite** step after calendar with
+witnessing copy ("they'll see you show up… keep each other honest") + the share card +
+an "Enter Progra" finish (the finish action moved off the calendar step, which now
+advances to invite); the top-right skip is hidden on the invite step. The empty-feed
+state (`feed-v2.tsx`) now shows the same share card (viewer handle via cached
+`getProfile`) plus a subtle "find people already on Progra" link. No new SQL. Copy is
+witnessing-only (no leaderboard/recap-post promise); suggested-friends reuse and
+recap-posting are deferred.
+
 ### · Invite links + referral attribution — PR 1 (code)
 A logged-out stranger can open `/i/{username}`, sign up with Google, and land already
 friends with the inviter, with `profiles.referred_by` recorded. New public route

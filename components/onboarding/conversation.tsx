@@ -19,12 +19,13 @@ import {
 
 export type Utterance = { big: boolean; text: string };
 
-// Per-word reveal cadence (ms).
-const TITLE_WORD_MS = 72;
-const BODY_WORD_MS = 34;
-const TYPING_MS = 650;
-const BETWEEN_UTTER_MS = 320;
-const AFTER_LAST_MS = 280;
+// Per-word reveal cadence (ms). Deliberately unhurried so the copy reads like
+// someone talking to you — bump these down if it ever feels sluggish.
+const TITLE_WORD_MS = 120;
+const BODY_WORD_MS = 58;
+const TYPING_MS = 720;
+const BETWEEN_UTTER_MS = 460;
+const AFTER_LAST_MS = 320;
 
 type Phase = "typing" | "streaming" | "ready";
 type State = { phase: Phase; utter: number; shown: number };

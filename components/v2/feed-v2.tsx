@@ -5,9 +5,10 @@ import { AvatarInitials } from "@/components/avatar-initials";
 import { CategoryMarker } from "@/components/category-marker";
 import { ClockedInStrip } from "@/components/clocked-in-strip";
 import { FeedLivePoll } from "@/components/feed-live-poll";
+import { InviteShare } from "@/components/v2/invite-share";
 import { KudosButton } from "@/components/kudos-button";
-import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { getProfile } from "@/lib/auth/profile";
 import {
   listClockedInNow,
   listFriendFeed,
@@ -37,14 +38,22 @@ export async function FeedV2() {
   const reactionsPromise = feedPromise.then((items) =>
     listReactionsForSessions(items.map((i) => i.sessionId))
   );
-  const [sessionItems, clockedIn, joinItems, commentsBySession, reactionsBySession] =
-    await Promise.all([
-      feedPromise,
-      listClockedInNow(),
-      listFriendJoins(),
-      commentsPromise,
-      reactionsPromise,
-    ]);
+  const [
+    sessionItems,
+    clockedIn,
+    joinItems,
+    commentsBySession,
+    reactionsBySession,
+    viewerProfile,
+  ] = await Promise.all([
+    feedPromise,
+    listClockedInNow(),
+    listFriendJoins(),
+    commentsPromise,
+    reactionsPromise,
+    // Own handle for the empty-state invite link (cache()-wrapped — free).
+    getProfile(),
+  ]);
   const now = Date.now();
 
   // Merge sessions + join announcements, newest-first (sessions by end time,
@@ -71,19 +80,19 @@ export async function FeedV2() {
         {entries.length === 0 ? (
           clockedIn.length === 0 && (
             <Card>
-              <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
-                <p className="text-caption text-sm">
-                  Your feed is quiet. Add friends — their shared sessions show up
-                  here.
+              <CardContent className="flex flex-col gap-3 py-8">
+                <p className="text-caption text-center text-sm text-pretty">
+                  Your feed&rsquo;s quiet — invite a friend and you&rsquo;ll see
+                  each other show up.
                 </p>
+                {viewerProfile?.username && (
+                  <InviteShare username={viewerProfile.username} />
+                )}
                 <Link
                   href="/friends"
-                  className={buttonVariants({
-                    variant: "outline",
-                    className: "h-10",
-                  })}
+                  className="text-caption hover:text-ink self-center text-xs font-medium"
                 >
-                  Find friends
+                  or find people already on Progra
                 </Link>
               </CardContent>
             </Card>

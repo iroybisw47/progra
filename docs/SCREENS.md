@@ -119,7 +119,7 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S09 | live-timer-client | status | "Paused" vs "Tracking" (timer color, Resume/Pause, glow) | `paused = pausedSince != null` | app/clock/live/live-timer-client.tsx:282-288,401 |
 | S10 | live-timer-client | other | "Photo attached" chip vs "Add photo" | `hasPhoto ?` | app/clock/live/live-timer-client.tsx:375 |
 | S11 | live-timer-client | edit sub-state | edit sheet: "Ended at" + "Finish session" vs "Save" | `!stillRunning &&` | app/clock/live/live-timer-client.tsx:504,520 |
-| S12 | onboarding-client-v2 (REDESIGN) | step | 6-step machine: welcome→about→goal→categories→habits→calendar | `useState<Step>` | app/onboarding/onboarding-client-v2.tsx:139; renders :280-383 |
+| S12 | onboarding-client-v2 (REDESIGN) | step | 7-step machine: welcome→about→goal→categories→habits→calendar→**invite** (invite = final, hosts InviteShare + "Enter Progra" finish) | `useState<Step>` | app/onboarding/onboarding-client-v2.tsx |
 | S13 | onboarding-client-v2 | phase (per step) | conversational typing→streaming→ready reveal | `Conversation` engine | app/onboarding/onboarding-client-v2.tsx:19-23 |
 | S14 | conversation.tsx | phase | typing indicator vs. streamed text vs. controls | `state.phase` typing/streaming/ready | components/onboarding/conversation.tsx:90,164,215 |
 | S15 | conversation.tsx | other | reduced-motion mounts straight to "ready" | `instant` | components/onboarding/conversation.tsx:89,93 |
@@ -148,7 +148,7 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S38 | progress-client | empty | "Nothing tracked yet today." | `sessionsToday.length === 0` | components/v2/progress-client.tsx:209 |
 | S39 | progress-client | empty | "No goals yet — tap to add one." | `goals.length === 0` | components/v2/progress-client.tsx:259 |
 | S40 | progress-client | empty | "No habits yet — tap to add one." | `optimisticHabits.length === 0` | components/v2/progress-client.tsx:326 |
-| S41 | feed-v2 (server) | empty | "Your feed is quiet…" + Find-friends CTA | `entries.length===0 && clockedIn.length===0` | components/v2/feed-v2.tsx:71-72 |
+| S41 | feed-v2 (server) | empty | "Your feed's quiet…" + **InviteShare** (share/copy invite link) + "find people already on Progra" link | `entries.length===0 && clockedIn.length===0` | components/v2/feed-v2.tsx |
 | S42 | feed-v2 | entry kind | join-announcement card vs. session card | `entry.kind === "join"` | components/v2/feed-v2.tsx:95 |
 | S43 | feed-v2 | other | comment preview vs. "Add a comment" | `preview ?` | components/v2/feed-v2.tsx:258 |
 | S44 | /me (You, server) | empty | "Your finished sessions show up here." | `pastSessions.length === 0` | app/me/page.tsx:177 |
