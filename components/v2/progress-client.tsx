@@ -15,6 +15,7 @@ import { toast } from "sonner";
 
 import { CategoryDonut } from "@/components/v2/category-donut";
 import { HabitWeekGrid } from "@/components/v2/habit-week-grid";
+import { RecapNudge } from "@/components/v2/recap-nudge";
 import { WeekSummary } from "@/components/v2/week-summary";
 
 // The manage-habits editor (485 lines) only matters after tapping "Manage" —
@@ -84,6 +85,7 @@ export function ProgressClient(props: {
   weekStart: string;
   today: string;
   minWeekStart: string;
+  recapNudge: { weekStart: string } | null;
   // When set (via `/?tab=history`), opens on that sub-tab instead of "today".
   initialTab?: Tab;
 }) {
@@ -94,6 +96,10 @@ export function ProgressClient(props: {
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-6 pb-28">
       <main className="flex w-full max-w-md flex-col gap-5">
+        {/* Weekly recap nudge — sits above everything when a week has unlocked
+            and hasn't been opened; disappears once opened (any device). */}
+        {props.recapNudge && <RecapNudge weekStart={props.recapNudge.weekStart} />}
+
         {/* Segmented control */}
         <div className="bg-track flex rounded-full p-1">
           {(

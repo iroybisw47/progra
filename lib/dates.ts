@@ -180,6 +180,53 @@ export function addDaysISO(dateStr: string, n: number): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
 }
 
+// The Monday→Sunday window for a week, expressed both as the canonical ISO
+// Monday and the epoch-ms bounds that computeWeekRecap / aggregateRange consume.
+// This is the one place that computation lives: Progress home (loadProgressData)
+// and /recap each inlined the same `zonedDayStartMs(monday, tz)` /
+// `zonedDayStartMs(addDaysISO(monday, 7), tz) - 1` pair; the recap widget, the
+// /recap/[weekStart] route, and the leaderboard RPC caller share this so every
+// surface agrees on one boundary. `weekStart` may be any YYYY-MM-DD (it's
+// snapped to its Monday); omit it for the current week in `tz`.
+export type WeekWindow = {
+  weekStartISO: string; // YYYY-MM-DD Monday
+  weekStartMs: number; // Monday 00:00:00.000 in tz
+  weekEndMs: number; // Sunday 23:59:59.999 in tz (inclusive)
+};
+
+export function weekWindow(tz: string, weekStart?: string): WeekWindow {
+  const monday = mondayOfDateISO(weekStart ?? todayInTimeZone(tz));
+  const weekStartMs = zonedDayStartMs(monday, tz);
+  const weekEndMs = zonedDayStartMs(addDaysISO(monday, 7), tz) - 1;
+  return { weekStartISO: monday, weekStartMs, weekEndMs };
+}
+
+// Hour (local wall-clock) at which a just-completed week's recap unlocks — the
+// "your week is ready" nudge appears Sunday 6pm in the user's own timezone.
+export const RECAP_READY_HOUR = 18;
+
+// Epoch ms at which the recap for the given week (any YYYY-MM-DD, snapped to its
+// Monday) unlocks: Sunday of that week at RECAP_READY_HOUR local wall-clock in
+// `tz`. Resolved via the same two-pass offset technique as zonedDayStartMs so it
+// lands on 6pm wall-clock even across a DST transition (a naive
+// `zonedDayStartMs(sunday) + 18h` is an hour off on spring-forward Sundays).
+export function recapReadyMs(weekStart: string, tz: string): number {
+  const sunday = addDaysISO(mondayOfDateISO(weekStart), 6);
+  const [y, m, d] = sunday.split("-").map(Number);
+  const wallAsUtc = Date.UTC(y, m - 1, d, RECAP_READY_HOUR);
+  const ts = wallAsUtc - tzOffsetMs(wallAsUtc, tz);
+  return wallAsUtc - tzOffsetMs(ts, tz);
+}
+
+// Has the given week's recap unlocked as of `nowMs`? (Sunday 6pm local in `tz`.)
+export function isRecapReady(
+  weekStart: string,
+  tz: string,
+  nowMs: number
+): boolean {
+  return nowMs >= recapReadyMs(weekStart, tz);
+}
+
 // Short, minute-granularity "time ago" for feed timestamps: "just now",
 // "12m ago", "3h ago". Past ~a day it defers to formatRelativeDay (Yesterday /
 // weekday / "Mon, Jan 5"). `fromMs`/`nowMs` are epoch ms. Future times (clock

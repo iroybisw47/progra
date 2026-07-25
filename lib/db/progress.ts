@@ -11,10 +11,12 @@ import {
   listCompletionsInRange,
 } from "@/lib/db/habits";
 import { computeWeekRecap } from "@/lib/db/recap";
+import { hasOpenedRecap } from "@/lib/db/recap-views";
 import { listSessionsInRange } from "@/lib/db/sessions";
 import { getProfile } from "@/lib/auth/profile";
 import {
   addDaysISO,
+  isRecapReady,
   mondayOfDateISO,
   todayInTimeZone,
   zonedDayStartMs,
@@ -45,6 +47,10 @@ export type ProgressData = {
   weekImported: number;
   weekStart: string;
   today: string;
+  // The "your week is ready" nudge: the ISO Monday of the most recent unlocked,
+  // still-unopened week, or null when there's nothing to surface. Tapping it
+  // opens that week's recap.
+  recapNudge: { weekStart: string } | null;
 };
 
 // The Monday (YYYY-MM-DD) of the current week in `tz`. Single source for the
@@ -72,6 +78,15 @@ export async function loadProgressData(): Promise<ProgressData> {
   const weekStartMs = zonedDayStartMs(monday, tz);
   const weekEndMs = zonedDayStartMs(addDaysISO(monday, 7), tz) - 1;
 
+  // Recap nudge target: the most recent week whose recap has unlocked (Sunday
+  // 6pm local). On Sunday evening that's the current week; once a new week
+  // begins it's the just-ended week — so an unopened nudge persists into the new
+  // week until opened. (Emptiness / first-week suppression is Phase 4.)
+  const recapMonday = isRecapReady(monday, tz, now)
+    ? monday
+    : addDaysISO(monday, -7);
+  const recapWeekStartMs = zonedDayStartMs(recapMonday, tz);
+
   // One parallel wave for every read this page needs (the day-window event
   // fetch categorizes in JS afterwards, so it no longer waits on categories).
   const [
@@ -81,6 +96,7 @@ export async function loadProgressData(): Promise<ProgressData> {
     daySessions,
     rawDayEvents,
     activeGoals,
+    recapOpened,
   ] = await Promise.all([
     listCategories(),
     computeWeekRecap(weekStartMs, weekEndMs),
@@ -88,6 +104,7 @@ export async function loadProgressData(): Promise<ProgressData> {
     listSessionsInRange(dayStartMs, dayEndMs),
     fetchEventsRaw(dayStartMs, dayEndMs),
     listActiveGoals(),
+    hasOpenedRecap(recapWeekStartMs),
   ]);
 
   // --- Today window ---
@@ -204,6 +221,7 @@ export async function loadProgressData(): Promise<ProgressData> {
     weekImported: weekRecap.importedCount,
     weekStart: monday,
     today,
+    recapNudge: recapOpened ? null : { weekStart: recapMonday },
   };
 }
 

@@ -4,10 +4,13 @@ import {
   endOfMonth,
   endOfWeek,
   endOfYear,
+  isRecapReady,
   mondayOfDateISO,
+  recapReadyMs,
   startOfMonth,
   startOfWeek,
   startOfYear,
+  weekWindow,
   zonedDayStartMs,
 } from "@/lib/dates";
 
@@ -94,5 +97,76 @@ describe("week boundaries (Monday-first)", () => {
   it("endOfWeek is the following Sunday at 23:59:59.999", () => {
     const e = endOfWeek(new Date(2026, 5, 24));
     expect([e.getDay(), e.getDate(), e.getMilliseconds()]).toEqual([0, 28, 999]);
+  });
+});
+
+describe("weekWindow", () => {
+  it("snaps any weekday to its Monday and spans Mon 00:00 .. next Mon − 1ms (UTC)", () => {
+    // 2026-07-09 is a Thursday → Monday is 2026-07-06.
+    const w = weekWindow("UTC", "2026-07-09");
+    expect(w.weekStartISO).toBe("2026-07-06");
+    expect(w.weekStartMs).toBe(Date.UTC(2026, 6, 6));
+    expect(w.weekEndMs).toBe(Date.UTC(2026, 6, 13) - 1);
+  });
+
+  it("matches the inline formula Progress/recap use, in a fixed-offset zone", () => {
+    // The window is exactly zonedDayStartMs(monday) .. zonedDayStartMs(nextMon) − 1.
+    const w = weekWindow("Asia/Tokyo", "2026-07-12"); // Sunday, same week
+    expect(w.weekStartISO).toBe("2026-07-06");
+    expect(w.weekStartMs).toBe(zonedDayStartMs("2026-07-06", "Asia/Tokyo"));
+    expect(w.weekEndMs).toBe(
+      zonedDayStartMs("2026-07-13", "Asia/Tokyo") - 1
+    );
+    // Tokyo is UTC+9: Monday midnight JST = the prior Sunday 15:00 UTC.
+    expect(w.weekStartMs).toBe(Date.UTC(2026, 6, 5, 15));
+  });
+
+  it("defaults to the current week in tz when weekStart is omitted", () => {
+    // Invariant against the live clock: the no-arg form equals passing today.
+    const now = weekWindow("UTC");
+    const explicit = weekWindow("UTC", now.weekStartISO);
+    expect(now).toEqual(explicit);
+  });
+});
+
+describe("recapReadyMs / isRecapReady (Sunday 6pm local)", () => {
+  it("resolves 6pm Sunday for a zone west of UTC", () => {
+    // Week of Mon 2026-07-06; Sunday is 2026-07-12. LA in July is PDT (UTC−7):
+    // 18:00 PDT = 01:00 UTC the next day.
+    expect(recapReadyMs("2026-07-06", "America/Los_Angeles")).toBe(
+      Date.UTC(2026, 6, 13, 1)
+    );
+  });
+
+  it("resolves 6pm Sunday for a zone east of UTC", () => {
+    // Tokyo (UTC+9): 18:00 JST Sunday 2026-07-12 = 09:00 UTC same day.
+    expect(recapReadyMs("2026-07-06", "Asia/Tokyo")).toBe(
+      Date.UTC(2026, 6, 12, 9)
+    );
+  });
+
+  it("lands on 6pm wall-clock even on a spring-forward Sunday", () => {
+    // 2026-03-08 is both the LA spring-forward day AND a Sunday. By 6pm the zone
+    // is already PDT (UTC−7), so 18:00 local = next-day 01:00 UTC. A naive
+    // midnight+18h would be an hour off; this proves the two-pass offset.
+    expect(recapReadyMs("2026-03-02", "America/Los_Angeles")).toBe(
+      Date.UTC(2026, 2, 9, 1)
+    );
+  });
+
+  it("isRecapReady flips exactly at the ready instant", () => {
+    const ready = recapReadyMs("2026-07-06", "Asia/Tokyo");
+    expect(isRecapReady("2026-07-06", "Asia/Tokyo", ready - 1)).toBe(false);
+    expect(isRecapReady("2026-07-06", "Asia/Tokyo", ready)).toBe(true);
+    expect(isRecapReady("2026-07-06", "Asia/Tokyo", ready + 1)).toBe(true);
+  });
+
+  it("accepts any day of the week and snaps to that week's Sunday", () => {
+    // Passing the Thursday of the week yields the same ready instant as the Mon.
+    expect(recapReadyMs("2026-07-09", "UTC")).toBe(
+      recapReadyMs("2026-07-06", "UTC")
+    );
+    // UTC has no offset: 18:00 Sunday 2026-07-12 UTC.
+    expect(recapReadyMs("2026-07-06", "UTC")).toBe(Date.UTC(2026, 6, 12, 18));
   });
 });

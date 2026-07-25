@@ -6,6 +6,34 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-25
 
+### · Weekly Recap — Phase 1 ("your week is ready" nudge on Progress)
+The recap ritual's entry point. A tappable "Your week is ready" banner appears at the top
+of Progress (above the Today/Week/History tabs) once the most recent week's recap has
+unlocked — Sunday 6pm in the user's own timezone (`isRecapReady` from Phase 0) — and it's
+still unopened. It targets the current week on Sunday evening, then the just-ended week once
+a new week begins, so an **unopened nudge persists into the new week** until opened. Tapping
+marks the week opened (across devices) and opens the recap (interim: the existing `/recap?w=`
+route; Phase 2 swaps in the full-screen story). New: `recap_views` table (`(user_id,
+week_start_ms)` PK, owner-only RLS, INSERT+SELECT) with `lib/db/recap-views.ts`
+(`hasOpenedRecap`, folded into `loadProgressData`'s parallel wave — no extra latency wave)
+and `app/actions/recap.ts` (`markRecapOpened`, resolves the tz-correct `week_start_ms`
+server-side via `weekWindow` so it always matches what the nudge checked). `components/v2/
+recap-nudge.tsx` is the client banner (best-effort mark → navigate). Emptiness / first-week
+suppression is deferred to Phase 4. **Requires SQL** (recap_views table + RLS — run by hand).
+
+### · Weekly Recap — Phase 0 (week-window helper + Sunday-6pm gate math)
+Foundation for the Weekly Recap feature (plan: `.claude/plans/weekly-recap.md`). Purely
+additive to `lib/dates.ts`; no route/component/SQL changes. New `weekWindow(tz, weekStart?)`
+→ `{ weekStartISO, weekStartMs, weekEndMs }` centralizes the Monday→Sunday window that
+Progress home and `/recap` each inlined, so the recap widget, the `/recap/[weekStart]`
+route, and the leaderboard RPC caller all agree on one boundary. New `recapReadyMs(weekStart,
+tz)` / `isRecapReady(...)` compute when a week's recap unlocks — Sunday 6pm in the user's own
+timezone — resolved via the same two-pass offset technique as `zonedDayStartMs` so it lands
+on 6pm wall-clock even across a DST transition (a naive `midnight + 18h` is an hour off on
+spring-forward Sundays; tested against LA's 2026-03-08 spring-forward, which is a Sunday).
+8 new unit tests in `lib/dates.test.ts` (west/east-of-UTC + boundary + DST). Existing callers
+(`loadProgressData`, `/recap`) left untouched — Phase 1+ adopts the helper.
+
 ### · Invite links — PR 2 (onboarding invite step + empty-feed share)
 Surfaces the invite link (PR 1's `/i/{username}`) at two moments. New shared client
 component `components/v2/invite-share.tsx`: a Share button (Web Share API, reusing the

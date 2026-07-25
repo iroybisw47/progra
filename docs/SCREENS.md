@@ -145,6 +145,7 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S35 | settings-client | connection | calendar "Disconnect" vs "Connect" (+ unverified warning) | `calendarConnected ?`; `SHOW_UNVERIFIED_WARNING` | app/settings/settings-client.tsx:207,227 |
 | S36 | settings-client | role | Moderation section only for admins | `isAdmin &&` | app/settings/settings-client.tsx:281 |
 | S37 | progress-client (home) | tabs | Today / Week / History views | `useState<Tab>("today")` | components/v2/progress-client.tsx:82,112-114 |
+| S50 | progress-client (home) | nudge | "Your week is ready" recap banner (above the tabs) → opens `/recap?w=` | `props.recapNudge` (set in `loadProgressData` when the week unlocked Sun 6pm local & is unopened) | components/v2/recap-nudge.tsx · components/v2/progress-client.tsx |
 | S38 | progress-client | empty | "Nothing tracked yet today." | `sessionsToday.length === 0` | components/v2/progress-client.tsx:209 |
 | S39 | progress-client | empty | "No goals yet — tap to add one." | `goals.length === 0` | components/v2/progress-client.tsx:259 |
 | S40 | progress-client | empty | "No habits yet — tap to add one." | `optimisticHabits.length === 0` | components/v2/progress-client.tsx:326 |

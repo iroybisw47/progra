@@ -100,6 +100,12 @@ export function revalidateCalendarSurfaces() {
   revalidatePath("/settings");
 }
 
+// Weekly Recap: the "your week is ready" nudge lives only on Progress (Home).
+// Marking a week opened re-renders it away in the action's own POST response.
+export function revalidateRecapSurfaces() {
+  revalidatePath("/");
+}
+
 // Comments + reactions (feed cards, session detail, legacy home feed).
 export function revalidateSocialSurfaces() {
   revalidatePath("/");
