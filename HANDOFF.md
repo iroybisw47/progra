@@ -11,6 +11,10 @@
 > overhaul (§8.5); auth/mutation conventions CHANGED (§3, §6 — old patterns now
 > forbidden); Google OAuth verification prep (§8.6); History week view via shared
 > WeekSummary (07-23); complete feature inventory added (§4.5)._
+>
+> _**Newer than this doc:** see `HANDOFF-UPDATES.md` for the 2026-07-24→07-25 wave
+> (likes/comments notifications, nav dots, unified category donut, History revamp +
+> drill-down, iOS Sheet fixes) and the manual SQL it required._
 
 ---
 
