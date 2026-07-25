@@ -43,7 +43,7 @@ function SheetContent({
         // without these the header + close button draw under the iOS status bar /
         // Dynamic Island (env() is 0 on desktop, so no change there).
         className={cn(
-          "fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-sm flex-col bg-popover text-popover-foreground ring-1 ring-foreground/10 duration-150 outline-none pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] data-open:animate-in data-open:slide-in-from-right data-closed:animate-out data-closed:slide-out-to-right",
+          "fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-full flex-col bg-popover text-popover-foreground ring-1 ring-foreground/10 duration-150 outline-none pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] data-open:animate-in data-open:slide-in-from-right data-closed:animate-out data-closed:slide-out-to-right sm:max-w-sm",
           className
         )}
         {...props}
