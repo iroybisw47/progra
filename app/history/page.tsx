@@ -59,10 +59,12 @@ export default async function HistoryPage({
         monday={monday}
         totalMs={recap.totalTrackedMs}
         segs={recap.categoryRows.map((r) => ({
+          id: r.id,
           name: r.name,
           color: r.color ?? CHART_FALLBACK,
           ms: r.ms,
         }))}
+        items={recap.categoryItems}
         goals={recap.goalRows.map((g) => ({
           id: g.id,
           title: g.title,

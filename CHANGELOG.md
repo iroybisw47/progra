@@ -6,6 +6,39 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-25
 
+### · History: tap a category to see its sessions (restored drop-down)
+The per-category drill-down is back on every /history view: tap a category row
+(under the donut) to expand the individual sessions/events that make up its time
+(title · source tag · date · hours) — the feature the old month/year card had,
+now on week/month/year alike. Wired through the shared `CategoryDonut` via an
+optional `items` map; month/year reuse `rollup.categoryItems`, and the week now
+carries `categoryItems` too (added to `computeWeekRecap` via `buildCategoryItems`).
+The Progress Today/This-week heroes pass no items, so they stay non-expandable.
+
+### · Unified category donut: centered donut + per-category bars
+Every category breakdown now uses one shared presentation (`components/v2/category-donut.tsx`):
+a centered donut with the period total in the middle, then each category as a row
+with a colored bar sized to its share of the total (hours + percent on the right).
+Applied to Progress → Today, Progress → This week, and all three /history views
+(week/month/year). Replaces the old donut + text legend everywhere; retired the
+`Legend` component and the `WeekSummary` `heroDonut` prop. Goal-quota bars on the
+week views are unchanged.
+
+### · History revamp: 3 focused entry points + donut month/year
+The Progress tab's History view is now three buttons — **Past weeks / Past months /
+Past year** — each opening a **focused** single-period view on `/history` (no page
+header, no week/month/year switch; just a "Back to history" link, the Previous/Next
+scrubber, and the period's donut). "Back to history" returns to the Progress History
+sub-tab via `/?tab=history` (ProgressClient now accepts an `initialTab`). Replaces the
+old month-donut preview + "Full history" link; also drops the per-load month rollup
+that only fed that preview (a small perf win). The **month** and **year** views now
+use the same clean donut + category legend as the week (built from the rollup's
+`categoryRows` + `totalTrackedMs` — no new server work), replacing the big-number +
+bars analytical card. The period-scoped calendar actions (auto-categorize/review +
+Sync Google Calendar) stay, since that's currently the app's only Sync entry point;
+the expandable per-category audit, per-item delete/exclude, and goal bars were
+dropped. Week view content unchanged.
+
 ### · Fix: Notifications panel unclosable under the iOS notch
 The Friends notifications slide-over is `position: fixed`, so it was anchored to
 the raw viewport and ignored the app's global `body` safe-area padding — on iPhone

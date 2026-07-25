@@ -16,7 +16,11 @@ import {
   loadWeekHabits,
 } from "@/lib/db/progress";
 
-export default async function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) return <SignedOutLanding />;
 
@@ -26,6 +30,10 @@ export default async function Page() {
   if (REDESIGN) {
     const profile = await getProfile();
     if (!profile?.onboarded_at) redirect("/onboarding");
+    // `?tab=history` opens the History sub-tab directly — the "Back to history"
+    // link on /history returns here.
+    const { tab } = await searchParams;
+    const initialTab = tab === "history" ? "history" : undefined;
     // The week start is derivable from the profile alone, so both loaders run
     // in parallel instead of habits waiting on the full progress read.
     const weekStart = currentWeekStart(profile.timezone ?? "UTC");
@@ -39,6 +47,7 @@ export default async function Page() {
         habits={habits}
         completions={completions}
         minWeekStart={minWeekStart}
+        initialTab={initialTab}
       />
     );
   }

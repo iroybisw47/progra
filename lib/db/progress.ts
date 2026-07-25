@@ -10,7 +10,6 @@ import {
   listActiveHabits,
   listCompletionsInRange,
 } from "@/lib/db/habits";
-import { computeMonthRollup } from "@/lib/db/rollups";
 import { computeWeekRecap } from "@/lib/db/recap";
 import { listSessionsInRange } from "@/lib/db/sessions";
 import { getProfile } from "@/lib/auth/profile";
@@ -46,9 +45,6 @@ export type ProgressData = {
   weekImported: number;
   weekStart: string;
   today: string;
-  monthLabel: string;
-  monthTotalMs: number;
-  monthSegs: Seg[];
 };
 
 // The Monday (YYYY-MM-DD) of the current week in `tz`. Single source for the
@@ -81,7 +77,6 @@ export async function loadProgressData(): Promise<ProgressData> {
   const [
     categories,
     weekRecap,
-    monthRollup,
     habitsStatus,
     daySessions,
     rawDayEvents,
@@ -89,7 +84,6 @@ export async function loadProgressData(): Promise<ProgressData> {
   ] = await Promise.all([
     listCategories(),
     computeWeekRecap(weekStartMs, weekEndMs),
-    computeMonthRollup(new Date()),
     getHabitsWithTodayStatus(today),
     listSessionsInRange(dayStartMs, dayEndMs),
     fetchEventsRaw(dayStartMs, dayEndMs),
@@ -194,18 +188,6 @@ export async function loadProgressData(): Promise<ProgressData> {
     ms: r.ms,
   }));
 
-  // --- History (current month) donut ---
-  const monthSegs: Seg[] = monthRollup.categoryRows.map((r) => ({
-    name: r.name,
-    color: r.color ?? CHART_FALLBACK,
-    ms: r.ms,
-  }));
-  const monthLabel = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    month: "long",
-    year: "numeric",
-  }).format(new Date());
-
   return {
     dateLabel,
     todayTotalMs,
@@ -222,9 +204,6 @@ export async function loadProgressData(): Promise<ProgressData> {
     weekImported: weekRecap.importedCount,
     weekStart: monday,
     today,
-    monthLabel,
-    monthTotalMs: monthRollup.totalTrackedMs,
-    monthSegs,
   };
 }
 

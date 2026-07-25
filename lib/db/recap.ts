@@ -4,7 +4,9 @@ import {
   aggregateRange,
   aggregateRangeByGoal,
   buildCategoryBreakdown,
+  buildCategoryItems,
   type CategoryBreakdownRow,
+  type CategoryItem,
 } from "@/lib/aggregate";
 import { categorizeEvents, fetchEventsRaw } from "@/lib/db/calendar-events";
 import { listCategories } from "@/lib/db/categories";
@@ -32,6 +34,10 @@ export type WeekRecap = {
   // events) and its per-category split, incl. the Uncategorized bucket.
   totalTrackedMs: number;
   categoryRows: CategoryBreakdownRow[];
+  // Per-category audit list (keyed by category id, "goal:<id>", or
+  // "uncategorized") — the individual sessions/events making up each category,
+  // so a row can expand to show where its hours came from. Sums to categoryRows.
+  categoryItems: Record<string, CategoryItem[]>;
   // Goal-attributed session time — secondary to the category view.
   totalFocusedMs: number;
   goalRows: RecapGoalRow[];
@@ -95,6 +101,20 @@ export async function computeWeekRecap(
     goals
   ).filter((r) => r.ms > 0);
 
+  // Per-category audit items (same attribution as the totals), so a category
+  // row on the week view can expand to show its sessions/events.
+  const itemsByCat = buildCategoryItems(
+    sessions,
+    events,
+    weekStartMs,
+    weekEndMs,
+    aggregateNow
+  );
+  const categoryItems: Record<string, CategoryItem[]> = {};
+  for (const [id, items] of itemsByCat) {
+    categoryItems[id ?? "uncategorized"] = items;
+  }
+
   const goalRows: RecapGoalRow[] = goals
     .map((g) => {
       const actualMs = perGoal.get(g.id) ?? 0;
@@ -127,6 +147,7 @@ export async function computeWeekRecap(
     weekEndMs,
     totalTrackedMs,
     categoryRows,
+    categoryItems,
     totalFocusedMs,
     goalRows,
     highlights,

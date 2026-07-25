@@ -5,16 +5,17 @@ import Link from "next/link";
 import { useOptimistic, useState, useTransition } from "react";
 import {
   CalendarIcon,
+  CalendarDaysIcon,
+  CalendarRangeIcon,
   CheckIcon,
   ChevronRightIcon,
   SlidersHorizontalIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { Donut } from "@/components/v2/donut";
+import { CategoryDonut } from "@/components/v2/category-donut";
 import { HabitWeekGrid } from "@/components/v2/habit-week-grid";
-import { Legend, WeekSummary } from "@/components/v2/week-summary";
-// Donut + Legend are also used below for the Today view's category chart.
+import { WeekSummary } from "@/components/v2/week-summary";
 
 // The manage-habits editor (485 lines) only matters after tapping "Manage" —
 // load it as a lazy chunk after hydration instead of shipping it in the
@@ -83,11 +84,10 @@ export function ProgressClient(props: {
   weekStart: string;
   today: string;
   minWeekStart: string;
-  monthLabel: string;
-  monthTotalMs: number;
-  monthSegs: Seg[];
+  // When set (via `/?tab=history`), opens on that sub-tab instead of "today".
+  initialTab?: Tab;
 }) {
-  const [tab, setTab] = useState<Tab>("today");
+  const [tab, setTab] = useState<Tab>(props.initialTab ?? "today");
   const [manageOpen, setManageOpen] = useState(false);
   const onManage = () => setManageOpen(true);
 
@@ -119,7 +119,7 @@ export function ProgressClient(props: {
 
         {tab === "today" && <TodayView {...props} onManage={onManage} />}
         {tab === "week" && <WeekView {...props} onManage={onManage} />}
-        {tab === "history" && <HistoryView {...props} />}
+        {tab === "history" && <HistoryView />}
       </main>
 
       <ManageHabits
@@ -194,9 +194,9 @@ function TodayView({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Hero: big centered category donut with today's total in the middle. */}
+      {/* Hero: centered category donut + per-category bars underneath. */}
       <Card>
-        <CardContent className="flex flex-col gap-4 py-6">
+        <CardContent className="flex flex-col gap-4 py-5">
           <div className="flex items-baseline justify-between">
             <span className="text-caption text-[11px] font-bold uppercase tracking-wide">
               Today · {dateLabel}
@@ -205,17 +205,7 @@ function TodayView({
               {todayTracked} tracked · {todayImported} imported
             </span>
           </div>
-          <div className="flex justify-center py-2">
-            <Donut
-              segments={todaySegs.map((s) => ({ color: s.color, value: s.ms }))}
-              size={240}
-              stroke={22}
-              label={formatDuration(todayTotalMs)}
-              labelClassName="text-5xl"
-              sub="Tracked"
-            />
-          </div>
-          {todaySegs.length > 0 && <Legend segs={todaySegs} total={todayTotalMs} />}
+          <CategoryDonut segs={todaySegs} totalMs={todayTotalMs} />
         </CardContent>
       </Card>
 
@@ -442,7 +432,6 @@ function WeekView({
         segs={weekSegs}
         goals={goals}
         goalsHeaderExtra={<ManageGoalsLink />}
-        heroDonut
         rangeLabel={weekRangeLabel}
         tracked={weekTracked}
         imported={weekImported}
@@ -479,44 +468,49 @@ function WeekView({
   );
 }
 
-function HistoryView({
-  monthLabel,
-  monthTotalMs,
-  monthSegs,
-}: {
-  monthLabel: string;
-  monthTotalMs: number;
-  monthSegs: Seg[];
-}) {
+// Three entry points into the /history browser (which owns the Previous/Next
+// scrubber + week/month/year switch). Each period type renders the same donut
+// breakdown there.
+function HistoryView() {
+  const rows = [
+    {
+      href: "/history?view=week",
+      icon: CalendarRangeIcon,
+      label: "Past weeks",
+      sub: "Previous weeks, by category.",
+    },
+    {
+      href: "/history?view=month",
+      icon: CalendarIcon,
+      label: "Past months",
+      sub: "Each month's time, by category.",
+    },
+    {
+      href: "/history?view=year",
+      icon: CalendarDaysIcon,
+      label: "Past year",
+      sub: "The whole year at a glance.",
+    },
+  ];
   return (
-    <div className="flex flex-col gap-5">
-      <Card>
-        <CardContent className="flex items-center gap-5 py-5">
-          <Donut
-            segments={monthSegs.map((s) => ({ color: s.color, value: s.ms }))}
-            size={120}
-            stroke={26}
-            label={fmtH(monthTotalMs)}
-          />
-          <div className="flex flex-1 flex-col gap-2">
-            <span className="text-sm font-bold">{monthLabel}</span>
-            <Legend segs={monthSegs} total={monthTotalMs} />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Link
-        href="/history"
-        className="border-hairline flex items-center justify-between rounded-2xl border px-4 py-3.5"
-      >
-        <div className="flex flex-col">
-          <span className="text-sm font-medium">Full history</span>
-          <span className="text-caption text-xs">
-            Browse by week, month, and year, expand any category.
-          </span>
-        </div>
-        <ChevronRightIcon className="text-faint size-4 shrink-0" />
-      </Link>
+    <div className="flex flex-col gap-3">
+      {rows.map((r) => {
+        const Icon = r.icon;
+        return (
+          <Link
+            key={r.href}
+            href={r.href}
+            className="border-hairline hover:bg-muted/30 flex items-center gap-3 rounded-2xl border px-4 py-3.5 transition-transform active:scale-[.99]"
+          >
+            <Icon className="text-brand size-5 shrink-0" />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="text-sm font-medium">{r.label}</span>
+              <span className="text-caption text-xs">{r.sub}</span>
+            </div>
+            <ChevronRightIcon className="text-faint size-4 shrink-0" />
+          </Link>
+        );
+      })}
     </div>
   );
 }
