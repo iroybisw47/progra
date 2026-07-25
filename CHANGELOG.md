@@ -6,6 +6,18 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-25
 
+### · Fix: frozen "current period" dates on deployed (force-dynamic)
+Deployed History showed the year as 2025 / month as June when it was July 2026 — a
+year being wrong mid-year can't be timezone (that only shifts a day), so the page's
+`new Date()` was frozen by a cached/prerendered render. Added
+`export const dynamic = "force-dynamic"` to the three pages that display the current
+absolute period — `app/page.tsx` ("Today · {date}"), `app/history/page.tsx`
+(month/year/week), `app/recap/page.tsx` (current week) — so each is re-run per
+request with a live clock and never served from the Full Route Cache. Note: a
+**redeploy is required** to replace the already-frozen production output. (Timezone
+consistency for History month/year — server-UTC vs the user's stored tz — is a
+separate latent issue, left as a follow-up.)
+
 ### · History: tap a category to see its sessions (restored drop-down)
 The per-category drill-down is back on every /history view: tap a category row
 (under the donut) to expand the individual sessions/events that make up its time

@@ -9,6 +9,10 @@ import { computeWeekRecap } from "@/lib/db/recap";
 
 import { RecapClient } from "./recap-client";
 
+// The current week is derived from the live clock at render time — force
+// per-request rendering so the route is never served from a frozen cache entry.
+export const dynamic = "force-dynamic";
+
 type SearchParams = Promise<{ w?: string }>;
 
 export default async function RecapPage({

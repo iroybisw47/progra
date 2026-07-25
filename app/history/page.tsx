@@ -12,6 +12,11 @@ import { listCategories } from "@/lib/db/categories";
 
 import { HistoryClient } from "./history-client";
 
+// The current period (month/year/week) is derived from the live clock at render
+// time. Force per-request rendering so the route output is never cached/frozen —
+// otherwise a stale full-route-cache entry pins "now" to build time.
+export const dynamic = "force-dynamic";
+
 type SearchParams = Promise<{ view?: string; m?: string; y?: string; w?: string }>;
 
 const CHART_FALLBACK = "var(--chart-5)";

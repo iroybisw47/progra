@@ -16,6 +16,10 @@ import {
   loadWeekHabits,
 } from "@/lib/db/progress";
 
+// "Today · {date}" is derived from the live clock at render time — force
+// per-request rendering so the route is never served from a frozen cache entry.
+export const dynamic = "force-dynamic";
+
 export default async function Page({
   searchParams,
 }: {
