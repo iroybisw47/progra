@@ -6,6 +6,20 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-25
 
+### · Fix: History month/year label off by a day → wrong month/year (tz)
+The real cause of "deployed History shows June 2026 / year 2025." The month/year
+period **anchor** was built as `new Date(year, month, 1)` = midnight in the *server's*
+tz (UTC on Vercel), passed to the client as a timestamp, and formatted by
+`periodLabel` in the *browser's* tz. For a viewer west of UTC that instant rolls back
+a day: midnight-UTC-Jul-1 → "June" locally, midnight-UTC-Jan-1-2026 → "2025". (Week was
+already immune — its timestamps are zoned to the user's stored tz; and local dev was
+immune because the dev server runs in the user's own tz.) Fix: `app/history/page.tsx`
+now derives the current year/month from the user's stored tz (`todayInTimeZone`, like
+the week/recap) and passes them as **numbers**; `history-client.tsx` builds the label
+client-side from those numbers (`new Date(year, monthIndex, 1)` — construction and
+formatting in one tz), so it can't roll back. The earlier `force-dynamic` change
+stays (correct, unrelated).
+
 ### · Fix: frozen "current period" dates on deployed (force-dynamic)
 Deployed History showed the year as 2025 / month as June when it was July 2026 — a
 year being wrong mid-year can't be timezone (that only shifts a day), so the page's

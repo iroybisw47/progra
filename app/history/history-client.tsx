@@ -45,16 +45,12 @@ type Props = CommonProps &
         goals: WeekSummaryGoal[];
         items: Record<string, CategoryItem[]>;
       }
-    | { view: "month" | "year"; rollup: Rollup }
+    // year/month carry the period as NUMBERS (not a timestamp): the label is
+    // built + formatted entirely client-side, so it can't roll back a day when a
+    // server-UTC-midnight instant is reinterpreted in a browser west of UTC.
+    | { view: "year"; rollup: Rollup; year: number }
+    | { view: "month"; rollup: Rollup; year: number; monthIndex: number }
   );
-
-// Labels formatted client-side (locale lives on the client) to avoid SSR
-// locale drift — same approach the recap card uses.
-function periodLabel(view: "month" | "year", startMs: number): string {
-  const d = new Date(startMs);
-  if (view === "year") return String(d.getFullYear());
-  return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-}
 
 // "Jul 21 – Jul 27" — the week's Mon–Sun span.
 function weekLabel(startMs: number, endMs: number): string {
@@ -77,7 +73,12 @@ export function HistoryClient(props: Props) {
   const label =
     props.view === "week"
       ? weekLabel(props.weekStartMs, props.weekEndMs)
-      : periodLabel(props.view, props.rollup.startMs);
+      : props.view === "year"
+        ? String(props.year)
+        : new Date(props.year, props.monthIndex, 1).toLocaleDateString(undefined, {
+            month: "long",
+            year: "numeric",
+          });
 
   const currentLabel =
     props.view === "year"
