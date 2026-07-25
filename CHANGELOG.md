@@ -4,6 +4,18 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-07-25
+
+### · Fix: Notifications panel unclosable under the iOS notch
+The Friends notifications slide-over is `position: fixed`, so it was anchored to
+the raw viewport and ignored the app's global `body` safe-area padding — on iPhone
+its title and X button drew under the status bar / Dynamic Island and couldn't be
+tapped, trapping the user in the panel. Added `pt-[env(safe-area-inset-top)]` /
+`pb-[env(safe-area-inset-bottom)]` to the sheet popup and offset the close button
+by the top inset (`top-[calc(env(safe-area-inset-top)_+_0.75rem)]`, since absolute
+children don't inherit the container's padding). `env()` is 0 on desktop, so no
+change there. `components/ui/sheet.tsx` only; the centered Dialog was unaffected.
+
 ## 2026-07-24
 
 ### · Progress tab: big category donut on both Today and This week

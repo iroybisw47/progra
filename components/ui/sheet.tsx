@@ -38,8 +38,12 @@ function SheetContent({
       />
       <DialogPrimitive.Popup
         data-slot="sheet-content"
+        // pt/pb safe-area insets: the panel is position:fixed, so it's anchored
+        // to the raw viewport and ignores the body's global safe-area padding —
+        // without these the header + close button draw under the iOS status bar /
+        // Dynamic Island (env() is 0 on desktop, so no change there).
         className={cn(
-          "fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-sm flex-col bg-popover text-popover-foreground ring-1 ring-foreground/10 duration-150 outline-none data-open:animate-in data-open:slide-in-from-right data-closed:animate-out data-closed:slide-out-to-right",
+          "fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-sm flex-col bg-popover text-popover-foreground ring-1 ring-foreground/10 duration-150 outline-none pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] data-open:animate-in data-open:slide-in-from-right data-closed:animate-out data-closed:slide-out-to-right",
           className
         )}
         {...props}
@@ -49,9 +53,11 @@ function SheetContent({
           <DialogPrimitive.Close
             data-slot="sheet-close"
             render={
+              // Offset by the safe-area inset too: absolute children anchor to
+              // the padding-box top, so the Popup's pt-[safe] doesn't move them.
               <Button
                 variant="ghost"
-                className="absolute top-3 right-3"
+                className="absolute right-3 top-[calc(env(safe-area-inset-top)_+_0.75rem)]"
                 size="icon-sm"
               />
             }
