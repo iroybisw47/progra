@@ -6,6 +6,23 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-25
 
+### · Invite links + referral attribution — PR 1 (code)
+A logged-out stranger can open `/i/{username}`, sign up with Google, and land already
+friends with the inviter, with `profiles.referred_by` recorded. New public route
+`app/i/[username]/page.tsx` (+ `loading.tsx`) — no auth gate (`getOptionalUser`), reuses
+`getPublicProfileByUsername`; handles all four caller states (logged-out landing ·
+logged-in-other → claim + `/profile` · self → `/me` · unknown handle → a public
+"invite not found" card, not `notFound()`). The inviter rides through OAuth as a `?ref=`
+query param: `GoogleSignInButton` gained a `referrer` prop (named `referrer`, not `ref`,
+which React would intercept) that sets `?ref=`, and `/auth/callback` calls
+`claim_invite({ p_username })` after the code exchange — wrapped so attribution can never
+block sign-in. `Profile` gains `referred_by` (omitted from `ClientProfile` /
+`toClientProfile`). **Requires hand-run SQL** (not yet applied): the `referred_by` column
+(`on delete set null` — a deliberate exception to the auth.users cascade rule), an anon
+SELECT grant on `public_profiles`, and the `claim_invite` SECURITY DEFINER RPC (validates
+self/blocked, sets `referred_by` once, upserts an `accepted` friendship; idempotent). PR 2
+(onboarding invite step + empty-feed reuse) is separate.
+
 ### · Fix: History month/year label off by a day → wrong month/year (tz)
 The real cause of "deployed History shows June 2026 / year 2025." The month/year
 period **anchor** was built as `new Date(year, month, 1)` = midnight in the *server's*

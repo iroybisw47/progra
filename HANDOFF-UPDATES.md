@@ -108,6 +108,15 @@ create index if not exists session_comments_session_created_idx
   to `CategoryDonut`; `heroDonut`/`Legend` gone).
 
 ## Open threads / known state (read before touching related code)
+- **Invite links / referrals (PR 1 — code landed, SQL PENDING).** New public route
+  `/i/[username]` + `?ref=` through OAuth + `/auth/callback` calling `claim_invite`.
+  Requires hand-run SQL not yet applied: `profiles.referred_by uuid`, an anon SELECT
+  grant on `public_profiles`, and the `claim_invite` SECURITY DEFINER RPC (see
+  `.claude/plans/invite-links-referrals.md`). ⚠️ **`profiles.referred_by` is
+  `ON DELETE SET NULL`, a DELIBERATE exception to the "every FK to auth.users
+  CASCADEs" rule** — cascade would delete invitees' profiles when a referrer deletes
+  their account. Do NOT "fix" it to cascade. PR 2 (onboarding invite step, empty-feed
+  reuse, suggested-friends extraction) is not started.
 - **Calendar Sync + Auto-categorize live ONLY on the `/history` month/year donut
   view** (`SyncCalendarButton` / `CategorizePeriodButton` in `history-client.tsx`).
   `HomeActions` (sync+categorize cards) renders only in the legacy `Dashboard`

@@ -38,6 +38,11 @@ export type Profile = {
   // clears only on opening the panel, never on merely visiting Friends. Null =
   // never opened. (May be absent until the column SQL is run — treated as null.)
   notifications_seen_at: string | null;
+  // The auth.users id of whoever invited this user (via /i/{username}), set once
+  // by claim_invite and never overwritten. Null = organic signup. Server-only —
+  // omitted from ClientProfile (no reason to expose the referrer to the client).
+  // (May be absent until the column SQL is run — treated as null.)
+  referred_by: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -67,6 +72,7 @@ export type ClientProfile = Omit<
   | "google_provider_refresh_token"
   | "google_token_expires_at"
   | "google_scopes"
+  | "referred_by"
 > & { calendarConnected: boolean };
 
 export function toClientProfile(p: Profile): ClientProfile {
@@ -76,6 +82,7 @@ export function toClientProfile(p: Profile): ClientProfile {
     google_provider_refresh_token,
     google_token_expires_at,
     google_scopes,
+    referred_by,
     ...rest
   } = p;
   /* eslint-enable @typescript-eslint/no-unused-vars */

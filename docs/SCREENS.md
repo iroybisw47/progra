@@ -48,6 +48,9 @@ Sheet / AlertDialog overlay).
 | R20 | `/admin` | route | Settings "Moderation" (admins); Dashboard | `!SOCIAL_ENABLED`→`notFound`; `requireUser`; `is_admin!==true`→`notFound` | app/admin/page.tsx:43-49 |
 | R21 | `/privacy` | route | footer links (`/`, `/terms`, login) | public | app/privacy/page.tsx:8 |
 | R22 | `/terms` | route | footer links (`/`, `/privacy`) | public | app/terms/page.tsx:8 |
+| R23 | `/i/[username]` | route | shared invite link (external) | `!SOCIAL_ENABLED`→`notFound`; else **public** (`getOptionalUser`) | app/i/[username]/page.tsx:17-25 |
+
+R23 states: signed-out + valid handle → invite landing (avatar/name/bio + Continue with Google, carries `?ref=`); signed-in **other** user → `claim_invite` then `redirect(/profile/{username})`; signed-in **self** → `redirect(/me)`; unknown handle → inline "Invite not found" card (not `notFound()`). Loader: `app/i/[username]/loading.tsx` (`PrograLoader`).
 
 ### Route-level states (loading)
 

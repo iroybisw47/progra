@@ -8,9 +8,14 @@ import { createClient } from "@/lib/supabase/client";
 
 export function GoogleSignInButton({
   next,
+  referrer,
   label = "Continue with Google",
 }: {
   next?: string;
+  // Inviter's username (from /i/[username]). Carried through OAuth as `?ref=` so
+  // /auth/callback can call claim_invite after sign-in. Named `referrer`, not
+  // `ref`, because React intercepts a `ref` prop and it would never arrive here.
+  referrer?: string;
   label?: string;
 }) {
   const [loading, setLoading] = useState(false);
@@ -20,6 +25,7 @@ export function GoogleSignInButton({
     const supabase = createClient();
     const redirectTo = new URL("/auth/callback", window.location.origin);
     if (next) redirectTo.searchParams.set("next", next);
+    if (referrer) redirectTo.searchParams.set("ref", referrer);
 
     // Basic sign-in only (openid/email/profile — Supabase's defaults). The
     // Calendar scope is NOT requested here: calendar access is a separate

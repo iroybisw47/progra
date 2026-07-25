@@ -32,6 +32,19 @@ export async function GET(request: Request) {
   // breaking sync for up to an hour after every re-login. Token writes are
   // exclusively the connect flow's job.
 
+  // Invite attribution: if the user arrived via /i/{username} the referrer is
+  // carried as `?ref=`. claim_invite (SECURITY DEFINER) derives the caller from
+  // auth.uid() and does all the friendship/referred_by writes + self/blocked
+  // checks. Attribution must NEVER block sign-in, so swallow every failure.
+  const ref = searchParams.get("ref");
+  if (ref) {
+    try {
+      await supabase.rpc("claim_invite", { p_username: ref });
+    } catch {
+      // ignore — sign-in proceeds without attribution
+    }
+  }
+
   // When deployed behind a proxy (Vercel), honor x-forwarded-host so the
   // redirect lands on the public origin, not the internal host.
   const forwardedHost = request.headers.get("x-forwarded-host");
