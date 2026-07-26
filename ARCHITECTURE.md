@@ -11,7 +11,7 @@
 > first. When code and this doc disagree, the code wins — and the doc should be
 > fixed in the same session.
 >
-> _Last updated: 2026-07-14_
+> _Last updated: 2026-07-25_
 
 ---
 
@@ -126,7 +126,9 @@ additionally 404s anyone who isn't the admin (`rpc('is_admin')`).
 | `/goals` | `goals/page.tsx` | `goals-client.tsx` | Weekly quotas and progress. |
 | `/habits` | `habits/page.tsx` | `habits-client.tsx` | Habit tracker (per-day, tz-aware). |
 | `/history` | `history/page.tsx` | `history-client.tsx` | Month/year rollups, category axis, session browser. |
-| `/recap` | `recap/page.tsx` | `recap-client.tsx` | Sunday weekly recap + share. |
+| `/recap` | `recap/page.tsx` | `recap-client.tsx` | Sunday weekly recap + share (the older scrubber card). |
+| `/recap/[weekStart]` | `recap/[weekStart]/page.tsx` | `recap-story.tsx` | Full-screen 5-panel weekly recap **story** (number · categories · goals · circle rank · shareable card) — `framer-motion`, own-data, `force-dynamic`. The "your week is ready" nudge on Progress opens this. |
+| `/recap/[weekStart]/card` | `recap/[weekStart]/card/route.tsx` (Route Handler) | — | 1080×1080 recap PNG via `next/og` `ImageResponse` (Node runtime, `getCurrentUser`-gated) — the story's Share button fetches it and shares it as a `File`. |
 | `/sessions` | `sessions/page.tsx` | `sessions-client.tsx` | Paginated past-session browser/editor. |
 
 **Convention:** `page.tsx` is the server boundary (data + auth); `*-client.tsx`
@@ -153,7 +155,10 @@ is the interactive shell. `loading.tsx` provides route-level skeletons.
 | `friendships` (social v2) | `lib/db/friends.ts` | One row per pair: `requester_id`/`addressee_id`, `status` (pending/accepted/blocked), `blocked_by`. RLS hides blocks from the blocked party; consent-critical transitions go through `SECURITY DEFINER` RPCs (`accept_friend_request`, `block_user`). |
 | `session_comments` (social v2) | `lib/db/comments.ts`, `app/actions/comments.ts` | Comments on feed sessions (`body` 1–500). RLS mirrors session visibility via the `can_see_session` definer helper; delete limited to author or session owner (`owns_session`). |
 | `session_reactions` (social v2) | `lib/db/reactions.ts`, `app/actions/reactions.ts` | Fixed-palette emoji reactions on feed sessions. RLS SELECT mirrors session visibility; writes go **only** through the `toggle_reaction` definer RPC (atomic insert-or-delete, re-checks visibility + emoji) so a reaction can't target an unseen session or be forged. |
-| `reports` (social v2, Phase 4) | `lib/social/reports.ts`, `app/actions/reports.ts` | Abuse reports. **INSERT-only RLS** (`reporter_id = auth.uid()`) — users can file but never read; the admin reads via definer RPCs. `target_type` ∈ story/comment/profile, `target_id` (polymorphic, no FK), fixed reason set + optional note, `status`. |
+| `reports` (social v2, Phase 4) | `lib/social/reports.ts`, `app/actions/reports.ts` | Abuse reports. **INSERT-only RLS** (`reporter_id = auth.uid()`) — users can file but never read; the admin reads via definer RPCs. `target_type` ∈ story/comment/profile/**recap** (CHECK), `target_id` (polymorphic, no FK), fixed reason set + optional note, `status`. |
+| `recap_views` (weekly recap) | `lib/db/recap-views.ts`, `app/actions/recap.ts` | Per-`(user_id, week_start_ms)` marker that a recap was opened — drives the "your week is ready" nudge across devices (survives reinstall, unlike localStorage). Owner-only RLS (SELECT + INSERT). |
+| `recap_posts` (weekly recap) | `lib/db/feed.ts`, `app/actions/recap.ts` | A recap posted to the friends feed. **Denormalized summary** (`total_tracked_ms`, `rank`, `circle_size`, `categories` jsonb, `caption`) so the feed card renders without recompute; unique `(user_id, week_start_ms)` (re-post upserts). RLS: read own-or-accepted-friend, write own. Deliberately its own row, never a synthetic session (can't pollute time aggregation). |
+| `recap_reactions` / `recap_comments` (weekly recap) | `lib/db/recap-social.ts`, `app/actions/recap-social.ts` | Kudos + comments on recap posts — **parallel tables** (chosen over a polymorphic migration so the live session social tables/RLS/RPCs stay untouched). RLS gates on the `can_see_recap` definer helper; reactions write only via `toggle_recap_reaction`; comments insert-own-on-visible / delete-own-or-recap-owner. FK `ON DELETE CASCADE` from `recap_posts` (takedown removes both). |
 
 **Social v2 also added:** `is_private` on `sessions`/`goals`/`habits`; the
 `public_profiles` view (id/username/display_name/bio only); a private
@@ -166,6 +171,16 @@ friend AND session not private AND session ended)); and definer RPCs `are_friend
 `admin_delete_comment`, `delete_own_account`. Cross-user reads (`*ForUser`
 helpers, `listFriendFeed`, `listProfileSessions`) omit the owner filter and let
 the friend-read RLS (`owner OR are_friends AND NOT is_private`) decide.
+
+**Weekly recap added these definer RPCs:** `week_leaderboard(p_week_start_ms,
+p_week_end_ms)` (ranks caller + accepted friends by **clocked** session time —
+takes only the week bounds, derives the circle from `auth.uid()` so a caller can
+never rank against a non-friend; replicates `aggregateRange`/`sessionWorkedMs`
+exactly, minus calendar events); `can_see_recap` (owner-or-accepted-friend, the
+recap analogue of `can_see_session`); `toggle_recap_reaction` (atomic kudos
+insert-or-delete, mirrors `toggle_reaction`); and `admin_take_down_recap` (deletes
+the `recap_posts` row, cascading its reactions/comments). `admin_list_reports`
+gained a `recap` target-preview branch.
 
 ---
 
@@ -197,7 +212,12 @@ numbers reconcile across every surface.
   boundaries with inclusive ends (`23:59:59.999`) — the *same* convention across
   week/month/year is what lets rollups reconcile. Plus tz-aware helpers
   (`todayInTimeZone`, `weekRangeInTimeZone`) used by habits to validate the
-  client's claimed "today" against the user's stored timezone.
+  client's claimed "today" against the user's stored timezone. Weekly recap adds
+  `weekWindow(tz, weekStart?)` (the single tz-correct `{weekStartISO, weekStartMs,
+  weekEndMs}` source shared by Progress, the story route, and the leaderboard
+  caller) and `recapReadyMs` / `isRecapReady` (a week's recap unlocks Sunday 6pm
+  **wall-clock** in the user's tz — resolved with the same two-pass DST offset as
+  `zonedDayStartMs`, so it's correct even on a spring-forward Sunday).
 
 ---
 
@@ -301,6 +321,43 @@ numbers reconcile across every surface.
 > Append one entry per work session / feature set. Keep it terse: what changed
 > architecturally, why, and any new invariant or migration. Seeded from git
 > history; entries before this file existed are reconstructed.
+
+### 2026-07-25 — Weekly Recap (the Sunday ritual → competitive social loop)
+An 8-phase feature, each phase tsc/eslint/vitest/build-green + an adversarial JWT
+test on every SQL change. Shipped to `main` (live for all `REDESIGN` users — **no
+separate flag**).
+- **Nudge + story (P0–P2, P4).** A "your week is ready" navy CTA appears on the
+  Progress→Today tab once the week unlocks (Sunday 6pm **local**, via `recapReadyMs`)
+  and isn't yet opened (`recap_views`, cross-device); it targets the most-recent
+  unlocked week and persists until opened. Opening launches `/recap/[weekStart]` —
+  a full-screen `framer-motion` (**first new runtime dep**) 5-panel story. Empty /
+  first-week / solo-circle / clocked-nothing states are all softened, and the nudge
+  is suppressed for weeks predating the account's `created_at`.
+- **Leaderboard (P3, revised).** `week_leaderboard` definer RPC ranks the caller +
+  accepted friends. It takes only the week bounds and derives the circle from
+  `auth.uid()` (structural isolation — no user-id param). Replicates
+  `aggregateRange`/`sessionWorkedMs` exactly so the caller's own total reconciles
+  with `computeWeekRecap` — **except** it counts **clocked sessions only** (calendar
+  events deliberately excluded: a packed calendar shouldn't win). A friend's private
+  sessions count only for the owner (matches feed visibility). So leaderboard total
+  ≠ recap `totalTrackedMs` by design.
+- **Share image (P5).** `/recap/[weekStart]/card` renders a 1080×1080 PNG via
+  `next/og` `ImageResponse` (first in the app; Node runtime to reuse the recap
+  reads); the Share button shares it as a `File` (Web Share API → download → text
+  fallbacks).
+- **Feed post + social (P6a–P6c).** Posting a recap writes a denormalized
+  `recap_posts` row (never a synthetic session — keeps aggregation clean) that the
+  feed renders as a distinct *"{name} uploaded their weekly recap!"* card.
+  Reactions/comments live in **parallel** `recap_reactions`/`recap_comments` tables
+  (deliberately not a polymorphic migration — the live session social machinery,
+  RLS, `toggle_reaction`, and notification joins stay untouched) gated by a
+  `can_see_recap` helper + `toggle_recap_reaction` RPC. Moderation: `"recap"` added
+  to the `reports` CHECK + `ReportButton`, `admin_take_down_recap` RPC, and an
+  `admin_list_reports` recap branch + admin-queue arm.
+- **Invariants added:** recap week windows use `weekWindow` (one tz-correct source);
+  the leaderboard is a distinct "clocked focus time" metric, not the recap total;
+  recap social uses parallel tables, never touching the session tables; recap posts
+  are their own rows, never synthetic sessions.
 
 ### 2026-07-14 — Social v2 Phases 2–4 (feed → moderation → deletion), first deploy
 - **Phase 2 — feed + comments + reactions + live.** Home becomes the feed
