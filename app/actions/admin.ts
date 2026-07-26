@@ -58,3 +58,15 @@ export async function deleteReportedComment(commentId: string): Promise<Result> 
   revalidatePath("/admin");
   return { ok: true };
 }
+
+export async function takeDownRecap(recapId: string): Promise<Result> {
+  const supabase = await createClient();
+  const gate = await requireAdmin(supabase);
+  if ("error" in gate) return gate;
+  const { error } = await supabase.rpc("admin_take_down_recap", {
+    p_recap_id: recapId,
+  });
+  if (error) return { error: "Couldn't take down the recap." };
+  revalidatePath("/admin");
+  return { ok: true };
+}

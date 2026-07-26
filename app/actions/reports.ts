@@ -10,7 +10,12 @@ import {
 
 type Result = { ok: true } | { error: string };
 
-const TARGET_TYPES: ReportTargetType[] = ["story", "comment", "profile"];
+const TARGET_TYPES: ReportTargetType[] = [
+  "story",
+  "comment",
+  "profile",
+  "recap",
+];
 
 // File a report. Write-only for users: the reports table's RLS allows this
 // insert (reporter = auth.uid()) but no select, so a reporter can never read

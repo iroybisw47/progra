@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   deleteReportedComment,
   resolveReport,
+  takeDownRecap,
   takeDownStory,
 } from "@/app/actions/admin";
 import {
@@ -54,6 +55,14 @@ export type AdminReport = {
         userId: string;
         username: string | null;
         displayName: string | null;
+      }
+    | {
+        kind: "recap";
+        recapId: string;
+        weekStartMs: number | null;
+        trackedMs: number | null;
+        ownerUsername: string | null;
+        gone: boolean;
       };
 };
 
@@ -152,6 +161,21 @@ export function AdminReports({ reports }: { reports: AdminReport[] }) {
                     }
                   />
                 )}
+                {report.target.kind === "recap" && !report.target.gone && (
+                  <TakeDownButton
+                    label="Take down recap"
+                    disabled={pending}
+                    onConfirm={() =>
+                      run(
+                        () =>
+                          takeDownRecap(
+                            (report.target as { recapId: string }).recapId
+                          ),
+                        "Recap taken down"
+                      )
+                    }
+                  />
+                )}
 
                 <div className="ml-auto flex gap-2">
                   <Button
@@ -234,6 +258,35 @@ function TargetPreview({ target }: { target: AdminReport["target"] }) {
           <span className="text-caption text-xs">@{target.authorUsername}</span>
         )}
         <span className="text-sm break-words">{target.body}</span>
+      </div>
+    );
+  }
+
+  if (target.kind === "recap") {
+    if (target.gone) {
+      return (
+        <p className="text-caption text-sm italic">Recap already removed.</p>
+      );
+    }
+    const hrs =
+      target.trackedMs != null
+        ? `${(target.trackedMs / 3_600_000).toFixed(1)}h`
+        : "—";
+    const week =
+      target.weekStartMs != null
+        ? new Date(target.weekStartMs).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+          })
+        : "?";
+    return (
+      <div className="bg-track flex flex-col gap-1 rounded-lg px-3 py-2">
+        {target.ownerUsername && (
+          <span className="text-caption text-xs">@{target.ownerUsername}</span>
+        )}
+        <span className="text-sm">
+          Weekly recap · week of {week} · {hrs} tracked
+        </span>
       </div>
     );
   }

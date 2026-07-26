@@ -13,7 +13,7 @@ import { AdminReports, type AdminReport } from "./admin-reports";
 type RawReport = {
   id: string;
   reporter_username: string | null;
-  target_type: "story" | "comment" | "profile";
+  target_type: "story" | "comment" | "profile" | "recap";
   target_id: string;
   reason: string;
   note: string | null;
@@ -31,6 +31,9 @@ type RawReport = {
     // profile
     username?: string | null;
     display_name?: string | null;
+    // recap
+    week_start_ms?: number | null;
+    tracked_ms?: number | null;
     // set by the RPC when the target no longer exists / was taken down
     gone?: boolean;
   } | null;
@@ -92,6 +95,21 @@ export default async function AdminPage() {
             body: t.body ?? null,
             authorUsername: t.author_username ?? null,
             gone: t.gone === true || t.body == null,
+          },
+        };
+      }
+
+      if (row.target_type === "recap") {
+        // admin_take_down_recap deletes the row, so a missing preview = gone.
+        return {
+          ...base,
+          target: {
+            kind: "recap",
+            recapId: row.target_id,
+            weekStartMs: t.week_start_ms ?? null,
+            trackedMs: t.tracked_ms ?? null,
+            ownerUsername: t.owner_username ?? null,
+            gone: t.gone === true || t.week_start_ms == null,
           },
         };
       }

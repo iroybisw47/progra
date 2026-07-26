@@ -6,6 +6,16 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-25
 
+### · Weekly Recap — Phase 6c (moderation)
+Recap posts are now reportable + takedown-able. `"recap"` added to `ReportTargetType`
+(`lib/social/reports.ts`) + the action's `TARGET_TYPES` + the `reports.target_type` DB CHECK.
+A **Report** flag sits in the recap feed card's social footer (`ReportButton targetType="recap"`).
+New `admin_take_down_recap` RPC (deletes the recap_posts row — cascades its reactions/comments)
++ `takeDownRecap` admin action; the admin moderation queue (`app/admin/page.tsx` +
+`admin-reports.tsx`) gains a `recap` target arm — preview (week + hours + owner) and a
+"Take down recap" button. **Requires SQL** (CHECK update + `admin_take_down_recap`; and the
+`admin_list_reports` RPC extended to embed the recap preview — run by hand).
+
 ### · Weekly Recap — Phase 6b (reactions + comments on recap posts)
 Kudos + comments on posted recaps, via **parallel tables** (`recap_reactions` /
 `recap_comments`) — chosen over a polymorphic migration so the live session social tables,

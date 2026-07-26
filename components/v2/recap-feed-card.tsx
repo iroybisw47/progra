@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AvatarInitials } from "@/components/avatar-initials";
+import { ReportButton } from "@/components/report-button";
 import { RecapComments } from "@/components/v2/recap-comments";
 import { RecapKudosButton } from "@/components/v2/recap-kudos-button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -117,13 +118,20 @@ export function RecapFeedCard({
           <p className="text-body text-sm text-pretty">{entry.caption}</p>
         )}
 
-        {/* Social footer — kudos + comments (Phase 6b) */}
+        {/* Social footer — kudos + comments (6b), report (6c) */}
         <div className="border-divider flex flex-col gap-3 border-t pt-3">
-          <RecapKudosButton
-            recapId={entry.id}
-            count={kudos.count}
-            likedByMe={kudos.mine}
-          />
+          <div className="flex items-center justify-between gap-3">
+            <RecapKudosButton
+              recapId={entry.id}
+              count={kudos.count}
+              likedByMe={kudos.mine}
+            />
+            <ReportButton
+              targetType="recap"
+              targetId={entry.id}
+              label="Report"
+            />
+          </div>
           <RecapComments recapId={entry.id} comments={comments} />
         </div>
       </CardContent>
