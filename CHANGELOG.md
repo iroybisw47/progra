@@ -6,6 +6,22 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-25
 
+### · Weekly Recap — Phase 6a (post to feed — the recap card)
+Recaps can now be posted to the friends feed. New `recap_posts` table (own row, never a
+synthetic session — can't contaminate aggregation) stores a **denormalized summary**
+(total tracked ms, clocked rank, circle size, top categories jsonb, caption) so the feed card
+renders without recomputing. New `postRecap(weekStart, caption)` action (`app/actions/recap.ts`)
+computes the week server-side and upserts on `(user_id, week_start_ms)` — re-posting a week
+updates rather than duplicates. The story's final panel gains a caption box + "Post to feed"
+(alongside Share). `lib/db/feed.ts` adds a `RecapFeedItem` (`kind:"recap"`) to the `FeedEntry`
+union + `listRecapPosts` (friends-only, rolling 7-day window, mirrors `listFriendJoins`);
+`feed-v2.tsx` merges/sorts it in and renders the new `components/v2/recap-feed-card.tsx` —
+a distinct *"{name} uploaded their weekly recap!"* card over a navy-tinted summary. The legacy
+flag-off `feed.tsx` is narrowed to its two kinds (recaps are redesign-only). **Reactions +
+comments on recap posts are Phase 6b** (parallel `recap_reactions`/`recap_comments` tables —
+chosen over a polymorphic migration to keep the live session social tables untouched).
+Moderation is 6c. **Requires SQL** (recap_posts + RLS — run by hand).
+
 ### · Weekly Recap — Phase 5 (shareable image)
 The final story panel now shares a real **1080×1080 PNG**, not just text. New OG route
 `app/recap/[weekStart]/card/route.tsx` renders the week's summary (navy card: total tracked

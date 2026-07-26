@@ -7,12 +7,14 @@ import { ClockedInStrip } from "@/components/clocked-in-strip";
 import { FeedLivePoll } from "@/components/feed-live-poll";
 import { InviteShare } from "@/components/v2/invite-share";
 import { KudosButton } from "@/components/kudos-button";
+import { RecapFeedCard } from "@/components/v2/recap-feed-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { getProfile } from "@/lib/auth/profile";
 import {
   listClockedInNow,
   listFriendFeed,
   listFriendJoins,
+  listRecapPosts,
   type FeedEntry,
 } from "@/lib/db/feed";
 import { listCommentsForSessions } from "@/lib/db/comments";
@@ -42,6 +44,7 @@ export async function FeedV2() {
     sessionItems,
     clockedIn,
     joinItems,
+    recapItems,
     commentsBySession,
     reactionsBySession,
     viewerProfile,
@@ -49,6 +52,7 @@ export async function FeedV2() {
     feedPromise,
     listClockedInNow(),
     listFriendJoins(),
+    listRecapPosts(),
     commentsPromise,
     reactionsPromise,
     // Own handle for the empty-state invite link (cache()-wrapped — free).
@@ -56,13 +60,19 @@ export async function FeedV2() {
   ]);
   const now = Date.now();
 
-  // Merge sessions + join announcements, newest-first (sessions by end time,
-  // joins by when the member joined).
+  // Merge sessions + join announcements + recap posts, newest-first (sessions by
+  // end time, joins by when the member joined, recaps by when posted).
   const sortAt = (e: FeedEntry) =>
-    e.kind === "session" ? e.endedAt : e.joinedAt;
-  const entries: FeedEntry[] = [...sessionItems, ...joinItems].sort(
-    (a, b) => sortAt(b) - sortAt(a)
-  );
+    e.kind === "session"
+      ? e.endedAt
+      : e.kind === "join"
+        ? e.joinedAt
+        : e.postedAt;
+  const entries: FeedEntry[] = [
+    ...sessionItems,
+    ...joinItems,
+    ...recapItems,
+  ].sort((a, b) => sortAt(b) - sortAt(a));
 
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-28">
@@ -144,6 +154,13 @@ export async function FeedV2() {
                     ) : null}
                   </CardContent>
                 </Card>
+              );
+            }
+
+            // Posted weekly recap — its own distinct card.
+            if (entry.kind === "recap") {
+              return (
+                <RecapFeedCard key={entry.id} entry={entry} now={now} />
               );
             }
 

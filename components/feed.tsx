@@ -13,8 +13,13 @@ import {
   listClockedInNow,
   listFriendFeed,
   listFriendJoins,
-  type FeedEntry,
+  type FeedItem,
+  type JoinFeedItem,
 } from "@/lib/db/feed";
+
+// The legacy (flag-off) feed only shows sessions + joins — recap posts are a
+// redesign-only surface, so its entries never include them.
+type LegacyFeedEntry = FeedItem | JoinFeedItem;
 import { listCommentsForSessions } from "@/lib/db/comments";
 import { listReactionsForSessions } from "@/lib/db/reactions";
 import { formatDuration } from "@/lib/duration";
@@ -40,9 +45,9 @@ export async function Feed() {
 
   // Merge sessions + join announcements, newest-first. Sessions sort by when
   // they ended, joins by when the member joined (onboarded_at).
-  const sortAt = (e: FeedEntry) =>
+  const sortAt = (e: LegacyFeedEntry) =>
     e.kind === "session" ? e.endedAt : e.joinedAt;
-  const entries: FeedEntry[] = [...sessionItems, ...joinItems].sort(
+  const entries: LegacyFeedEntry[] = [...sessionItems, ...joinItems].sort(
     (a, b) => sortAt(b) - sortAt(a)
   );
 

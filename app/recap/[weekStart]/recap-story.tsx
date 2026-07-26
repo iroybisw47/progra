@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   AnimatePresence,
@@ -9,6 +9,7 @@ import {
   useReducedMotion,
 } from "motion/react";
 import {
+  CheckIcon,
   ChevronLeftIcon,
   Share2Icon,
   SparklesIcon,
@@ -21,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { CategoryDonut, type CatSeg } from "@/components/v2/category-donut";
 import { GoalProgressBar } from "@/components/goal-progress";
 import { RecapCard } from "@/components/recap-card";
-import { markRecapOpened } from "@/app/actions/recap";
+import { markRecapOpened, postRecap } from "@/app/actions/recap";
 import { formatDuration } from "@/lib/duration";
 import { cn } from "@/lib/utils";
 import type { LeaderboardRow } from "@/lib/db/leaderboard";
@@ -469,18 +470,59 @@ function ShareableCardPanel({
     }
   }
 
+  const [caption, setCaption] = useState("");
+  const [posted, setPosted] = useState(false);
+  const [posting, startPost] = useTransition();
+
+  function handlePost() {
+    startPost(async () => {
+      const r = await postRecap(weekStartISO, caption);
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      setPosted(true);
+      toast.success("Posted to your feed");
+    });
+  }
+
   return (
     <div className="flex min-h-full flex-col items-center gap-6 px-6 pb-24 pt-6">
       <PanelHeading title="Your week, in a card" />
       <div className="w-full">
         <RecapCard recap={recap} />
       </div>
+
+      {/* Post to the friends feed */}
+      <div className="border-hairline flex w-full flex-col gap-3 rounded-2xl border p-4">
+        <span className="text-ink text-sm font-bold">Post to your feed</span>
+        <textarea
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          maxLength={280}
+          rows={2}
+          placeholder="Add a caption (optional)"
+          disabled={posted}
+          className="bg-track/40 text-body placeholder:text-faint resize-none rounded-xl px-3 py-2 text-sm outline-none disabled:opacity-60"
+        />
+        <Button
+          onClick={handlePost}
+          disabled={posting || posted}
+          className="h-10 w-full"
+        >
+          {posted ? (
+            <>
+              <CheckIcon className="size-4" /> Posted
+            </>
+          ) : (
+            "Post to feed"
+          )}
+        </Button>
+      </div>
+
       <Button variant="outline" className="h-11 w-full" onClick={handleShare}>
         <Share2Icon /> Share this week
       </Button>
-      <p className="text-caption text-center text-xs">
-        Posting to your feed is coming soon.
-      </p>
     </div>
   );
 }

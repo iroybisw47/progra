@@ -49,8 +49,30 @@ export type JoinFeedItem = {
   joinedAt: number; // onboarded_at, epoch ms
 };
 
+// A denormalized top-category slice stored on a recap post — enough to render
+// the feed card without recomputing the week. Color is the category's stored
+// value (hex or null); the card supplies a fallback swatch.
+export type RecapCategorySlice = { name: string; color: string | null; ms: number };
+
+// A posted weekly recap (its own `recap_posts` row — never a synthetic session,
+// so it can't contaminate time aggregation). Carries a self-contained summary so
+// the feed card renders from stored data. Reactions/comments live in the parallel
+// recap_reactions / recap_comments tables (Phase 6b), keyed by this `id`.
+export type RecapFeedItem = {
+  kind: "recap";
+  id: string; // recap_posts.id
+  author: PublicUser;
+  weekStartMs: number;
+  caption: string | null;
+  totalTrackedMs: number;
+  rank: number | null; // null when solo (no circle)
+  circleSize: number;
+  categories: RecapCategorySlice[];
+  postedAt: number; // created_at, epoch ms
+};
+
 // Anything that can appear in the merged Home feed.
-export type FeedEntry = FeedItem | JoinFeedItem;
+export type FeedEntry = FeedItem | JoinFeedItem | RecapFeedItem;
 
 // A friend who is currently clocked in (active session, ended_at IS NULL). The
 // timing fields let the client compute a live worked-duration + paused state via
@@ -284,6 +306,64 @@ export async function listFriendJoins(daysBack = 7): Promise<JoinFeedItem[]> {
         author,
         firstGoalTitle: firstGoalByUser.get(row.id) ?? null,
         joinedAt: new Date(row.onboarded_at).getTime(),
+      },
+    ];
+  });
+}
+
+type RecapPostRow = {
+  id: string;
+  user_id: string;
+  week_start_ms: number | string;
+  caption: string | null;
+  total_tracked_ms: number | string;
+  rank: number | null;
+  circle_size: number;
+  categories: RecapCategorySlice[] | null;
+  created_at: string;
+};
+
+// Friends' posted weekly recaps from the last `daysBack` days, newest-first. Own
+// posts aren't shown here (mirrors listFriendFeed, which is friends-only — you
+// see your own recap via the story). RLS on recap_posts already scopes to
+// owner-or-accepted-friend; the friend-id filter narrows to the feed's authors.
+// Empty friend set short-circuits (never an empty .in()).
+export async function listRecapPosts(daysBack = 7): Promise<RecapFeedItem[]> {
+  const friends = await listFriends();
+  if (friends.length === 0) return [];
+
+  const authorById = new Map(friends.map((f) => [f.user.userId, f.user]));
+  const friendIds = friends.map((f) => f.user.userId);
+
+  const supabase = await createClient();
+  const since = new Date();
+  since.setDate(since.getDate() - daysBack);
+
+  const { data } = await supabase
+    .from("recap_posts")
+    .select(
+      "id, user_id, week_start_ms, caption, total_tracked_ms, rank, circle_size, categories, created_at"
+    )
+    .in("user_id", friendIds)
+    .gte("created_at", since.toISOString())
+    .order("created_at", { ascending: false });
+  if (!data) return [];
+
+  return (data as RecapPostRow[]).flatMap((row) => {
+    const author = authorById.get(row.user_id);
+    if (!author) return [];
+    return [
+      {
+        kind: "recap" as const,
+        id: row.id,
+        author,
+        weekStartMs: Number(row.week_start_ms),
+        caption: row.caption,
+        totalTrackedMs: Number(row.total_tracked_ms),
+        rank: row.rank,
+        circleSize: row.circle_size,
+        categories: row.categories ?? [],
+        postedAt: new Date(row.created_at).getTime(),
       },
     ];
   });
