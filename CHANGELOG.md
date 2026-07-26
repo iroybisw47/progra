@@ -6,6 +6,21 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-25
 
+### · Weekly Recap — Phase 3 (circle leaderboard RPC)
+The "Your rank" data layer. New `week_leaderboard(p_week_start_ms, p_week_end_ms)`
+SECURITY DEFINER function ranks the caller + their accepted friends by total tracked time.
+It takes **only** the week bounds and derives the circle from `auth.uid()` + the
+`friendships` table — there is no user-id parameter, so a caller can never rank against
+anyone outside their own accepted friends (structural isolation). The math replicates
+`aggregateRange`/`sessionWorkedMs` exactly (per-endpoint ms truncation, banked + in-progress
+pause, `now` capped at week end) plus the `event_exclusions` anti-join, so the caller's own
+row reconciles with `computeWeekRecap`'s `totalTrackedMs` — exactly for a closed week.
+**Privacy:** a friend's private sessions count only for the owner (`user_id = auth.uid() OR
+NOT is_private`), matching the feed's `are_friends AND NOT is_private` visibility — no leaking
+the aggregate of hidden sessions. `lib/db/leaderboard.ts` (`getWeekLeaderboard`, cache()'d)
+wraps the RPC and derives avatar URLs. **Requires SQL** (the function + grants — run by hand).
+Wiring into the story's rank panel is Phase 2b.
+
 ### · Weekly Recap — Phase 2a (`/recap/[weekStart]` full-screen story)
 The recap itself: a full-screen, swipeable story. New dynamic route
 `app/recap/[weekStart]/page.tsx` (`force-dynamic`, `requireUser`, resolves the window via
