@@ -6,6 +6,20 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-25
 
+### · Weekly Recap — Phase 6b (reactions + comments on recap posts)
+Kudos + comments on posted recaps, via **parallel tables** (`recap_reactions` /
+`recap_comments`) — chosen over a polymorphic migration so the live session social tables,
+RLS, `toggle_reaction` RPC, and notification joins stay untouched. Mirrors the session
+machinery: a `can_see_recap` SECURITY DEFINER helper (owner-or-accepted-friend, like
+`can_see_session`), a `toggle_recap_reaction` RPC (atomic insert-or-delete, re-checks
+visibility + emoji), reactions readable-only (writes via the RPC), comments insert-own-on-
+visible / delete-own-or-recap-owner. New `lib/db/recap-social.ts` (`listRecapKudos`,
+`listRecapComments`, batch-loaded in `feed-v2` alongside the session ones) + `app/actions/
+recap-social.ts` (`toggleRecapKudos`, `addRecapComment`, `deleteRecapComment`). The recap
+feed card grows a social footer: `RecapKudosButton` (optimistic heart, mirrors `KudosButton`)
++ an inline `RecapComments` thread + composer. **Requires SQL** (both tables + helper + RPC +
+RLS + indexes — run by hand). Moderation is 6c.
+
 ### · Weekly Recap — Phase 6a (post to feed — the recap card)
 Recaps can now be posted to the friends feed. New `recap_posts` table (own row, never a
 synthetic session — can't contaminate aggregation) stores a **denormalized summary**

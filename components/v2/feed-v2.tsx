@@ -19,6 +19,7 @@ import {
 } from "@/lib/db/feed";
 import { listCommentsForSessions } from "@/lib/db/comments";
 import { listReactionsForSessions } from "@/lib/db/reactions";
+import { listRecapKudos, listRecapComments } from "@/lib/db/recap-social";
 import { LIKE_EMOJI } from "@/lib/social/reactions";
 import { formatDuration } from "@/lib/duration";
 import { formatRelativeTime } from "@/lib/dates";
@@ -40,6 +41,14 @@ export async function FeedV2() {
   const reactionsPromise = feedPromise.then((items) =>
     listReactionsForSessions(items.map((i) => i.sessionId))
   );
+  // Recap kudos/comments chain off the recap posts the same way — keyed by post id.
+  const recapPromise = listRecapPosts();
+  const recapKudosPromise = recapPromise.then((items) =>
+    listRecapKudos(items.map((i) => i.id))
+  );
+  const recapCommentsPromise = recapPromise.then((items) =>
+    listRecapComments(items.map((i) => i.id))
+  );
   const [
     sessionItems,
     clockedIn,
@@ -47,14 +56,18 @@ export async function FeedV2() {
     recapItems,
     commentsBySession,
     reactionsBySession,
+    recapKudosById,
+    recapCommentsById,
     viewerProfile,
   ] = await Promise.all([
     feedPromise,
     listClockedInNow(),
     listFriendJoins(),
-    listRecapPosts(),
+    recapPromise,
     commentsPromise,
     reactionsPromise,
+    recapKudosPromise,
+    recapCommentsPromise,
     // Own handle for the empty-state invite link (cache()-wrapped — free).
     getProfile(),
   ]);
@@ -160,7 +173,13 @@ export async function FeedV2() {
             // Posted weekly recap — its own distinct card.
             if (entry.kind === "recap") {
               return (
-                <RecapFeedCard key={entry.id} entry={entry} now={now} />
+                <RecapFeedCard
+                  key={entry.id}
+                  entry={entry}
+                  now={now}
+                  kudos={recapKudosById.get(entry.id) ?? { count: 0, mine: false }}
+                  comments={recapCommentsById.get(entry.id) ?? []}
+                />
               );
             }
 

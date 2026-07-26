@@ -1,10 +1,13 @@
 import Link from "next/link";
 
 import { AvatarInitials } from "@/components/avatar-initials";
+import { RecapComments } from "@/components/v2/recap-comments";
+import { RecapKudosButton } from "@/components/v2/recap-kudos-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDuration } from "@/lib/duration";
 import { formatRelativeTime } from "@/lib/dates";
 import type { RecapFeedItem } from "@/lib/db/feed";
+import type { RecapComment, RecapKudos } from "@/lib/db/recap-social";
 
 const CHART_FALLBACK = "var(--chart-5)";
 const HOUR_MS = 60 * 60 * 1000;
@@ -30,9 +33,13 @@ function weekRange(startMs: number): string {
 export function RecapFeedCard({
   entry,
   now,
+  kudos,
+  comments,
 }: {
   entry: RecapFeedItem;
   now: number;
+  kudos: RecapKudos;
+  comments: RecapComment[];
 }) {
   return (
     <Card className="overflow-hidden">
@@ -109,6 +116,16 @@ export function RecapFeedCard({
         {entry.caption && (
           <p className="text-body text-sm text-pretty">{entry.caption}</p>
         )}
+
+        {/* Social footer — kudos + comments (Phase 6b) */}
+        <div className="border-divider flex flex-col gap-3 border-t pt-3">
+          <RecapKudosButton
+            recapId={entry.id}
+            count={kudos.count}
+            likedByMe={kudos.mine}
+          />
+          <RecapComments recapId={entry.id} comments={comments} />
+        </div>
       </CardContent>
     </Card>
   );
