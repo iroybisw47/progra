@@ -40,6 +40,7 @@ Sheet / AlertDialog overlay).
 | R12 | `/sessions` | route | Settings "Your data"; clock-client link | ungated in page; RLS in loaders | app/sessions/page.tsx:7-15 |
 | R13 | `/recap` | route | History scrubber; Dashboard | ungated in page; RLS in loaders | app/recap/page.tsx:14-19 |
 | R24 | `/recap/[weekStart]` | route | Full-screen weekly recap **story** (5 panels: The number · Where it went · Goals · Your rank · Shareable card) | `requireUser`; `force-dynamic`; window via `weekWindow`; `getWeekLeaderboard` | app/recap/[weekStart]/page.tsx · recap-story.tsx (motion) |
+| R25 | `/recap/[weekStart]/card` | route (OG) | 1080×1080 recap PNG (`next/og` ImageResponse) — shared as a File by the story's Share button | `getCurrentUser` (401 if none); `force-dynamic`; Node runtime | app/recap/[weekStart]/card/route.tsx |
 | R14 | `/clock` | route | BottomNav center "Clock"; Progress goal cards; live-timer back | ungated in page; RLS in loaders | app/clock/page.tsx:10-17 |
 | R15 | `/clock/finish` | route | live-timer clock-out redirect | `!REDESIGN`→`notFound`; `requireUser`; own-row + ended checks | app/clock/finish/page.tsx:25-46 |
 | R16 | `/clock/live` | route | clock strip; nav center while tracking | `!REDESIGN`→`notFound`; `requireUser`; `!active`→`/clock` | app/clock/live/page.tsx:15-20 |

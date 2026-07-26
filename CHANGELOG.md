@@ -6,6 +6,18 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-25
 
+### · Weekly Recap — Phase 5 (shareable image)
+The final story panel now shares a real **1080×1080 PNG**, not just text. New OG route
+`app/recap/[weekStart]/card/route.tsx` renders the week's summary (navy card: total tracked
+hours, top categories with swatches, rank among friends, `progra.world`) via `next/og`'s
+`ImageResponse` — the first `ImageResponse` in the app, on the default Node runtime so it
+reuses `computeWeekRecap` + `getWeekLeaderboard` + auth. Satori constraints honored (flexbox
+only, `display:flex` on every multi-child node, concrete hex swatches since it can't resolve
+CSS vars). The Share button (`recap-story.tsx`) now fetches that PNG and shares it as a
+`File` via the Web Share API (`navigator.canShare({files})`), with graceful fallbacks:
+image download on desktop browsers, then plain-text share → clipboard if generation fails.
+No SQL, no new deps (`next/og` ships with Next 16).
+
 ### · Weekly Recap — Phase 4 (empty / first-week / edge polish)
 Hardens the story for real-world edges. (1) The Progress nudge no longer fires for a week
 the user wasn't around for — `loadProgressData` suppresses it when the target week ended

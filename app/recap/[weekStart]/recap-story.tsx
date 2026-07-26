@@ -32,12 +32,15 @@ const HOUR_MS = 60 * 60 * 1000;
 const SWIPE_DISTANCE = 45; // px of horizontal travel that counts as a swipe
 
 // Web Share API isn't on every navigator at the TS lib level.
+type ShareData = {
+  title?: string;
+  text?: string;
+  url?: string;
+  files?: File[];
+};
 type ShareCapableNavigator = Navigator & {
-  share?: (data: {
-    title?: string;
-    text?: string;
-    url?: string;
-  }) => Promise<void>;
+  share?: (data: ShareData) => Promise<void>;
+  canShare?: (data: ShareData) => boolean;
 };
 
 function formatWeekRange(startMs: number, endMs: number): string {
@@ -187,6 +190,7 @@ export function RecapStory({
               recap={recap}
               reduce={reduce}
               leaderboard={leaderboard}
+              weekStartISO={weekStartISO}
             />
           </motion.div>
         </AnimatePresence>
@@ -221,11 +225,13 @@ function Panel({
   recap,
   reduce,
   leaderboard,
+  weekStartISO,
 }: {
   index: number;
   recap: WeekRecap;
   reduce: boolean;
   leaderboard: LeaderboardRow[];
+  weekStartISO: string;
 }) {
   const range = formatWeekRange(recap.weekStartMs, recap.weekEndMs);
 
@@ -318,8 +324,8 @@ function Panel({
     return <RankPanel rows={leaderboard} />;
   }
 
-  // index === 4 — the shareable card (Phase 5 adds the image; Phase 6 the post).
-  return <ShareableCardPanel recap={recap} />;
+  // index === 4 — the shareable card (Phase 6 adds the feed post).
+  return <ShareableCardPanel recap={recap} weekStartISO={weekStartISO} />;
 }
 
 // Circle leaderboard — the caller's rank among accepted friends by clocked focus
@@ -400,10 +406,53 @@ function PanelHeading({ title }: { title: string }) {
   return <h2 className="text-ink text-center text-2xl font-bold">{title}</h2>;
 }
 
-function ShareableCardPanel({ recap }: { recap: WeekRecap }) {
+function ShareableCardPanel({
+  recap,
+  weekStartISO,
+}: {
+  recap: WeekRecap;
+  weekStartISO: string;
+}) {
   async function handleShare() {
-    const text = buildShareText(recap);
     const nav = navigator as ShareCapableNavigator;
+
+    // Preferred path: share the generated recap PNG (the thing people post).
+    try {
+      const res = await fetch(`/recap/${weekStartISO}/card`);
+      if (res.ok) {
+        const file = new File(
+          [await res.blob()],
+          `progra-week-${weekStartISO}.png`,
+          { type: "image/png" }
+        );
+        if (typeof nav.share === "function" && nav.canShare?.({ files: [file] })) {
+          try {
+            await nav.share({ files: [file], title: "My Progra week" });
+            return;
+          } catch (e) {
+            if ((e as Error).name === "AbortError") return; // user dismissed
+            // otherwise fall through to download / text
+          }
+        } else {
+          // No file-share (desktop browsers): download the image instead.
+          const url = URL.createObjectURL(file);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = file.name;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          toast.success("Recap image saved");
+          return;
+        }
+      }
+    } catch {
+      // image generation/fetch failed — fall through to a plain text share
+    }
+
+    // Fallback: text share → clipboard.
+    const text = buildShareText(recap);
     if (typeof nav.share === "function") {
       try {
         await nav.share({ title: "Progra week", text });
