@@ -6,6 +6,16 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-25
 
+### · Weekly Recap — Phase 4 (empty / first-week / edge polish)
+Hardens the story for real-world edges. (1) The Progress nudge no longer fires for a week
+the user wasn't around for — `loadProgressData` suppresses it when the target week ended
+before the account's `created_at`, so a brand-new user isn't pointed at an empty pre-signup
+recap. (2) The number panel shows a calm "A quiet week — a fresh start begins Monday" instead
+of a literal "0s" when nothing was tracked. (3) The rank panel shows "You sat this one out —
+clock in next week" (still listing the circle) when you clocked nothing, instead of a hollow
+"#N". The existing solo-circle fallback, zero-goals, and zero-category empty states are
+unchanged. No SQL, no new deps.
+
 ### · Weekly Recap — Phase 2b (the "Your rank" panel)
 Wires the leaderboard into the story. `/recap/[weekStart]/page.tsx` now fetches
 `getWeekLeaderboard` in parallel with the recap and passes it to `recap-story.tsx`, which

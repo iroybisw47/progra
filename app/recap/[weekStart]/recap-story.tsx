@@ -233,15 +233,29 @@ function Panel({
     return (
       <div className="flex min-h-full flex-col items-center justify-center gap-3 px-8 text-center">
         <span className="text-caption text-sm">Week of {range}</span>
-        <span className="text-ink text-[64px] font-bold leading-none tabular-nums">
-          <CountUpDuration ms={recap.totalTrackedMs} reduce={reduce} />
-        </span>
-        <span className="text-body text-lg">tracked this week</span>
-        <span className="text-caption text-sm">
-          {recap.sessionCount} {recap.sessionCount === 1 ? "session" : "sessions"}
-          {" · "}
-          {recap.importedCount} imported
-        </span>
+        {recap.totalTrackedMs > 0 ? (
+          <>
+            <span className="text-ink text-[64px] font-bold leading-none tabular-nums">
+              <CountUpDuration ms={recap.totalTrackedMs} reduce={reduce} />
+            </span>
+            <span className="text-body text-lg">tracked this week</span>
+            <span className="text-caption text-sm">
+              {recap.sessionCount}{" "}
+              {recap.sessionCount === 1 ? "session" : "sessions"}
+              {" · "}
+              {recap.importedCount} imported
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="text-ink text-4xl font-bold leading-tight text-pretty">
+              A quiet week
+            </span>
+            <span className="text-caption text-sm text-pretty">
+              Nothing tracked this week — a fresh start begins Monday.
+            </span>
+          </>
+        )}
       </div>
     );
   }
@@ -333,12 +347,23 @@ function RankPanel({ rows }: { rows: LeaderboardRow[] }) {
     <div className="flex min-h-full flex-col gap-5 px-6 pb-24 pt-6">
       <PanelHeading title="Your rank" />
       <div className="text-center">
-        <div className="text-brand text-[56px] font-bold leading-none tabular-nums">
-          #{me.rank}
-        </div>
-        <div className="text-caption text-sm">
-          of {rows.length} in your circle
-        </div>
+        {me.trackedMs > 0 ? (
+          <>
+            <div className="text-brand text-[56px] font-bold leading-none tabular-nums">
+              #{me.rank}
+            </div>
+            <div className="text-caption text-sm">
+              of {rows.length} in your circle
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="text-ink text-2xl font-bold">You sat this one out</div>
+            <div className="text-caption text-sm text-pretty">
+              Clock in next week to join the ranking.
+            </div>
+          </>
+        )}
       </div>
       <ul className="flex flex-col gap-1.5">
         {rows.map((r) => (

@@ -81,11 +81,20 @@ export async function loadProgressData(): Promise<ProgressData> {
   // Recap nudge target: the most recent week whose recap has unlocked (Sunday
   // 6pm local). On Sunday evening that's the current week; once a new week
   // begins it's the just-ended week — so an unopened nudge persists into the new
-  // week until opened. (Emptiness / first-week suppression is Phase 4.)
+  // week until opened.
   const recapMonday = isRecapReady(monday, tz, now)
     ? monday
     : addDaysISO(monday, -7);
   const recapWeekStartMs = zonedDayStartMs(recapMonday, tz);
+  const recapWeekEndMs = zonedDayStartMs(addDaysISO(recapMonday, 7), tz) - 1;
+
+  // Don't nudge a week the user wasn't around for: a brand-new account whose
+  // first full week hasn't happened would otherwise be pointed at an empty
+  // pre-signup recap. Suppress when the whole target week ended before signup.
+  const createdMs = profile?.created_at
+    ? new Date(profile.created_at).getTime()
+    : 0;
+  const recapWeekExisted = recapWeekEndMs >= createdMs;
 
   // One parallel wave for every read this page needs (the day-window event
   // fetch categorizes in JS afterwards, so it no longer waits on categories).
@@ -221,7 +230,8 @@ export async function loadProgressData(): Promise<ProgressData> {
     weekImported: weekRecap.importedCount,
     weekStart: monday,
     today,
-    recapNudge: recapOpened ? null : { weekStart: recapMonday },
+    recapNudge:
+      recapOpened || !recapWeekExisted ? null : { weekStart: recapMonday },
   };
 }
 
