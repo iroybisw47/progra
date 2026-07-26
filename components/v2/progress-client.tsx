@@ -96,10 +96,6 @@ export function ProgressClient(props: {
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-6 pb-28">
       <main className="flex w-full max-w-md flex-col gap-5">
-        {/* Weekly recap nudge — sits above everything when a week has unlocked
-            and hasn't been opened; disappears once opened (any device). */}
-        {props.recapNudge && <RecapNudge weekStart={props.recapNudge.weekStart} />}
-
         {/* Segmented control */}
         <div className="bg-track flex rounded-full p-1">
           {(
@@ -165,6 +161,7 @@ function TodayView({
   goals,
   habitsToday,
   today,
+  recapNudge,
   onManage,
 }: {
   dateLabel: string;
@@ -176,6 +173,7 @@ function TodayView({
   goals: GoalRow[];
   habitsToday: HabitToday[];
   today: string;
+  recapNudge: { weekStart: string } | null;
   onManage: () => void;
 }) {
   const [, startTransition] = useTransition();
@@ -200,6 +198,10 @@ function TodayView({
 
   return (
     <div className="flex flex-col gap-5">
+      {/* Weekly recap nudge — navy CTA at the top of Today when a week has
+          unlocked and hasn't been opened; disappears once opened (any device). */}
+      {recapNudge && <RecapNudge weekStart={recapNudge.weekStart} />}
+
       {/* Hero: centered category donut + per-category bars underneath. */}
       <Card>
         <CardContent className="flex flex-col gap-4 py-5">

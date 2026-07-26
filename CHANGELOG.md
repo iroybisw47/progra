@@ -6,6 +6,23 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-25
 
+### · Weekly Recap — Phase 2a (`/recap/[weekStart]` full-screen story)
+The recap itself: a full-screen, swipeable story. New dynamic route
+`app/recap/[weekStart]/page.tsx` (`force-dynamic`, `requireUser`, resolves the window via
+`weekWindow` — snapping any date to its Monday, falling back to the current week for junk
+params) feeds `recap-story.tsx`, a `motion`-driven client sequence of **four panels**: (1)
+**The number** — a count-up of `totalTrackedMs` in human format (`animate()` onUpdate, honors
+reduced motion); (2) **Where it went** — the shared `CategoryDonut`; (3) **Goals** —
+`GoalProgressBar` rows + highlights; (4) **Your week, in a card** — the existing `RecapCard`
++ a working text Share (Web Share API → clipboard fallback). Navigation is swipe (pointer) +
+footer Back/Next + tappable progress pips + arrow keys + Escape; a close X returns to
+Progress. Opening the route marks the week seen (`markRecapOpened` on mount, idempotent with
+the nudge's mark), so a direct link also clears the nudge. The Progress nudge now links to
+`/recap/{weekStart}` (was the interim `/recap?w=`). **Adds `motion` (framer-motion's current
+package) — the first new runtime dependency.** The "Your rank" leaderboard panel is Phase 2b
+(inserts at index 3 once the Phase 3 RPC exists); the shareable *image* is Phase 5, posting
+to the feed Phase 6. Empty/first-week polish is Phase 4.
+
 ### · Weekly Recap — Phase 1 ("your week is ready" nudge on Progress)
 The recap ritual's entry point. A tappable "Your week is ready" banner appears at the top
 of Progress (above the Today/Week/History tabs) once the most recent week's recap has

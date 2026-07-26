@@ -39,6 +39,7 @@ Sheet / AlertDialog overlay).
 | R11 | `/history` | route | Settings "Your data"; Dashboard; Progress "History" | ungated in page; RLS in loaders | app/history/page.tsx:26-31 |
 | R12 | `/sessions` | route | Settings "Your data"; clock-client link | ungated in page; RLS in loaders | app/sessions/page.tsx:7-15 |
 | R13 | `/recap` | route | History scrubber; Dashboard | ungated in page; RLS in loaders | app/recap/page.tsx:14-19 |
+| R24 | `/recap/[weekStart]` | route | Full-screen weekly recap **story** (4 panels: The number · Where it went · Goals · Shareable card) | `requireUser`; `force-dynamic`; window via `weekWindow` | app/recap/[weekStart]/page.tsx · recap-story.tsx (motion) |
 | R14 | `/clock` | route | BottomNav center "Clock"; Progress goal cards; live-timer back | ungated in page; RLS in loaders | app/clock/page.tsx:10-17 |
 | R15 | `/clock/finish` | route | live-timer clock-out redirect | `!REDESIGN`→`notFound`; `requireUser`; own-row + ended checks | app/clock/finish/page.tsx:25-46 |
 | R16 | `/clock/live` | route | clock strip; nav center while tracking | `!REDESIGN`→`notFound`; `requireUser`; `!active`→`/clock` | app/clock/live/page.tsx:15-20 |
@@ -145,7 +146,7 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S35 | settings-client | connection | calendar "Disconnect" vs "Connect" (+ unverified warning) | `calendarConnected ?`; `SHOW_UNVERIFIED_WARNING` | app/settings/settings-client.tsx:207,227 |
 | S36 | settings-client | role | Moderation section only for admins | `isAdmin &&` | app/settings/settings-client.tsx:281 |
 | S37 | progress-client (home) | tabs | Today / Week / History views | `useState<Tab>("today")` | components/v2/progress-client.tsx:82,112-114 |
-| S50 | progress-client (home) | nudge | "Your week is ready" recap banner (above the tabs) → opens `/recap?w=` | `props.recapNudge` (set in `loadProgressData` when the week unlocked Sun 6pm local & is unopened) | components/v2/recap-nudge.tsx · components/v2/progress-client.tsx |
+| S50 | progress-client (home) | nudge | "Your week is ready" recap banner (above the tabs) → opens `/recap/{weekStart}` | `props.recapNudge` (set in `loadProgressData` when the week unlocked Sun 6pm local & is unopened) | components/v2/recap-nudge.tsx · components/v2/progress-client.tsx |
 | S38 | progress-client | empty | "Nothing tracked yet today." | `sessionsToday.length === 0` | components/v2/progress-client.tsx:209 |
 | S39 | progress-client | empty | "No goals yet — tap to add one." | `goals.length === 0` | components/v2/progress-client.tsx:259 |
 | S40 | progress-client | empty | "No habits yet — tap to add one." | `optimisticHabits.length === 0` | components/v2/progress-client.tsx:326 |
