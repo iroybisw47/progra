@@ -28,16 +28,16 @@ type RpcRow = {
 };
 
 // The circle leaderboard for a week: the caller + their accepted friends, ranked
-// by total tracked time (sessions + calendar events), computed by the
-// `week_leaderboard` SECURITY DEFINER RPC. The RPC takes only the week bounds and
-// derives the circle from auth.uid() + the friendships table — there is no
-// user-id parameter, so a caller can never rank against anyone outside their own
-// accepted friends. The math mirrors aggregateRange exactly (session worked-ms
-// with pause handling, event durations, the event_exclusions anti-join), so the
-// caller's own row reconciles with computeWeekRecap's totalTrackedMs — exactly
-// for a closed week. A friend's private sessions are excluded from their total
-// (they count only for the owner), matching the feed's are_friends+NOT-private
-// visibility. Cached per request, keyed on the numeric window.
+// by clocked focus time, computed by the `week_leaderboard` SECURITY DEFINER RPC.
+// The RPC takes only the week bounds and derives the circle from auth.uid() + the
+// friendships table — there is no user-id parameter, so a caller can never rank
+// against anyone outside their own accepted friends. Ranks CLOCKED SESSIONS ONLY:
+// imported calendar events are deliberately excluded (a packed calendar shouldn't
+// win). The session math mirrors sessionWorkedMs exactly (span − banked pause −
+// in-progress pause, floored, now capped at week end), so this is a distinct
+// metric from computeWeekRecap's totalTrackedMs (which also counts events) — by
+// design. A friend's private sessions count only for the owner, matching the
+// feed's are_friends+NOT-private visibility. Cached per request, keyed on window.
 export const getWeekLeaderboard = cache(
   async (weekStartMs: number, weekEndMs: number): Promise<LeaderboardRow[]> => {
     const me = await getCurrentUser();

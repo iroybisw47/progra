@@ -1,6 +1,7 @@
 import { getProfile } from "@/lib/auth/profile";
 import { requireUser } from "@/lib/auth/require-user";
 import { weekWindow } from "@/lib/dates";
+import { getWeekLeaderboard } from "@/lib/db/leaderboard";
 import { computeWeekRecap } from "@/lib/db/recap";
 
 import { RecapStory } from "./recap-story";
@@ -27,7 +28,16 @@ export default async function RecapWeekPage({
     ? weekWindow(tz, weekStart)
     : weekWindow(tz);
 
-  const recap = await computeWeekRecap(win.weekStartMs, win.weekEndMs);
+  const [recap, leaderboard] = await Promise.all([
+    computeWeekRecap(win.weekStartMs, win.weekEndMs),
+    getWeekLeaderboard(win.weekStartMs, win.weekEndMs),
+  ]);
 
-  return <RecapStory recap={recap} weekStartISO={win.weekStartISO} />;
+  return (
+    <RecapStory
+      recap={recap}
+      weekStartISO={win.weekStartISO}
+      leaderboard={leaderboard}
+    />
+  );
 }

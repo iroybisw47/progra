@@ -16,12 +16,15 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { AvatarInitials } from "@/components/avatar-initials";
 import { Button } from "@/components/ui/button";
 import { CategoryDonut, type CatSeg } from "@/components/v2/category-donut";
 import { GoalProgressBar } from "@/components/goal-progress";
 import { RecapCard } from "@/components/recap-card";
 import { markRecapOpened } from "@/app/actions/recap";
 import { formatDuration } from "@/lib/duration";
+import { cn } from "@/lib/utils";
+import type { LeaderboardRow } from "@/lib/db/leaderboard";
 import type { WeekRecap } from "@/lib/db/recap";
 
 const CHART_FALLBACK = "var(--chart-5)";
@@ -46,16 +49,17 @@ function formatWeekRange(startMs: number, endMs: number): string {
   return `${fmt(startMs)} – ${fmt(endMs)}`;
 }
 
-// The four 2a panels; the "Your rank" panel (leaderboard) slots in at index 3 in
-// Phase 2b, once the Phase 3 RPC exists.
-const PANEL_COUNT = 4;
+// Five panels: The number · Where it went · Goals · Your rank · The card.
+const PANEL_COUNT = 5;
 
 export function RecapStory({
   recap,
   weekStartISO,
+  leaderboard,
 }: {
   recap: WeekRecap;
   weekStartISO: string;
+  leaderboard: LeaderboardRow[];
 }) {
   const router = useRouter();
   const reduce = useReducedMotion() ?? false;
@@ -178,7 +182,12 @@ export function RecapStory({
             }
             className="absolute inset-0 overflow-y-auto"
           >
-            <Panel index={index} recap={recap} reduce={reduce} />
+            <Panel
+              index={index}
+              recap={recap}
+              reduce={reduce}
+              leaderboard={leaderboard}
+            />
           </motion.div>
         </AnimatePresence>
       </div>
@@ -211,10 +220,12 @@ function Panel({
   index,
   recap,
   reduce,
+  leaderboard,
 }: {
   index: number;
   recap: WeekRecap;
   reduce: boolean;
+  leaderboard: LeaderboardRow[];
 }) {
   const range = formatWeekRange(recap.weekStartMs, recap.weekEndMs);
 
@@ -289,8 +300,75 @@ function Panel({
     );
   }
 
-  // index === 3 — the shareable card (Phase 5 adds the image; Phase 6 the post).
+  if (index === 3) {
+    return <RankPanel rows={leaderboard} />;
+  }
+
+  // index === 4 — the shareable card (Phase 5 adds the image; Phase 6 the post).
   return <ShareableCardPanel recap={recap} />;
+}
+
+// Circle leaderboard — the caller's rank among accepted friends by clocked focus
+// time. Solo circles (no friends, or nobody else clocked in) get a nudge instead
+// of a lonely "1 of 1". (Phase 4 refines the empty/edge copy further.)
+function RankPanel({ rows }: { rows: LeaderboardRow[] }) {
+  const me = rows.find((r) => r.isMe);
+  const hasCircle = rows.some((r) => !r.isMe);
+
+  if (!hasCircle || !me) {
+    return (
+      <div className="flex min-h-full flex-col items-center justify-center gap-3 px-8 text-center">
+        <PanelHeading title="Your rank" />
+        <p className="text-body text-lg text-pretty">
+          You&rsquo;re flying solo this week.
+        </p>
+        <p className="text-caption text-sm text-pretty">
+          Invite friends and you&rsquo;ll see how your weeks stack up.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-full flex-col gap-5 px-6 pb-24 pt-6">
+      <PanelHeading title="Your rank" />
+      <div className="text-center">
+        <div className="text-brand text-[56px] font-bold leading-none tabular-nums">
+          #{me.rank}
+        </div>
+        <div className="text-caption text-sm">
+          of {rows.length} in your circle
+        </div>
+      </div>
+      <ul className="flex flex-col gap-1.5">
+        {rows.map((r) => (
+          <li
+            key={r.userId}
+            className={cn(
+              "flex items-center gap-3 rounded-xl px-3 py-2.5",
+              r.isMe && "bg-brand/10"
+            )}
+          >
+            <span className="text-caption w-5 shrink-0 text-center text-sm font-bold tabular-nums">
+              {r.rank}
+            </span>
+            <AvatarInitials
+              name={r.displayName}
+              username={r.username}
+              avatarUrl={r.avatarUrl}
+              className="size-8 text-xs"
+            />
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">
+              {r.isMe ? "You" : r.displayName || `@${r.username}`}
+            </span>
+            <span className="text-body shrink-0 font-mono text-sm tabular-nums">
+              {formatDuration(r.trackedMs)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function PanelHeading({ title }: { title: string }) {

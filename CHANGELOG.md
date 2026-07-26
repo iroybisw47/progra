@@ -6,6 +6,23 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-25
 
+### · Weekly Recap — Phase 2b (the "Your rank" panel)
+Wires the leaderboard into the story. `/recap/[weekStart]/page.tsx` now fetches
+`getWeekLeaderboard` in parallel with the recap and passes it to `recap-story.tsx`, which
+grows to **five panels** — the rank panel slots in at index 3 (between Goals and the card).
+It shows your big `#rank` + "of N in your circle", then the ranked list (avatar · name ·
+clocked time), your row highlighted. Solo circles (no friends, or nobody else clocked in)
+get a "you're flying solo — invite friends" nudge instead of a lonely 1-of-1. (Phase 4
+refines the empty/edge copy.)
+
+### · Weekly Recap — Phase 3 revised: leaderboard ranks CLOCKED SESSIONS ONLY
+The leaderboard now excludes imported calendar events — it ranks time you actively clocked,
+not a packed calendar. The RPC's events CTE + `event_exclusions` anti-join were removed;
+session math (pause handling, `now` capped at week end, private-for-owner-only) is unchanged.
+**Consequence:** the leaderboard total intentionally no longer equals `computeWeekRecap`'s
+`totalTrackedMs` (which counts events) — it's a distinct "clocked focus time" metric. Surfaced
+during Phase 3 verification when a friend's 34h turned out to be an imported calendar.
+
 ### · Weekly Recap — Phase 3 (circle leaderboard RPC)
 The "Your rank" data layer. New `week_leaderboard(p_week_start_ms, p_week_end_ms)`
 SECURITY DEFINER function ranks the caller + their accepted friends by total tracked time.
