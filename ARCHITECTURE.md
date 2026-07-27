@@ -11,7 +11,7 @@
 > first. When code and this doc disagree, the code wins — and the doc should be
 > fixed in the same session.
 >
-> _Last updated: 2026-07-25_
+> _Last updated: 2026-07-27_
 
 ---
 
@@ -159,6 +159,19 @@ is the interactive shell. `loading.tsx` provides route-level skeletons.
 | `recap_views` (weekly recap) | `lib/db/recap-views.ts`, `app/actions/recap.ts` | Per-`(user_id, week_start_ms)` marker that a recap was opened — drives the "your week is ready" nudge across devices (survives reinstall, unlike localStorage). Owner-only RLS (SELECT + INSERT). |
 | `recap_posts` (weekly recap) | `lib/db/feed.ts`, `app/actions/recap.ts` | A recap posted to the friends feed. **Denormalized summary** (`total_tracked_ms`, `rank`, `circle_size`, `categories` jsonb, `caption`) so the feed card renders without recompute; unique `(user_id, week_start_ms)` (re-post upserts). RLS: read own-or-accepted-friend, write own. Deliberately its own row, never a synthetic session (can't pollute time aggregation). |
 | `recap_reactions` / `recap_comments` (weekly recap) | `lib/db/recap-social.ts`, `app/actions/recap-social.ts` | Kudos + comments on recap posts — **parallel tables** (chosen over a polymorphic migration so the live session social tables/RLS/RPCs stay untouched). RLS gates on the `can_see_recap` definer helper; reactions write only via `toggle_recap_reaction`; comments insert-own-on-visible / delete-own-or-recap-owner. FK `ON DELETE CASCADE` from `recap_posts` (takedown removes both). |
+
+**Draft-private clock-out (2026-07-27).** In the redesign flow, ending a session
+(Stop, or an edit that sets an end time) marks it `is_private = true` — a
+*draft*. The finish screen (`/clock/finish`) is the compose step (notes, photo,
+delete) and its **Post** button is the moment of publication (`is_private =
+false`, or kept private). No dedicated column: draft = private, so RLS and the
+photo storage policy already hide it. Consequence: an abandoned finish screen
+leaves a private session, indistinguishable from a deliberately-private one (an
+"unposted" nudge would need a `posted_at` column). Legacy flag-off clock-out and
+the onboarding tour don't pass `draft` and still publish at clock-out.
+`uploadSessionPhoto` accordingly allows uploads while the session is active OR
+ended-but-private (blocked once posted, since the photo would become instantly
+friend-visible).
 
 **Social v2 also added:** `is_private` on `sessions`/`goals`/`habits`; the
 `public_profiles` view (id/username/display_name/bio only); a private
@@ -321,6 +334,18 @@ numbers reconcile across every surface.
 > Append one entry per work session / feature set. Keep it terse: what changed
 > architecturally, why, and any new invariant or migration. Seeded from git
 > history; entries before this file existed are reconstructed.
+
+### 2026-07-27 — Finish screen compose step (draft-private clock-out)
+- Redesign Stop / end-via-edit now passes `draft: true` to `clockOut` /
+  `editActiveSessionTime`, which sets `is_private = true` on the ended session.
+  `/clock/finish` becomes a compose screen — editable notes, add-photo
+  (`uploadSessionPhoto` guard relaxed to reject only ended-AND-public), delete
+  behind a confirm — and **Post** is the publication moment (feed visibility
+  timing moved from Stop to Post). No migration: draft = private under existing
+  RLS/storage policies. `updateSession`/`deleteSession` hardened with explicit
+  ownership + 0-row checks (were RLS-only silent no-ops on foreign/stale ids).
+- **Invariant added:** photo uploads are only accepted while the photo is
+  friend-unreachable (session active, or ended-but-private draft).
 
 ### 2026-07-25 — Weekly Recap (the Sunday ritual → competitive social loop)
 An 8-phase feature, each phase tsc/eslint/vitest/build-green + an adversarial JWT

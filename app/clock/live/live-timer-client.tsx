@@ -196,7 +196,8 @@ export function LiveTimerClient({
 
   function handleStop() {
     startTransition(async () => {
-      const r = await clockOut();
+      // draft: the session stays private until the finish screen's Post.
+      const r = await clockOut({ draft: true });
       if ("error" in r) {
         toast.error(r.error);
         return;
@@ -251,8 +252,13 @@ export function LiveTimerClient({
         return;
       }
       // Time (and, if ending, pause settlement + finish routing) stays with the
-      // existing action, unchanged.
-      const r = await editActiveSessionTime({ startedAtMs, endedAtMs });
+      // existing action. draft: an edit that ends the session lands on the
+      // finish screen too, so it must be held private until Post.
+      const r = await editActiveSessionTime({
+        startedAtMs,
+        endedAtMs,
+        draft: endedAtMs !== null,
+      });
       if ("error" in r) {
         toast.error(r.error);
         return;

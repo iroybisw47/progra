@@ -86,8 +86,12 @@ export async function clockIn(
 }
 
 // Returns the ended session's id so the redesign clock flow can route straight
-// to the Finish & save screen for it.
-export async function clockOut(): Promise<
+// to the Finish & save screen for it. `draft: true` (the redesign flow) marks
+// the ended session private so it stays hidden from friends until the finish
+// screen's Post applies the chosen visibility — abandoning the screen leaves it
+// saved but private. Callers with no compose step (legacy flow, onboarding)
+// omit it and publish immediately, as before.
+export async function clockOut(opts?: { draft?: boolean }): Promise<
   { ok: true; sessionId: string } | { error: string }
 > {
   const supabase = await createClient();
@@ -124,6 +128,7 @@ export async function clockOut(): Promise<
       ended_at: new Date(now).toISOString(),
       paused_ms: pausedMs,
       paused_since: null,
+      ...(opts?.draft ? { is_private: true } : {}),
     })
     .eq("id", row.id);
 
@@ -138,10 +143,13 @@ export async function clockOut(): Promise<
 // Correct an active session's start (and optionally end it at a chosen time) —
 // the Edit-time control on the live timer, for when you forgot to clock out.
 // Passing endedAtMs finalizes the session (settling any in-progress pause);
-// null leaves it running with the corrected start.
+// null leaves it running with the corrected start. `draft` matches clockOut:
+// when the edit ends the session, mark it private so the finish screen's Post
+// controls publication.
 export async function editActiveSessionTime(input: {
   startedAtMs: number;
   endedAtMs: number | null;
+  draft?: boolean;
 }): Promise<
   { ok: true; sessionId: string; ended: boolean } | { error: string }
 > {
@@ -191,6 +199,7 @@ export async function editActiveSessionTime(input: {
     update.ended_at = new Date(endedAtMs).toISOString();
     update.paused_ms = pausedMs;
     update.paused_since = null;
+    if (input.draft) update.is_private = true;
     ended = true;
   } else if (
     row.paused_since &&
@@ -333,6 +342,9 @@ export async function updateSession(
   patch: UpdateSessionPatch
 ): Promise<Result> {
   const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
   const update: Record<string, unknown> = {};
   if (patch.categoryId !== undefined || patch.goalId !== undefined) {
     const axis = resolveAxis(patch.categoryId, patch.goalId);
@@ -356,16 +368,35 @@ export async function updateSession(
     update.is_private = patch.isPrivate;
   }
 
-  const { error } = await supabase.from("sessions").update(update).eq("id", id);
+  // Explicit ownership filter + row check: RLS already blocks foreign writes,
+  // but a 0-row update returns no error, so a stale/spoofed id would otherwise
+  // report a false success (matters now that /clock/finish drives these via
+  // ?sid). Mirrors uploadSessionPhoto's explicit-ownership pattern.
+  const { data, error } = await supabase
+    .from("sessions")
+    .update(update)
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select("id");
   if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "Session not found" };
   revalidateSessionSurfaces();
   return { ok: true };
 }
 
 export async function deleteSession(id: string): Promise<Result> {
   const supabase = await createClient();
-  const { error } = await supabase.from("sessions").delete().eq("id", id);
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data, error } = await supabase
+    .from("sessions")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select("id");
   if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "Session not found" };
   revalidateSessionSurfaces();
   return { ok: true };
 }

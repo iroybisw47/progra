@@ -4,6 +4,25 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-07-27
+
+### · Finish screen becomes a compose step (notes + photo + delete before Post)
+Stopping the clock no longer publishes instantly. `clockOut` and `editActiveSessionTime`
+gain a `draft` flag (passed only by the redesign live timer — legacy flow and onboarding
+still publish at clock-out) that marks the ended session `is_private = true`, so it stays
+hidden from friends until the finish screen's **Post** applies the chosen visibility
+(public by default; "Save privately" keeps it hidden). Existing RLS + the
+`can_see_session_photo` storage policy already gate on `NOT is_private`, so drafts and
+their photos are structurally invisible — **no SQL required**. `/clock/finish` grows an
+editable **Notes** card (prefilled from in-session notes), an **Add photo** option
+(`uploadSessionPhoto`'s ended-session guard relaxed to "ended AND public" — uploads stay
+inside the friend-unreachable window), and a **Delete session** button behind an
+`AlertDialog` for accidental clock-ins. Abandoning the screen leaves the session saved
+but private (indistinguishable from deliberately-private; an "unposted" nudge would need
+a `posted_at` column — out of scope). Hardening: `updateSession`/`deleteSession` now
+check `getCurrentUser` + `.eq("user_id", …)` + a 0-row guard (previously RLS-only, where
+a stale/foreign id silently "succeeded"), matching `uploadSessionPhoto`'s pattern.
+
 ## 2026-07-25
 
 ### · Weekly Recap — Phase 6c (moderation)

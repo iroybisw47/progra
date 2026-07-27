@@ -1,48 +1,89 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { CheckIcon } from "lucide-react";
+import { CameraIcon, CheckIcon } from "lucide-react";
 
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { ToggleSwitch } from "@/components/v2/toggle-switch";
-import { updateSession } from "@/app/actions/sessions";
+import { deleteSession, updateSession } from "@/app/actions/sessions";
 import { formatDuration } from "@/lib/duration";
 import type { Attribution } from "@/lib/session-attribution";
 import { cn } from "@/lib/utils";
 
+// Lazy chunk — the photo step only matters after a click.
+const SessionPhotoStep = dynamic(
+  () =>
+    import("@/components/session-photo-step").then((m) => m.SessionPhotoStep),
+  { ssr: false }
+);
+
 type Props = {
   sessionId: string;
   label: string;
-  description: string | null;
+  initialNotes: string;
   attribution: Attribution;
   workedMs: number;
-  isPrivate: boolean;
   photoUrl: string | null;
 };
 
 export function FinishClient({
   sessionId,
   label,
-  description,
+  initialNotes,
   attribution,
   workedMs,
-  isPrivate: initialPrivate,
   photoUrl,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [priv, setPriv] = useState(initialPrivate);
+  // The session arrives draft-private (held back from friends until Post), so
+  // the toggle deliberately doesn't seed from the DB — default is to post.
+  const [priv, setPriv] = useState(false);
+  const [notes, setNotes] = useState(initialNotes);
+  const [photoOpen, setPhotoOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  function handleSave() {
+  function handlePost() {
     startTransition(async () => {
-      const r = await updateSession(sessionId, { isPrivate: priv });
+      const r = await updateSession(sessionId, {
+        isPrivate: priv,
+        description: notes,
+      });
       if ("error" in r) {
         toast.error(r.error);
         return;
       }
-      toast.success(`Saved ${formatDuration(workedMs)}`);
+      toast.success(
+        priv
+          ? `Saved ${formatDuration(workedMs)} privately`
+          : `Posted ${formatDuration(workedMs)}`
+      );
       router.push("/");
+    });
+  }
+
+  function handleDelete() {
+    startTransition(async () => {
+      const r = await deleteSession(sessionId);
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success("Session deleted");
+      router.push("/clock");
     });
   }
 
@@ -57,11 +98,6 @@ export function FinishClient({
           <div>
             <div className="text-[22px] font-bold">Session complete</div>
             <div className="text-caption mt-1 text-sm">{label}</div>
-            {description && (
-              <p className="text-faint mx-auto mt-1 max-w-[280px] text-xs leading-relaxed">
-                {description}
-              </p>
-            )}
           </div>
           <div className="font-mono text-[42px] font-bold tabular-nums tracking-[-0.02em]">
             {formatDuration(workedMs)}
@@ -76,10 +112,23 @@ export function FinishClient({
           </span>
         </div>
 
-        {/* Photo — read-only. Capture happens during the session, so there's
-            nothing to add here; the block is omitted entirely when there's no
-            photo rather than showing a slot you can't act on. */}
-        {photoUrl && (
+        {/* Notes — still editable here; posted with the session. */}
+        <div className="border-hairline flex flex-col gap-3 rounded-[18px] border p-4">
+          <div className="text-[12.5px] font-bold">Notes</div>
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="How did it go?"
+            rows={4}
+            maxLength={1000}
+            disabled={pending}
+          />
+        </div>
+
+        {/* Photo — read-only once attached (one photo per session); otherwise a
+            photo can still be added here, safely: the session is draft-private,
+            so nothing is friend-visible until Post. */}
+        {photoUrl ? (
           <div className="border-hairline flex flex-col gap-3 rounded-[18px] border p-4">
             <div className="text-[12.5px] font-bold">Photo</div>
             <div className="aspect-square w-full overflow-hidden rounded-[14px]">
@@ -93,6 +142,16 @@ export function FinishClient({
               />
             </div>
           </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setPhotoOpen(true)}
+            disabled={pending}
+            className="border-hairline text-caption hover:text-ink flex items-center justify-center gap-2 rounded-[18px] border px-4 py-3.5 text-[13.5px] font-bold active:scale-[.98]"
+          >
+            <CameraIcon className="size-4" />
+            Add photo
+          </button>
         )}
 
         {/* Privacy */}
@@ -114,13 +173,53 @@ export function FinishClient({
 
         <button
           type="button"
-          onClick={handleSave}
+          onClick={handlePost}
           disabled={pending}
           className="bg-brand w-full rounded-[18px] py-4 text-[15px] font-bold text-primary-foreground shadow-[0_10px_24px_rgba(28,58,94,.3)] active:scale-[.98] disabled:opacity-60"
         >
-          {pending ? "Saving…" : "Save session"}
+          {pending ? "Saving…" : priv ? "Save privately" : "Post"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setConfirmDelete(true)}
+          disabled={pending}
+          className="text-destructive mx-auto -mt-1 px-3 py-1 text-xs font-medium disabled:opacity-60"
+        >
+          Delete session
         </button>
       </div>
+
+      <SessionPhotoStep
+        open={photoOpen}
+        onOpenChange={setPhotoOpen}
+        sessionId={sessionId}
+        // Re-fetch the server-signed photo URL after an upload (a skip just
+        // refreshes redundantly — harmless).
+        onComplete={() => router.refresh()}
+      />
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The tracked time{photoUrl ? " and photo" : ""} will be removed.
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={pending}
+            >
+              Delete
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

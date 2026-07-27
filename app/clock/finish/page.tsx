@@ -16,12 +16,13 @@ import { sessionWorkedMs } from "@/lib/session";
 
 import { FinishClient } from "./finish-client";
 
-// Finish & save (redesign): the confirmation + privacy step shown right after a
-// session ends (via Stop, or an Edit that set an end time). The session is
-// already ended in the DB; this screen only sets its privacy — and privacy is
-// the whole of who can see the session and its photo — before dropping you back
-// on Progress. The photo itself is captured during the session and is read-only
-// by the time you get here.
+// Finish & post (redesign): the compose step shown right after a session ends
+// (via Stop, or an Edit that set an end time). The session arrives ended AND
+// draft-private (clockOut/editActiveSessionTime set is_private with draft:
+// true), so friends can't see it — or its photo — until Post applies the chosen
+// visibility here. You can still edit notes, add a photo, or delete an
+// accidental clock-in. Abandoning the screen leaves the session saved but
+// private.
 export default async function FinishPage({
   searchParams,
 }: {
@@ -57,10 +58,9 @@ export default async function FinishPage({
     <FinishClient
       sessionId={session.id}
       label={session.taskName.trim() || "Untitled session"}
-      description={session.description?.trim() || null}
+      initialNotes={session.description ?? ""}
       attribution={attribution}
       workedMs={workedMs}
-      isPrivate={session.isPrivate}
       photoUrl={photoUrl}
     />
   );

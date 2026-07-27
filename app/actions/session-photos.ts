@@ -47,19 +47,20 @@ export async function uploadSessionPhoto(
   // implied by a non-empty result — enforce ownership explicitly.
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, user_id, ended_at")
+    .select("id, user_id, ended_at, is_private")
     .eq("id", sessionId)
     .maybeSingle();
   if (!session || session.user_id !== user.id) {
     return { error: "Session not found." };
   }
 
-  // The photo is taken during the session, so the session must still be running.
-  // This also keeps the capture window inside the period where the photo is
-  // unreachable to friends (can_see_session_photo requires ended_at is not null),
-  // so nothing is exposed before the finish screen asks about privacy.
-  if (session.ended_at !== null) {
-    return { error: "This session has already ended." };
+  // Uploads are allowed only while the photo is unreachable to friends: an
+  // active session (can_see_session_photo requires ended_at is not null) or an
+  // ended-but-private draft on the finish screen (the policy also requires NOT
+  // is_private). Once posted (ended AND public), adding a photo would make it
+  // instantly friend-visible with no privacy prompt — blocked.
+  if (session.ended_at !== null && !session.is_private) {
+    return { error: "This session has already been posted." };
   }
 
   // Re-encode: rotate() bakes EXIF orientation into pixels, resize caps the
@@ -107,8 +108,10 @@ export async function uploadSessionPhoto(
   if (updateError) return { error: "Couldn't save the photo." };
 
   // Full session surfaces incl. the layout: the photo shows on /clock/live
-  // (hasPhoto pill), the finish screen, and feed/session cards. The session is
-  // still active here, so /clock/live's redirect guard can't fire.
+  // (hasPhoto pill), the finish screen, and feed/session cards. Uploads happen
+  // from /clock/live (session active — the redirect guard can't fire) or from
+  // /clock/finish (session ended, but the caller stays on the finish screen, so
+  // the live page's guard re-rendering is harmless).
   revalidateSessionSurfaces();
   return { ok: true };
 }
