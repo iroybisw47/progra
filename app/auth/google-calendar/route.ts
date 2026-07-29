@@ -9,12 +9,11 @@ import {
   parseFrom,
   publicOrigin,
 } from "@/lib/google/connect";
-import { createClient } from "@/lib/supabase/server";
 
 // Kick off the opt-in Google Calendar connection: sets a nonce cookie and
 // bounces to Google's consent screen requesting ONLY the calendar scope.
 // Sign-in never asks for it — this flow is the sole way calendar access is
-// granted, from onboarding step 5 or Settings.
+// granted, from History or Settings.
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
@@ -22,16 +21,6 @@ export async function GET(request: NextRequest) {
   }
 
   const from = parseFrom(request.nextUrl.searchParams.get("from"));
-
-  // The user chose to connect — if they bail at Google's screen they must
-  // still land back in the app as an onboarded user, so stamp onboarded_at
-  // BEFORE leaving. Write-once (same guard completeOnboarding uses).
-  const supabase = await createClient();
-  await supabase
-    .from("profiles")
-    .update({ onboarded_at: new Date().toISOString() })
-    .eq("id", user.id)
-    .is("onboarded_at", null);
 
   // CSRF nonce: the callback validates Google's echoed `state` against this
   // cookie before any token exchange. The return destination also rides in

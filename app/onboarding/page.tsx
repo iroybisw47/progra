@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth/require-user";
-import { getProfile, isCalendarConnected } from "@/lib/auth/profile";
+import { getProfile } from "@/lib/auth/profile";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import {
   aggregateWeek,
@@ -29,33 +29,21 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // First-run wizard. The legacy (pre-redesign) tour fetches the week snapshot
 // Home renders so its steps show the user's REAL data. The redesign wizard just
 // claims a handle and creates a goal — no session, no snapshot needed.
-export default async function OnboardingPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ step?: string; status?: string }>;
-}) {
+export default async function OnboardingPage() {
   await requireUser();
 
-  const params = await searchParams;
   const profile = await getProfile();
   const tz = profile?.timezone ?? "UTC";
 
-  // The redesign uses a leaner 5-step wizard (welcome → goal → categories →
-  // habits → connect calendar) with no practice session. The calendar connect
-  // flow deep-links back here with ?step=calendar&status=connected|error.
+  // The redesign uses a lean conversational wizard (welcome → about → goal →
+  // categories → habits → invite) with no practice session. Calendar connect
+  // lives in History/Settings, not here.
   if (REDESIGN) {
     return (
       <OnboardingClientV2
         initialUsername={profile?.username ?? ""}
         initialDisplayName={profile?.display_name ?? null}
         avatarUrl={avatarPublicUrl(profile?.avatar_path ?? null)}
-        calendarConnected={isCalendarConnected(profile)}
-        initialStep={params.step === "calendar" ? "calendar" : undefined}
-        status={
-          params.status === "connected" || params.status === "error"
-            ? params.status
-            : null
-        }
       />
     );
   }

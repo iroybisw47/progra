@@ -1,4 +1,4 @@
-import { getProfile } from "@/lib/auth/profile";
+import { getProfile, isCalendarConnected } from "@/lib/auth/profile";
 import {
   addDaysISO,
   mondayOfDateISO,
@@ -16,7 +16,14 @@ import { HistoryClient } from "./history-client";
 // otherwise a stale full-route-cache entry pins "now" to build time.
 export const dynamic = "force-dynamic";
 
-type SearchParams = Promise<{ view?: string; m?: string; y?: string; w?: string }>;
+type SearchParams = Promise<{
+  view?: string;
+  m?: string;
+  y?: string;
+  w?: string;
+  // One-shot return status from the Google Calendar connect flow.
+  calendar?: string;
+}>;
 
 const CHART_FALLBACK = "var(--chart-5)";
 
@@ -48,6 +55,14 @@ export default async function HistoryPage({
   const tz = profile?.timezone ?? "UTC";
   const today = todayInTimeZone(tz); // YYYY-MM-DD in the user's tz
   const [curYear, curMonth] = today.split("-").map(Number); // curMonth is 1-indexed
+
+  // Calendar connect state: History is the sync surface, so it also carries the
+  // Connect entry point (plus the one-shot return toast from the OAuth flow).
+  const calendarConnected = isCalendarConnected(profile);
+  const calendarStatus =
+    params.calendar === "connected" || params.calendar === "error"
+      ? params.calendar
+      : null;
 
   if (view === "week") {
     const currentMonday = mondayOfDateISO(today);
@@ -86,6 +101,8 @@ export default async function HistoryPage({
         prevParam={addDaysISO(monday, -7)}
         nextParam={addDaysISO(monday, 7)}
         categories={categories}
+        calendarConnected={calendarConnected}
+        calendarStatus={calendarStatus}
       />
     );
   }
@@ -106,6 +123,8 @@ export default async function HistoryPage({
         prevParam={String(year - 1)}
         nextParam={String(year + 1)}
         categories={categories}
+        calendarConnected={calendarConnected}
+        calendarStatus={calendarStatus}
       />
     );
   }
@@ -141,6 +160,8 @@ export default async function HistoryPage({
       prevParam={monthParam(prev)}
       nextParam={monthParam(next)}
       categories={categories}
+      calendarConnected={calendarConnected}
+      calendarStatus={calendarStatus}
     />
   );
 }

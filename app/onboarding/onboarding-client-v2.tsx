@@ -1,12 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
-  AlertCircleIcon,
   BarChart3Icon,
-  CalendarIcon,
   CheckIcon,
   ClockIcon,
   MinusIcon,
@@ -22,7 +20,7 @@ import {
   ControlBlock,
   type Utterance,
 } from "@/components/onboarding/conversation";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -46,7 +44,6 @@ type Step =
   | "goal"
   | "categories"
   | "habits"
-  | "calendar"
   | "invite";
 const SEQUENCE: Step[] = [
   "welcome",
@@ -54,7 +51,6 @@ const SEQUENCE: Step[] = [
   "goal",
   "categories",
   "habits",
-  "calendar",
   "invite",
 ];
 
@@ -109,17 +105,6 @@ const SCRIPT: Record<Step, Utterance[]> = {
     },
     { big: false, text: "Here's everything you get:" },
   ],
-  calendar: [
-    { big: true, text: "See your whole week" },
-    {
-      big: false,
-      text: "Connect Google Calendar and your classes and meetings count themselves — no clocking in.",
-    },
-    {
-      big: false,
-      text: "Access is read-only. Progra never creates or edits your events.",
-    },
-  ],
   invite: [
     { big: true, text: "Bring your friends" },
     {
@@ -130,30 +115,20 @@ const SCRIPT: Record<Step, Utterance[]> = {
   ],
 };
 
-// Flipped to "0" once Google's app verification clears (build-time inlined).
-const SHOW_UNVERIFIED_WARNING =
-  process.env.NEXT_PUBLIC_SHOW_UNVERIFIED_WARNING === "1";
-
 type Props = {
   initialUsername: string;
   initialDisplayName: string | null;
   avatarUrl: string | null;
-  calendarConnected: boolean;
-  initialStep?: Step;
-  status?: "connected" | "error" | null;
 };
 
 export function OnboardingClientV2({
   initialUsername,
   initialDisplayName,
   avatarUrl,
-  calendarConnected,
-  initialStep,
-  status = null,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [step, setStep] = useState<Step>(initialStep ?? "welcome");
+  const [step, setStep] = useState<Step>("welcome");
 
   // The CTA bar lives outside the message column, so it fades in when the
   // conversation reports "ready". Derived (which step's text has finished) so
@@ -162,20 +137,6 @@ export function OnboardingClientV2({
   // reduced-motion), so seeding null is safe for every entry incl. deep-links.
   const [readyStep, setReadyStep] = useState<Step | null>(null);
   const ready = readyStep === step;
-
-  // One-shot toast for the connect flow's return status.
-  const statusToastFired = useRef(false);
-  useEffect(() => {
-    if (statusToastFired.current || !status) return;
-    statusToastFired.current = true;
-    if (status === "error") {
-      toast.error(
-        "Google Calendar wasn't connected — you can try again from Settings."
-      );
-    } else {
-      toast.success("Google Calendar connected");
-    }
-  }, [status]);
 
   // Welcome: name + handle.
   const [displayName, setDisplayName] = useState(initialDisplayName ?? "");
@@ -250,11 +211,10 @@ export function OnboardingClientV2({
     });
   }
 
-  // The Skip chrome shows on the middle steps only (not welcome; not calendar,
-  // which has its own "Skip for now"; not invite, whose "Enter Progra" CTA is
-  // the finish and is itself skippable — a top-right skip would be redundant).
-  const showSkip =
-    step !== "welcome" && step !== "calendar" && step !== "invite";
+  // The Skip chrome shows on the middle steps only (not welcome; not invite,
+  // whose "Enter Progra" CTA is the finish and is itself skippable — a
+  // top-right skip would be redundant).
+  const showSkip = step !== "welcome" && step !== "invite";
 
   return (
     <div
@@ -294,8 +254,7 @@ export function OnboardingClientV2({
         className="mx-auto flex w-full max-w-[420px] flex-1 animate-[fade-up_.35s_ease] flex-col px-5 pb-28"
       >
         <div className="flex flex-1 flex-col justify-center gap-6">
-          {/* Step icon (pops in). Welcome/about show the Progra clock mark;
-              calendar shows the calendar glyph in a brand circle. */}
+          {/* Step icon (pops in). Welcome/about show the Progra clock mark. */}
           {(step === "welcome" || step === "about") && (
             <PrograMark
               size={58}
@@ -304,17 +263,6 @@ export function OnboardingClientV2({
                 animation: "pop-in 0.55s cubic-bezier(.34,1.56,.64,1) both",
               }}
             />
-          )}
-          {step === "calendar" && (
-            <span
-              className="bg-brand flex size-[58px] items-center justify-center rounded-full shadow-[0_10px_26px_rgba(28,58,94,.22)]"
-              style={{ animation: "pop-in 0.55s cubic-bezier(.34,1.56,.64,1) both" }}
-            >
-              <CalendarIcon
-                className="text-primary-foreground size-6"
-                strokeWidth={1.9}
-              />
-            </span>
           )}
 
           <Conversation
@@ -357,14 +305,6 @@ export function OnboardingClientV2({
                 <HabitsExample />
               </ControlBlock>
             )}
-            {step === "calendar" && (
-              <ControlBlock>
-                <CalendarBody
-                  connected={calendarConnected}
-                  showWarning={SHOW_UNVERIFIED_WARNING}
-                />
-              </ControlBlock>
-            )}
             {step === "invite" && (
               <ControlBlock>
                 <InviteShare username={username} />
@@ -402,33 +342,8 @@ export function OnboardingClientV2({
               <Cta onClick={() => go("habits")}>Next</Cta>
             )}
             {step === "habits" && (
-              <Cta onClick={() => go("calendar")}>Next</Cta>
+              <Cta onClick={() => go("invite")}>Next</Cta>
             )}
-            {step === "calendar" &&
-              (calendarConnected ? (
-                <Cta onClick={() => go("invite")}>Next</Cta>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {/* Plain navigation — the route handler stamps onboarded_at
-                      before redirecting to Google. */}
-                  <a
-                    href="/auth/google-calendar?from=onboarding"
-                    className={buttonVariants({
-                      className:
-                        "h-12 w-full rounded-xl text-base font-bold active:scale-[.97]",
-                    })}
-                  >
-                    Connect Google Calendar
-                  </a>
-                  <Button
-                    variant="ghost"
-                    onClick={() => go("invite")}
-                    className="text-caption h-11 w-full rounded-xl text-sm font-bold"
-                  >
-                    Skip for now
-                  </Button>
-                </div>
-              ))}
             {step === "invite" && (
               <Cta onClick={handleFinish} disabled={pending}>
                 Enter Progra
@@ -789,43 +704,3 @@ function HabitsExample() {
   );
 }
 
-function CalendarBody({
-  connected,
-  showWarning,
-}: {
-  connected: boolean;
-  showWarning: boolean;
-}) {
-  if (connected) {
-    return (
-      <div
-        className="border-hairline bg-card flex items-center gap-3 rounded-[18px] border px-4 py-3.5"
-        style={{ animation: "pop-in 0.35s ease both" }}
-      >
-        <span className="bg-brand/10 text-brand flex size-[38px] shrink-0 items-center justify-center rounded-full">
-          <CheckIcon className="size-4" strokeWidth={3} />
-        </span>
-        <div className="flex flex-col">
-          <span className="text-ink text-[15px] font-bold">
-            Google Calendar connected
-          </span>
-          <span className="text-caption text-[12.5px]">
-            Read-only — disconnect any time in Settings.
-          </span>
-        </div>
-      </div>
-    );
-  }
-  if (!showWarning) return null;
-  return (
-    <div className="flex items-start gap-2.5 rounded-[14px] border border-[#eadfae] bg-[#faf3de] px-3.5 py-3">
-      <AlertCircleIcon className="mt-0.5 size-4 shrink-0 text-[#9c7c2c]" />
-      <p className="text-[12.5px] leading-relaxed text-[#7c6524]">
-        Google may show an &ldquo;unverified app&rdquo; screen. Tap{" "}
-        <strong>Advanced</strong>, then{" "}
-        <strong>Go to progra.world (unsafe)</strong> to continue. Access is
-        read-only.
-      </p>
-    </div>
-  );
-}

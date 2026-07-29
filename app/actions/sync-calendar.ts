@@ -26,7 +26,8 @@ export async function syncCalendar(): Promise<SyncResult> {
   const profile = await getProfile();
   if (!isCalendarConnected(profile)) {
     return {
-      error: "Google Calendar isn't connected — you can connect it in Settings.",
+      error:
+        "Google Calendar isn't connected — you can connect it in History or Settings.",
     };
   }
 

@@ -120,12 +120,12 @@ additionally 404s anyone who isn't the admin (`rpc('is_admin')`).
 | `/login` | `app/login/page.tsx` | `google-sign-in-button.tsx` | Google OAuth entry. |
 | `/auth/callback` | `route.ts` | — | OAuth code exchange → session. |
 | `/auth/signout` | `route.ts` | — | Sign out. |
-| `/onboarding` | `onboarding/page.tsx` | `onboarding-client.tsx` | First-run wizard (goal → practice clock-in → tour). Home redirects here while `profiles.onboarded_at` is null; "Replay onboarding" on Home re-enters it. |
+| `/onboarding` | `onboarding/page.tsx` | `onboarding-client-v2.tsx` (redesign) / `onboarding-client.tsx` (legacy) | First-run wizard. Redesign: 6-step conversational flow (welcome→about→goal→categories→habits→invite) — no calendar step; connect lives in History/Settings. Home redirects here while `profiles.onboarded_at` is null; "Replay onboarding" re-enters it. |
 | `/search` | `search/page.tsx` | — | Placeholder ("Coming soon") for a future search surface. |
 | `/clock` | `clock/page.tsx` | `clock-client.tsx` | Clock in/out/pause; live timer; week strip. |
 | `/goals` | `goals/page.tsx` | `goals-client.tsx` | Weekly quotas and progress. |
 | `/habits` | `habits/page.tsx` | `habits-client.tsx` | Habit tracker (per-day, tz-aware). |
-| `/history` | `history/page.tsx` | `history-client.tsx` | Month/year rollups, category axis, session browser. |
+| `/history` | `history/page.tsx` | `history-client.tsx` | Month/year rollups, category axis, session browser. The app's calendar surface: Connect Google Calendar (when disconnected) / Sync (when connected) on month/year views. |
 | `/recap` | `recap/page.tsx` | `recap-client.tsx` | Sunday weekly recap + share (the older scrubber card). |
 | `/recap/[weekStart]` | `recap/[weekStart]/page.tsx` | `recap-story.tsx` | Full-screen 5-panel weekly recap **story** (number · categories · goals · circle rank · shareable card) — `framer-motion`, own-data, `force-dynamic`. The "your week is ready" nudge on Progress opens this. |
 | `/recap/[weekStart]/card` | `recap/[weekStart]/card/route.tsx` (Route Handler) | — | 1080×1080 recap PNG via `next/og` `ImageResponse` (Node runtime, `getCurrentUser`-gated) — the story's Share button fetches it and shares it as a `File`. |
@@ -334,6 +334,17 @@ numbers reconcile across every surface.
 > Append one entry per work session / feature set. Keep it terse: what changed
 > architecturally, why, and any new invariant or migration. Seeded from git
 > history; entries before this file existed are reconstructed.
+
+### 2026-07-27 — Calendar connect moved out of onboarding, into History
+- The redesign onboarding wizard drops its `calendar` step (7 → 6 steps,
+  `habits → invite`); the `?step=calendar&status=` deep-link plumbing and the
+  OAuth route's write-once `onboarded_at` stamp (which existed only for that
+  entry point) are removed. `ConnectFrom` is now `"history" | "settings"`;
+  `returnPath` sends `?calendar=connected|error` to both.
+- History (month/year views) becomes the calendar surface: a Connect CTA when
+  disconnected (`isCalendarConnected` computed in `history/page.tsx`), the
+  existing `SyncCalendarButton` when connected, plus the one-shot return toast.
+  Settings' connect/disconnect row is unchanged. No SQL.
 
 ### 2026-07-27 — Finish screen compose step (draft-private clock-out)
 - Redesign Stop / end-via-edit now passes `draft: true` to `clockOut` /

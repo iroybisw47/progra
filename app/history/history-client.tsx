@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -27,7 +29,15 @@ type CommonProps = {
   prevParam: string;
   nextParam: string;
   categories: Category[];
+  // History is the calendar surface: it shows Connect when disconnected and
+  // Sync once connected, and receives the OAuth flow's one-shot return status.
+  calendarConnected: boolean;
+  calendarStatus: "connected" | "error" | null;
 };
+
+// Flipped to "0" once Google's app verification clears (build-time inlined).
+const SHOW_UNVERIFIED_WARNING =
+  process.env.NEXT_PUBLIC_SHOW_UNVERIFIED_WARNING === "1";
 
 // Discriminated on `view`: the week branch carries This-week-format data
 // (rendered via the shared WeekSummary), month/year carry the rollup for the
@@ -70,6 +80,20 @@ function navHref(view: View, param: string): string {
 
 export function HistoryClient(props: Props) {
   const { isCurrentPeriod, isFuturePeriod, prevParam, nextParam } = props;
+
+  // One-shot return toast from the connect flow (?calendar=connected|error) —
+  // same pattern as settings-client.
+  const calendarToastFired = useRef(false);
+  const { calendarStatus } = props;
+  useEffect(() => {
+    if (calendarToastFired.current || !calendarStatus) return;
+    calendarToastFired.current = true;
+    if (calendarStatus === "error") {
+      toast.error("Couldn't connect Google Calendar — you can try again.");
+    } else {
+      toast.success("Google Calendar connected");
+    }
+  }, [calendarStatus]);
   const label =
     props.view === "week"
       ? weekLabel(props.weekStartMs, props.weekEndMs)
@@ -149,6 +173,7 @@ export function HistoryClient(props: Props) {
             categories={props.categories}
             label={label}
             isFuturePeriod={isFuturePeriod}
+            calendarConnected={props.calendarConnected}
           />
         )}
       </main>
@@ -165,11 +190,13 @@ function RollupBody({
   categories,
   label,
   isFuturePeriod,
+  calendarConnected,
 }: {
   rollup: Rollup;
   categories: Category[];
   label: string;
   isFuturePeriod: boolean;
+  calendarConnected: boolean;
 }) {
   const segs: WeekSummarySeg[] = rollup.categoryRows.map((r) => ({
     id: r.id,
@@ -200,8 +227,10 @@ function RollupBody({
       </Card>
 
       {/* Calendar actions: period-scoped auto-categorize/review (only when there's
-          something to sort or review) + the global Sync Google Calendar button.
-          This is currently the app's only Sync entry point, so it stays. */}
+          something to sort or review) + the calendar entry point — History is
+          the app's calendar surface (onboarding no longer offers connect):
+          Connect when disconnected, Sync once connected. The OAuth flow returns
+          here (?from=history). */}
       <div className="flex flex-col gap-3">
         {!isFuturePeriod &&
           (rollup.uncategorizedEventCount > 0 ||
@@ -214,7 +243,30 @@ function RollupBody({
               categories={categories}
             />
           )}
-        <SyncCalendarButton />
+        {calendarConnected ? (
+          <SyncCalendarButton />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {SHOW_UNVERIFIED_WARNING && (
+              <p className="text-muted-foreground text-xs leading-relaxed text-pretty">
+                Google&rsquo;s verification of Progra is still in review —
+                you&rsquo;ll see a &ldquo;Google hasn&rsquo;t verified this
+                app&rdquo; screen. Tap <strong>Advanced</strong>, then{" "}
+                <strong>Go to progra.world (unsafe)</strong> to continue. Access
+                is read-only.
+              </p>
+            )}
+            <a
+              href="/auth/google-calendar?from=history"
+              className={buttonVariants({
+                variant: "secondary",
+                className: "h-11 w-full text-base",
+              })}
+            >
+              Connect Google Calendar
+            </a>
+          </div>
+        )}
       </div>
     </>
   );

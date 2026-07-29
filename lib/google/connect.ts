@@ -7,10 +7,10 @@ import type { NextRequest } from "next/server";
 
 export const GCAL_STATE_COOKIE = "gcal_connect";
 
-export type ConnectFrom = "onboarding" | "settings";
+export type ConnectFrom = "history" | "settings";
 
 export function parseFrom(raw: string | null): ConnectFrom {
-  return raw === "onboarding" ? "onboarding" : "settings";
+  return raw === "history" ? "history" : "settings";
 }
 
 // The public origin for redirects + the registered redirect_uri. Mirrors the
@@ -29,9 +29,11 @@ export function callbackUri(request: NextRequest): string {
   return `${publicOrigin(request)}/auth/google-calendar/callback`;
 }
 
+// Both destinations use the same ?calendar= convention so the one-shot return
+// toast pattern is shared.
 export function returnPath(from: ConnectFrom, ok: boolean): string {
-  if (from === "onboarding") {
-    return `/onboarding?step=calendar&status=${ok ? "connected" : "error"}`;
+  if (from === "history") {
+    return `/history?calendar=${ok ? "connected" : "error"}`;
   }
   return `/settings?calendar=${ok ? "connected" : "error"}`;
 }

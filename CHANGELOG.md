@@ -6,6 +6,23 @@ when it was done, not a start/stop work timer.
 
 ## 2026-07-27
 
+### · Calendar connect moved out of onboarding, into History
+The redesign onboarding wizard loses its **calendar step** — now 6 steps
+(welcome→about→goal→categories→habits→invite). Removed from `onboarding-client-v2.tsx`:
+the step, its script/copy, `CalendarBody`, the Connect CTA + "Skip for now", the
+`?step=calendar&status=` deep-link props/toast, and `SHOW_UNVERIFIED_WARNING`;
+`onboarding/page.tsx` sheds the searchParams plumbing. `lib/google/connect.ts`:
+`ConnectFrom` is now `"history" | "settings"` and `returnPath` sends
+`/history?calendar=connected|error`; the OAuth route (`app/auth/google-calendar/route.ts`)
+drops its write-once `onboarded_at` stamp (existed only for the onboarding entry).
+**History (month/year views) is now the calendar surface**: when disconnected, the sync
+slot shows a **Connect Google Calendar** CTA (`?from=history`, with the unverified-app
+note) and the OAuth flow returns to History with a one-shot toast (settings-client
+pattern); when connected, the existing `SyncCalendarButton`. `history/page.tsx` computes
+`isCalendarConnected` + the return status and passes both through `HistoryClient`.
+Settings' connect/disconnect row unchanged; `syncCalendar`'s not-connected error copy now
+mentions History. **No SQL required.**
+
 ### · Finish screen becomes a compose step (notes + photo + delete before Post)
 Stopping the clock no longer publishes instantly. `clockOut` and `editActiveSessionTime`
 gain a `draft` flag (passed only by the redesign live timer — legacy flow and onboarding
