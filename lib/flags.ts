@@ -25,3 +25,10 @@ export const REDESIGN = envFlag(process.env.NEXT_PUBLIC_REDESIGN);
 // tabs. See the roadmap in .claude/plans.
 export const SOCIAL_ENABLED =
   envFlag(process.env.NEXT_PUBLIC_SOCIAL_ENABLED) || REDESIGN;
+
+// Master switch for the "Refer a friend" entry point on Progress and the
+// /refer share screen it opens. Kept independent of SOCIAL_ENABLED so the
+// referral push can be turned on and off on its own — note the link it shares
+// (/i/{username}) only resolves while social is on, since that page 404s
+// otherwise.
+export const REFER_ENABLED = envFlag(process.env.NEXT_PUBLIC_REFER_ENABLED);

@@ -17,6 +17,7 @@ import { CategoryDonut } from "@/components/v2/category-donut";
 import { HabitWeekGrid } from "@/components/v2/habit-week-grid";
 import { AutoEndNudge } from "@/components/v2/auto-end-nudge";
 import { RecapNudge } from "@/components/v2/recap-nudge";
+import { ReferFriendButton } from "@/components/v2/refer-friend-button";
 import { WeekSummary } from "@/components/v2/week-summary";
 
 // The manage-habits editor (485 lines) only matters after tapping "Manage" —
@@ -33,6 +34,7 @@ import { toggleHabitCompletion } from "@/app/actions/habits";
 import type { Habit, HabitCompletion } from "@/lib/db/habits";
 import { formatDuration } from "@/lib/duration";
 import { formatTime12 } from "@/lib/dates";
+import { REFER_ENABLED } from "@/lib/flags";
 import { cn } from "@/lib/utils";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -225,6 +227,11 @@ function TodayView({
           <CategoryDonut segs={todaySegs} totalMs={todayTotalMs} />
         </CardContent>
       </Card>
+
+      {/* Refer a friend — below the hero so it never sits adjacent to the
+          recap nudge (same navy fill). Flag-gated; NEXT_PUBLIC_ is inlined at
+          build time, so this branch disappears entirely when off. */}
+      {REFER_ENABLED && <ReferFriendButton />}
 
       {/* Sessions today */}
       <section className="flex flex-col gap-2">
