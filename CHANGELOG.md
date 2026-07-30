@@ -4,6 +4,69 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-07-30
+
+### · 10-hour session cap + auto-clock-out — **requires SQL (run by hand)**
+Nothing bounded a session's length. `sessionWorkedMs` had a floor and no ceiling,
+so a forgotten clock-out rendered as `168:00:00`, and because a session is
+attributed to the single instant of its end, that runaway total slid forward day
+by day into whatever week it finally ended in. With ~5 beta users and a friend
+leaderboard that counts active sessions, it was a fairness problem too.
+
+A session's **worked time** (pauses excluded) can now never exceed 10 hours.
+The live timer freezes at `10:00:00` and the session is closed out at the instant
+the cap was hit — saved **private**, never auto-posted to the feed.
+
+- **`lib/session.ts`** — new `SESSION_CAP_MS`, plus `isOverSessionCap`,
+  `sessionCapEndMs`, `sessionAttributionEnd`. The clamp in `sessionWorkedMs`
+  applies **only to active sessions**, so historical rows read back exactly as
+  stored: no backfill, no rewritten past totals. It works because
+  `sessionCapEndMs = startedAt + cap + pausedMs` is precisely the end instant
+  that makes a row read back at exactly the cap.
+- **Attribution unified** — `sessionAttributionEnd` replaces six independent
+  `endedAt ?? now` computations (4× `lib/aggregate.ts`, `app/goals/page.tsx`,
+  and a verbatim duplicate deleted from `clock-client.tsx`). Effect: the
+  auto-clock-out write is *visually a no-op* — no total moves when it lands.
+- **`autoClockOut()`** takes no arguments by design; it recomputes from the
+  stored row and the server clock, so a wrong or hostile client clock can neither
+  trigger it early nor suppress it. `paused_ms` is written back unchanged (an
+  in-progress pause can only have begun after the crossing). Guarded with
+  `.is("ended_at", null)` so racing tabs produce exactly one write. Uses the full
+  `revalidateSessionSurfaces()` — unlike Stop, `/clock/live`'s redirect guard
+  *should* fire here.
+- **`<EnsureSessionCap/>`** in the root layout, following `EnsureProfileSync`:
+  zero authed writes on normal loads. No `useNow` subscriber — an exact
+  `setTimeout` crosses the cap live without an extra render, with a
+  `visibilitychange` re-check for suspended mobile tabs. There's no cron, so
+  enforcement is lazy by design; until the write lands every surface already
+  shows the clamped value, so nothing lies in the meantime.
+- **Review path** — new nullable `auto_ended_at` / `auto_end_reviewed_at`
+  (`is_private` alone can't tell an auto-end from a deliberate draft). Banner on
+  `/clock/finish` and a muted nudge on Progress → Today via `getUnreviewedAutoEnd()`.
+- Manual entries over 10h (`createSession`, "Add past session") stay uncapped —
+  the cap governs auto-accruing live sessions, not user-entered history.
+- 16 new tests in `lib/session.test.ts` (69 total, was 53).
+
+```sql
+-- Additive and idempotent. No UPDATE: historical rows are untouched.
+alter table public.sessions
+  add column if not exists auto_ended_at        timestamptz,
+  add column if not exists auto_end_reviewed_at timestamptz;
+
+create index if not exists sessions_auto_end_review_idx
+  on public.sessions (user_id, ended_at desc)
+  where auto_ended_at is not null and auto_end_reviewed_at is null;
+
+notify pgrst, 'reload schema';
+```
+
+**Outstanding:** `week_leaderboard` re-implements worked-time math in SQL *and
+counts active sessions*, so until its body is patched a friend's runaway session
+shows a frozen `10:00:00` while ranking on the uncapped total. Dump it with
+`pg_get_functiondef`, wrap the per-session expression in
+`case when s.ended_at is null then least(…, 36000000) else … end` (active-only,
+mirroring the TS clamp), then re-run the adversarial JWT check.
+
 ## 2026-07-27
 
 ### · Calendar connect moved out of onboarding, into History

@@ -12,7 +12,7 @@ import {
 } from "@/lib/db/habits";
 import { computeWeekRecap } from "@/lib/db/recap";
 import { hasOpenedRecap } from "@/lib/db/recap-views";
-import { listSessionsInRange } from "@/lib/db/sessions";
+import { getUnreviewedAutoEnd, listSessionsInRange } from "@/lib/db/sessions";
 import { getProfile } from "@/lib/auth/profile";
 import {
   addDaysISO,
@@ -51,6 +51,9 @@ export type ProgressData = {
   // still-unopened week, or null when there's nothing to surface. Tapping it
   // opens that week's recap.
   recapNudge: { weekStart: string } | null;
+  // The "we clocked you out at 10 hours" nudge: the most recent cap-ended
+  // session the user hasn't reviewed, or null. Tapping opens its finish screen.
+  autoEndNudge: { sessionId: string } | null;
 };
 
 // The Monday (YYYY-MM-DD) of the current week in `tz`. Single source for the
@@ -106,6 +109,7 @@ export async function loadProgressData(): Promise<ProgressData> {
     rawDayEvents,
     activeGoals,
     recapOpened,
+    autoEnd,
   ] = await Promise.all([
     listCategories(),
     computeWeekRecap(weekStartMs, weekEndMs),
@@ -114,6 +118,7 @@ export async function loadProgressData(): Promise<ProgressData> {
     fetchEventsRaw(dayStartMs, dayEndMs),
     listActiveGoals(),
     hasOpenedRecap(recapWeekStartMs),
+    getUnreviewedAutoEnd(),
   ]);
 
   // --- Today window ---
@@ -232,6 +237,7 @@ export async function loadProgressData(): Promise<ProgressData> {
     today,
     recapNudge:
       recapOpened || !recapWeekExisted ? null : { weekStart: recapMonday },
+    autoEndNudge: autoEnd ? { sessionId: autoEnd.id } : null,
   };
 }
 

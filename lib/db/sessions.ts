@@ -18,6 +18,8 @@ export type SessionRow = {
   paused_since: string | null;
   is_private: boolean;
   photo_path: string | null;
+  auto_ended_at: string | null;
+  auto_end_reviewed_at: string | null;
 };
 
 // Columns selected for every session read. Single constant so the pause
@@ -25,7 +27,7 @@ export type SessionRow = {
 // (e.g. the feed) select the same shape; add ", user_id" when the reader needs
 // to attribute a row to its author.
 export const SESSION_COLUMNS =
-  "id, category_id, goal_id, task_name, description, started_at, ended_at, paused_ms, paused_since, is_private, photo_path";
+  "id, category_id, goal_id, task_name, description, started_at, ended_at, paused_ms, paused_since, is_private, photo_path, auto_ended_at, auto_end_reviewed_at";
 
 export function rowToSession(row: SessionRow): Session {
   return {
@@ -42,8 +44,37 @@ export function rowToSession(row: SessionRow): Session {
     pausedSince: row.paused_since ? new Date(row.paused_since).getTime() : null,
     isPrivate: row.is_private ?? false,
     photoPath: row.photo_path ?? null,
+    // 10-hour cap provenance. Null on every row the user ended themselves,
+    // which is all of them before this column existed — no backfill.
+    autoEndedAt: row.auto_ended_at ? new Date(row.auto_ended_at).getTime() : null,
+    autoEndReviewedAt: row.auto_end_reviewed_at
+      ? new Date(row.auto_end_reviewed_at).getTime()
+      : null,
   };
 }
+
+// The most recent session the 10-hour cap ended that the user hasn't reviewed
+// yet — drives the Progress nudge. Null on the overwhelmingly common path (the
+// partial index makes that a cheap miss). Cached per request.
+export const getUnreviewedAutoEnd = cache(
+  async (): Promise<{ id: string } | null> => {
+    const me = await getCurrentUser();
+    if (!me) return null;
+
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("sessions")
+      .select("id")
+      .eq("user_id", me.id)
+      .not("auto_ended_at", "is", null)
+      .is("auto_end_reviewed_at", null)
+      .order("ended_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return (data as { id: string } | null) ?? null;
+  }
+);
 
 // Returns sessions overlapping [startMs, endMs). Overlap test: started_at <
 // endMs AND (ended_at > startMs OR ended_at IS NULL). Used by the recap to

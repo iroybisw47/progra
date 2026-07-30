@@ -4,6 +4,7 @@ import "./globals.css";
 
 import { BottomNav } from "@/components/bottom-nav";
 import { EnsureProfileSync } from "@/components/ensure-profile-sync";
+import { EnsureSessionCap } from "@/components/ensure-session-cap";
 import { Toaster } from "@/components/ui/sonner";
 import { getActiveSession } from "@/lib/db/sessions";
 import { getNavBadges } from "@/lib/db/notifications";
@@ -88,6 +89,17 @@ export default async function RootLayout({
           />
         )}
         {user && <EnsureProfileSync timezone={profile?.timezone ?? null} />}
+        {/* Flat primitives, not a SessionTiming object: an object literal would
+            be a fresh reference every render and re-run the effect (re-scheduling
+            the cap timer) on every layout re-render. */}
+        {user && (
+          <EnsureSessionCap
+            sessionId={activeSession?.id ?? null}
+            startedAt={activeSession?.startedAt ?? null}
+            pausedMs={activeSession?.pausedMs ?? null}
+            pausedSince={activeSession?.pausedSince ?? null}
+          />
+        )}
         <Toaster />
       </body>
     </html>

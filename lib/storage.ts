@@ -39,4 +39,12 @@ export type Session = {
   // visibility of its own. Who can see it follows `isPrivate`, same as the
   // session itself.
   photoPath: string | null;
+  // 10-hour cap provenance. `autoEndedAt` is set (ms) only when autoClockOut
+  // ended this session at SESSION_CAP_MS — permanent proof that the duration
+  // was machine-decided, not user-chosen. `isPrivate` alone can't express this:
+  // an auto-ended session is private, but so is a deliberate draft.
+  // `autoEndReviewedAt` is stamped once the user has seen and dealt with it,
+  // which is what dismisses the review nudge. See lib/session.ts.
+  autoEndedAt: number | null;
+  autoEndReviewedAt: number | null;
 };

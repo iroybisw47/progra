@@ -11,7 +11,7 @@
 > first. When code and this doc disagree, the code wins — and the doc should be
 > fixed in the same session.
 >
-> _Last updated: 2026-07-27_
+> _Last updated: 2026-07-30_
 
 ---
 
@@ -145,7 +145,7 @@ is the interactive shell. `loading.tsx` provides route-level skeletons.
 |---|---|---|
 | `profiles` | `lib/auth/profile.ts`, `lib/google/oauth.ts` | One row per user (created by a Supabase trigger on auth signup). Stores Google `provider_token`, `provider_refresh_token`, `token_expires_at`, the user's IANA timezone, and `onboarded_at` (null until the first-run wizard completes; Home gates on it). |
 | `categories` | `lib/db/categories.ts` | `name`, `color`, `rules` (JSON, `titleContains[]` for auto-categorization). |
-| `sessions` | `lib/db/sessions.ts` | The clock-in record. `started_at`/`ended_at` (real wall-clock), `paused_ms` (banked), `paused_since` (set only while paused), `category_id`, `goal_id`, and (social v2) `photo_path` (the session's one optional photo). **Partial unique index** enforces one active (`ended_at IS NULL`) session per user → insert error `23505`. |
+| `sessions` | `lib/db/sessions.ts` | The clock-in record. `started_at`/`ended_at` (real wall-clock), `paused_ms` (banked), `paused_since` (set only while paused), `category_id`, `goal_id`, and (social v2) `photo_path` (the session's one optional photo). `auto_ended_at` / `auto_end_reviewed_at` (both nullable) record that the 10-hour cap ended the row and whether the user has reviewed it — `is_private` alone can't say so, since a draft is private too. **Partial unique index** enforces one active (`ended_at IS NULL`) session per user → insert error `23505`. |
 | `goals` | `lib/db/goals.ts` | `weekly_quota_hours`, active flag, ordering. |
 | `calendar_events` | `lib/db/calendar-events.ts` | Synced Google events. Upsert keyed on `(user_id, google_event_id)`. All-day + cancelled events skipped on sync. |
 | `event_categorizations` | `app/actions/event-categorizations.ts` | Manual category overrides for specific calendar events. |
@@ -206,12 +206,23 @@ numbers reconcile across every surface.
   = `(end - start) - pausedMs - currentPause`. *Every* aggregation routes through
   this so the week card, recap, rollups, and day breakdown all agree. Pre-pause
   rows (pausedMs=0, pausedSince=null) reduce to plain `end - start`.
+  **`SESSION_CAP_MS` (10h) caps ACTIVE sessions only** — a running session's
+  worked time is `Math.min(…, cap)`, so the live timer freezes at `10:00:00`;
+  an ended row reads back exactly what's stored, so no historical total is
+  retroactively rewritten. `sessionCapEndMs(s) = startedAt + cap + pausedMs` is
+  the instant `autoClockOut` stamps, and the invariant that makes the two halves
+  agree is that a row ended there reads back at *exactly* the cap — so an
+  auto-ended session needs no clamp and no backfill. `isOverSessionCap` is false
+  while paused under the cap (worked time is frozen, so a pause can never trip
+  it) and false for every ended row.
 
 - **`lib/aggregate.ts` — attribution engine.** `aggregateRange` /
   `aggregateWeek` sum per-category time; `aggregateRangeByGoal` /
   `aggregateWeekByGoal` sum per-goal time directly via the session's `goal_id`.
   **Invariant:** a session is attributed to the single instant of its `end`
-  (`endedAt ?? now`); events to their `start`. That single-instant rule is what
+  (`sessionAttributionEnd(s, now)` — `endedAt`, else `now`, except once past the
+  10-hour cap where it's `sessionCapEndMs`, so the bucket doesn't move when
+  `autoClockOut`'s write lands); events to their `start`. That single-instant rule is what
   makes a session land in exactly one week AND one month AND one year — never
   double-counted, never dropped. Sessions and events are summed *without
   dedup* (an event overlapping a session counts in both — the deliberate
@@ -283,6 +294,17 @@ numbers reconcile across every surface.
 - **Time math is local-time** with Mon-first weeks and inclusive ends, except the
   habit tz helpers which use UTC arithmetic on a tz-resolved date string.
 - **One active session per user**, DB-enforced (error `23505`).
+- **A session's worked time can never exceed 10 hours** (`SESSION_CAP_MS`).
+  Enforced in two halves: a display clamp on active sessions in
+  `sessionWorkedMs`, and `autoClockOut()` which ends the row at
+  `sessionCapEndMs`. There is no cron — the write is triggered lazily by
+  `<EnsureSessionCap/>` in the root layout (the `EnsureProfileSync` pattern), so
+  it lands on the next page load after the crossing. Until then every surface
+  already shows the clamped value, so nothing lies while the write is
+  outstanding. The cap governs *live* sessions only: hand-entered history via
+  `createSession` is deliberately uncapped. **`week_leaderboard` re-implements
+  the cap in SQL** — the `36000000` literal there and `SESSION_CAP_MS` must move
+  together.
 - **Service-role key: one narrow, server-only use.** All privileged/admin power
   is otherwise `SECURITY DEFINER` RPCs gated by a single `is_admin()` helper
   (holds one UUID). `/admin` checks `is_admin()` to render *and* every `admin_*`
@@ -334,6 +356,57 @@ numbers reconcile across every surface.
 > Append one entry per work session / feature set. Keep it terse: what changed
 > architecturally, why, and any new invariant or migration. Seeded from git
 > history; entries before this file existed are reconstructed.
+
+### 2026-07-30 — 10-hour session cap + auto-clock-out **(requires SQL, run by hand)**
+- Nothing bounded a session's length: `sessionWorkedMs` had a `Math.max(0, …)`
+  floor and no ceiling, so a forgotten clock-out rendered as `168:00:00` and its
+  attribution instant slid forward day by day, re-bucketing into whatever week it
+  finally ended in. With ~5 real beta users and a friend leaderboard that counts
+  active sessions, that became a fairness problem as well as a data one.
+- `lib/session.ts` gains `SESSION_CAP_MS` (10h) and three helpers. The clamp in
+  `sessionWorkedMs` applies **only when `endedAt === null`** — deliberately, so
+  no historical row is retroactively rewritten and no backfill is needed. It
+  works because `sessionCapEndMs = startedAt + cap + pausedMs` is exactly the
+  instant that makes an ended row read back at the cap.
+- New `sessionAttributionEnd` replaces the six independent `endedAt ?? now`
+  sites (4× `lib/aggregate.ts`, `app/goals/page.tsx`, and a verbatim duplicate
+  deleted from `clock-client.tsx`). Without this the 10h would attribute to
+  *today* while running and jump to the crossing day when the write landed;
+  with it, **the auto-clock-out write is visually a no-op**.
+- `autoClockOut()` takes no arguments on purpose — it recomputes from the stored
+  row and the server clock, so a wrong client clock can't trigger or suppress it.
+  Writes `ended_at`/`auto_ended_at` = the cap instant, `is_private = true` (draft
+  convention — nothing uncomposed reaches the feed), and leaves `paused_ms`
+  untouched since an in-progress pause can only have begun after the crossing.
+  Guarded by `.is("ended_at", null)` so racing tabs produce exactly one write.
+  Uses the full `revalidateSessionSurfaces()`, *not* the `ExceptLive` variant:
+  here `/clock/live`'s redirect guard *should* fire.
+- Trigger is `<EnsureSessionCap/>` in the root layout, following
+  `EnsureProfileSync` — zero writes on normal loads. No `useNow`: an exact
+  `setTimeout` crosses the cap live without a single extra render, plus a
+  `visibilitychange` re-check for suspended tabs. There is no cron, and the old
+  `sweepPastBlocks` lineage died with the planner in July, so enforcement is lazy
+  by design.
+- Review path: new nullable `auto_ended_at` / `auto_end_reviewed_at` columns
+  (`is_private` alone can't distinguish an auto-end from a deliberate draft — the
+  gap §5 already flagged). Surfaces as a banner on `/clock/finish` and a muted
+  nudge on Progress → Today, fed by `getUnreviewedAutoEnd()`.
+- **SQL run by hand:** additive only, no `UPDATE`.
+  ```sql
+  alter table public.sessions
+    add column if not exists auto_ended_at        timestamptz,
+    add column if not exists auto_end_reviewed_at timestamptz;
+  create index if not exists sessions_auto_end_review_idx
+    on public.sessions (user_id, ended_at desc)
+    where auto_ended_at is not null and auto_end_reviewed_at is null;
+  notify pgrst, 'reload schema';
+  ```
+- **Still outstanding:** `week_leaderboard` re-implements worked-time math in SQL
+  and counts active sessions, so until its body is patched a friend's runaway
+  session displays a frozen `10:00:00` while ranking on the uncapped total. Dump
+  with `pg_get_functiondef`, wrap the per-session expression in
+  `case when s.ended_at is null then least(…, 36000000) else … end` (active-only,
+  mirroring the TS clamp), re-run the adversarial JWT check.
 
 ### 2026-07-27 — Calendar connect moved out of onboarding, into History
 - The redesign onboarding wizard drops its `calendar` step (7 → 6 steps,

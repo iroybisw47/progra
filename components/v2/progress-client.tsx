@@ -15,6 +15,7 @@ import { toast } from "sonner";
 
 import { CategoryDonut } from "@/components/v2/category-donut";
 import { HabitWeekGrid } from "@/components/v2/habit-week-grid";
+import { AutoEndNudge } from "@/components/v2/auto-end-nudge";
 import { RecapNudge } from "@/components/v2/recap-nudge";
 import { WeekSummary } from "@/components/v2/week-summary";
 
@@ -86,6 +87,7 @@ export function ProgressClient(props: {
   today: string;
   minWeekStart: string;
   recapNudge: { weekStart: string } | null;
+  autoEndNudge: { sessionId: string } | null;
   // When set (via `/?tab=history`), opens on that sub-tab instead of "today".
   initialTab?: Tab;
 }) {
@@ -162,6 +164,7 @@ function TodayView({
   habitsToday,
   today,
   recapNudge,
+  autoEndNudge,
   onManage,
 }: {
   dateLabel: string;
@@ -174,6 +177,7 @@ function TodayView({
   habitsToday: HabitToday[];
   today: string;
   recapNudge: { weekStart: string } | null;
+  autoEndNudge: { sessionId: string } | null;
   onManage: () => void;
 }) {
   const [, startTransition] = useTransition();
@@ -201,6 +205,11 @@ function TodayView({
       {/* Weekly recap nudge — navy CTA at the top of Today when a week has
           unlocked and hasn't been opened; disappears once opened (any device). */}
       {recapNudge && <RecapNudge weekStart={recapNudge.weekStart} />}
+
+      {/* 10-hour cap nudge — a session we ended for the user, saved private and
+          awaiting review. Muted so it doesn't compete with the recap CTA above
+          when both are present. */}
+      {autoEndNudge && <AutoEndNudge sessionId={autoEndNudge.sessionId} />}
 
       {/* Hero: centered category donut + per-category bars underneath. */}
       <Card>

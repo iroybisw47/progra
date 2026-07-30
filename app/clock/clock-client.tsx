@@ -71,7 +71,12 @@ import { type Category, type Session } from "@/lib/storage";
 import type { DayEvent } from "@/lib/db/calendar-events";
 import type { Goal } from "@/lib/db/goals";
 import { aggregateWeek, buildCategoryBreakdown } from "@/lib/aggregate";
-import { isPaused, sessionPausedMs, sessionWorkedMs } from "@/lib/session";
+import {
+  isPaused,
+  sessionAttributionEnd,
+  sessionPausedMs,
+  sessionWorkedMs,
+} from "@/lib/session";
 import { useNowMinute } from "@/lib/hooks";
 import { REDESIGN } from "@/lib/flags";
 import { cn } from "@/lib/utils";
@@ -106,12 +111,6 @@ function formatHours(ms: number): string {
   return `${(ms / HOUR_MS).toFixed(1)}h`;
 }
 
-// Session attribution for the day-row breakdown: belongs to the local-day
-// of `endedAt` (or `now` for active). Mirrors the rule in lib/aggregate.
-function attributionEnd(s: Session, now: number): number {
-  return s.endedAt ?? now;
-}
-
 type DayRow =
   | { kind: "session"; session: Session; ms: number; sortKey: number }
   | { kind: "event"; event: DayEvent; ms: number; sortKey: number };
@@ -126,7 +125,7 @@ function dayBreakdown(
   const rows: DayRow[] = [];
 
   for (const s of sessions) {
-    const end = attributionEnd(s, now);
+    const end = sessionAttributionEnd(s, now);
     const ms = sessionWorkedMs(s, now);
     if (ms <= 0) continue;
     if (formatLocalDate(new Date(end)) !== key) continue;

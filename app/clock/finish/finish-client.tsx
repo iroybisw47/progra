@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { CameraIcon, CheckIcon } from "lucide-react";
+import { CameraIcon, CheckIcon, TimerOffIcon } from "lucide-react";
 
 import {
   AlertDialog,
@@ -18,7 +18,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleSwitch } from "@/components/v2/toggle-switch";
-import { deleteSession, updateSession } from "@/app/actions/sessions";
+import {
+  deleteSession,
+  markAutoEndReviewed,
+  updateSession,
+} from "@/app/actions/sessions";
 import { formatDuration } from "@/lib/duration";
 import type { Attribution } from "@/lib/session-attribution";
 import { cn } from "@/lib/utils";
@@ -37,6 +41,10 @@ type Props = {
   attribution: Attribution;
   workedMs: number;
   photoUrl: string | null;
+  // True when the 10-hour cap ended this session rather than the user. Adds a
+  // banner explaining the duration wasn't their choice, and marks the review
+  // done on Post/Delete so the Progress nudge clears.
+  autoEnded: boolean;
 };
 
 export function FinishClient({
@@ -46,6 +54,7 @@ export function FinishClient({
   attribution,
   workedMs,
   photoUrl,
+  autoEnded,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -66,6 +75,9 @@ export function FinishClient({
         toast.error(r.error);
         return;
       }
+      // Best-effort, like RecapNudge: the session is posted either way; a failed
+      // stamp just means the nudge returns on the next load.
+      if (autoEnded) await markAutoEndReviewed(sessionId);
       toast.success(
         priv
           ? `Saved ${formatDuration(workedMs)} privately`
@@ -111,6 +123,26 @@ export function FinishClient({
             {attribution.isGoal ? `Goal · ${attribution.text}` : attribution.text}
           </span>
         </div>
+
+        {/* 10-hour cap notice. The duration here wasn't the user's choice, so
+            say so plainly and point at the only real correction: the finish
+            screen can't edit times, so a wrong session is deleted and re-added. */}
+        {autoEnded && (
+          <div className="border-hairline flex flex-col gap-1.5 rounded-[18px] border p-4">
+            <div className="flex items-center gap-2">
+              <TimerOffIcon className="text-caption size-4 shrink-0" />
+              <span className="text-[12.5px] font-bold">
+                Clocked out automatically at 10 hours
+              </span>
+            </div>
+            <p className="text-caption text-[12.5px] leading-snug">
+              This session hit Progra&apos;s 10-hour limit, so we stopped it and
+              saved it privately. Check the time looks right before you post it —
+              if it&apos;s wrong, delete it and add a past session with the real
+              hours.
+            </p>
+          </div>
+        )}
 
         {/* Notes — still editable here; posted with the session. */}
         <div className="border-hairline flex flex-col gap-3 rounded-[18px] border p-4">

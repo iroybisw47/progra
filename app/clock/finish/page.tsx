@@ -62,6 +62,7 @@ export default async function FinishPage({
       attribution={attribution}
       workedMs={workedMs}
       photoUrl={photoUrl}
+      autoEnded={session.autoEndedAt !== null}
     />
   );
 }

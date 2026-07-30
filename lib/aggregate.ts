@@ -1,7 +1,7 @@
 import { dayIndexMonFirst, endOfWeek, startOfWeek } from "@/lib/dates";
 import type { DayEvent } from "@/lib/db/calendar-events";
 import type { Goal } from "@/lib/db/goals";
-import { sessionWorkedMs } from "@/lib/session";
+import { sessionAttributionEnd, sessionWorkedMs } from "@/lib/session";
 import type { Category, Session } from "@/lib/storage";
 
 // A goal-attributed session shows up in the category breakdowns as a synthetic
@@ -99,7 +99,7 @@ export function buildCategoryItems(
   };
 
   for (const s of sessions) {
-    const end = s.endedAt ?? now;
+    const end = sessionAttributionEnd(s, now);
     const ms = sessionWorkedMs(s, now);
     if (ms <= 0) continue;
     if (end < rangeStart || end > rangeEnd) continue;
@@ -143,8 +143,10 @@ export type WeeklyTotals = RangeTotals & {
 };
 
 // Per-category time-spent over an arbitrary [rangeStart, rangeEnd] window.
-// Sessions are attributed to the instant of their `endedAt` (or `now` for
-// active); events to the instant of their `startMs`. In-range iff that instant
+// Sessions are attributed to `sessionAttributionEnd` — their `endedAt`, or for
+// an active session `now`, except once it's over the 10-hour cap, where it's
+// the instant autoClockOut will stamp (so the bucket doesn't move when that
+// write lands); events to the instant of their `startMs`. In-range iff that instant
 // ∈ [rangeStart, rangeEnd]. Both sum without de-duplication — an event
 // overlapping a session counts in both per the unified time-spent model.
 // Uncategorized sessions and uncategorized calendar events both land under the
@@ -161,7 +163,7 @@ export function aggregateRange(
   let total = 0;
 
   for (const s of sessions) {
-    const end = s.endedAt ?? now;
+    const end = sessionAttributionEnd(s, now);
     const ms = sessionWorkedMs(s, now);
     if (ms <= 0) continue;
     if (end < rangeStart || end > rangeEnd) continue;
@@ -205,7 +207,7 @@ export function aggregateWeek(
 
   const perDay = [0, 0, 0, 0, 0, 0, 0];
   for (const s of sessions) {
-    const end = s.endedAt ?? now;
+    const end = sessionAttributionEnd(s, now);
     const ms = sessionWorkedMs(s, now);
     if (ms <= 0) continue;
     if (end < weekStart || end > weekEnd) continue;
@@ -231,8 +233,9 @@ export type WeeklyGoalTotals = {
 };
 
 // Per-goal session summing over an arbitrary [rangeStart, rangeEnd] window.
-// Session attribution mirrors aggregateWeek exactly: `end = endedAt ?? now`,
-// in-range iff end ∈ [rangeStart, rangeEnd], skip non-positive durations. A
+// Session attribution mirrors aggregateWeek exactly: `end =
+// sessionAttributionEnd(s, now)`, in-range iff end ∈ [rangeStart, rangeEnd],
+// skip non-positive durations. A
 // session links straight to its goal via `goalId` (no plan indirection); the
 // per-session ms contribution to its goal equals its contribution to the
 // matching "Goal: {name}" row in aggregateRange — that invariant keeps the
@@ -248,7 +251,7 @@ export function aggregateRangeByGoal(
   let untracked = 0;
 
   for (const s of sessions) {
-    const end = s.endedAt ?? now;
+    const end = sessionAttributionEnd(s, now);
     const ms = sessionWorkedMs(s, now);
     if (ms <= 0) continue;
     if (end < rangeStart || end > rangeEnd) continue;

@@ -2,7 +2,7 @@ import { aggregateWeekByGoal } from "@/lib/aggregate";
 import { endOfWeek, startOfWeek } from "@/lib/dates";
 import { listActiveGoals } from "@/lib/db/goals";
 import { listRecentSessions } from "@/lib/db/sessions";
-import { sessionWorkedMs } from "@/lib/session";
+import { sessionAttributionEnd, sessionWorkedMs } from "@/lib/session";
 
 import { GoalsClient, type GoalSessionInfo } from "./goals-client";
 
@@ -29,13 +29,13 @@ export default async function GoalsPage({
 
   // This week's goal-attributed sessions, grouped per goal, newest first —
   // shown under each goal's quota bar. Attribution mirrors aggregateWeekByGoal:
-  // a session belongs to the week of its end instant (or `now` while active).
+  // a session belongs to the week of its `sessionAttributionEnd` instant.
   const weekStart = startOfWeek(new Date(now)).getTime();
   const weekEnd = endOfWeek(new Date(now)).getTime();
   const sessionsByGoal: Record<string, GoalSessionInfo[]> = {};
   for (const s of sessions) {
     if (!s.goalId) continue;
-    const end = s.endedAt ?? now;
+    const end = sessionAttributionEnd(s, now);
     if (end < weekStart || end > weekEnd) continue;
     const ms = sessionWorkedMs(s, now);
     if (ms <= 0) continue;

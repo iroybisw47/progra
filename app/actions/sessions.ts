@@ -8,6 +8,11 @@ import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { listCategories } from "@/lib/db/categories";
 import { listHistoryPage, type HistoryItem } from "@/lib/db/history";
+import {
+  isOverSessionCap,
+  sessionCapEndMs,
+  type SessionTiming,
+} from "@/lib/session";
 import { capText } from "@/lib/validate";
 
 type Result = { ok: true } | { error: string };
@@ -138,6 +143,109 @@ export async function clockOut(opts?: { draft?: boolean }): Promise<
   // the live page's redirect guard in this POST.
   revalidateSessionSurfacesExceptLive();
   return { ok: true, sessionId: row.id };
+}
+
+// The 10-hour cap's write half. Ends the caller's active session at the exact
+// instant its worked time reached SESSION_CAP_MS, marks it private (the repo's
+// draft convention) and stamps auto_ended_at so it can be surfaced for review.
+//
+// Takes NO arguments on purpose: the cap is recomputed here from the stored row
+// and the server clock, so a wrong or hostile client clock can neither trigger
+// an early clock-out nor suppress a due one. Idempotent and safe to call on
+// every page load — under the cap (or paused under it, or no active session at
+// all) it writes nothing. Triggered by <EnsureSessionCap/> in the root layout;
+// there is no cron, so enforcement is lazy by design.
+export async function autoClockOut(): Promise<
+  | { ok: true; ended: false }
+  | { ok: true; ended: true; sessionId: string }
+  | { error: string }
+> {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data: active } = await supabase
+    .from("sessions")
+    .select("id, started_at, paused_ms, paused_since")
+    .eq("user_id", user.id)
+    .is("ended_at", null)
+    .maybeSingle();
+
+  const row = active as {
+    id: string;
+    started_at: string;
+    paused_ms: number | string | null;
+    paused_since: string | null;
+  } | null;
+  if (!row) return { ok: true, ended: false };
+
+  const timing: SessionTiming = {
+    startedAt: new Date(row.started_at).getTime(),
+    endedAt: null,
+    // PostgREST returns bigint as string (mirrors rowToSession).
+    pausedMs: row.paused_ms != null ? Number(row.paused_ms) : 0,
+    pausedSince: row.paused_since
+      ? new Date(row.paused_since).getTime()
+      : null,
+  };
+
+  // Worked time, pauses excluded — so a session paused below the cap freezes
+  // and is never auto-ended while it stays paused.
+  if (!isOverSessionCap(timing, Date.now())) return { ok: true, ended: false };
+
+  // The instant the cap was actually hit. Back-dated when the crossing happened
+  // while the app was closed, so no time is invented and the row works out to
+  // exactly SESSION_CAP_MS of worked time.
+  const cappedEnd = sessionCapEndMs(timing);
+
+  // paused_ms is written back UNCHANGED. An in-progress pause can only have
+  // begun after cappedEnd (worked time freezes while paused), so that segment
+  // sits entirely after the session was already over and must not count —
+  // the same reasoning as editActiveSessionTime's out-of-window pause drop.
+  const { data: updated, error } = await supabase
+    .from("sessions")
+    .update({
+      ended_at: new Date(cappedEnd).toISOString(),
+      paused_since: null,
+      // Draft convention: draft == private. Nothing the user never composed
+      // reaches the friend feed — they review and Post from /clock/finish.
+      is_private: true,
+      auto_ended_at: new Date(cappedEnd).toISOString(),
+    })
+    .eq("id", row.id)
+    .eq("user_id", user.id)
+    // Re-assert ended_at IS NULL so two tabs (or two devices) racing produce
+    // exactly one write; the loser matches 0 rows and reports ended: false.
+    .is("ended_at", null)
+    .select("id");
+
+  if (error) return { error: error.message };
+  if (!updated || updated.length === 0) return { ok: true, ended: false };
+
+  // Full layout revalidation, unlike clockOut's ExceptLive variant: the session
+  // is genuinely over, so /clock/live's `if (!active) redirect("/clock")` guard
+  // SHOULD fire in this POST. There's no paired client push to protect here the
+  // way Stop has, and it also un-ticks the nav FAB.
+  revalidateSessionSurfaces();
+  return { ok: true, ended: true, sessionId: row.id };
+}
+
+// Dismisses the auto-end review nudge once the user has seen the session.
+export async function markAutoEndReviewed(id: string): Promise<Result> {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data, error } = await supabase
+    .from("sessions")
+    .update({ auto_end_reviewed_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select("id");
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "Session not found" };
+  revalidateSessionSurfaces();
+  return { ok: true };
 }
 
 // Correct an active session's start (and optionally end it at a chosen time) —
