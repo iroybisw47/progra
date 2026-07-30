@@ -41,7 +41,10 @@ yarn-error.log*
 next-env.d.ts
 
 # local agent tooling
-.claude/
+# Track slash commands (they're project knowledge and were lost in the 2026-07-30
+# machine move); keep settings/local state out — they hold machine-specific config.
+.claude/*
+!.claude/commands/
 .sentinel.yaml
 
 # design-sync machine state
