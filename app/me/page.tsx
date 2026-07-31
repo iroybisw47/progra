@@ -6,7 +6,7 @@ import { AvatarInitials } from "@/components/avatar-initials";
 import { Dashboard } from "@/components/dashboard";
 import { GoalProgressBar } from "@/components/goal-progress";
 import { HabitWeekGrid } from "@/components/v2/habit-week-grid";
-import { ProfileSessionCard } from "@/components/profile-session-card";
+import { SessionCard } from "@/components/v2/session-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/require-user";
@@ -21,6 +21,9 @@ import {
 } from "@/lib/db/habits";
 import { listRecentSessionsForUser } from "@/lib/db/sessions";
 import { listProfileSessions } from "@/lib/db/profile-sessions";
+import { listCommentsForSessions } from "@/lib/db/comments";
+import { listReactionsForSessions } from "@/lib/db/reactions";
+import { LIKE_EMOJI } from "@/lib/social/reactions";
 import { aggregateWeekByGoal } from "@/lib/aggregate";
 import { todayInTimeZone, weekRangeInTimeZone } from "@/lib/dates";
 
@@ -49,14 +52,33 @@ export default async function MePage() {
   const today = todayInTimeZone(tz);
   const now = Date.now();
 
-  const [goals, sessions, habits, completions, pastSessions] =
-    await Promise.all([
-      listActiveGoalsForUser(user.id),
-      listRecentSessionsForUser(user.id),
-      listActiveHabitsForUser(user.id),
-      listCompletionsForUserInRange(user.id, startDate, endDate),
-      listProfileSessions(user.id),
-    ]);
+  // Comments/reactions are session-keyed, so they chain off the sessions read
+  // alone rather than the whole wave — same pattern as FeedV2, so they resolve
+  // alongside goals/habits instead of waiting for them.
+  const pastSessionsPromise = listProfileSessions(user.id);
+  const commentsPromise = pastSessionsPromise.then((items) =>
+    listCommentsForSessions(items.map((i) => i.sessionId))
+  );
+  const reactionsPromise = pastSessionsPromise.then((items) =>
+    listReactionsForSessions(items.map((i) => i.sessionId))
+  );
+  const [
+    goals,
+    sessions,
+    habits,
+    completions,
+    pastSessions,
+    commentsBySession,
+    reactionsBySession,
+  ] = await Promise.all([
+    listActiveGoalsForUser(user.id),
+    listRecentSessionsForUser(user.id),
+    listActiveHabitsForUser(user.id),
+    listCompletionsForUserInRange(user.id, startDate, endDate),
+    pastSessionsPromise,
+    commentsPromise,
+    reactionsPromise,
+  ]);
 
   const goalWeekly = aggregateWeekByGoal(sessions, now);
   const goalBreakdown = goals
@@ -183,9 +205,25 @@ export default async function MePage() {
               </CardContent>
             </Card>
           ) : (
-            pastSessions.map((s) => (
-              <ProfileSessionCard key={s.sessionId} session={s} now={now} />
-            ))
+            pastSessions.map((s) => {
+              const like = (reactionsBySession.get(s.sessionId) ?? []).find(
+                (r) => r.emoji === LIKE_EMOJI
+              );
+              return (
+                // No `author`: the identity card above already says whose page
+                // this is, so the per-card avatar row is omitted.
+                <SessionCard
+                  key={s.sessionId}
+                  item={s}
+                  now={now}
+                  comments={commentsBySession.get(s.sessionId) ?? []}
+                  kudos={{
+                    count: like?.count ?? 0,
+                    mine: like?.mine ?? false,
+                  }}
+                />
+              );
+            })
           )}
         </section>
       </main>

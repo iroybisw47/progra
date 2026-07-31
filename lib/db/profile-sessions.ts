@@ -6,21 +6,24 @@ import {
   rowToSession,
   type SessionRow,
 } from "@/lib/db/sessions";
-import { hydrateGoalTitles } from "@/lib/db/feed";
+import {
+  hydrateCategoryNames,
+  hydrateGoalTitles,
+  resolveFeedAttribution,
+  type SessionCardItem,
+} from "@/lib/db/feed";
 import { hydrateSessionPhotoUrls } from "@/lib/db/session-photos";
 import { sessionWorkedMs } from "@/lib/session";
 
 // One finished session on a profile. A photo is an optional attachment, not a
 // requirement: a session shows here on the strength of being visible to us at
 // all, which is what `is_private` + RLS already decide.
-export type ProfileSessionItem = {
-  sessionId: string;
-  label: string;
-  isGoal: boolean;
-  workedMs: number;
-  endedAt: number;
-  photoUrl: string | null;
-};
+//
+// This is the SAME shape the feed produces, so <SessionCard> renders profiles
+// and the feed identically. It used to be a narrower type (a single collapsed
+// `label`, no title/description/category/privacy) which is exactly how the
+// profile card drifted into showing less than the feed's.
+export type ProfileSessionItem = SessionCardItem;
 
 // Newest-first cap. The profile shows a session history rather than a curated
 // gallery, so this is the only thing bounding the read — raise it or add
@@ -60,8 +63,17 @@ export async function listProfileSessions(
       rows.map((r) => r.photo_path).filter((p): p is string => p != null)
     ),
   ];
-  const [goalTitleById, photoUrlByPath] = await Promise.all([
+  // Category ids too: without these a category-tracked session resolved to no
+  // attribution at all on profiles (only goals were hydrated), which is why the
+  // category name and its color dot were missing from the card.
+  const categoryIds = [
+    ...new Set(
+      rows.map((r) => r.category_id).filter((c): c is string => c != null)
+    ),
+  ];
+  const [goalTitleById, categoryNameById, photoUrlByPath] = await Promise.all([
     hydrateGoalTitles(goalIds),
+    hydrateCategoryNames(categoryIds),
     hydrateSessionPhotoUrls(photoPaths),
   ]);
   const now = Date.now();
@@ -69,17 +81,23 @@ export async function listProfileSessions(
   return rows.flatMap((row) => {
     const session = rowToSession(row);
     if (session.endedAt == null) return [];
-    const goalTitle = row.goal_id ? goalTitleById.get(row.goal_id) : undefined;
     return [
       {
         sessionId: session.id,
-        label: goalTitle ?? (session.taskName.trim() || "Untitled session"),
-        isGoal: goalTitle != null,
+        title: session.taskName.trim() || "Untitled session",
+        // Shared with the feed so the private-goal rule (a hidden goal yields
+        // no chip rather than falling through to a category) holds identically.
+        attribution: resolveFeedAttribution(row, goalTitleById, categoryNameById),
+        description: session.description?.trim() || null,
         workedMs: sessionWorkedMs(session, now),
+        startedAt: session.startedAt,
         endedAt: session.endedAt,
         photoUrl: session.photoPath
           ? (photoUrlByPath.get(session.photoPath) ?? null)
           : null,
+        // Own profile only — RLS strips other people's private sessions before
+        // they reach here. Drives the card's Private chip.
+        isPrivate: session.isPrivate,
       },
     ];
   });

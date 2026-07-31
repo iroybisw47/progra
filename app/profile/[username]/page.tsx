@@ -4,7 +4,7 @@ import { LockIcon } from "lucide-react";
 import { AvatarInitials } from "@/components/avatar-initials";
 import { GoalProgressBar } from "@/components/goal-progress";
 import { HabitWeekGrid } from "@/components/v2/habit-week-grid";
-import { ProfileSessionCard } from "@/components/profile-session-card";
+import { SessionCard } from "@/components/v2/session-card";
 import {
   Card,
   CardContent,
@@ -23,6 +23,9 @@ import {
 } from "@/lib/db/habits";
 import { listRecentSessionsForUser } from "@/lib/db/sessions";
 import { listProfileSessions } from "@/lib/db/profile-sessions";
+import { listCommentsForSessions } from "@/lib/db/comments";
+import { listReactionsForSessions } from "@/lib/db/reactions";
+import { LIKE_EMOJI } from "@/lib/social/reactions";
 import { aggregateWeekByGoal } from "@/lib/aggregate";
 import { todayInTimeZone, weekRangeInTimeZone } from "@/lib/dates";
 
@@ -110,14 +113,32 @@ async function ProfileContent({
   const today = todayInTimeZone(tz);
   const now = Date.now();
 
-  const [goals, sessions, habits, completions, pastSessions] =
-    await Promise.all([
-      listActiveGoalsForUser(userId),
-      listRecentSessionsForUser(userId),
-      listActiveHabitsForUser(userId),
-      listCompletionsForUserInRange(userId, startDate, endDate),
-      listProfileSessions(userId),
-    ]);
+  // Comments/reactions chain off the sessions read alone (FeedV2's pattern), so
+  // they resolve alongside goals/habits rather than after them.
+  const pastSessionsPromise = listProfileSessions(userId);
+  const commentsPromise = pastSessionsPromise.then((items) =>
+    listCommentsForSessions(items.map((i) => i.sessionId))
+  );
+  const reactionsPromise = pastSessionsPromise.then((items) =>
+    listReactionsForSessions(items.map((i) => i.sessionId))
+  );
+  const [
+    goals,
+    sessions,
+    habits,
+    completions,
+    pastSessions,
+    commentsBySession,
+    reactionsBySession,
+  ] = await Promise.all([
+    listActiveGoalsForUser(userId),
+    listRecentSessionsForUser(userId),
+    listActiveHabitsForUser(userId),
+    listCompletionsForUserInRange(userId, startDate, endDate),
+    pastSessionsPromise,
+    commentsPromise,
+    reactionsPromise,
+  ]);
 
   const goalWeekly = aggregateWeekByGoal(sessions, now);
   const goalBreakdown = goals
@@ -186,14 +207,22 @@ async function ProfileContent({
             </CardContent>
           </Card>
         ) : (
-          pastSessions.map((s) => (
-            <ProfileSessionCard
-              key={s.sessionId}
-              session={s}
-              now={now}
-              canReport={!isOwn}
-            />
-          ))
+          pastSessions.map((s) => {
+            const like = (reactionsBySession.get(s.sessionId) ?? []).find(
+              (r) => r.emoji === LIKE_EMOJI
+            );
+            return (
+              // No `author`: the profile header above already identifies them.
+              <SessionCard
+                key={s.sessionId}
+                item={s}
+                now={now}
+                comments={commentsBySession.get(s.sessionId) ?? []}
+                kudos={{ count: like?.count ?? 0, mine: like?.mine ?? false }}
+                canReport={!isOwn}
+              />
+            );
+          })
         )}
       </div>
     </>

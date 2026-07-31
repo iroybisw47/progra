@@ -8,7 +8,7 @@ import {
   type SessionRow,
 } from "@/lib/db/sessions";
 import { hydrateSessionPhotoUrls } from "@/lib/db/session-photos";
-import { sessionWorkedMs } from "@/lib/session";
+import { isOverSessionCap, sessionWorkedMs } from "@/lib/session";
 
 // The goal or category a session is filed under. isGoal drives the goal star vs
 // category dot; color is the category's dot color (null for goals, which use the
@@ -19,11 +19,12 @@ export type FeedAttribution = {
   color: string | null;
 };
 
-// One entry in the Home feed: a friend's finished work session.
-export type FeedItem = {
-  kind: "session";
+// Everything <SessionCard> needs to render one finished session. Shared by the
+// feed, the You tab, and profile pages so the three can't drift apart again —
+// they previously used two hand-written cards and the profile one silently lost
+// the title, description, category and social row.
+export type SessionCardItem = {
   sessionId: string;
-  author: PublicUser;
   // The task title — what they typed they were working on.
   title: string;
   // The goal (visible, non-private) or category the session is filed under, or
@@ -37,6 +38,17 @@ export type FeedItem = {
   // Signed URL (1h) for the session's photo, null when it has none or storage
   // declined to sign it.
   photoUrl: string | null;
+  // Owner-only. Always false in the feed (RLS never surfaces a friend's private
+  // session), but true for your own drafts on the You tab — where the card
+  // swaps the likes/comments row for a Private chip, since nobody else can see
+  // the post to react to it.
+  isPrivate: boolean;
+};
+
+// One entry in the Home feed: a friend's finished work session.
+export type FeedItem = SessionCardItem & {
+  kind: "session";
+  author: PublicUser;
 };
 
 // A synthetic "just joined Progra" entry, derived from a friend's onboarded_at
@@ -167,6 +179,8 @@ export async function listFriendFeed(daysBack = 7): Promise<FeedItem[]> {
         photoUrl: session.photoPath
           ? (photoUrlByPath.get(session.photoPath) ?? null)
           : null,
+        // RLS already excluded friends' private sessions from this read.
+        isPrivate: session.isPrivate,
       },
     ];
   });
@@ -175,8 +189,10 @@ export async function listFriendFeed(daysBack = 7): Promise<FeedItem[]> {
 // Goal title (goal-tracked, visible) → category name (category-tracked, visible)
 // → null. A private/hidden goal yields null rather than falling through to a
 // category, so a private goal's title is never replaced by a stand-in.
-function resolveFeedAttribution(
-  row: FeedSessionRow,
+// Exported so the profile reader resolves attribution identically — that rule
+// is a privacy boundary, not formatting, and must not be reimplemented.
+export function resolveFeedAttribution(
+  row: Pick<SessionRow, "goal_id" | "category_id">,
   goalTitleById: Map<string, string>,
   categoryById: Map<string, { name: string; color: string | null }>
 ): FeedAttribution | null {
@@ -197,7 +213,8 @@ function resolveFeedAttribution(
 // (exposes only id/name/color for own + friends' categories). An absent view or
 // a non-friend category simply doesn't resolve, so the chip is omitted rather
 // than leaking. Empty set short-circuits (never an empty .in()).
-async function hydrateCategoryNames(
+// Exported for the profile reader — see resolveFeedAttribution.
+export async function hydrateCategoryNames(
   ids: string[]
 ): Promise<Map<string, { name: string; color: string | null }>> {
   const map = new Map<string, { name: string; color: string | null }>();
@@ -222,6 +239,13 @@ async function hydrateCategoryNames(
 // (ended_at IS NULL, at most one per user). Same RLS as the feed, so a friend's
 // private active session is filtered at the DB and never appears. Empty friend
 // set short-circuits.
+//
+// Sessions past the 10-hour cap are excluded. They're still ended_at IS NULL in
+// the database because autoClockOut is triggered lazily by the OWNER's client
+// (there is no cron, and our client never writes to someone else's row) — so a
+// friend who forgets to clock out would otherwise sit here forever, frozen at
+// 10:00:00, reading as actively working when they aren't. They're not "clocked
+// in now"; they're a session waiting to be closed.
 export async function listClockedInNow(): Promise<ClockedInItem[]> {
   const friends = await listFriends();
   if (friends.length === 0) return [];
@@ -245,11 +269,16 @@ export async function listClockedInNow(): Promise<ClockedInItem[]> {
     ),
   ];
   const goalTitleById = await hydrateGoalTitles(goalIds);
+  const now = Date.now();
 
   return rows.flatMap((row) => {
     const author = authorById.get(row.user_id);
     if (!author) return [];
     const session = rowToSession(row);
+    // Past the cap → not actually tracking (see the note above). A session
+    // paused below the cap has frozen worked time and stays, which is right:
+    // it's paused, not abandoned.
+    if (isOverSessionCap(session, now)) return [];
     const goalTitle = row.goal_id ? goalTitleById.get(row.goal_id) : undefined;
     const label = goalTitle ?? (session.taskName.trim() || "Untitled session");
     return [
