@@ -44,6 +44,12 @@ export function GoogleSignInButton({
         options: {
           redirectTo: `${NATIVE_AUTH_REDIRECT}${qs ? `?${qs}` : ""}`,
           skipBrowserRedirect: true,
+          // Native only. The consent screen opens in the system browser, which
+          // carries Safari's cookies — so Google would otherwise silently reuse
+          // whichever account is already signed in there and give no way to
+          // pick a different one. Forcing the picker also makes signing in as a
+          // second account on a shared phone possible at all.
+          queryParams: { prompt: "select_account" },
         },
       });
       if (error) {
