@@ -7,6 +7,28 @@ import { safeNextPath } from "@/lib/auth/safe-next";
 import { NATIVE_AUTH_REDIRECT, isNativeApp } from "@/lib/native";
 import { createClient } from "@/lib/supabase/client";
 
+// MODULE scope, deliberately — not component state, not a ref.
+//
+// The native listener lives in Capacitor's plugin registry, which is global and
+// outlives any React tree. Keeping the "have we registered?" flag in the effect
+// closure meant a second mount happily added a SECOND listener, so one
+// appUrlOpen delivery ran the handler twice and both calls raced to spend the
+// same single-use PKCE code. The loser errored and toasted, which read as
+// "login is flaky" even though the winner had signed the user in.
+//
+// One registration per page lifetime is exactly right here: this component sits
+// in the root layout and only ever goes away when the page does — and the page
+// unloading tears the listener down with it. After a successful exchange we do
+// a hard navigation, which reloads the page, resets this module, and registers
+// cleanly once more.
+let listenerRegistered = false;
+
+// Callback URLs already handled, so a redelivery can't spend the code twice.
+// iOS can fire appUrlOpen more than once for a single URL (app resume /
+// foreground transitions are the usual culprits), and an auth code is
+// single-use: the second exchange fails and surfaces a spurious error.
+const handledCallbacks = new Set<string>();
+
 // Finishes native Google sign-in. GoogleSignInButton opens Google consent in
 // the system browser (embedded webviews are refused by Google); Supabase then
 // redirects to our custom scheme, iOS hands the URL to the app, and this leaf
@@ -14,8 +36,7 @@ import { createClient } from "@/lib/supabase/client";
 //
 // Mounted app-wide in the root layout — for signed-OUT visitors too, since
 // that's exactly who is signing in — because the deep link can arrive on any
-// screen, not just /login. Same "client leaf that does nothing until it has
-// to" shape as EnsureProfileSync / EnsureSessionCap. No-op on web.
+// screen, not just /login. No-op on web.
 //
 // Why a client-side exchange is safe here: capacitor.config.ts points the
 // webview at https://progra.world, so the session cookies createBrowserClient
@@ -25,26 +46,35 @@ import { createClient } from "@/lib/supabase/client";
 export function NativeAuthListener() {
   useEffect(() => {
     if (!isNativeApp()) return;
-
-    let cancelled = false;
-    let remove: (() => void) | undefined;
+    // Guard before the async work starts, so two mounts in the same tick can't
+    // both get past it.
+    if (listenerRegistered) return;
+    listenerRegistered = true;
 
     (async () => {
-      // Dynamic import: keeps the native-only plugins out of the web bundle
-      // and off the SSR path. Same bundle serves progra.world in a browser.
-      const { App } = await import("@capacitor/app");
+      // Both plugins are loaded up front. Browser especially: resolving its
+      // module inside the handler put a dynamic import between "callback
+      // arrived" and Browser.close(), so the Safari sheet visibly lingered.
+      // Preloading makes the close a plain call with nothing awaited before it.
+      const [{ App }, { Browser }] = await Promise.all([
+        import("@capacitor/app"),
+        import("@capacitor/browser"),
+      ]);
 
-      const handle = await App.addListener("appUrlOpen", async ({ url }) => {
+      await App.addListener("appUrlOpen", async ({ url }) => {
         if (!url.startsWith(NATIVE_AUTH_REDIRECT)) return;
 
-        // Dismiss the system browser sheet. Best-effort — on some flows iOS has
-        // already closed it, and failing to close must not abort the sign-in.
-        try {
-          const { Browser } = await import("@capacitor/browser");
-          await Browser.close();
-        } catch {
+        // Dedupe FIRST, synchronously — before any await, so two deliveries in
+        // the same tick can't both slip through into the exchange.
+        if (handledCallbacks.has(url)) return;
+        handledCallbacks.add(url);
+
+        // Dismiss the sheet immediately; don't make the exchange wait on it.
+        // Best-effort — iOS has often closed it already, and a failure here
+        // must not abort sign-in.
+        Browser.close().catch(() => {
           // already closed
-        }
+        });
 
         const params = new URLSearchParams(url.split("?")[1] ?? "");
 
@@ -63,6 +93,10 @@ export function NativeAuthListener() {
         const supabase = createClient();
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
+          // Let this URL be retried — the code is spent, but re-arming keeps a
+          // genuine transient failure (offline mid-exchange) recoverable if the
+          // OS redelivers, rather than silently swallowing it.
+          handledCallbacks.delete(url);
           toast.error(error.message);
           return;
         }
@@ -83,22 +117,17 @@ export function NativeAuthListener() {
         // Hard navigation, not router.refresh(): this guarantees the server
         // re-reads the session cookie the exchange just wrote. safeNextPath
         // gives native the same open-redirect protection as the web route.
-        if (!cancelled) {
-          window.location.assign(safeNextPath(params.get("next")));
-        }
+        window.location.assign(safeNextPath(params.get("next")));
       });
+    })().catch((err) => {
+      // Setup failed (module load, plugin missing) — let a later mount retry.
+      listenerRegistered = false;
+      console.error("Native auth listener setup failed:", err);
+    });
 
-      if (cancelled) {
-        handle.remove();
-        return;
-      }
-      remove = () => handle.remove();
-    })();
-
-    return () => {
-      cancelled = true;
-      remove?.();
-    };
+    // No cleanup that removes the listener, on purpose. Its correct lifetime is
+    // the page, not this component: removing it on an incidental remount would
+    // drop the callback if the deep link landed in that window.
   }, []);
 
   return null;
