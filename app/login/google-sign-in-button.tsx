@@ -7,6 +7,17 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { NATIVE_AUTH_REDIRECT, isNativeApp } from "@/lib/native";
 
+// MODULE scope, not component state: at most one native OAuth flow may be in
+// flight per page lifetime.
+//
+// Every signInWithOAuth call mints a NEW PKCE code_verifier and OVERWRITES the
+// stored one. So a second flow started while the first is still open orphans
+// the first: when its callback comes back, the code no longer matches the
+// stored verifier and the exchange fails with "invalid flow state, no valid
+// flow state found". Component state can't be the guard — a remount resets it,
+// while the verifier cookie survives.
+let nativeFlowInFlight = false;
+
 export function GoogleSignInButton({
   next,
   referrer,
@@ -31,39 +42,75 @@ export function GoogleSignInButton({
     // custom scheme and is finished by <NativeAuthListener/> in the root
     // layout — this component's job ends at opening the browser.
     if (isNativeApp()) {
-      // Built by hand: the WHATWG URL parser treats a custom scheme as a
-      // non-special URL and mangles host/path, so `new URL()` + searchParams
-      // isn't safe here the way it is for the https redirect below.
-      const params = new URLSearchParams();
-      if (next) params.set("next", next);
-      if (referrer) params.set("ref", referrer);
-      const qs = params.toString();
+      // A flow is already open (button remounted, or a stray second tap) —
+      // starting another would overwrite the pending verifier.
+      if (nativeFlowInFlight) return;
+      nativeFlowInFlight = true;
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${NATIVE_AUTH_REDIRECT}${qs ? `?${qs}` : ""}`,
-          skipBrowserRedirect: true,
-          // Native only. The consent screen opens in the system browser, which
-          // carries Safari's cookies — so Google would otherwise silently reuse
-          // whichever account is already signed in there and give no way to
-          // pick a different one. Forcing the picker also makes signing in as a
-          // second account on a shared phone possible at all.
-          queryParams: { prompt: "select_account" },
-        },
-      });
-      if (error) {
-        setLoading(false);
-        toast.error(error.message);
-        return;
-      }
-      if (data?.url) {
+      try {
         const { Browser } = await import("@capacitor/browser");
-        await Browser.open({ url: data.url });
+
+        // Release the button when the sheet closes for ANY reason — completed,
+        // swiped away, cancelled. Registered BEFORE open so the event can't be
+        // missed. This replaces the old unconditional setLoading(false) after
+        // open(), which re-enabled the button while the sheet was still up and
+        // let a second tap clobber the in-flight flow's code_verifier.
+        const finished = await Browser.addListener("browserFinished", () => {
+          nativeFlowInFlight = false;
+          setLoading(false);
+          finished.remove();
+        });
+
+        // Clear stale auth state BEFORE minting the new verifier — order is
+        // critical, since signOut also deletes the code_verifier. `local` scope
+        // keeps this to local cookie cleanup with no network round-trip, so a
+        // flaky connection can't wedge sign-in. This clears both a stale
+        // session and any orphaned verifier left by an abandoned earlier flow.
+        try {
+          await supabase.auth.signOut({ scope: "local" });
+        } catch {
+          // Nothing to sign out of; proceed.
+        }
+
+        // Built by hand: the WHATWG URL parser treats a custom scheme as a
+        // non-special URL and mangles host/path, so `new URL()` + searchParams
+        // isn't safe here the way it is for the https redirect below.
+        const params = new URLSearchParams();
+        if (next) params.set("next", next);
+        if (referrer) params.set("ref", referrer);
+        const qs = params.toString();
+
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: `${NATIVE_AUTH_REDIRECT}${qs ? `?${qs}` : ""}`,
+            skipBrowserRedirect: true,
+            // Native only. The consent screen opens in the system browser,
+            // which carries Safari's cookies — so Google would otherwise
+            // silently reuse whichever account is already signed in there and
+            // give no way to pick a different one. Forcing the picker also
+            // makes signing in as a second account on a shared phone possible
+            // at all.
+            queryParams: { prompt: "select_account" },
+          },
+        });
+        if (error) {
+          finished.remove();
+          nativeFlowInFlight = false;
+          setLoading(false);
+          toast.error(error.message);
+          return;
+        }
+        if (data?.url) await Browser.open({ url: data.url });
+        // Deliberately NOT clearing loading here — browserFinished owns that,
+        // so the button stays disabled for as long as the sheet is up.
+      } catch (err) {
+        nativeFlowInFlight = false;
+        setLoading(false);
+        toast.error(
+          err instanceof Error ? err.message : "Couldn't start sign-in."
+        );
       }
-      // The browser sheet now covers the app. Release the button so dismissing
-      // it without signing in doesn't strand us on "Redirecting…".
-      setLoading(false);
       return;
     }
 
