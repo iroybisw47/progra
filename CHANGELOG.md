@@ -4,6 +4,55 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-07-31
+
+### · Native Google sign-in (Capacitor iOS) — **requires a Supabase dashboard change**
+Sign-in was broken in the new iOS shell. `capacitor.config.ts` points the webview
+at `https://progra.world`, and Google **refuses OAuth inside an embedded webview**
+(`disallowed_useragent`) — so letting Supabase navigate the current window to
+`accounts.google.com`, which is what the web flow does, dead-ends in the app.
+
+Native now opens consent in the **system browser** and returns through the custom
+scheme already registered in `Info.plist`:
+
+- `lib/native.ts` — `isNativeApp()` (window-guarded, since these components are
+  still server-rendered) and `NATIVE_AUTH_REDIRECT`. The same client bundle
+  serves the website and the app, so every native branch gates on this.
+- `google-sign-in-button.tsx` — native branch uses
+  `signInWithOAuth({ skipBrowserRedirect: true })` to get the consent URL without
+  navigating, then `@capacitor/browser`'s `Browser.open()`. The redirect target is
+  built by hand: the WHATWG URL parser mangles custom schemes, so `new URL()` +
+  `searchParams` isn't safe there. Loading state releases after the sheet opens so
+  cancelling doesn't strand the button. **Web path unchanged.**
+- `components/native-auth-listener.tsx` — mounted app-wide in the root layout,
+  deliberately **not** gated on `user` (the visitor is signed out at the moment it
+  must be listening). Closes the sheet, then `exchangeCodeForSession(code)` — the
+  auth *code* parsed off the query, not the URL — then replays the web route's
+  behavior: `claim_invite` for `?ref=` (failures swallowed; attribution must never
+  block sign-in) and a hard `window.location.assign(safeNextPath(next))`.
+- Plugins are dynamically imported inside handlers, keeping native-only code out
+  of the web bundle and off the SSR path.
+- `@capacitor/cli` moved to `devDependencies` — it was in `dependencies`, so
+  Vercel installed it on every build.
+
+**Why the client-side exchange is sound:** the webview's origin *is*
+`progra.world`, so cookies `createBrowserClient` writes are first-party and the
+Next server reads them on the next navigation. On a bundled build
+(`capacitor://localhost`) they'd be cross-origin and this wouldn't work.
+
+`app/auth/callback/route.ts` is untouched — web still uses it. No SQL.
+
+**Dashboard step (blocks native sign-in):** add
+`world.progra.app://auth/callback` to Supabase → Authentication → URL
+Configuration → Redirect URLs. Supabase refuses to redirect to an unlisted
+target, so without it consent completes and dead-ends. Google Cloud Console needs
+no change.
+
+**Known gap:** Calendar connect (`/auth/google-calendar`) is still broken on
+native for the same embedded-webview reason. Its fix differs — that flow sets an
+`httpOnly` CSRF nonce cookie and exchanges tokens server-side, so the deep link
+has to re-enter the server route rather than exchange client-side.
+
 ## 2026-07-30
 
 ### · 10-hour session cap + auto-clock-out — **requires SQL (run by hand)**

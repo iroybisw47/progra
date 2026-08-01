@@ -11,7 +11,7 @@
 > first. When code and this doc disagree, the code wins — and the doc should be
 > fixed in the same session.
 >
-> _Last updated: 2026-07-30_
+> _Last updated: 2026-07-31_
 
 ---
 
@@ -267,6 +267,51 @@ numbers reconcile across every surface.
   helpers behind `/profile/[username]`) deliberately omit that filter and let the
   friend-read RLS policies (`owner OR are_friends AND NOT is_private`) decide what
   a viewer sees. Writes still set `user_id` explicitly on insert.
+
+### 7.1 Native (Capacitor iOS) sign-in
+
+The iOS app is a **thin webview over production**: `capacitor.config.ts` sets
+`server.url = https://progra.world` (so `webDir` is inert) and the same client
+bundle serves both the website and the app. Every native-only branch is gated on
+`isNativeApp()` (`lib/native.ts`).
+
+Google **refuses OAuth inside an embedded webview** (`disallowed_useragent`), so
+the web flow — let Supabase navigate the current window to `accounts.google.com`
+— cannot work in the shell. Native instead:
+
+1. `GoogleSignInButton` calls `signInWithOAuth({ skipBrowserRedirect: true })` to
+   get the consent URL *without* navigating, and opens it via `@capacitor/browser`
+   (SFSafariViewController — a real browser, which Google accepts). `redirectTo`
+   is the custom scheme `world.progra.app://auth/callback`, carrying `next`/`ref`.
+2. Supabase redirects there after consent; iOS hands the URL to the app.
+3. `<NativeAuthListener/>` (root layout, mounted **for signed-out visitors too**)
+   catches `appUrlOpen`, closes the browser sheet, and calls
+   `exchangeCodeForSession(code)` — the **auth code**, parsed off the query, not
+   the URL. It then replays what the web route does: `claim_invite` for `?ref=`
+   (swallowing failures — attribution must never block sign-in) and a **hard**
+   `window.location.assign(safeNextPath(next))`, so the server re-reads the new
+   cookie.
+
+**Why a client-side exchange is sound here:** the webview's origin *is*
+`progra.world`, so cookies `createBrowserClient` writes are first-party and the
+Next server reads them on the next navigation. On a bundled build
+(`capacitor://localhost`) they'd be cross-origin and this design would break —
+the exchange would have to move server-side.
+
+`app/auth/callback/route.ts` is untouched; web still uses it.
+
+**Manual config:** `world.progra.app://auth/callback` must be in Supabase →
+Authentication → URL Configuration → Redirect URLs, and must match
+`CFBundleURLTypes` in `ios/App/App/Info.plist`. Google Cloud Console needs no
+change — Google always returns to Supabase's `/auth/v1/callback`, which forwards
+to our scheme.
+
+> ⚠️ **Known gap: Calendar connect is broken on native.**
+> `app/auth/google-calendar/route.ts` server-redirects straight to
+> `accounts.google.com`, which the webview hits as an embedded user-agent — the
+> same refusal. Its fix differs from sign-in's: that flow sets an `httpOnly`
+> CSRF nonce cookie and exchanges tokens server-side, so the deep link must
+> re-enter the server route rather than exchange in the client.
 
 ---
 

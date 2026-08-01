@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { NATIVE_AUTH_REDIRECT, isNativeApp } from "@/lib/native";
 
 export function GoogleSignInButton({
   next,
@@ -23,6 +24,43 @@ export function GoogleSignInButton({
   async function handleClick() {
     setLoading(true);
     const supabase = createClient();
+
+    // Native (Capacitor): Google refuses OAuth in an embedded webview, so ask
+    // Supabase for the consent URL instead of letting it navigate us, and hand
+    // that URL to the system browser. The round trip comes back through the
+    // custom scheme and is finished by <NativeAuthListener/> in the root
+    // layout — this component's job ends at opening the browser.
+    if (isNativeApp()) {
+      // Built by hand: the WHATWG URL parser treats a custom scheme as a
+      // non-special URL and mangles host/path, so `new URL()` + searchParams
+      // isn't safe here the way it is for the https redirect below.
+      const params = new URLSearchParams();
+      if (next) params.set("next", next);
+      if (referrer) params.set("ref", referrer);
+      const qs = params.toString();
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${NATIVE_AUTH_REDIRECT}${qs ? `?${qs}` : ""}`,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error) {
+        setLoading(false);
+        toast.error(error.message);
+        return;
+      }
+      if (data?.url) {
+        const { Browser } = await import("@capacitor/browser");
+        await Browser.open({ url: data.url });
+      }
+      // The browser sheet now covers the app. Release the button so dismissing
+      // it without signing in doesn't strand us on "Redirecting…".
+      setLoading(false);
+      return;
+    }
+
     const redirectTo = new URL("/auth/callback", window.location.origin);
     if (next) redirectTo.searchParams.set("next", next);
     if (referrer) redirectTo.searchParams.set("ref", referrer);
