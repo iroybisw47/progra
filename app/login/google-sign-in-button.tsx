@@ -5,7 +5,8 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { NATIVE_AUTH_REDIRECT, isNativeApp } from "@/lib/native";
+import { isNativeApp } from "@/lib/native";
+import { startNativeGoogleSignIn } from "@/app/actions/native-auth";
 
 // MODULE scope, not component state: at most one native OAuth flow may be in
 // flight per page lifetime.
@@ -61,43 +62,22 @@ export function GoogleSignInButton({
           finished.remove();
         });
 
-        // NOTE: a signOut({ scope: "local" }) used to sit here, added to force a
-        // clean flow state. It did not fix "invalid flow state" and it writes to
-        // the same cookie store that is about to receive the new code_verifier,
-        // so it was a plausible race against it. Removed to keep this path
-        // minimal — account switching is handled by prompt=select_account below,
-        // and the server exchange overwrites any stale session on success.
-
-        // Built by hand: the WHATWG URL parser treats a custom scheme as a
-        // non-special URL and mangles host/path, so `new URL()` + searchParams
-        // isn't safe here the way it is for the https redirect below.
-        const params = new URLSearchParams();
-        if (next) params.set("next", next);
-        if (referrer) params.set("ref", referrer);
-        const qs = params.toString();
-
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: {
-            redirectTo: `${NATIVE_AUTH_REDIRECT}${qs ? `?${qs}` : ""}`,
-            skipBrowserRedirect: true,
-            // Native only. The consent screen opens in the system browser,
-            // which carries Safari's cookies — so Google would otherwise
-            // silently reuse whichever account is already signed in there and
-            // give no way to pick a different one. Forcing the picker also
-            // makes signing in as a second account on a shared phone possible
-            // at all.
-            queryParams: { prompt: "select_account" },
-          },
-        });
-        if (error) {
+        // Deliberately NOT supabase.auth.signInWithOAuth() here. Whichever
+        // client makes that call is the one that stores the PKCE code_verifier,
+        // and the browser client stores it via document.cookie — which
+        // WKWebView flushes lazily and can drop while the app is backgrounded
+        // behind the Safari sheet. Running it on the server instead writes the
+        // verifier as a real Set-Cookie header, which WebKit commits at once.
+        // See app/actions/native-auth.ts.
+        const res = await startNativeGoogleSignIn({ next, ref: referrer });
+        if ("error" in res) {
           finished.remove();
           nativeFlowInFlight = false;
           setLoading(false);
-          toast.error(error.message);
+          toast.error(res.error);
           return;
         }
-        if (data?.url) await Browser.open({ url: data.url });
+        await Browser.open({ url: res.url });
         // Deliberately NOT clearing loading here — browserFinished owns that,
         // so the button stays disabled for as long as the sheet is up.
       } catch (err) {

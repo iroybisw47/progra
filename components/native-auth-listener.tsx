@@ -3,7 +3,8 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 
-import { NATIVE_AUTH_REDIRECT, isNativeApp } from "@/lib/native";
+import { isNativeApp } from "@/lib/native";
+import { NATIVE_AUTH_REDIRECT } from "@/lib/native-auth";
 
 // MODULE scope, deliberately — not component state, not a ref.
 //

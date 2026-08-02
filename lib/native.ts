@@ -12,11 +12,6 @@ export function isNativeApp(): boolean {
   return typeof window !== "undefined" && Capacitor.isNativePlatform();
 }
 
-// Where Supabase sends the browser after Google consent, on native only.
-//
-// Google refuses OAuth inside an embedded webview (disallowed_useragent), so
-// the consent screen opens in the system browser and has to get back into the
-// app somehow — this custom scheme is that door. It must stay in sync with
-// CFBundleURLTypes in ios/App/App/Info.plist AND be listed in Supabase's
-// Redirect URLs allowlist, or the consent screen completes and dead-ends.
-export const NATIVE_AUTH_REDIRECT = "world.progra.app://auth/callback";
+// NATIVE_AUTH_REDIRECT lives in lib/native-auth.ts, not here: a "use server"
+// action needs it too, and this module imports @capacitor/core — which has no
+// business in the server bundle.
