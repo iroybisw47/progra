@@ -72,6 +72,30 @@ export function NativeAuthListener() {
 
         const params = new URLSearchParams(url.split("?")[1] ?? "");
 
+        // ---------------------------------------------------------------
+        // TEMPORARY DIAGNOSTIC — remove once native sign-in is confirmed.
+        //
+        // Supabase is returning flow_state_not_found, which is a SERVER-side
+        // error about its own auth.flow_state record, not about our cookie.
+        // Three code-reading hypotheses have now been wrong, so this surfaces
+        // the two facts that actually distinguish the remaining causes:
+        //   1. the raw deep-link URL, exactly as iOS delivered it (is `code`
+        //      present? in the query or the fragment? are params mangled by
+        //      Supabase appending to a URL that already had a query string?)
+        //   2. whether the PKCE verifier cookie is readable right now — it's
+        //      httpOnly:false, so document.cookie can see it.
+        // ---------------------------------------------------------------
+        const hasVerifier = document.cookie.includes("-code-verifier");
+        toast(`deeplink: ${url}`, { duration: 120000 });
+        toast(
+          `verifier cookie: ${hasVerifier ? "PRESENT" : "MISSING"} | code: ${
+            params.get("code") ? "present" : "ABSENT"
+          }`,
+          { duration: 120000 }
+        );
+        console.log("[native-auth] raw deep link:", url);
+        console.log("[native-auth] document.cookie:", document.cookie);
+
         // Google/Supabase report a refusal or cancel on the query string.
         const authError =
           params.get("error_description") ?? params.get("error");
