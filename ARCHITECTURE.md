@@ -285,20 +285,33 @@ the web flow — let Supabase navigate the current window to `accounts.google.co
    is the custom scheme `world.progra.app://auth/callback`, carrying `next`/`ref`.
 2. Supabase redirects there after consent; iOS hands the URL to the app.
 3. `<NativeAuthListener/>` (root layout, mounted **for signed-out visitors too**)
-   catches `appUrlOpen`, closes the browser sheet, and calls
-   `exchangeCodeForSession(code)` — the **auth code**, parsed off the query, not
-   the URL. It then replays what the web route does: `claim_invite` for `?ref=`
-   (swallowing failures — attribution must never block sign-in) and a **hard**
-   `window.location.assign(safeNextPath(next))`, so the server re-reads the new
-   cookie.
+   catches `appUrlOpen`, closes the browser sheet, and **navigates the webview to
+   `/auth/callback?code=…&next=…&ref=…`** — the same server route the website
+   uses. It does not exchange the code itself.
 
-**Why a client-side exchange is sound here:** the webview's origin *is*
-`progra.world`, so cookies `createBrowserClient` writes are first-party and the
-Next server reads them on the next navigation. On a bundled build
-(`capacitor://localhost`) they'd be cross-origin and this design would break —
-the exchange would have to move server-side.
+**Why the server can finish a flow the client started.** The PKCE
+`code_verifier` is an ordinary cookie (`httpOnly: false`, `path: /`) on
+`progra.world`, and neither `createBrowserClient` nor `createServerClient`
+overrides the cookie name, so both derive the same storage key. The server
+therefore receives the verifier on every request and can exchange against it.
+The webview's origin being the real domain is what makes this hold — on a
+bundled build (`capacitor://localhost`) the cookie would be cross-origin and
+none of this would work.
 
-`app/auth/callback/route.ts` is untouched; web still uses it.
+So native and web converge on one code path: `app/auth/callback/route.ts` does
+the exchange, `claim_invite` for `?ref=`, `safeNextPath` on `?next=`, redirect.
+Deep-link params are forwarded verbatim precisely so the route's own validation
+stays the single authority — a spoofed `world.progra.app://` link can't become
+an open redirect, because `safeNextPath` still runs server-side.
+
+> **History worth keeping.** This originally exchanged client-side in the
+> listener and failed intermittently with *"invalid flow state, no valid flow
+> state found"* — the verifier went missing somewhere between `signInWithOAuth`
+> and `exchangeCodeForSession`. Two targeted fixes (a module-scoped in-flight
+> guard, then `signOut({ scope: "local" })` before minting the verifier) did not
+> resolve it. Routing the code to the server removed the failure class instead of
+> chasing the step that lost the cookie. If a client-side exchange is ever
+> reintroduced, expect this to come back.
 
 **Manual config:** `world.progra.app://auth/callback` must be in Supabase →
 Authentication → URL Configuration → Redirect URLs, and must match

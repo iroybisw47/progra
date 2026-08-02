@@ -61,16 +61,12 @@ export function GoogleSignInButton({
           finished.remove();
         });
 
-        // Clear stale auth state BEFORE minting the new verifier — order is
-        // critical, since signOut also deletes the code_verifier. `local` scope
-        // keeps this to local cookie cleanup with no network round-trip, so a
-        // flaky connection can't wedge sign-in. This clears both a stale
-        // session and any orphaned verifier left by an abandoned earlier flow.
-        try {
-          await supabase.auth.signOut({ scope: "local" });
-        } catch {
-          // Nothing to sign out of; proceed.
-        }
+        // NOTE: a signOut({ scope: "local" }) used to sit here, added to force a
+        // clean flow state. It did not fix "invalid flow state" and it writes to
+        // the same cookie store that is about to receive the new code_verifier,
+        // so it was a plausible race against it. Removed to keep this path
+        // minimal — account switching is handled by prompt=select_account below,
+        // and the server exchange overwrites any stale session on success.
 
         // Built by hand: the WHATWG URL parser treats a custom scheme as a
         // non-special URL and mangles host/path, so `new URL()` + searchParams
