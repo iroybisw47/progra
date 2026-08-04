@@ -6,6 +6,35 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-03
 
+### · Native sign-in working — the nonce fix
+Two things stood between the rebuilt picker flow and a working sign-in, and the
+first masked the second for several rounds.
+
+**`forcePrompt: true` is load-bearing.** `GoogleProvider.swift` branches on
+`hasPreviousSignIn() && !forceAuthCode`, and the `restorePreviousSignIn()` side
+**never passes our nonce** — it returns a cached token carrying a nonce we never
+chose. Once you've signed in on a device that branch is taken forever, so no
+nonce value could ever match and sign-in failed permanently with "nonces
+mismatch". `forcePrompt` sets `forceAuthCode`, forcing the branch that honours
+the nonce, and restores the account picker lost when moving off the browser flow.
+
+**The pairing is SHA-256 (hex) to Google, raw to Supabase** — the standard OIDC
+arrangement `auth-js` documents and Apple's flow uses. Omitting the nonce fails
+too ("passed nonce and nonce in id_token should either both exist or not"),
+because GIDSignIn mints its own when none is supplied.
+
+The debugging is the transferable part. Three pairings were tried and each
+"disproved" a hypothesis — but every measurement was taken against a **cached**
+token, so none of them proved anything. What actually settled it was surfacing
+the token's real `nonce` claim on-device: 43 base64url chars, i.e. 32 random
+bytes, which a quick check showed was not our hash in another encoding
+(`base64url(ours)` = `6HNDjtpJ…` vs claim `BPmbhKiF…`). Unrelated values ruled
+out an encoding mismatch and pointed straight at the Swift branch. That
+diagnostic should have gone in three attempts earlier instead of reasoning from
+documentation about state that wasn't observable.
+
+The nonce diagnostic now logs server-side rather than surfacing in the UI.
+
 ### · Native sign-in rebuilt on the OS Google picker — **requires dashboard + Xcode work**
 The browser-based OAuth flow never worked in the iOS shell. It failed every time
 with Supabase's `flow_state_not_found`, and four fixes did not move it: a

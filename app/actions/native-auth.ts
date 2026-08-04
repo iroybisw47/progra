@@ -5,9 +5,13 @@ import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true; next: string } | { error: string };
 
-// The `nonce` claim out of an unverified JWT payload, for diagnostics only.
+// The `nonce` claim out of an unverified JWT payload, for server logs only.
 // Deliberately does NOT verify the signature — Supabase already did that and
 // rejected it; this exists purely to report what the token says.
+//
+// Kept because getting the nonce pairing right took several rounds, and the one
+// thing that finally settled it was seeing the token's actual claim. If a nonce
+// error ever comes back, the log line below is the shortcut.
 function readNonceClaim(idToken: string): string | null {
   try {
     const payload = idToken.split(".")[1];
@@ -61,23 +65,24 @@ export async function signInWithGoogleIdToken(input: {
     ...(input.nonce ? { nonce: input.nonce } : {}),
   });
   if (error) {
-    // On a nonce failure, say what the token ACTUALLY carries. The right
-    // pairing here was reached by elimination across two failed attempts,
-    // because auth-js's documentation of it is wrong — so if the deduction is
-    // still off, this reports the ground truth in one shot instead of costing
-    // another guess-and-deploy cycle.
+    // A nonce failure means the token's claim and what we sent disagree — log
+    // both SERVER-SIDE so it's diagnosable without putting hex strings in front
+    // of a user. Only the nonce claim is ever logged, never the token: the
+    // token is a credential, a nonce is a single-use random string.
     //
-    // Only the nonce claim is surfaced, never the token: the token is a
-    // credential, a nonce is a single-use random string.
+    // If this fires, check forcePrompt first — without it GIDSignIn returns a
+    // cached token via restorePreviousSignIn that never carried our nonce, and
+    // no pairing can match. See the call site in google-sign-in-button.tsx.
     if (/nonce/i.test(error.message)) {
-      return {
-        error: `${error.message} | token nonce: ${
-          readNonceClaim(input.idToken) ?? "none"
-        } | sent: ${input.nonce ?? "none"}`,
-      };
+      console.error(
+        "[native-auth] nonce mismatch — token claim:",
+        readNonceClaim(input.idToken) ?? "none",
+        "| sent:",
+        input.nonce ?? "none"
+      );
     }
-    // Otherwise the usual cause is an audience mismatch: the iOS client ID
-    // isn't in Supabase → Auth → Providers → Google → Authorized Client IDs.
+    // The other common cause is an audience mismatch: the iOS client ID isn't
+    // in Supabase → Auth → Providers → Google → Authorized Client IDs.
     return { error: error.message };
   }
 

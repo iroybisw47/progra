@@ -281,7 +281,19 @@ session:
 
 1. `GoogleSignInButton`'s native branch calls `SocialLogin.login()`
    (`@capgo/capacitor-social-login`), which shows the native picker and returns
-   a Google **idToken**. Needs `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID`.
+   a Google **idToken**. Needs `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID`. Two options
+   there are load-bearing:
+   - **`forcePrompt: true`** — not a UX preference. `GoogleProvider.swift`
+     branches on `hasPreviousSignIn() && !forceAuthCode`, and the
+     `restorePreviousSignIn()` side **never passes our nonce**, handing back a
+     cached token whose nonce we didn't choose. Once you've signed in on a
+     device that branch is taken forever, so without this **no nonce pairing can
+     ever match** and sign-in fails permanently with "nonces mismatch".
+   - **`nonce`** — SHA-256 (hex) to Google, the **raw** value to Supabase. The
+     standard OIDC pairing: GIDSignIn embeds the nonce verbatim and Supabase
+     compares the hash of what you hand it. Omitting it entirely fails too
+     ("passed nonce and nonce in id_token should either both exist or not"),
+     because GIDSignIn mints its own when you don't supply one.
 2. `signInWithGoogleIdToken` (`app/actions/native-auth.ts`) calls
    `supabase.auth.signInWithIdToken()` **on the server**, then `claim_invite`
    for `?ref=`, and returns a `safeNextPath`-resolved destination.
