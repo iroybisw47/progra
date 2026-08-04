@@ -6,17 +6,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { isNativeApp } from "@/lib/native";
-import { startNativeGoogleSignIn } from "@/app/actions/native-auth";
+import { GOOGLE_IOS_CLIENT_ID } from "@/lib/native-auth";
+import { signInWithGoogleIdToken } from "@/app/actions/native-auth";
 
-// MODULE scope, not component state: at most one native OAuth flow may be in
-// flight per page lifetime.
-//
-// Every signInWithOAuth call mints a NEW PKCE code_verifier and OVERWRITES the
-// stored one. So a second flow started while the first is still open orphans
-// the first: when its callback comes back, the code no longer matches the
-// stored verifier and the exchange fails with "invalid flow state, no valid
-// flow state found". Component state can't be the guard — a remount resets it,
-// while the verifier cookie survives.
+// MODULE scope, not component state: at most one native sign-in at a time. A
+// remount would reset component state while the native picker is still up.
 let nativeFlowInFlight = false;
 
 export function GoogleSignInButton({
@@ -37,55 +31,64 @@ export function GoogleSignInButton({
     setLoading(true);
     const supabase = createClient();
 
-    // Native (Capacitor): Google refuses OAuth in an embedded webview, so ask
-    // Supabase for the consent URL instead of letting it navigate us, and hand
-    // that URL to the system browser. The round trip comes back through the
-    // custom scheme and is finished by <NativeAuthListener/> in the root
-    // layout — this component's job ends at opening the browser.
+    // Native (Capacitor): sign in through the OS Google account picker and
+    // trade the resulting idToken for a session server-side. No browser hop, no
+    // auth code, no deep link — see app/actions/native-auth.ts for why the
+    // browser/PKCE flow was abandoned.
     if (isNativeApp()) {
-      // A flow is already open (button remounted, or a stray second tap) —
-      // starting another would overwrite the pending verifier.
+      // Guards a second tap while the native picker is already up.
       if (nativeFlowInFlight) return;
       nativeFlowInFlight = true;
 
       try {
-        const { Browser } = await import("@capacitor/browser");
+        const { SocialLogin } = await import("@capgo/capacitor-social-login");
 
-        // Release the button when the sheet closes for ANY reason — completed,
-        // swiped away, cancelled. Registered BEFORE open so the event can't be
-        // missed. This replaces the old unconditional setLoading(false) after
-        // open(), which re-enabled the button while the sheet was still up and
-        // let a second tap clobber the in-flight flow's code_verifier.
-        const finished = await Browser.addListener("browserFinished", () => {
-          nativeFlowInFlight = false;
-          setLoading(false);
-          finished.remove();
+        // Idempotent, but it needs the iOS client ID — without it the picker
+        // fails with an unhelpful native error, so say so plainly instead.
+        if (!GOOGLE_IOS_CLIENT_ID) {
+          throw new Error("Missing NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID.");
+        }
+        await SocialLogin.initialize({
+          google: { iOSClientId: GOOGLE_IOS_CLIENT_ID },
         });
 
-        // Deliberately NOT supabase.auth.signInWithOAuth() here. Whichever
-        // client makes that call is the one that stores the PKCE code_verifier,
-        // and the browser client stores it via document.cookie — which
-        // WKWebView flushes lazily and can drop while the app is backgrounded
-        // behind the Safari sheet. Running it on the server instead writes the
-        // verifier as a real Set-Cookie header, which WebKit commits at once.
-        // See app/actions/native-auth.ts.
-        const res = await startNativeGoogleSignIn({ next, ref: referrer });
-        if ("error" in res) {
-          finished.remove();
+        const res = await SocialLogin.login({
+          provider: "google",
+          options: { scopes: ["email", "profile"] },
+        });
+
+        // Two unions to get through: the result varies by provider, and
+        // Google's own result splits online/offline — only the online shape
+        // carries idToken.
+        const idToken =
+          res.provider === "google" && "idToken" in res.result
+            ? res.result.idToken
+            : null;
+        if (!idToken) {
+          throw new Error("Google didn't return an identity token.");
+        }
+
+        const out = await signInWithGoogleIdToken({
+          idToken,
+          next,
+          ref: referrer,
+        });
+        if ("error" in out) {
           nativeFlowInFlight = false;
           setLoading(false);
-          toast.error(res.error);
+          toast.error(out.error);
           return;
         }
-        await Browser.open({ url: res.url });
-        // Deliberately NOT clearing loading here — browserFinished owns that,
-        // so the button stays disabled for as long as the sheet is up.
+
+        // Hard navigation so the server re-reads the session cookie the action
+        // just wrote. Loading stays on through the navigation.
+        window.location.assign(out.next);
       } catch (err) {
         nativeFlowInFlight = false;
         setLoading(false);
-        toast.error(
-          err instanceof Error ? err.message : "Couldn't start sign-in."
-        );
+        // A cancelled picker throws too; don't shout about it.
+        const msg = err instanceof Error ? err.message : "Couldn't sign in.";
+        if (!/cancel/i.test(msg)) toast.error(msg);
       }
       return;
     }

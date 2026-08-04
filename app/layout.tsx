@@ -5,7 +5,6 @@ import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { EnsureProfileSync } from "@/components/ensure-profile-sync";
 import { EnsureSessionCap } from "@/components/ensure-session-cap";
-import { NativeAuthListener } from "@/components/native-auth-listener";
 import { PushRegistration } from "@/components/push-registration";
 import { Toaster } from "@/components/ui/sonner";
 import { getActiveSession } from "@/lib/db/sessions";
@@ -102,14 +101,10 @@ export default async function RootLayout({
             pausedSince={activeSession?.pausedSince ?? null}
           />
         )}
-        {/* Gated on `user`, unlike NativeAuthListener: the token is stored
-            against the current user, so there's nothing to save until someone
-            is signed in. No-op on web. */}
-        {user && <PushRegistration />}
-        {/* Deliberately NOT gated on `user`: this completes native sign-in, so
-            the visitor is signed out at the moment it has to be listening.
+        {/* Gated on `user`: the push token is stored against the current
+            user, so there's nothing to save until someone is signed in.
             No-op on web. */}
-        <NativeAuthListener />
+        {user && <PushRegistration />}
         <Toaster />
       </body>
     </html>

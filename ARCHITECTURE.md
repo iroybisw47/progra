@@ -275,56 +275,57 @@ The iOS app is a **thin webview over production**: `capacitor.config.ts` sets
 bundle serves both the website and the app. Every native-only branch is gated on
 `isNativeApp()` (`lib/native.ts`).
 
-Google **refuses OAuth inside an embedded webview** (`disallowed_useragent`), so
-the web flow — let Supabase navigate the current window to `accounts.google.com`
-— cannot work in the shell. Native instead:
+Native does **not** use the web's browser-based OAuth. It signs in through the
+**OS Google account picker** and trades the resulting identity token for a
+session:
 
-1. `GoogleSignInButton` calls `signInWithOAuth({ skipBrowserRedirect: true })` to
-   get the consent URL *without* navigating, and opens it via `@capacitor/browser`
-   (SFSafariViewController — a real browser, which Google accepts). `redirectTo`
-   is the custom scheme `world.progra.app://auth/callback`, carrying `next`/`ref`.
-2. Supabase redirects there after consent; iOS hands the URL to the app.
-3. `<NativeAuthListener/>` (root layout, mounted **for signed-out visitors too**)
-   catches `appUrlOpen`, closes the browser sheet, and **navigates the webview to
-   `/auth/callback?code=…&next=…&ref=…`** — the same server route the website
-   uses. It does not exchange the code itself.
+1. `GoogleSignInButton`'s native branch calls `SocialLogin.login()`
+   (`@capgo/capacitor-social-login`), which shows the native picker and returns
+   a Google **idToken**. Needs `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID`.
+2. `signInWithGoogleIdToken` (`app/actions/native-auth.ts`) calls
+   `supabase.auth.signInWithIdToken()` **on the server**, then `claim_invite`
+   for `?ref=`, and returns a `safeNextPath`-resolved destination.
+3. The client hard-navigates there, so the server renders against the new
+   session.
 
-**Why the server can finish a flow the client started.** The PKCE
-`code_verifier` is an ordinary cookie (`httpOnly: false`, `path: /`) on
-`progra.world`, and neither `createBrowserClient` nor `createServerClient`
-overrides the cookie name, so both derive the same storage key. The server
-therefore receives the verifier on every request and can exchange against it.
-The webview's origin being the real domain is what makes this hold — on a
-bundled build (`capacitor://localhost`) the cookie would be cross-origin and
-none of this would work.
+**Two reasons it's server-side.** The Supabase server client writes the session
+as a real `Set-Cookie` header, which WebKit commits immediately — the browser
+client writes via `document.cookie`, which WKWebView flushes lazily and can
+drop. And every page here is server-rendered from that cookie, so it has to land
+durably.
 
-So native and web converge on one code path: `app/auth/callback/route.ts` does
-the exchange, `claim_invite` for `?ref=`, `safeNextPath` on `?next=`, redirect.
-Deep-link params are forwarded verbatim precisely so the route's own validation
-stays the single authority — a spoofed `world.progra.app://` link can't become
-an open redirect, because `safeNextPath` still runs server-side.
+> **Why the browser flow was abandoned — do not reintroduce it.**
+> The original design opened Google in the system browser (`@capacitor/browser`)
+> and returned an auth code through the `world.progra.app://` scheme, to be
+> exchanged against a PKCE `code_verifier`. It failed **every time** with
+> Supabase's `flow_state_not_found`. Four fixes did not move it: a module-scoped
+> in-flight guard, `signOut({ scope: "local" })` before the flow, moving the
+> exchange server-side, then moving the *verifier write* server-side. An
+> on-device diagnostic finally showed the verifier cookie **and** the auth code
+> were both present and correct at exchange time — exhausting every explanation
+> reachable from this codebase, since `flow_state_not_found` is a Supabase
+> **server** error about its own `auth.flow_state` record, not about our cookie.
+> `signInWithIdToken` removes the whole apparatus: no browser hop, no auth code,
+> no flow state, no verifier, no deep link.
 
-> **History worth keeping.** This originally exchanged client-side in the
-> listener and failed intermittently with *"invalid flow state, no valid flow
-> state found"* — the verifier went missing somewhere between `signInWithOAuth`
-> and `exchangeCodeForSession`. Two targeted fixes (a module-scoped in-flight
-> guard, then `signOut({ scope: "local" })` before minting the verifier) did not
-> resolve it. Routing the code to the server removed the failure class instead of
-> chasing the step that lost the cookie. If a client-side exchange is ever
-> reintroduced, expect this to come back.
+**Manual config, all required or sign-in fails with an audience error:**
+- Google Cloud Console → an **iOS** OAuth client for bundle `world.progra.app`
+- That id in `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID` (local + Vercel)
+- Its **reversed** form (`com.googleusercontent.apps.…`) in
+  `ios/App/App/Info.plist` `CFBundleURLTypes`
+- The id listed in Supabase → Auth → Providers → Google → **Authorized Client
+  IDs**, or Supabase rejects the token's audience
 
-**Manual config:** `world.progra.app://auth/callback` must be in Supabase →
-Authentication → URL Configuration → Redirect URLs, and must match
-`CFBundleURLTypes` in `ios/App/App/Info.plist`. Google Cloud Console needs no
-change — Google always returns to Supabase's `/auth/v1/callback`, which forwards
-to our scheme.
+`app/auth/callback/route.ts` is untouched and still serves the **web** flow.
 
 > ⚠️ **Known gap: Calendar connect is broken on native.**
 > `app/auth/google-calendar/route.ts` server-redirects straight to
-> `accounts.google.com`, which the webview hits as an embedded user-agent — the
-> same refusal. Its fix differs from sign-in's: that flow sets an `httpOnly`
-> CSRF nonce cookie and exchanges tokens server-side, so the deep link must
-> re-enter the server route rather than exchange in the client.
+> `accounts.google.com`, which the webview hits as an embedded user-agent and
+> Google refuses. It sets an `httpOnly` CSRF nonce cookie and exchanges tokens
+> server-side, so it needs its own solution rather than this one.
+
+---
+
 
 ---
 

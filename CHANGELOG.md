@@ -4,6 +4,53 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-08-03
+
+### · Native sign-in rebuilt on the OS Google picker — **requires dashboard + Xcode work**
+The browser-based OAuth flow never worked in the iOS shell. It failed every time
+with Supabase's `flow_state_not_found`, and four fixes did not move it: a
+module-scoped in-flight guard, `signOut({ scope: "local" })` before the flow,
+moving the exchange server-side, then moving the *verifier write* server-side.
+An on-device diagnostic finally showed the verifier cookie **and** the auth code
+were both present and correct at exchange time — which exhausted every
+explanation reachable from this codebase, since `flow_state_not_found` is a
+Supabase **server** error about its own `auth.flow_state` record, not a
+complaint about our cookie.
+
+So the apparatus is gone rather than patched again. No browser hop, no auth code,
+no flow state, no code_verifier, no deep link.
+
+- `@capgo/capacitor-social-login` (peer `>=8.0.0`, matches our Capacitor 8; the
+  common `@codetrix-studio` plugin is Capacitor 6-only and
+  `@capacitor-firebase/authentication` would drag in a whole Firebase project).
+- `google-sign-in-button.tsx` native branch: `SocialLogin.login()` shows the OS
+  account picker and returns a Google **idToken**. Web branch untouched.
+- `app/actions/native-auth.ts`: `signInWithGoogleIdToken` calls
+  `supabase.auth.signInWithIdToken()` **server-side**, then `claim_invite` for
+  `?ref=`, and returns a `safeNextPath`-resolved destination the client
+  hard-navigates to. Server-side because the Supabase server client writes the
+  session as a real `Set-Cookie` header (WebKit commits it immediately) whereas
+  the browser client writes via `document.cookie`, which WKWebView flushes
+  lazily — and every page here is server-rendered from that cookie.
+- Deleted `components/native-auth-listener.tsx` and its layout mount. With no
+  deep link in the auth path it was dead code, and leaving it would invite
+  reintroducing the flow that failed.
+- Missing-config failure is explicit: a blank `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID`
+  throws a named error instead of an opaque native one.
+
+**Config, all four required or sign-in fails with an audience error:** a Google
+Cloud **iOS** OAuth client for bundle `world.progra.app`; that id in
+`NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID` (local + Vercel); its **reversed** form in
+`Info.plist` `CFBundleURLTypes`; and the id in Supabase → Auth → Providers →
+Google → Authorized Client IDs.
+
+**Unlike every previous fix, this needs a new iOS build** — `npx cap sync ios`
+plus an Xcode rebuild. The webview-only deploy path isn't enough once a native
+plugin is involved.
+
+ARCHITECTURE §7.1 records why the browser flow was abandoned, so it doesn't get
+reintroduced.
+
 ## 2026-07-31
 
 ### · Native Google sign-in (Capacitor iOS) — **requires a Supabase dashboard change**

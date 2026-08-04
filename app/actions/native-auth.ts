@@ -1,59 +1,61 @@
 "use server";
 
+import { safeNextPath } from "@/lib/auth/safe-next";
 import { createClient } from "@/lib/supabase/server";
-import { NATIVE_AUTH_REDIRECT } from "@/lib/native-auth";
 
-type Result = { url: string } | { error: string };
+type Result = { ok: true; next: string } | { error: string };
 
-// Starts the native Google flow ON THE SERVER, and returns the consent URL for
-// the client to hand to the system browser.
+// Trades a Google idToken (obtained natively, by the OS account picker) for a
+// Supabase session. This is the whole of native sign-in.
 //
-// The point of doing this server-side is WHERE the PKCE code_verifier gets
-// written. signInWithOAuth stores it through whichever Supabase client calls it:
+// It replaces a browser-based OAuth round trip that never worked in the shell.
+// That flow was: open Google in the system browser → deep link back with an
+// auth code → exchange the code against a PKCE code_verifier. It failed
+// consistently with Supabase's flow_state_not_found, and four separate fixes
+// (in-flight guards, local signOut, server-side exchange, server-side verifier
+// write) did not move it. Diagnostics eventually confirmed the verifier cookie
+// AND the code were both present and correct at exchange time, which exhausted
+// every explanation reachable from this codebase.
 //
-//   - browser client → document.cookie. WKWebView keeps JS-written cookies in
-//     memory and flushes them to the shared store lazily, and this flow
-//     backgrounds the app for the Safari sheet in between. The verifier was
-//     going missing there, which is what produced "invalid flow state, no valid
-//     flow state found" for both the old client-side exchange AND the
-//     server-side one — the cookie simply wasn't there to read.
-//   - server client → a real Set-Cookie response header, which WebKit commits
-//     to the cookie store immediately.
+// signInWithIdToken has none of those moving parts: no browser hop, no auth
+// code, no flow state, no code_verifier, no deep link. A token goes in and a
+// session comes out.
 //
-// Same cookie, same storage key, same base64url encoding — only the write path
-// changes, from fragile to durable. /auth/callback then finds the verifier
-// waiting for it exactly as it does on the website.
-export async function startNativeGoogleSignIn(input: {
+// Deliberately server-side. The Supabase SERVER client writes the session as a
+// real Set-Cookie response header, which WebKit commits immediately — whereas
+// the browser client writes via document.cookie, which WKWebView flushes lazily
+// and can drop. Every page in this app is server-rendered from that cookie, so
+// it has to land durably.
+export async function signInWithGoogleIdToken(input: {
+  idToken: string;
   next?: string;
   ref?: string;
 }): Promise<Result> {
+  if (!input.idToken) return { error: "No Google token received." };
+
   const supabase = await createClient();
 
-  // Built by hand: the WHATWG URL parser treats a custom scheme as a
-  // non-special URL and mangles host/path, so `new URL()` + searchParams isn't
-  // safe here. These ride through Google and come back on the deep link, which
-  // forwards them to /auth/callback — where safeNextPath and claim_invite do
-  // the validating.
-  const params = new URLSearchParams();
-  if (input.next) params.set("next", input.next);
-  if (input.ref) params.set("ref", input.ref);
-  const qs = params.toString();
-
-  const { data, error } = await supabase.auth.signInWithOAuth({
+  const { error } = await supabase.auth.signInWithIdToken({
     provider: "google",
-    options: {
-      redirectTo: `${NATIVE_AUTH_REDIRECT}${qs ? `?${qs}` : ""}`,
-      // Return the URL instead of trying to navigate — there's no window here,
-      // and the client hands it to the system browser anyway.
-      skipBrowserRedirect: true,
-      // The consent screen opens in the system browser, which carries Safari's
-      // cookies — without this Google silently reuses whichever account is
-      // already signed in there, with no way to pick a different one.
-      queryParams: { prompt: "select_account" },
-    },
+    token: input.idToken,
   });
+  if (error) {
+    // The usual cause is an audience mismatch: the iOS client ID isn't in
+    // Supabase → Auth → Providers → Google → Authorized Client IDs.
+    return { error: error.message };
+  }
 
-  if (error) return { error: error.message };
-  if (!data?.url) return { error: "Couldn't start sign-in." };
-  return { url: data.url };
+  // Invite attribution, mirroring app/auth/callback/route.ts: the same
+  // SECURITY DEFINER RPC, which derives the caller from auth.uid(). Attribution
+  // must NEVER block sign-in, so every failure is swallowed.
+  if (input.ref) {
+    try {
+      await supabase.rpc("claim_invite", { p_username: input.ref });
+    } catch {
+      // ignore — sign-in proceeds without attribution
+    }
+  }
+
+  // Resolved here rather than trusted from the client, matching the web route.
+  return { ok: true, next: safeNextPath(input.next) };
 }
