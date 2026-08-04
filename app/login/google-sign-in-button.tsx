@@ -13,37 +13,28 @@ import { signInWithGoogleIdToken } from "@/app/actions/native-auth";
 // remount would reset component state while the native picker is still up.
 let nativeFlowInFlight = false;
 
-// RAW nonce to Google, its SHA-256 to Supabase.
+// SHA-256 to Google, the raw value to Supabase — the standard OIDC pairing, the
+// same one Apple's native flow uses. GIDSignIn embeds whatever nonce it's given
+// verbatim, and Supabase hashes the value you hand it before comparing (per
+// auth-js: "the hash of this value is compared to the value in the ID token").
 //
-// Arrived at by elimination, not by reading docs — the docs are wrong here.
-// Writing g for what Google does to the nonce before embedding it in the token
-// and s for what Supabase does to the nonce we hand it, a match needs
-// s(Y) == g(X) for X sent to Google and Y sent to Supabase. Two live failures
-// pin the pair:
-//
-//   attempt 1  X = SHA(raw), Y = raw  -> "nonces mismatch"
-//   attempt 2  X = Y = v              -> "nonces mismatch"
-//
-//   g=id, s=id   attempt 2 would have matched   -> out
-//   g=id, s=SHA  attempt 1 would have matched   -> out
-//   g=SHA, s=SHA attempt 2 would have matched   -> out
-//   g=SHA, s=id  both mismatch                  -> the only survivor
-//
-// So Google hashes and Supabase compares verbatim, and Y must be SHA256(X).
-// auth-js's typing claims Supabase compares "the hash of this value"; that is
-// either wrong or Apple-only. The plugin itself hashes nothing — its iOS source
-// passes our value straight to GIDSignIn.signIn(nonce:).
-function buildNonce(): Promise<{ forGoogle: string; forSupabase: string }> {
-  const forGoogle = crypto.randomUUID() + crypto.randomUUID();
-  return crypto.subtle
-    .digest("SHA-256", new TextEncoder().encode(forGoogle))
-    .then((digest) => ({
-      forGoogle,
-      // Lowercase hex.
-      forSupabase: Array.from(new Uint8Array(digest))
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join(""),
-    }));
+// Earlier attempts appeared to disprove this and pointed at other pairings, but
+// those tests were void: the plugin was returning a CACHED token via
+// restorePreviousSignIn, which never carried our nonce at all. See forcePrompt
+// at the call site — without it, no pairing can ever match.
+async function buildNonce(): Promise<{ forGoogle: string; forSupabase: string }> {
+  const raw = crypto.randomUUID() + crypto.randomUUID();
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(raw)
+  );
+  return {
+    // Lowercase hex.
+    forGoogle: Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join(""),
+    forSupabase: raw,
+  };
 }
 
 export function GoogleSignInButton({
@@ -90,7 +81,23 @@ export function GoogleSignInButton({
 
         const res = await SocialLogin.login({
           provider: "google",
-          options: { scopes: ["email", "profile"], nonce: nonce.forGoogle },
+          options: {
+            scopes: ["email", "profile"],
+            nonce: nonce.forGoogle,
+            // LOAD-BEARING, not a UX preference. GoogleProvider.swift branches:
+            //
+            //   if hasPreviousSignIn() && !forceAuthCode && mode != .OFFLINE
+            //        -> restorePreviousSignIn()   // nonce NEVER passed
+            //   else -> login()                   // nonce passed to GIDSignIn
+            //
+            // Once you've signed in on the device, hasPreviousSignIn() is true
+            // forever, so the default path returns a CACHED token carrying a
+            // nonce we never chose — and no value we send can match it.
+            // forcePrompt sets forceAuthCode, forcing the branch that actually
+            // honours our nonce. It also restores the account picker, which is
+            // what we wanted anyway.
+            forcePrompt: true,
+          },
         });
 
         // Two unions to get through: the result varies by provider, and
