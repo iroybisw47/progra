@@ -5,6 +5,21 @@ import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true; next: string } | { error: string };
 
+// The `nonce` claim out of an unverified JWT payload, for diagnostics only.
+// Deliberately does NOT verify the signature — Supabase already did that and
+// rejected it; this exists purely to report what the token says.
+function readNonceClaim(idToken: string): string | null {
+  try {
+    const payload = idToken.split(".")[1];
+    if (!payload) return null;
+    const json = Buffer.from(payload, "base64url").toString("utf8");
+    const nonce = (JSON.parse(json) as { nonce?: unknown }).nonce;
+    return typeof nonce === "string" ? nonce : null;
+  } catch {
+    return null;
+  }
+}
+
 // Trades a Google idToken (obtained natively, by the OS account picker) for a
 // Supabase session. This is the whole of native sign-in.
 //
@@ -46,8 +61,23 @@ export async function signInWithGoogleIdToken(input: {
     ...(input.nonce ? { nonce: input.nonce } : {}),
   });
   if (error) {
-    // The usual cause is an audience mismatch: the iOS client ID isn't in
-    // Supabase → Auth → Providers → Google → Authorized Client IDs.
+    // On a nonce failure, say what the token ACTUALLY carries. The right
+    // pairing here was reached by elimination across two failed attempts,
+    // because auth-js's documentation of it is wrong — so if the deduction is
+    // still off, this reports the ground truth in one shot instead of costing
+    // another guess-and-deploy cycle.
+    //
+    // Only the nonce claim is surfaced, never the token: the token is a
+    // credential, a nonce is a single-use random string.
+    if (/nonce/i.test(error.message)) {
+      return {
+        error: `${error.message} | token nonce: ${
+          readNonceClaim(input.idToken) ?? "none"
+        } | sent: ${input.nonce ?? "none"}`,
+      };
+    }
+    // Otherwise the usual cause is an audience mismatch: the iOS client ID
+    // isn't in Supabase → Auth → Providers → Google → Authorized Client IDs.
     return { error: error.message };
   }
 
