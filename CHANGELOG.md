@@ -6,6 +6,27 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-03
 
+### · Push token writes go through a definer RPC — **SQL run**
+Probing production turned up that `device_tokens` already existed with a PK on
+`(user_id, token)`, so the feature's own `create table if not exists` had
+silently no-opped: no `id`, no `created_at`, and **no unique index on `token`
+alone**. `saveDeviceToken`'s `upsert(onConflict: "token")` would have failed
+`42P10` on every registration — push had never once succeeded.
+
+Rather than reshape a production table, writes now route through
+`save_device_token` (SECURITY DEFINER), which works with the existing PK and
+fixes the sharper problem the composite key creates: a phone used by two
+accounts would otherwise keep **both** rows, so the previous user's
+notifications keep arriving on a device that isn't theirs. The RPC deletes any
+other user's claim on the token first — a cross-owner delete owner-only RLS
+cannot perform.
+
+Hardened the way the other definer functions are: no user-id parameter (the
+caller comes from `auth.uid()` internally, so it can only ever act for itself),
+`set search_path to ''` with everything schema-qualified, and
+`revoke ... from public, anon` since definer functions are `EXECUTE`-to-`PUBLIC`
+by default. Verified anon gets `42501 permission denied`.
+
 ### · Auto-ended sessions are worth ZERO hours, everywhere — **requires SQL**
 Changed from "a capped session counts as exactly 10h". Hitting the 10-hour cap
 means a clock-out was missed, so the hours aren't real and shouldn't earn goal

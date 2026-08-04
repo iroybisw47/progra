@@ -13,10 +13,17 @@ const TOKEN_MAX = 512;
 // Register this device for push. Called after @capacitor/push-notifications'
 // `registration` event hands us an APNs token.
 //
-// Upsert on `token`, not on (user_id, token): the token identifies a physical
-// install, so re-registering the same device must UPDATE its row rather than
-// accumulate one per launch. `updated_at` doubles as a last-seen stamp, which is
-// what lets a sender prune tokens APNs has stopped accepting.
+// Routed through the `save_device_token` SECURITY DEFINER RPC rather than a
+// direct upsert, for one specific reason: a token identifies a physical device,
+// so when a phone changes hands the previous account's row has to GO. Deleting
+// it means writing a row owned by a different user, which owner-only RLS cannot
+// do — otherwise their notifications keep arriving on a phone that isn't theirs.
+// The RPC derives the caller from auth.uid() internally and takes no user id, so
+// it can only ever act for whoever is calling. Same pattern as
+// accept_friend_request / toggle_reaction.
+//
+// (The table's primary key is (user_id, token), so a plain upsert on `token`
+// alone isn't even possible — it fails with 42P10, no matching constraint.)
 //
 // No revalidation — nothing in the UI renders device tokens. Mirrors the
 // mark*Seen actions in app/actions/notifications.ts.
@@ -29,14 +36,9 @@ export async function saveDeviceToken(token: string): Promise<Result> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
-  const { error } = await supabase.from("device_tokens").upsert(
-    {
-      user_id: user.id,
-      token: trimmed,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "token" }
-  );
+  const { error } = await supabase.rpc("save_device_token", {
+    p_token: trimmed,
+  });
 
   if (error) return { error: error.message };
   return { ok: true };

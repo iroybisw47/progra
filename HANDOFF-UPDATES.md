@@ -28,35 +28,38 @@ create index if not exists sessions_auto_end_review_idx
   where auto_ended_at is not null and auto_end_reviewed_at is null;
 ```
 
-**PENDING — code has shipped but is inert or wrong until these run:**
-
 ```sql
--- (1) Push notification device tokens. saveDeviceToken 400s on every app launch
---     until this exists (fails silently to console.error).
-create table if not exists public.device_tokens (
-  id         uuid primary key default gen_random_uuid(),
-  user_id    uuid not null references auth.users(id) on delete cascade,
-  token      text not null unique,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-alter table public.device_tokens enable row level security;
-drop policy if exists device_tokens_own on public.device_tokens;
-create policy device_tokens_own on public.device_tokens
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-notify pgrst, 'reload schema';
+-- week_leaderboard now excludes auto-ended sessions AND clamps still-running
+-- ones to the cap, mirroring sessionWorkedMs. Verify with:
+--   select pg_get_functiondef('public.week_leaderboard(bigint,bigint)'::regprocedure)
+--     like '%auto_ended_at%', ... like '%36000000%';   -- both true
 ```
 
 ```sql
--- (2) week_leaderboard must exclude auto-ended sessions, or it becomes the ONE
---     surface that disagrees with sessionWorkedMs (see the zero-hours rule below).
---     Two steps — the function is SECURITY DEFINER and its body carries the
---     auth.uid()-derived circle isolation, so DUMP IT FIRST, never rewrite blind:
---       select pg_get_functiondef('public.week_leaderboard(bigint,bigint)'::regprocedure);
---     then add to the sessions WHERE clause:
---       and s.auto_ended_at is null
---     and re-issue as create or replace, body otherwise byte-identical.
+-- Push tokens. NOTE the table pre-existed with a PK on (user_id, token) — the
+-- original `create table if not exists` silently no-opped, and there is no
+-- unique index on `token` alone (so a plain upsert onConflict:"token" fails
+-- 42P10). Writes therefore go through this definer RPC, which also reassigns a
+-- token away from a previous owner — a delete owner-only RLS can't perform, and
+-- without which a phone that changes hands keeps receiving the old account's
+-- notifications.
+create or replace function public.save_device_token(p_token text)
+returns void language plpgsql security definer set search_path to ''
+as $$
+begin
+  if auth.uid() is null then raise exception 'not authenticated'; end if;
+  if p_token is null or length(trim(p_token)) = 0 then raise exception 'token required'; end if;
+  delete from public.device_tokens where token = trim(p_token) and user_id <> auth.uid();
+  insert into public.device_tokens (user_id, token, updated_at)
+  values (auth.uid(), trim(p_token), now())
+  on conflict (user_id, token) do update set updated_at = now();
+end;
+$$;
+revoke all on function public.save_device_token(text) from public, anon;
+grant execute on function public.save_device_token(text) to authenticated;
 ```
+
+**Nothing SQL-side is pending.**
 
 ---
 
@@ -165,13 +168,13 @@ notify pgrst, 'reload schema';
   user-agent and Google refuses. Its fix differs from sign-in's: it sets an
   `httpOnly` CSRF nonce cookie and exchanges tokens server-side, so the deep link
   must re-enter the server route. Unfixed, documented.
-- **`week_leaderboard` SQL pending** (above). Until it runs, a forgotten clock-out
-  still ranks — the leaderboard is the only surface not going through
-  `sessionWorkedMs`.
-- **`device_tokens` SQL pending** (above). Also note: `token` is unique on its own,
-  so if a second account signs in on the same phone the upsert tries to update a
-  row owned by the previous user and owner-only RLS denies it. Proper fix is a
-  `SECURITY DEFINER` RPC that reassigns, same shape as `accept_friend_request`.
+- **`device_tokens` has a composite PK `(user_id, token)`**, not a unique `token`.
+  The table pre-existed, so the original `create table if not exists` no-opped —
+  it has no `id` or `created_at` either. A plain upsert on `token` fails 42P10, so
+  writes go through the `save_device_token` definer RPC, which also deletes any
+  prior owner's claim on that token. Don't "simplify" it back to a direct upsert:
+  that reassignment delete is what stops a reassigned phone receiving the previous
+  account's pushes, and owner-only RLS cannot do it.
 - **The custom URL scheme `world.progra.app://` is still registered** in
   `Info.plist` but nothing uses it now that the deep-link auth listener is gone.
   Harmless; don't wire auth back onto it.
