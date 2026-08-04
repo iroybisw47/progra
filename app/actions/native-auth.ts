@@ -28,10 +28,10 @@ type Result = { ok: true; next: string } | { error: string };
 // it has to land durably.
 export async function signInWithGoogleIdToken(input: {
   idToken: string;
-  // The RAW nonce whose SHA-256 was handed to Google. Supabase hashes this and
-  // compares it to the token's `nonce` claim; omitting it when the token has one
-  // fails with "passed nonce and nonce in id_token should either both exist or
-  // not". See buildNonce() in the sign-in button for the pairing.
+  // The SAME nonce that was handed to Google — not a hash of it. Hashing on
+  // exactly one side yields "nonces mismatch"; omitting it entirely yields
+  // "passed nonce and nonce in id_token should either both exist or not". See
+  // buildNonce() in the sign-in button.
   nonce?: string;
   next?: string;
   ref?: string;

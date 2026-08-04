@@ -13,26 +13,24 @@ import { signInWithGoogleIdToken } from "@/app/actions/native-auth";
 // remount would reset component state while the native picker is still up.
 let nativeFlowInFlight = false;
 
-// A matched nonce pair for native sign-in.
+// One nonce, handed unchanged to BOTH Google and Supabase.
 //
-// Google embeds whatever nonce it's given into the idToken, and Supabase
-// compares the SHA-256 of the nonce you hand IT against that claim. So the
-// provider gets the hash and Supabase gets the raw value — the same dance
-// Apple's flow uses. Supplying neither isn't an option: the plugin generates a
-// nonce on its own, and a token carrying one with nothing to check it against
-// fails with "passed nonce and nonce in id_token should either both exist or
-// not".
-async function buildNonce(): Promise<{ raw: string; hashed: string }> {
-  const raw = crypto.randomUUID() + crypto.randomUUID();
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(raw)
-  );
-  // Hex, lowercase — what Supabase compares against.
-  const hashed = Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  return { raw, hashed };
+// Passing none isn't an option: GIDSignIn mints its own, and a token carrying a
+// nonce with nothing to check it against fails with "passed nonce and nonce in
+// id_token should either both exist or not".
+//
+// The obvious next move — Apple's dance, SHA-256 to the provider and the raw
+// value to Supabase — produced "nonces mismatch". auth-js's typings say
+// Supabase compares "the hash of this value", but the plugin's iOS source
+// hands our nonce straight to GIDSignIn.signIn(nonce:) with no hashing, so the
+// two ends were applying a different number of hashes.
+//
+// Sending one identical value survives either reading of that ambiguity: if
+// Supabase compares verbatim, both sides see the same string; if Supabase and
+// Google both hash, both sides see the same digest. What breaks it is hashing
+// on exactly one side, which is what we did.
+function buildNonce(): string {
+  return crypto.randomUUID() + crypto.randomUUID();
 }
 
 export function GoogleSignInButton({
@@ -74,12 +72,12 @@ export function GoogleSignInButton({
           google: { iOSClientId: GOOGLE_IOS_CLIENT_ID },
         });
 
-        // Hashed nonce to Google, raw nonce to Supabase — see buildNonce.
-        const nonce = await buildNonce();
+        // The SAME value goes to Google and to Supabase — see buildNonce.
+        const nonce = buildNonce();
 
         const res = await SocialLogin.login({
           provider: "google",
-          options: { scopes: ["email", "profile"], nonce: nonce.hashed },
+          options: { scopes: ["email", "profile"], nonce },
         });
 
         // Two unions to get through: the result varies by provider, and
@@ -95,7 +93,7 @@ export function GoogleSignInButton({
 
         const out = await signInWithGoogleIdToken({
           idToken,
-          nonce: nonce.raw,
+          nonce,
           next,
           ref: referrer,
         });
