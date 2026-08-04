@@ -28,6 +28,11 @@ type Result = { ok: true; next: string } | { error: string };
 // it has to land durably.
 export async function signInWithGoogleIdToken(input: {
   idToken: string;
+  // The RAW nonce whose SHA-256 was handed to Google. Supabase hashes this and
+  // compares it to the token's `nonce` claim; omitting it when the token has one
+  // fails with "passed nonce and nonce in id_token should either both exist or
+  // not". See buildNonce() in the sign-in button for the pairing.
+  nonce?: string;
   next?: string;
   ref?: string;
 }): Promise<Result> {
@@ -38,6 +43,7 @@ export async function signInWithGoogleIdToken(input: {
   const { error } = await supabase.auth.signInWithIdToken({
     provider: "google",
     token: input.idToken,
+    ...(input.nonce ? { nonce: input.nonce } : {}),
   });
   if (error) {
     // The usual cause is an audience mismatch: the iOS client ID isn't in

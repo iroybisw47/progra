@@ -13,6 +13,28 @@ import { signInWithGoogleIdToken } from "@/app/actions/native-auth";
 // remount would reset component state while the native picker is still up.
 let nativeFlowInFlight = false;
 
+// A matched nonce pair for native sign-in.
+//
+// Google embeds whatever nonce it's given into the idToken, and Supabase
+// compares the SHA-256 of the nonce you hand IT against that claim. So the
+// provider gets the hash and Supabase gets the raw value — the same dance
+// Apple's flow uses. Supplying neither isn't an option: the plugin generates a
+// nonce on its own, and a token carrying one with nothing to check it against
+// fails with "passed nonce and nonce in id_token should either both exist or
+// not".
+async function buildNonce(): Promise<{ raw: string; hashed: string }> {
+  const raw = crypto.randomUUID() + crypto.randomUUID();
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(raw)
+  );
+  // Hex, lowercase — what Supabase compares against.
+  const hashed = Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return { raw, hashed };
+}
+
 export function GoogleSignInButton({
   next,
   referrer,
@@ -52,9 +74,12 @@ export function GoogleSignInButton({
           google: { iOSClientId: GOOGLE_IOS_CLIENT_ID },
         });
 
+        // Hashed nonce to Google, raw nonce to Supabase — see buildNonce.
+        const nonce = await buildNonce();
+
         const res = await SocialLogin.login({
           provider: "google",
-          options: { scopes: ["email", "profile"] },
+          options: { scopes: ["email", "profile"], nonce: nonce.hashed },
         });
 
         // Two unions to get through: the result varies by provider, and
@@ -70,6 +95,7 @@ export function GoogleSignInButton({
 
         const out = await signInWithGoogleIdToken({
           idToken,
+          nonce: nonce.raw,
           next,
           ref: referrer,
         });
