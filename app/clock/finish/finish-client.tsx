@@ -137,9 +137,10 @@ export function FinishClient({
             </div>
             <p className="text-caption text-[12.5px] leading-snug">
               This session hit Progra&apos;s 10-hour limit, so we stopped it and
-              saved it privately. Check the time looks right before you post it —
-              if it&apos;s wrong, delete it and add a past session with the real
-              hours.
+              saved it privately. Because the limit means a clock-out was missed,
+              it counts as <strong className="font-bold">0 hours</strong> — it
+              won&apos;t affect your goals, recap or the leaderboard. To get the
+              time back, delete this and add a past session with the real hours.
             </p>
           </div>
         )}

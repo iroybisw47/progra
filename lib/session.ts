@@ -12,10 +12,15 @@ import type { Session } from "@/lib/storage";
 // Accepts just the timing fields so live surfaces (e.g. the "clocked in now"
 // strip) can compute worked time from a minimal payload; full Session callers
 // satisfy the Pick unchanged.
+// `autoEndedAt` is OPTIONAL on purpose. Live surfaces (nav ticker, clocked-in
+// strip, the running timer) build a minimal timing payload for a session that is
+// by definition still active — and an active session can never be auto-ended, so
+// omitting it is always correct there. Full Session objects carry the real value.
 export type SessionTiming = Pick<
   Session,
   "startedAt" | "endedAt" | "pausedMs" | "pausedSince"
->;
+> &
+  Partial<Pick<Session, "autoEndedAt">>;
 
 // Hard cap on a single session's WORKED time (pauses excluded — a paused
 // session freezes below the cap and can never trip it). Always on: no user
@@ -37,11 +42,23 @@ function rawWorkedMs(s: SessionTiming, now: number): number {
 }
 
 export function sessionWorkedMs(s: SessionTiming, now: number): number {
+  // A session the 10-hour cap ended counts as ZERO worked time — everywhere.
+  // Hitting the cap means you forgot to clock out, so the hours aren't real and
+  // shouldn't feed goals, recaps, rollups or the leaderboard. Enforcing it here
+  // rather than per-surface is what keeps every number agreeing.
+  //
+  // Not punitive: the session still exists, and the finish screen's review flow
+  // lets you delete it and re-add the real hours as a past session — which is an
+  // ordinary row with no autoEndedAt, so it counts normally.
+  //
+  // Read-time rule, not a data rewrite: clearing auto_ended_at (or editing this
+  // function) brings the time straight back.
+  if (s.autoEndedAt != null) return 0;
+
   const worked = rawWorkedMs(s, now);
-  // Clamp ACTIVE sessions only. A running session freezes at the cap until
-  // autoClockOut lands; an ended row reads back exactly what's stored, so no
-  // historical total is retroactively rewritten — and none needs backfilling,
-  // since an auto-ended row already works out to exactly SESSION_CAP_MS.
+  // Clamp ACTIVE sessions only, so a running session freezes at the cap rather
+  // than climbing while it waits for autoClockOut. Ended rows read back exactly
+  // what's stored.
   return s.endedAt === null ? Math.min(worked, SESSION_CAP_MS) : worked;
 }
 

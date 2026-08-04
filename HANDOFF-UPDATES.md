@@ -1,132 +1,187 @@
-# Progra — Handoff: updates 2026-07-24 → 07-25
+# Progra — Handoff: updates 2026-07-30 → 08-03
 
 > Supplements `HANDOFF.md` (the durable project brief, last full update 2026-07-23).
-> This captures what shipped in the 07-24/07-25 wave so a fresh Claude session can
-> catch up fast. Full per-change detail is in `CHANGELOG.md` (newest first). When
-> code and this doc disagree, the code wins — fix the doc the same session.
-> All shipped to `main` (`iroybisw47/progra`), behind the usual `REDESIGN` /
-> `SOCIAL_ENABLED` flags. Repo: `C:\Users\iroyb\Progra\progra`.
+> This captures the 07-30 → 08-03 wave so a fresh Claude session can catch up fast.
+> Full per-change detail is in `CHANGELOG.md` (newest first) and `ARCHITECTURE.md`
+> (refreshed through this wave). When code and this doc disagree, the code wins —
+> fix the doc the same session.
+> All shipped to `main` (`iroybisw47/progra`).
+>
+> ⚠️ **Repo path changed: `/Users/ishaanroybiswas/progra`** (migrated from Windows
+> to macOS 2026-07-30). Any `C:\Users\iroyb\…` path in older docs is dead.
+> The previous wave (07-24 → 07-25) is folded into `ARCHITECTURE.md`/`CHANGELOG.md`.
 
-## ⚠️ Manual SQL run this wave (schema is NOT in the repo — user runs it by hand)
-These columns/indexes now exist in Supabase and back the features below. If a fresh
-DB is ever set up, re-run them:
+---
+
+## ⚠️ SQL state — read first (schema is NOT in the repo; the user runs it by hand)
+
+**Already run, backing shipped features:**
 ```sql
--- Nav notification dots (Feed/Friends tabs) + likes/comments panel "seen" stamps
-alter table public.profiles
-  add column if not exists feed_seen_at timestamptz,
-  add column if not exists friend_requests_seen_at timestamptz,
-  add column if not exists notifications_seen_at timestamptz;
+-- 10-hour session cap: provenance + review marker. Nullable, no backfill —
+-- auto_ended_at IS NULL means "the user ended this themselves".
+alter table public.sessions
+  add column if not exists auto_ended_at        timestamptz,
+  add column if not exists auto_end_reviewed_at timestamptz;
 
--- Reactions had no timestamp; needed to order likes + compute "new since seen"
-alter table public.session_reactions
-  add column if not exists created_at timestamptz not null default now();
-
--- Baseline existing users so the first Notifications open isn't a history dump
-update public.profiles set notifications_seen_at = now() where notifications_seen_at is null;
-
--- Supporting indexes for the owner-side notification reads
-create index if not exists session_reactions_session_created_idx
-  on public.session_reactions (session_id, created_at desc);
-create index if not exists session_comments_session_created_idx
-  on public.session_comments (session_id, created_at desc);
+create index if not exists sessions_auto_end_review_idx
+  on public.sessions (user_id, ended_at desc)
+  where auto_ended_at is not null and auto_end_reviewed_at is null;
 ```
+
+**PENDING — code has shipped but is inert or wrong until these run:**
+
+```sql
+-- (1) Push notification device tokens. saveDeviceToken 400s on every app launch
+--     until this exists (fails silently to console.error).
+create table if not exists public.device_tokens (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  token      text not null unique,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.device_tokens enable row level security;
+drop policy if exists device_tokens_own on public.device_tokens;
+create policy device_tokens_own on public.device_tokens
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+notify pgrst, 'reload schema';
+```
+
+```sql
+-- (2) week_leaderboard must exclude auto-ended sessions, or it becomes the ONE
+--     surface that disagrees with sessionWorkedMs (see the zero-hours rule below).
+--     Two steps — the function is SECURITY DEFINER and its body carries the
+--     auth.uid()-derived circle isolation, so DUMP IT FIRST, never rewrite blind:
+--       select pg_get_functiondef('public.week_leaderboard(bigint,bigint)'::regprocedure);
+--     then add to the sessions WHERE clause:
+--       and s.auto_ended_at is null
+--     and re-issue as create or replace, body otherwise byte-identical.
+```
+
+---
 
 ## Features shipped
 
-### Social — notifications
-- **Nav notification dots** on the Feed + Friends bottom-nav tabs. Feed dot = a
-  friend finished a session or joined; Friends dot = a new incoming friend request
-  **OR** an unseen like/comment. Computed server-side (`lib/db/notifications.ts`
-  `getNavBadges`), seeded from the layout, kept live by a ~90s poll +
-  `visibilitychange` in `components/bottom-nav.tsx`. Cleared via `markFeedSeen` /
-  `markFriendsSeen` (`app/actions/notifications.ts`) against the profile `*_seen_at`
-  columns. Feed/friend-request halves clear on visiting the tab.
-- **Likes & comments notifications** (3 phases): a bell at the top-right of the
-  Friends header opens a **slide-over panel** listing who 👍-liked (collapsed per
-  post, Instagram-style) or commented on **your own** sessions.
-  - Read layer: `lib/db/notifications-activity.ts` — `listMyNotifications()`
-    (aggregated, RLS-scoped to your sessions, 👍-only, 30-day window),
-    `hasUnseenNotifications()` (cheap dot check).
-  - UI: `components/notifications-bell.tsx` + new `components/ui/sheet.tsx` (a
-    right-edge slide-over over the app's Base UI dialog primitive).
-  - Actions: `fetchMyNotifications`, `markNotificationsSeen` (stamps
-    `profiles.notifications_seen_at`; dot clears **only** on opening the panel).
-  - The Friends **nav** dot ORs in `hasUnseenNotifications()`.
-- **iOS fix**: the notifications Sheet is `position:fixed`, so it ignored the app's
-  global `body` safe-area padding — its title + X drew under the notch. Added
-  `pt/pb-[env(safe-area-inset-*)]` and offset the close button. Also made the panel
-  full-width on phones (`max-w-full sm:max-w-sm`).
-- **Feed card footer**: comment (speech-bubble) control moved to the **left** of
-  the like heart (`components/v2/feed-v2.tsx`).
+### 10-hour session cap + auto-clock-out
+- A session's worked time is capped at `SESSION_CAP_MS` (10h) in `lib/session.ts`.
+  The live timer freezes at `10:00:00`; `autoClockOut()` (`app/actions/sessions.ts`)
+  ends the row at `sessionCapEndMs` = `startedAt + cap + pausedMs`.
+- **Cap basis is WORKED time, pauses excluded** — a paused session freezes below
+  the cap and can never trip it.
+- **An auto-ended session is worth ZERO worked time, everywhere** (changed
+  2026-08-03 from "counts as exactly 10h"). `sessionWorkedMs` returns 0 when
+  `autoEndedAt` is set, so goals, recaps, rollups, feed and leaderboard agree with
+  no per-surface rule. Hitting the cap means a clock-out was missed, so the hours
+  aren't real. Read-time rule over `auto_ended_at` — clearing the column restores
+  the time. Recovery path: delete the session on `/clock/finish` and re-add the
+  real hours as a past session (an ordinary row, counts in full).
+- No cron exists. Enforcement is lazy via `<EnsureSessionCap/>` in the root layout
+  (the `EnsureProfileSync` pattern) — zero writes on normal loads, an exact
+  `setTimeout` for the crossing, `visibilitychange` re-check for suspended tabs.
+- `listClockedInNow` drops over-cap sessions: your client never writes to a
+  *friend's* row, so a forgotten clock-out would otherwise sit in the strip
+  forever, frozen at 10:00:00, reading as actively working.
+- `sessionAttributionEnd` replaced six independent `endedAt ?? now` sites so the
+  day/week bucket doesn't move when the write lands.
 
-### Progress tab
-- **"Sessions today" widget**: rows are chronological (earliest→latest, so the live
-  session sits at the bottom), goal-tracked rows read **"Goal: {name}"**, and both
-  sessions + imported events show a **start–end AM/PM range**. New `formatTime12`
-  in `lib/dates.ts` (kept separate from `formatTime`, which still feeds the 24h
-  `<input type="time">` in the session dialog).
-- **Unified category donut** — `components/v2/category-donut.tsx` (`CategoryDonut`):
-  a centered donut (period total in the middle) + each category as a row with a
-  **colored bar sized to its share of the total** (hours + %). Used on **Today**,
-  **This week**, and **all /history views**. Retired the old text `Legend` component
-  and `WeekSummary`'s `heroDonut` prop.
+### Native iOS app (Capacitor) + Google sign-in
+- `capacitor.config.ts` sets `server.url = https://progra.world` — the shell is a
+  **thin webview over production**, so the same client bundle serves both, and
+  **JS changes ship via Vercel with no Xcode rebuild**. Native/plugin/Info.plist
+  changes DO require `npx cap sync ios` + an Xcode build.
+- Sign-in uses the **OS Google account picker**, not a browser:
+  `SocialLogin.login()` (`@capgo/capacitor-social-login`) → idToken →
+  `signInWithGoogleIdToken` (`app/actions/native-auth.ts`) calls
+  `supabase.auth.signInWithIdToken()` **server-side** → `claim_invite` for `?ref=`
+  → hard navigate. Server-side because the Supabase server client writes the
+  session as a real `Set-Cookie`; the browser client writes via `document.cookie`,
+  which WKWebView flushes lazily and can drop.
+- Config (all four, or sign-in fails with an audience error): a Google Cloud
+  **iOS** OAuth client for bundle `world.progra.app`; that id in
+  `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID` (local + Vercel); its **reversed** form in
+  `Info.plist` `CFBundleURLTypes`; the id in Supabase → Auth → Providers → Google →
+  Authorized Client IDs. All currently done.
 
-### History (big revamp)
-- Progress **History** sub-tab is now **3 buttons** — Past weeks / Past months /
-  Past year — each opening a **focused** single-period view on `/history`.
-- `/history?view=…` focused views: **no page header, no week/month/year switch** —
-  just a **"Back to history"** link (returns via `/?tab=history`;
-  `ProgressClient` gained an `initialTab` prop, and `app/page.tsx` reads `?tab`),
-  the Previous/Next scrubber, and that period's donut.
-- **Month & year** now render the same `CategoryDonut` as the week (from the
-  rollup's `categoryRows` / `totalTrackedMs`), replacing the old big-number + bars
-  analytical card.
-- **Category drill-down restored on every view**: tap a category (under the donut)
-  to expand its individual sessions/events (title · source · date · hours). Wired
-  through `CategoryDonut`'s optional `items` map. Month/year reuse
-  `rollup.categoryItems`; the **week** now carries `categoryItems` too — added to
-  `computeWeekRecap` (`lib/db/recap.ts`) via `buildCategoryItems`. **View-only** —
-  the old per-item delete/exclude flow was NOT restored.
-- `app/history/loading.tsx` now shows the branded `PrograLoader` (not the stale
-  "History / Where your time went" skeleton).
+### Push notification registration
+- `<PushRegistration/>` (root layout, gated on `user`) requests permission,
+  registers, and calls `saveDeviceToken`. Listeners attach **before** `register()`
+  — the `registration` event fires asynchronously and attaching after can miss it.
+  `register()` runs only on an explicit grant.
+- `App.entitlements` is `aps-environment: development` — needs `production` for
+  TestFlight/App Store.
 
-### Docs
-- `docs/SCREENS.md` — ground-truth screen inventory (routes, states, dialogs,
-  per-tab mermaid flowcharts, orphan analysis). Derived from the tree, not from the
-  (stale) ARCHITECTURE.md.
+### Refer a friend
+- Navy CTA on Progress → Today (between the donut and Sessions today) → `/refer`,
+  which reuses `InviteShare` (the same component onboarding's invite step uses).
+  Deliberately NOT `/i/{username}` — that's the public landing the *recipient*
+  sees, and opening your own bounces to `/me`.
+- Behind `NEXT_PUBLIC_REFER_ENABLED`. Build-time inlined, so flipping needs a redeploy.
+
+### One session card across Feed / You / profiles
+- `components/v2/session-card.tsx` (extracted from FeedV2's inline JSX) now renders
+  all three. `ProfileSessionItem` IS `SessionCardItem`, so the readers can't drift.
+- Fixed a data bug: `listProfileSessions` only hydrated goal titles, so
+  category-tracked sessions had no attribution at all. Now reuses the feed's
+  `resolveFeedAttribution` + `hydrateCategoryNames` — the former encodes a privacy
+  rule (a *private* goal yields no chip rather than falling through to a category
+  name), so it must never be reimplemented.
+- Author header omitted on You/profiles (the page already says whose it is);
+  private sessions show a lock chip instead of the likes/comments row.
+
+---
 
 ## New / notably-changed files
-- `components/v2/category-donut.tsx` (new) — the shared donut+bars+drill-down.
-- `components/notifications-bell.tsx`, `components/ui/sheet.tsx` (new).
-- `lib/db/notifications.ts`, `lib/db/notifications-activity.ts`,
-  `app/actions/notifications.ts` (nav dots + likes/comments).
-- `lib/db/progress.ts` (dropped the per-load month rollup; the History tab is now
-  just links, so `monthLabel/monthTotalMs/monthSegs` were removed from `ProgressData`).
-- `lib/db/recap.ts` (`WeekRecap` gained `sessionCount`, `importedCount`,
-  `categoryItems`), `app/history/history-client.tsx`, `app/history/page.tsx`.
-- `lib/dates.ts` (`formatTime12`), `components/v2/week-summary.tsx` (now delegates
-  to `CategoryDonut`; `heroDonut`/`Legend` gone).
+- `lib/session.ts` — `SESSION_CAP_MS`, `isOverSessionCap`, `sessionCapEndMs`,
+  `sessionAttributionEnd`; `SessionTiming` gained an **optional** `autoEndedAt`
+  (live surfaces pass a minimal payload for a session that can't be auto-ended).
+- `components/ensure-session-cap.tsx`, `components/push-registration.tsx` (new
+  root-layout client leaves, both no-ops until they have work).
+- `app/actions/native-auth.ts`, `app/actions/device-tokens.ts` (new).
+- `lib/native.ts` (`isNativeApp()`, imports `@capacitor/core`) and
+  `lib/native-auth.ts` (`GOOGLE_IOS_CLIENT_ID`, **no** Capacitor import — a
+  `"use server"` action needs it; keep them separate).
+- `components/v2/session-card.tsx`, `components/v2/refer-friend-button.tsx`,
+  `components/v2/auto-end-nudge.tsx`, `app/refer/page.tsx` (new).
+- `components/profile-session-card.tsx`, `components/native-auth-listener.tsx`
+  (**deleted** — see open threads).
+- `ios/` scaffold, `capacitor.config.ts`.
+
+---
 
 ## Open threads / known state (read before touching related code)
-- **Invite links / referrals (PR 1 — code landed, SQL PENDING).** New public route
-  `/i/[username]` + `?ref=` through OAuth + `/auth/callback` calling `claim_invite`.
-  Requires hand-run SQL not yet applied: `profiles.referred_by uuid`, an anon SELECT
-  grant on `public_profiles`, and the `claim_invite` SECURITY DEFINER RPC (see
-  `.claude/plans/invite-links-referrals.md`). ⚠️ **`profiles.referred_by` is
-  `ON DELETE SET NULL`, a DELIBERATE exception to the "every FK to auth.users
-  CASCADEs" rule** — cascade would delete invitees' profiles when a referrer deletes
-  their account. Do NOT "fix" it to cascade. PR 2 (onboarding invite step, empty-feed
-  reuse, suggested-friends extraction) is not started.
-- **Calendar Sync + Auto-categorize live ONLY on the `/history` month/year donut
-  view** (`SyncCalendarButton` / `CategorizePeriodButton` in `history-client.tsx`).
-  `HomeActions` (sync+categorize cards) renders only in the legacy `Dashboard`
-  (non-REDESIGN), and `CategorizeEventsButton` is orphaned. There is a **planned but
-  UNSTARTED** task to give Sync a home on the Progress tab and/or fold sync +
-  auto-categorize into one action — user greenlit exploring it, then paused. If you
-  remove the /history calendar actions, you orphan Sync entirely.
-- `/search` is orphaned under REDESIGN (only a beta-nav tab; nothing links to it).
-- History category drill-down is **view-only** by design this wave (no delete).
-- Conventions unchanged from `HANDOFF.md` §3/§6 (auth via `getCurrentUser`/local
-  `getClaims`; mutations in `app/actions/*` with `lib/revalidate.ts`; reads in
-  `lib/db/*` with `cache()`; RLS is the security authority). New reads/actions this
-  wave follow them.
+
+- **`forcePrompt: true` in `SocialLogin.login()` is LOAD-BEARING, not a UX
+  preference.** `GoogleProvider.swift` branches on
+  `hasPreviousSignIn() && !forceAuthCode`; the `restorePreviousSignIn()` side
+  **never passes our nonce** and returns a cached token. Once a device has signed
+  in that branch is taken forever, so removing this breaks sign-in for every
+  returning user while first-time sign-in still works — brutal to diagnose cold.
+- **Do NOT reintroduce browser-based OAuth on native.** It failed every time with
+  Supabase's `flow_state_not_found` across four fixes. `ARCHITECTURE.md` §7.1
+  records the full history. The nonce pairing is SHA-256 (hex) → Google, **raw** →
+  Supabase; omitting a nonce also fails, since GIDSignIn mints its own.
+- **Calendar connect is BROKEN on native.** `/auth/google-calendar` server-redirects
+  straight to `accounts.google.com`, which the webview hits as an embedded
+  user-agent and Google refuses. Its fix differs from sign-in's: it sets an
+  `httpOnly` CSRF nonce cookie and exchanges tokens server-side, so the deep link
+  must re-enter the server route. Unfixed, documented.
+- **`week_leaderboard` SQL pending** (above). Until it runs, a forgotten clock-out
+  still ranks — the leaderboard is the only surface not going through
+  `sessionWorkedMs`.
+- **`device_tokens` SQL pending** (above). Also note: `token` is unique on its own,
+  so if a second account signs in on the same phone the upsert tries to update a
+  row owned by the previous user and owner-only RLS denies it. Proper fix is a
+  `SECURITY DEFINER` RPC that reassigns, same shape as `accept_friend_request`.
+- **The custom URL scheme `world.progra.app://` is still registered** in
+  `Info.plist` but nothing uses it now that the deep-link auth listener is gone.
+  Harmless; don't wire auth back onto it.
+- **`.claude/` is gitignored except `.claude/commands/`** (changed this wave so
+  slash commands survive machine moves). `.sentinel.yaml` did NOT survive the
+  migration — the agent-runtime guard `ARCHITECTURE.md` §9 describes is not active.
+- **Baselines for verification:** `npm test` = **73 passing**; `npm run lint` = **10
+  pre-existing errors** (must not grow — they're all `react-hooks/set-state-in-effect`
+  and `Cannot call impure function`, none introduced this wave); `tsc --noEmit` and
+  `npm run build` clean.
+- Conventions unchanged from `HANDOFF.md` §3/§6 (reads in `lib/db/*` with `cache()`,
+  writes in `app/actions/*` ending in a `lib/revalidate.ts` helper, RLS as the
+  security authority). Everything new this wave follows them.

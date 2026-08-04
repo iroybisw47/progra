@@ -6,15 +6,21 @@
 > and how the user likes to work. Feed this to a session to seed/refresh memory.
 > When code and this doc disagree, the code wins — fix the doc the same session.
 >
-> _Last updated: 2026-07-23. Repo: `iroybisw47/progra`. Path: `C:\Users\iroyb\Progra\progra`._
+> _Last updated: 2026-07-23. Repo: `iroybisw47/progra`. Path:
+> `/Users/ishaanroybiswas/progra` (moved off Windows 2026-07-30 — any
+> `C:\Users\iroyb\…` path in older docs is dead)._
 > _Major updates since 07-14: V2 REDESIGN live at progra.world; 5-part performance
 > overhaul (§8.5); auth/mutation conventions CHANGED (§3, §6 — old patterns now
 > forbidden); Google OAuth verification prep (§8.6); History week view via shared
 > WeekSummary (07-23); complete feature inventory added (§4.5)._
 >
-> _**Newer than this doc:** see `HANDOFF-UPDATES.md` for the 2026-07-24→07-25 wave
-> (likes/comments notifications, nav dots, unified category donut, History revamp +
-> drill-down, iOS Sheet fixes) and the manual SQL it required._
+> _**Newer than this doc:** `HANDOFF-UPDATES.md` now covers the **2026-07-30 →
+> 08-03** wave (10-hour session cap, native Capacitor iOS app + Google sign-in,
+> push registration, refer-a-friend, one shared session card) — including SQL that
+> is still **PENDING**, and load-bearing gotchas that are easy to break. Read it
+> before touching sessions, auth, or anything native. The earlier 07-24→07-25 wave
+> (likes/comments notifications, nav dots, unified category donut, History revamp)
+> is folded into `ARCHITECTURE.md` and `CHANGELOG.md`._
 
 ---
 

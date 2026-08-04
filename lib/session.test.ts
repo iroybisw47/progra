@@ -96,6 +96,44 @@ describe("sessionWorkedMs", () => {
     const s = makeSession({ startedAt: 0, endedAt: 30 * HOUR });
     expect(sessionWorkedMs(s, 99 * HOUR)).toBe(30 * HOUR);
   });
+
+  // Hitting the cap means you forgot to clock out, so the hours aren't real.
+  // Zero here is what makes it zero on goals, recaps, rollups and the feed —
+  // one rule, every surface.
+  it("an auto-ended session is worth zero, not the cap", () => {
+    const s = makeSession({
+      startedAt: 0,
+      endedAt: SESSION_CAP_MS,
+      autoEndedAt: SESSION_CAP_MS,
+    });
+    expect(sessionWorkedMs(s, 99 * HOUR)).toBe(0);
+  });
+
+  it("zero regardless of how long the session actually ran", () => {
+    for (const endedAt of [1 * HOUR, SESSION_CAP_MS, 40 * HOUR]) {
+      const s = makeSession({ startedAt: 0, endedAt, autoEndedAt: endedAt });
+      expect(sessionWorkedMs(s, 99 * HOUR)).toBe(0);
+    }
+  });
+
+  // The escape hatch: re-adding the real hours as a past session produces an
+  // ordinary row with no autoEndedAt, which counts normally.
+  it("a normal session with the same span still counts in full", () => {
+    const s = makeSession({ startedAt: 0, endedAt: SESSION_CAP_MS });
+    expect(sessionWorkedMs(s, 99 * HOUR)).toBe(SESSION_CAP_MS);
+  });
+
+  // Live surfaces pass a minimal payload with no autoEndedAt at all; an active
+  // session can never be auto-ended, so undefined must behave as "not".
+  it("an omitted autoEndedAt means not auto-ended", () => {
+    const timing = {
+      startedAt: 0,
+      endedAt: null,
+      pausedMs: 0,
+      pausedSince: null,
+    };
+    expect(sessionWorkedMs(timing, 3 * HOUR)).toBe(3 * HOUR);
+  });
 });
 
 describe("sessionCapEndMs", () => {
@@ -108,9 +146,10 @@ describe("sessionCapEndMs", () => {
     expect(sessionCapEndMs(s)).toBe(SESSION_CAP_MS + 2 * HOUR);
   });
 
-  // THE invariant autoClockOut relies on: the row it writes reads back at
-  // exactly the cap, so no ended-row clamp (and no backfill) is ever needed.
-  it("an auto-ended row reads back at exactly the cap", () => {
+  // The span autoClockOut stamps is still exactly the cap — that's what makes
+  // the row honest about when it ended. What it's WORTH is a separate question,
+  // answered by the autoEndedAt rule below.
+  it("the stamped end is exactly one cap's worth of worked time", () => {
     for (const pausedMs of [0, 90 * MIN, 6 * HOUR]) {
       const s = makeSession({ startedAt: 1_700_000_000_000, pausedMs });
       const ended = { ...s, endedAt: sessionCapEndMs(s) };

@@ -365,6 +365,16 @@ durably.
 - **Time math is local-time** with Mon-first weeks and inclusive ends, except the
   habit tz helpers which use UTC arithmetic on a tz-resolved date string.
 - **One active session per user**, DB-enforced (error `23505`).
+- **A session the cap ended is worth ZERO worked time, everywhere.**
+  `sessionWorkedMs` returns 0 when `autoEndedAt` is set, so goals, recaps,
+  rollups, the feed and the leaderboard all agree without any per-surface rule.
+  Hitting the cap means a clock-out was missed, so the hours aren't real. It's a
+  read-time rule over `auto_ended_at`, not a data rewrite — clearing the column
+  restores the time. The recovery path is the finish screen: delete the session
+  and re-add the real hours as a past session, which is an ordinary row with no
+  `autoEndedAt` and counts in full. **`week_leaderboard` must apply the same rule
+  in SQL** (`and s.auto_ended_at is null`) or ranks disagree with every other
+  surface.
 - **A session's worked time can never exceed 10 hours** (`SESSION_CAP_MS`).
   Enforced in two halves: a display clamp on active sessions in
   `sessionWorkedMs`, and `autoClockOut()` which ends the row at

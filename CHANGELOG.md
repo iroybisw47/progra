@@ -6,6 +6,51 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-03
 
+### · Auto-ended sessions are worth ZERO hours, everywhere — **requires SQL**
+Changed from "a capped session counts as exactly 10h". Hitting the 10-hour cap
+means a clock-out was missed, so the hours aren't real and shouldn't earn goal
+progress, recap totals or leaderboard rank.
+
+- `sessionWorkedMs` returns 0 when `autoEndedAt` is set. Enforcing it in the one
+  source of truth is what keeps goals, recaps, rollups, feed and profile cards
+  agreeing without a per-surface rule.
+- `SessionTiming` gained an **optional** `autoEndedAt`. Optional on purpose: live
+  surfaces (nav ticker, clocked-in strip, running timer) build a minimal payload
+  for a session that is by definition still active, and an active session can
+  never be auto-ended — so omitting it is always correct there, and no call site
+  needed changing.
+- Not punitive, and not a data rewrite: it's a read-time rule over
+  `auto_ended_at`. The finish screen's review flow lets you delete the session and
+  re-add the real hours as a past session — an ordinary row with no
+  `autoEndedAt`, which counts in full. Clearing the column also restores the time.
+- Finish-screen copy now says the session counts as 0 and how to recover the
+  hours; without it the big "0s" reads as a bug.
+- Two consequences worth knowing: the auto-clock-out write is **no longer
+  visually a no-op** — your weekly total drops by up to 10h when it lands, which
+  is the intended signal but looks abrupt the first time. And 4 new tests cover
+  the rule (73 total, was 69).
+
+**SQL — `week_leaderboard` is the one surface that computes its own totals**, so
+it needs the same rule or it disagrees with everything else. Two edits to the
+`sess` CTE, body otherwise byte-identical (dump first with `pg_get_functiondef`;
+it's `SECURITY DEFINER` and carries the `auth.uid()`-derived circle isolation):
+
+```sql
+-- 1. exclude auto-ended sessions, in the WHERE clause
+and s.auto_ended_at is null
+
+-- 2. clamp STILL-RUNNING sessions to the cap, wrapping the sum's expression.
+--    auto_ended_at is only set once a session ends, so without this a friend
+--    who is over 10h but hasn't been swept yet (they haven't opened the app)
+--    still ranks on the full uncapped total — the exact abuse case the cap
+--    exists to stop. Mirrors sessionWorkedMs's active-session clamp.
+least(
+  greatest(0, <existing expression>),
+  case when s.ended_at is null then 36000000::bigint
+       else 9223372036854775807::bigint end
+)
+```
+
 ### · Native sign-in working — the nonce fix
 Two things stood between the rebuilt picker flow and a working sign-in, and the
 first masked the second for several rounds.
