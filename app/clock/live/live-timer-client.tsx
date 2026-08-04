@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   CameraIcon,
@@ -28,7 +28,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { CategoryPicker } from "@/components/category-picker";
 import { GoalPicker } from "@/components/goal-picker";
 import { Ticking } from "@/components/ticking";
-import { ToggleSwitch } from "@/components/v2/toggle-switch";
 
 // Lazy chunk — the photo step only matters after a click (or the one-shot
 // ?capture=photo auto-open, which still works: the dialog mounts open once
@@ -145,9 +144,34 @@ export function LiveTimerClient({
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [pickerMode, setPickerMode] = useState<"category" | "goal">("category");
   const [startInput, setStartInput] = useState("");
-  const [stillRunning, setStillRunning] = useState(true);
+  // Seeded with the current time when the sheet opens, so the field reads as a
+  // real time instead of an empty mm/dd/yyyy placeholder. UNCHANGED from that
+  // seed means "still running" — leaving it alone must never finish the
+  // session. `seedEndInput` is what makes that comparison possible.
   const [endInput, setEndInput] = useState("");
   const [seedEndInput, setSeedEndInput] = useState("");
+  const endTouched = endInput !== seedEndInput;
+
+  // Declared with the rest of the edit state, ABOVE openEdit — the React
+  // compiler's purity rule can't tell openEdit is an event handler if it calls a
+  // setter declared further down, and then flags its Date.now() as a render-time
+  // read.
+  //
+  // Validation is held in state rather than derived during render for that same
+  // purity reason: the future check needs the wall clock. It's also not
+  // useNow/useNowMinute — this component is ~500 lines and keeps every tick
+  // inside <Ticking> leaves, so a hook here would re-render the whole screen
+  // once a second. Trade-off: a "future" warning can go stale if the sheet sits
+  // open past the chosen time, which handleSaveEdit corrects by re-checking
+  // against a fresh clock.
+  const [endError, setEndError] = useState<string | null>(null);
+
+  // Focus target for the edit sheet. Without this Base UI focuses the first
+  // focusable element — the Task input — and the phone keyboard covers the
+  // sheet you just asked to see. A tabIndex={-1} container rather than
+  // `initialFocus={false}`: focus still has to move INTO an open modal, it just
+  // shouldn't land in a text field.
+  const editFocusRef = useRef<HTMLDivElement>(null);
 
   function openEdit() {
     setTitleInput(taskName);
@@ -155,11 +179,40 @@ export function LiveTimerClient({
     setSelectedGoalId(goalId);
     setPickerMode(goalId ? "goal" : "category");
     setStartInput(toLocalInput(startedAt));
-    setStillRunning(true);
     const endSeed = toLocalInput(Date.now());
     setEndInput(endSeed);
     setSeedEndInput(endSeed);
+    setEndError(null); // a stale error from a previous open would block Save
     setEditOpen(true);
+  }
+
+  // An untouched (or emptied) field means "no end" — the session keeps running,
+  // so there is nothing to validate. `seed` is passed in rather than read from
+  // state because openEdit sets both in the same tick.
+  function validateEnd(end: string, start: string, seed: string): string | null {
+    if (end === "" || end === seed) return null;
+    const ms = new Date(end).getTime();
+    if (!Number.isFinite(ms)) return "Enter a valid end time";
+    const startMs =
+      start === toLocalInput(startedAt) ? startedAt : new Date(start).getTime();
+    if (Number.isFinite(startMs) && ms <= startMs) {
+      return "End must be after the start time";
+    }
+    if (ms > Date.now()) {
+      return "That's in the future — a session can't end later than right now.";
+    }
+    return null;
+  }
+
+  function onEndChange(next: string) {
+    setEndInput(next);
+    setEndError(validateEnd(next, startInput, seedEndInput));
+  }
+
+  // Moving the start can invalidate an already-entered end, so re-check both.
+  function onStartChange(next: string) {
+    setStartInput(next);
+    setEndError(validateEnd(endInput, next, seedEndInput));
   }
 
   // Notes sheet — writes the session's description (which also surfaces on the
@@ -227,14 +280,22 @@ export function LiveTimerClient({
       toast.error("Enter a valid start time");
       return;
     }
+    // Untouched (or emptied) end = leave the session running. Anything else
+    // ends it at that instant. Re-checked here rather than trusting `endError`,
+    // which was computed on the last keystroke and can lag the clock.
     let endedAtMs: number | null = null;
-    if (!stillRunning) {
-      // An untouched end means "finish now" — use the live clock so an
-      // immediate finish isn't rejected for landing in the start's minute.
-      endedAtMs =
-        endInput === seedEndInput ? Date.now() : new Date(endInput).getTime();
+    if (endInput !== "" && endInput !== seedEndInput) {
+      endedAtMs = new Date(endInput).getTime();
       if (!Number.isFinite(endedAtMs)) {
         toast.error("Enter a valid end time");
+        return;
+      }
+      if (endedAtMs <= startedAtMs) {
+        toast.error("End must be after the start time");
+        return;
+      }
+      if (endedAtMs > Date.now()) {
+        toast.error("A session can't end later than right now.");
         return;
       }
     }
@@ -419,7 +480,9 @@ export function LiveTimerClient({
 
       {/* Edit-time sheet */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
+        {/* initialFocus keeps the phone keyboard from covering the sheet — see
+            editFocusRef. */}
+        <DialogContent initialFocus={editFocusRef}>
           <DialogHeader>
             <DialogTitle>Edit session</DialogTitle>
             <DialogDescription>
@@ -427,7 +490,7 @@ export function LiveTimerClient({
               it&rsquo;s already over, when it ended.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4" ref={editFocusRef} tabIndex={-1}>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="edit-title">Task</Label>
               <Input
@@ -489,41 +552,56 @@ export function LiveTimerClient({
                 type="datetime-local"
                 className="h-11"
                 value={startInput}
-                onChange={(e) => setStartInput(e.target.value)}
+                onChange={(e) => onStartChange(e.target.value)}
               />
             </div>
 
-            <div className="border-hairline flex items-center justify-between rounded-xl border px-3.5 py-3">
-              <div className="flex flex-col">
-                <span className="text-sm font-medium">Still running</span>
-                <span className="text-caption text-xs">
-                  Turn off to set an end time and finish.
-                </span>
+            {/* Always visible: filling it in is how you end a session, and
+                leaving it empty is how you keep going. No toggle to discover. */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <Label htmlFor="edit-end">Ends at</Label>
+                {endTouched && (
+                  <button
+                    type="button"
+                    onClick={() => onEndChange(seedEndInput)}
+                    className="text-caption hover:text-ink text-xs font-medium"
+                  >
+                    Reset
+                  </button>
+                )}
               </div>
-              <ToggleSwitch
-                ariaLabel="Still running"
-                checked={stillRunning}
-                onCheckedChange={setStillRunning}
+              <Input
+                id="edit-end"
+                type="datetime-local"
+                className="h-11"
+                value={endInput}
+                aria-invalid={endError !== null}
+                aria-describedby="edit-end-hint"
+                onChange={(e) => onEndChange(e.target.value)}
               />
+              <p
+                id="edit-end-hint"
+                className={
+                  endError
+                    ? "text-destructive text-xs"
+                    : "text-caption text-xs"
+                }
+              >
+                {endError ??
+                  (endTouched
+                    ? "Saving will finish the session at this time."
+                    : "Leave as-is to keep the session running.")}
+              </p>
             </div>
-
-            {!stillRunning && (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="edit-end">Ended at</Label>
-                <Input
-                  id="edit-end"
-                  type="datetime-local"
-                  className="h-11"
-                  value={endInput}
-                  onChange={(e) => setEndInput(e.target.value)}
-                />
-              </div>
-            )}
           </div>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-            <Button onClick={handleSaveEdit} disabled={pending}>
-              {stillRunning ? "Save" : "Finish session"}
+            <Button
+              onClick={handleSaveEdit}
+              disabled={pending || endError !== null}
+            >
+              {endTouched ? "Finish session" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
