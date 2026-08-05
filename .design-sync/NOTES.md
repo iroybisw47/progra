@@ -6,11 +6,21 @@ Repo-specific gotchas for future syncs.
   entry is the hand-authored `.design-sync/entry.ts` (client-safe surface
   only), wired via `cfg.entry`. Components are enumerated in
   `cfg.componentSrcMap` (server-coupled ones pinned to `null`).
-- **Self-junction required**: `node_modules/progra` is a junction to the repo
-  root, created with PowerShell `New-Item -ItemType Junction`. The converter
-  resolves the package and `tokensPkg` through it, and authored previews
-  `import ... from "progra"` rely on it. **Recreate it on a fresh clone** —
-  junctions aren't committed.
+- **Self-link required**: `node_modules/progra` points at the repo root. The
+  converter resolves the package and `tokensPkg` through it, and authored
+  previews `import ... from "progra"` rely on it. **Recreate it on a fresh
+  clone** — it is never committed.
+  - macOS/Linux: `ln -sfn .. node_modules/progra` (a plain symlink; the
+    original Windows `New-Item -ItemType Junction` has no equivalent here and
+    isn't needed — esbuild follows the symlink fine).
+  - Windows: `New-Item -ItemType Junction`.
+- **`server-only` must be stubbed.** `lib/db/*` imports the `server-only`
+  package, which the repo never installs directly — Next ships its own copy at
+  `next/dist/compiled/server-only`, and that copy's `index.js` **throws by
+  design**. Either way the bundle won't build. Fix: create a no-op package at
+  `node_modules/server-only/` (`package.json` + empty `index.js`). Machine
+  state — recreate on a fresh clone. It's safe because `.design-sync/entry.ts`
+  only exposes the client-safe surface, so nothing server-coupled is reached.
 - **process shim**: `next/link` / `next/navigation` internals read
   `process.env.__NEXT_*` at module scope; `.design-sync/process-shim.ts` (the
   entry's first import) defines `globalThis.process` so the bundle evaluates
@@ -27,8 +37,16 @@ Repo-specific gotchas for future syncs.
   only works when tokensPkg is set). The file also defines `--font-hanken` /
   `--font-newsreader`, which next/font injects in the app but nothing defines
   in the bundle.
-- **Playwright**: cached chromium build 1217 in `%LOCALAPPDATA%\ms-playwright`
-  pins `playwright@1.59.0` (installed in `.ds-sync/`).
+- **Playwright**: installed into `.ds-sync/`, and the browser build must match
+  the pinned version or capture fails.
+  - macOS cache is `~/Library/Caches/ms-playwright` — **not**
+    `~/.cache/ms-playwright`; checking the latter reports "no browsers" on a
+    machine that has them. Current: `playwright@1.62.1` + chromium build 1234.
+  - Windows cache was `%LOCALAPPDATA%\ms-playwright` (chromium 1217,
+    `playwright@1.59.0`).
+- **`_vendor/` filenames** are `react.js` and `react-dom.js` — not the
+  `*.production.min.js` names the layout docs suggest. Build the upload list
+  from the live `ds-bundle/` tree, never from remembered names.
 - **Excluded components** (import server actions / Supabase): WeeklyHabits,
   RecapCard, GoalPicker, HomeActions, SessionDialog,
   CategorizationReviewDialog, CategorizeEventsButton, CategorizePeriodButton,
@@ -82,8 +100,19 @@ Repo-specific gotchas for future syncs.
 
 ## Re-sync risks
 
-- The `node_modules/progra` junction and `.ds-sync/` staging are machine
-  state — recreate both on a fresh clone before running the driver.
+- **`conventions.md` is hand-written prose and does not track the tokens.**
+  It went stale exactly this way once: it described the pre-V2 palette
+  ("warm, paper-like, cream surfaces, deep-teal brand `#355a52`") long after
+  commit `f57e751` (V2 redesign) changed `--brand` to navy `#1c3a5e` /
+  `#7fa3cc` dark and flattened surfaces to white over cool grey. Nothing in
+  the pipeline catches this — validate only checks that named tokens exist,
+  and every name it listed was still real. Since the header is prepended
+  verbatim into the README the design agent reads, a stale palette misdirects
+  the brand of every design built from it. **On each re-sync, diff its colour
+  claims against `app/globals.css` `:root` before uploading.**
+- The `node_modules/progra` symlink (junction on Windows), the `server-only`
+  stub, and `.ds-sync/` staging are all machine state — recreate all three on
+  a fresh clone before running the driver.
 - The compiled Tailwind CSS goes stale whenever `app/globals.css` or app
   class usage changes — `cfg.buildCmd` must run before the converter on every
   re-sync (the driver does this when configured).

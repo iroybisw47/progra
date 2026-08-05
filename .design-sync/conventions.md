@@ -1,8 +1,9 @@
 # Progra — conventions for building with this design system
 
 Progra is a personal productivity PWA (weekly goals, deep-work clock-in,
-habits, Sunday recap) with a **calm, warm, paper-like** look: cream surfaces,
-deep-teal brand, serif headings, no alarmist reds. Designs should feel quiet
+habits, Sunday recap) with a **calm, cool, paper-like** look: clean white
+surfaces over pale grey insets, deep-navy brand, serif headings, no alarmist
+reds (destructive is a muted terracotta). Designs should feel quiet
 and editorial, mobile-first (the app runs at phone width — main columns are
 `max-w-md`, centered).
 
@@ -30,8 +31,10 @@ Verified utility vocabulary (semantic shadcn tokens): `bg-background`,
 `text-xs/sm/3xl`, `font-medium`).
 
 Design-token custom properties for inline styles (light/dark aware):
-`--brand` (deep teal #355a52), `--brand-deep`, `--sand`, `--sand-ink`,
-`--screen` (page background), `--card-warm`, `--inset`, `--track` (progress
+`--brand` (deep navy #1c3a5e), `--brand-deep`, `--sand` (brand tint for
+selected state), `--sand-ink`, `--screen` (page background), `--card-warm`
+(card surface — plain white in V2, despite the name), `--inset`,
+`--track` (progress
 track), `--hairline`, `--divider`, `--ink` (strongest text), `--body`,
 `--faint`, `--caption`, `--done` (success), `--busy` (calendar-busy), and the
 shadcn set (`--background`, `--foreground`, `--primary`, `--muted`, `--card`,
