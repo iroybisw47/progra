@@ -33,6 +33,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
 
+    // MARK: - Push notifications (APNs)
+    //
+    // These two are LOAD-BEARING and easy to lose in an `npx cap sync` /
+    // Capacitor upgrade that regenerates this file. @capacitor/push-notifications
+    // does not swizzle the app delegate: its plugin only observes the two
+    // NotificationCenter posts below (PushNotificationsPlugin.swift `load()`),
+    // and `register()` does nothing but call registerForRemoteNotifications().
+    // iOS hands the token to the delegate — i.e. right here — so without these
+    // the token is dropped, nothing posts .capacitorDidRegisterForRemoteNotifications,
+    // and the JS `registration` listener never fires. It fails silently: the
+    // permission prompt shows, the user grants, register() resolves fine, and no
+    // token ever arrives. That was the state of this app until 2026-08-05.
+    //
+    // These stay UIApplicationDelegate methods even though the app is
+    // scene-based, so they belong here and not in SceneDelegate.
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+    }
+
     func application(_ application: UIApplication,
                      configurationForConnecting connectingSceneSession: UISceneSession,
                      options: UIScene.ConnectionOptions) -> UISceneConfiguration {

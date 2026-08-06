@@ -35,14 +35,30 @@ export function PushRegistration() {
       const onToken = await PushNotifications.addListener(
         "registration",
         (token) => {
+          // DEBUG: remove with the rest of the `[push]` logging once delivery
+          // is confirmed. Truncated — a device token is a credential.
+          console.log(
+            "[push] registration ok, token:",
+            `${token.value.slice(0, 12)}…(${token.value.length} chars)`
+          );
           if (cancelled) return;
-          saveDeviceToken(token.value).then((r) => {
-            if ("error" in r) {
-              // Silent for the user — a push token they never asked about
-              // isn't worth a toast. Retries on the next app load.
-              console.error("saveDeviceToken failed:", r.error);
-            }
-          });
+          saveDeviceToken(token.value)
+            .then((r) => {
+              if ("error" in r) {
+                // Silent for the user — a push token they never asked about
+                // isn't worth a toast. Retries on the next app load.
+                console.error("saveDeviceToken failed:", r.error);
+              } else {
+                console.log("[push] token saved"); // DEBUG
+              }
+            })
+            // The outer .catch() below can NOT catch this: the plugin invokes
+            // this callback later, outside that await chain. saveDeviceToken
+            // has no try/catch, so an auth/network failure or the RPC's own
+            // `raise exception` rejects here — previously an unhandled rejection.
+            .catch((err) => {
+              console.error("saveDeviceToken threw:", err);
+            });
         }
       );
       handles.push(onToken);
@@ -50,10 +66,33 @@ export function PushRegistration() {
       const onError = await PushNotifications.addListener(
         "registrationError",
         (err) => {
-          console.error("Push registration error:", err);
+          // `err` is {error: string}; logging the object alone prints [object
+          // Object] in some webviews, so surface the message too.
+          console.error("Push registration error:", err?.error ?? err, err);
         }
       );
       handles.push(onError);
+
+      // DEBUG: both of these exist purely so a simulator/device test can prove
+      // a delivered push reached JS, not just the OS banner. Logging only —
+      // deliberately no routing (see the plan: tap-to-route is a feature).
+      const onReceived = await PushNotifications.addListener(
+        "pushNotificationReceived",
+        (notification) => {
+          // Fires for foreground pushes. Note this runs BEFORE the plugin
+          // consults `presentationOptions`, so it logs even when no banner shows.
+          console.log("[push] received (foreground):", notification);
+        }
+      );
+      handles.push(onReceived);
+
+      const onAction = await PushNotifications.addListener(
+        "pushNotificationActionPerformed",
+        (action) => {
+          console.log("[push] tapped:", action);
+        }
+      );
+      handles.push(onAction);
 
       if (cancelled) {
         handles.forEach((h) => h.remove());
@@ -63,8 +102,12 @@ export function PushRegistration() {
       // Prompt, then register only on an explicit grant — calling register()
       // after a denial just produces a registrationError.
       const perm = await PushNotifications.requestPermissions();
+      console.log("[push] permission:", perm.receive); // DEBUG
       if (cancelled || perm.receive !== "granted") return;
       await PushNotifications.register();
+      // DEBUG: this resolving proves nothing on its own — it returned fine even
+      // when the AppDelegate was dropping every token. Wait for `registration`.
+      console.log("[push] register() called, awaiting `registration` event…");
     })().catch((err) => {
       console.error("Push setup failed:", err);
     });

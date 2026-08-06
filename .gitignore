@@ -24,6 +24,13 @@
 .DS_Store
 *.pem
 
+# signing / push credentials. *.pem above does NOT catch an APNs auth key
+# (they arrive named AuthKey_XXXXXXXXXX.p8), and Apple only lets you download
+# one once — so a leaked-then-revoked key is a real nuisance.
+*.p8
+*.p12
+*.mobileprovision
+
 # debug
 npm-debug.log*
 yarn-debug.log*

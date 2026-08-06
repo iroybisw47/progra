@@ -1,0 +1,11 @@
+{
+  "aps": {
+    "alert": {
+      "title": "Progra",
+      "body": "Alex reacted to your 2h Thesis writing session"
+    },
+    "sound": "default",
+    "badge": 1
+  },
+  "type": "reaction"
+}
