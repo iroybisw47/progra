@@ -83,8 +83,30 @@ export type RecapFeedItem = {
   postedAt: number; // created_at, epoch ms
 };
 
+// One habit check-off. Unlike `join` this is a real row — habit_completions.id
+// — which is what lets kudos foreign-key straight to it with no synthetic key
+// and no grouping table. Unchecking deletes that row, so the card disappears
+// and its reactions cascade, which is the behaviour we want for free.
+//
+// Only same-day check-offs get here (see posted_at in toggleHabitCompletion).
+// Rendered deliberately smaller than a session card: every check-off posts its
+// own card, so a morning routine can produce several in a row.
+export type HabitCheckoffItem = {
+  kind: "habit";
+  id: string; // habit_completions.id
+  author: PublicUser;
+  habitName: string;
+  // The habit's palette hex, or null — the card falls back to a neutral dot.
+  habitColor: string | null;
+  postedAt: number; // posted_at, epoch ms
+};
+
 // Anything that can appear in the merged Home feed.
-export type FeedEntry = FeedItem | JoinFeedItem | RecapFeedItem;
+export type FeedEntry =
+  | FeedItem
+  | JoinFeedItem
+  | RecapFeedItem
+  | HabitCheckoffItem;
 
 // A friend who is currently clocked in (active session, ended_at IS NULL). The
 // timing fields let the client compute a live worked-duration + paused state via

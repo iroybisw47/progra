@@ -43,6 +43,7 @@ import {
 } from "@/app/actions/habits";
 import { addDaysISO } from "@/lib/dates";
 import type { Habit, HabitCompletion } from "@/lib/db/habits";
+import { MAX_ACTIVE_HABITS } from "@/lib/habits";
 import { cn } from "@/lib/utils";
 
 const LETTERS = ["M", "T", "W", "T", "F", "S", "S"] as const;
@@ -102,6 +103,11 @@ export function ManageHabits({
     { id: string; value: boolean }
   >({}, (state, { id, value }) => ({ ...state, [id]: value }));
   const isHabitPrivate = (h: Habit) => privateOverrides[h.id] ?? h.isPrivate;
+
+  // Every check-off posts its own feed card, so the habit count is what bounds
+  // how much one person can push into their friends' feeds. Enforced on the
+  // server too — this just means nobody meets the limit as a rejection.
+  const atHabitCap = habits.length >= MAX_ACTIVE_HABITS;
 
   // Add-habit + edit-habit dialog state.
   const [newName, setNewName] = useState("");
@@ -381,32 +387,44 @@ export function ManageHabits({
             </section>
           )}
 
-          {/* Add habit */}
+          {/* Add habit. `habits` is already active-only (listHabits filters
+              archived_at is null), so its length IS the capped count. */}
           <section className="flex flex-col gap-3">
             <h3 className="text-caption text-xs font-bold uppercase tracking-wide">
               Add a habit
             </h3>
-            <Input
-              className="h-11"
-              placeholder="Drink water, read 30m, …"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleAdd();
-                }
-              }}
-            />
-            <ColorSwatches value={newColor} onChange={setNewColor} />
-            <Button
-              className="h-11 w-full gap-1.5"
-              onClick={handleAdd}
-              disabled={!newName.trim()}
-            >
-              <PlusIcon className="size-4" />
-              Add habit
-            </Button>
+            {atHabitCap ? (
+              // The server enforces this too, but hitting a rejection you were
+              // never warned about is a bad way to learn a limit exists.
+              <p className="border-hairline text-caption rounded-xl border px-4 py-3 text-sm">
+                You&rsquo;ve got all {MAX_ACTIVE_HABITS} habits. Archive one
+                above to add another.
+              </p>
+            ) : (
+              <>
+                <Input
+                  className="h-11"
+                  placeholder="Drink water, read 30m, …"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAdd();
+                    }
+                  }}
+                />
+                <ColorSwatches value={newColor} onChange={setNewColor} />
+                <Button
+                  className="h-11 w-full gap-1.5"
+                  onClick={handleAdd}
+                  disabled={!newName.trim()}
+                >
+                  <PlusIcon className="size-4" />
+                  Add habit
+                </Button>
+              </>
+            )}
           </section>
         </div>
 
