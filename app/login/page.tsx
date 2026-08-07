@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/require-user";
 import { safeNextPath } from "@/lib/auth/safe-next";
 import { AddToHomeHint } from "@/components/add-to-home-hint";
 
-import { GoogleSignInButton } from "./google-sign-in-button";
+import { SignInButtons } from "./sign-in-buttons";
 
 export const metadata = {
   title: "Sign in - Progra",
@@ -42,7 +42,7 @@ export default async function LoginPage({
           </p>
         )}
 
-        <GoogleSignInButton next={params.next} />
+        <SignInButtons next={params.next} />
 
         {params.error && (
           <p className="text-destructive text-center text-sm">{params.error}</p>

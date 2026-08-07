@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { AddToHomeHint } from "@/components/add-to-home-hint";
 import { AvatarInitials } from "@/components/avatar-initials";
-import { GoogleSignInButton } from "@/app/login/google-sign-in-button";
+import { SignInButtons } from "@/app/login/sign-in-buttons";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { getPublicProfileByUsername } from "@/lib/db/profiles";
 import { createClient } from "@/lib/supabase/server";
@@ -56,7 +56,7 @@ export default async function InvitePage({
             This invite link isn&rsquo;t valid. Double-check it, or continue to
             Progra to sign in.
           </p>
-          <GoogleSignInButton next="/" />
+          <SignInButtons next="/" />
         </main>
       </div>
     );
@@ -86,7 +86,7 @@ export default async function InvitePage({
           friends automatically.
         </p>
 
-        <GoogleSignInButton referrer={target.username} next="/" />
+        <SignInButtons referrer={target.username} next="/" />
         <AddToHomeHint />
       </main>
     </div>

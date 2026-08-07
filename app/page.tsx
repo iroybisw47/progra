@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { CalendarIcon, TimerIcon, UsersIcon } from "lucide-react";
 
 import { AddToHomeHint } from "@/components/add-to-home-hint";
-import { GoogleSignInButton } from "@/app/login/google-sign-in-button";
+import { SignInButtons } from "@/app/login/sign-in-buttons";
 import { Dashboard } from "@/components/dashboard";
 import { Feed } from "@/components/feed";
 import { ProgressClient } from "@/components/v2/progress-client";
@@ -81,7 +81,7 @@ function SignedOutLanding() {
           </p>
         </header>
         {/* Starts the OAuth flow directly — no intermediate /login stop. */}
-        <GoogleSignInButton label="Sign in with Google" />
+        <SignInButtons googleLabel="Sign in with Google" />
 
         {/* Feature blurb — also makes the optional Google Calendar connection
             visible to signed-out visitors (and OAuth reviewers). */}

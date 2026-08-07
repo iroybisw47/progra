@@ -24,12 +24,25 @@ function readNonceClaim(idToken: string): string | null {
   }
 }
 
-// Trades a Google idToken (obtained natively, by the OS account picker) for a
-// Supabase session. This is the whole of native sign-in.
+type NativeProvider = "google" | "apple";
+
+type SignInInput = {
+  idToken: string;
+  // The SAME nonce that was handed to the provider — not a hash of it. Hashing
+  // on exactly one side yields "nonces mismatch"; omitting it entirely yields
+  // "passed nonce and nonce in id_token should either both exist or not". See
+  // buildNonce() in lib/auth/nonce.ts.
+  nonce?: string;
+  next?: string;
+  ref?: string;
+};
+
+// Trades a natively-obtained idToken for a Supabase session. This is the whole
+// of native sign-in, for both providers.
 //
 // It replaces a browser-based OAuth round trip that never worked in the shell.
-// That flow was: open Google in the system browser → deep link back with an
-// auth code → exchange the code against a PKCE code_verifier. It failed
+// That flow was: open the provider in the system browser → deep link back with
+// an auth code → exchange the code against a PKCE code_verifier. It failed
 // consistently with Supabase's flow_state_not_found, and four separate fixes
 // (in-flight guards, local signOut, server-side exchange, server-side verifier
 // write) did not move it. Diagnostics eventually confirmed the verifier cookie
@@ -45,22 +58,16 @@ function readNonceClaim(idToken: string): string | null {
 // the browser client writes via document.cookie, which WKWebView flushes lazily
 // and can drop. Every page in this app is server-rendered from that cookie, so
 // it has to land durably.
-export async function signInWithGoogleIdToken(input: {
-  idToken: string;
-  // The SAME nonce that was handed to Google — not a hash of it. Hashing on
-  // exactly one side yields "nonces mismatch"; omitting it entirely yields
-  // "passed nonce and nonce in id_token should either both exist or not". See
-  // buildNonce() in the sign-in button.
-  nonce?: string;
-  next?: string;
-  ref?: string;
-}): Promise<Result> {
-  if (!input.idToken) return { error: "No Google token received." };
+async function signInWithProviderIdToken(
+  provider: NativeProvider,
+  input: SignInInput
+): Promise<Result> {
+  if (!input.idToken) return { error: "No identity token received." };
 
   const supabase = await createClient();
 
   const { error } = await supabase.auth.signInWithIdToken({
-    provider: "google",
+    provider,
     token: input.idToken,
     ...(input.nonce ? { nonce: input.nonce } : {}),
   });
@@ -70,19 +77,22 @@ export async function signInWithGoogleIdToken(input: {
     // of a user. Only the nonce claim is ever logged, never the token: the
     // token is a credential, a nonce is a single-use random string.
     //
-    // If this fires, check forcePrompt first — without it GIDSignIn returns a
+    // On Google, check forcePrompt first — without it GIDSignIn returns a
     // cached token via restorePreviousSignIn that never carried our nonce, and
     // no pairing can match. See the call site in google-sign-in-button.tsx.
     if (/nonce/i.test(error.message)) {
       console.error(
-        "[native-auth] nonce mismatch — token claim:",
+        `[native-auth] ${provider} nonce mismatch — token claim:`,
         readNonceClaim(input.idToken) ?? "none",
         "| sent:",
         input.nonce ?? "none"
       );
     }
-    // The other common cause is an audience mismatch: the iOS client ID isn't
-    // in Supabase → Auth → Providers → Google → Authorized Client IDs.
+    // The other common cause is an audience mismatch. Google: the iOS client ID
+    // isn't in Supabase → Auth → Providers → Google → Authorized Client IDs.
+    // Apple: the BUNDLE ID (world.progra.app) isn't in that provider's Client
+    // IDs — native Apple tokens carry the bundle id as `aud`, never a Services
+    // ID, which is web-only.
     return { error: error.message };
   }
 
@@ -99,4 +109,21 @@ export async function signInWithGoogleIdToken(input: {
 
   // Resolved here rather than trusted from the client, matching the web route.
   return { ok: true, next: safeNextPath(input.next) };
+}
+
+export async function signInWithGoogleIdToken(
+  input: SignInInput
+): Promise<Result> {
+  return signInWithProviderIdToken("google", input);
+}
+
+// Apple sends the user's name and email ONLY on the very first authorization,
+// and nothing on every sign-in after. That costs us nothing: no code in this
+// app reads provider metadata (profiles get their display name and handle from
+// onboarding, where the user types them), and require-user.ts already returns
+// a null email when the claim is absent.
+export async function signInWithAppleIdToken(
+  input: SignInInput
+): Promise<Result> {
+  return signInWithProviderIdToken("apple", input);
 }

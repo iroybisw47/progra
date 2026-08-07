@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { buildNonce } from "@/lib/auth/nonce";
 import { createClient } from "@/lib/supabase/client";
 import { isNativeApp } from "@/lib/native";
 import { GOOGLE_IOS_CLIENT_ID } from "@/lib/native-auth";
@@ -12,30 +13,6 @@ import { signInWithGoogleIdToken } from "@/app/actions/native-auth";
 // MODULE scope, not component state: at most one native sign-in at a time. A
 // remount would reset component state while the native picker is still up.
 let nativeFlowInFlight = false;
-
-// SHA-256 to Google, the raw value to Supabase — the standard OIDC pairing, the
-// same one Apple's native flow uses. GIDSignIn embeds whatever nonce it's given
-// verbatim, and Supabase hashes the value you hand it before comparing (per
-// auth-js: "the hash of this value is compared to the value in the ID token").
-//
-// Earlier attempts appeared to disprove this and pointed at other pairings, but
-// those tests were void: the plugin was returning a CACHED token via
-// restorePreviousSignIn, which never carried our nonce at all. See forcePrompt
-// at the call site — without it, no pairing can ever match.
-async function buildNonce(): Promise<{ forGoogle: string; forSupabase: string }> {
-  const raw = crypto.randomUUID() + crypto.randomUUID();
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(raw)
-  );
-  return {
-    // Lowercase hex.
-    forGoogle: Array.from(new Uint8Array(digest))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join(""),
-    forSupabase: raw,
-  };
-}
 
 export function GoogleSignInButton({
   next,
@@ -76,14 +53,14 @@ export function GoogleSignInButton({
           google: { iOSClientId: GOOGLE_IOS_CLIENT_ID },
         });
 
-        // Raw to Google, its SHA-256 to Supabase — see buildNonce.
+        // SHA-256 to Google, the raw value to Supabase — see buildNonce.
         const nonce = await buildNonce();
 
         const res = await SocialLogin.login({
           provider: "google",
           options: {
             scopes: ["email", "profile"],
-            nonce: nonce.forGoogle,
+            nonce: nonce.forProvider,
             // LOAD-BEARING, not a UX preference. GoogleProvider.swift branches:
             //
             //   if hasPreviousSignIn() && !forceAuthCode && mode != .OFFLINE
