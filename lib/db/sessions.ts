@@ -20,6 +20,12 @@ export type SessionRow = {
   photo_path: string | null;
   auto_ended_at: string | null;
   auto_end_reviewed_at: string | null;
+  planned_work_ms: number | string | null;
+  work_interval_ms: number | string | null;
+  break_ms: number | string | null;
+  on_break: boolean | null;
+  breaks_taken: number | string | null;
+  plan_reviewed_at: string | null;
 };
 
 // Columns selected for every session read. Single constant so the pause
@@ -27,7 +33,7 @@ export type SessionRow = {
 // (e.g. the feed) select the same shape; add ", user_id" when the reader needs
 // to attribute a row to its author.
 export const SESSION_COLUMNS =
-  "id, category_id, goal_id, task_name, description, started_at, ended_at, paused_ms, paused_since, is_private, photo_path, auto_ended_at, auto_end_reviewed_at";
+  "id, category_id, goal_id, task_name, description, started_at, ended_at, paused_ms, paused_since, is_private, photo_path, auto_ended_at, auto_end_reviewed_at, planned_work_ms, work_interval_ms, break_ms, on_break, breaks_taken, plan_reviewed_at";
 
 export function rowToSession(row: SessionRow): Session {
   return {
@@ -49,6 +55,19 @@ export function rowToSession(row: SessionRow): Session {
     autoEndedAt: row.auto_ended_at ? new Date(row.auto_ended_at).getTime() : null,
     autoEndReviewedAt: row.auto_end_reviewed_at
       ? new Date(row.auto_end_reviewed_at).getTime()
+      : null,
+    // Timed sessions. Null/false/0 on every open-ended row, which is all of
+    // them before the feature — the columns are nullable and defaulted, so no
+    // backfill was needed.
+    plannedWorkMs:
+      row.planned_work_ms != null ? Number(row.planned_work_ms) : null,
+    workIntervalMs:
+      row.work_interval_ms != null ? Number(row.work_interval_ms) : null,
+    breakMs: row.break_ms != null ? Number(row.break_ms) : null,
+    onBreak: row.on_break ?? false,
+    breaksTaken: row.breaks_taken != null ? Number(row.breaks_taken) : 0,
+    planReviewedAt: row.plan_reviewed_at
+      ? new Date(row.plan_reviewed_at).getTime()
       : null,
   };
 }

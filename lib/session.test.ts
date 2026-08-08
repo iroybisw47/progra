@@ -25,6 +25,13 @@ const HOUR = 3_600_000;
 
 function makeSession(over: Partial<Session> = {}): Session {
   return {
+    // Open-ended by default; the timed-session describes override these.
+    plannedWorkMs: null,
+    workIntervalMs: null,
+    breakMs: null,
+    onBreak: false,
+    breaksTaken: 0,
+    planReviewedAt: null,
     id: "s1",
     categoryId: "c1",
     goalId: null,

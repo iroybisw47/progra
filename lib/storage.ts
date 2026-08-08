@@ -47,4 +47,14 @@ export type Session = {
   // which is what dismisses the review nudge. See lib/session.ts.
   autoEndedAt: number | null;
   autoEndReviewedAt: number | null;
+  // Timed sessions. `plannedWorkMs` null = open-ended, which is every session
+  // started before the feature and every one started with the flag off; the
+  // rest of these are meaningless in that case. See the SessionPlan block in
+  // lib/session.ts for how they interact with pause.
+  plannedWorkMs: number | null;
+  workIntervalMs: number | null;
+  breakMs: number | null;
+  onBreak: boolean;
+  breaksTaken: number;
+  planReviewedAt: number | null;
 };

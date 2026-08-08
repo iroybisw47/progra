@@ -15,6 +15,13 @@ let idc = 0;
 
 function sess(over: Partial<Session> = {}): Session {
   return {
+    // Open-ended by default — the shape every session in these tests has.
+    plannedWorkMs: null,
+    workIntervalMs: null,
+    breakMs: null,
+    onBreak: false,
+    breaksTaken: 0,
+    planReviewedAt: null,
     id: `s${idc++}`,
     categoryId: "c1",
     goalId: null,

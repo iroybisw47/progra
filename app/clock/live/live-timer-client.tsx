@@ -40,11 +40,17 @@ const SessionPhotoStep = dynamic(
 import {
   clockOut,
   editActiveSessionTime,
+  endBreak,
   pauseSession,
   resumeSession,
   updateSession,
 } from "@/app/actions/sessions";
-import { sessionWorkedMs } from "@/lib/session";
+import {
+  breakRemainingMs,
+  sessionWorkedMs,
+  type SessionPlan,
+} from "@/lib/session";
+import { useBreakSchedule } from "./use-break-schedule";
 import { formatTime } from "@/lib/dates";
 import type { Attribution } from "@/lib/session-attribution";
 import type { Category } from "@/lib/storage";
@@ -59,6 +65,7 @@ type Props = {
   startedAt: number;
   pausedMs: number;
   pausedSince: number | null;
+  plan: SessionPlan;
   hasPhoto: boolean;
   // Raw fields + option lists for editing title/category/goal in place.
   taskName: string;
@@ -100,6 +107,7 @@ export function LiveTimerClient({
   startedAt,
   pausedMs,
   pausedSince,
+  plan,
   hasPhoto,
   taskName,
   categoryId,
@@ -133,7 +141,28 @@ export function LiveTimerClient({
   const [seedNow] = useState(() => Date.now());
 
   const timing = { startedAt, endedAt: null, pausedMs, pausedSince };
-  const paused = pausedSince != null;
+  // Three states, no overlap. A break IS a pause (both stamp pausedSince), so
+  // `onBreak` is what tells them apart — and Pause is deliberately unavailable
+  // during a break: stopping for longer means ending the break first.
+  const onBreak = plan.onBreak;
+  const paused = pausedSince != null && !onBreak;
+  const timed = plan.plannedWorkMs !== null;
+
+  // Starts breaks when an interval's work is done and ends them when they
+  // elapse. Does nothing for open-ended sessions, and nothing at all while the
+  // app is closed — a break you were never offered didn't happen.
+  useBreakSchedule({ sessionId, timing, plan, enabled: timed });
+
+  function handleEndBreak() {
+    startTransition(async () => {
+      const r = await endBreak();
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
 
   // Edit sheet — title, category/goal, and time.
   const [editOpen, setEditOpen] = useState(false);
@@ -349,10 +378,14 @@ export function LiveTimerClient({
           <span
             className={cn(
               "size-2 rounded-full",
-              paused ? "bg-faint" : "bg-brand animate-pulse"
+              onBreak
+                ? "bg-done"
+                : paused
+                  ? "bg-faint"
+                  : "bg-brand animate-pulse"
             )}
           />
-          {paused ? "Paused" : "Tracking"}
+          {onBreak ? "On a break" : paused ? "Paused" : "Tracking"}
         </div>
         <button
           type="button"
@@ -414,6 +447,40 @@ export function LiveTimerClient({
           </span>
         </div>
 
+        {/* Timed sessions only: how much of the target is done, and — during a
+            break — how long is left on it. Both tick inside <Ticking> leaves so
+            this component still never re-renders on the clock. */}
+        {timed && plan.plannedWorkMs !== null && (
+          <div className="flex w-full max-w-[280px] flex-col items-center gap-1.5">
+            <Ticking>
+              {(tick) => {
+                const now = tick === 0 ? seedNow : tick;
+                const target = plan.plannedWorkMs ?? 0;
+                const worked = sessionWorkedMs(timing, now);
+                const pct = Math.min(100, (worked / target) * 100);
+                return (
+                  <>
+                    <div className="bg-track h-1.5 w-full overflow-hidden rounded-full">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-[width] duration-1000 ease-linear",
+                          onBreak ? "bg-done" : "bg-brand"
+                        )}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="text-faint text-xs tabular-nums">
+                      {onBreak
+                        ? `Break · ${formatElapsed(breakRemainingMs(timing, plan, now))} left`
+                        : `${formatHM(Math.max(0, target - worked))} left of ${formatHM(target)}`}
+                    </span>
+                  </>
+                );
+              }}
+            </Ticking>
+          </div>
+        )}
+
         <div className="text-faint text-xs">
           Started {formatTime(new Date(startedAt))}
           <Ticking>
@@ -459,14 +526,29 @@ export function LiveTimerClient({
 
       {/* Bottom: pause/resume + stop */}
       <div className="flex gap-3 px-6 pb-[max(env(safe-area-inset-bottom),48px)] pt-2">
-        <button
-          type="button"
-          onClick={togglePause}
-          disabled={pending}
-          className="bg-brand/10 text-brand flex-1 rounded-[18px] py-4 text-[15px] font-bold active:scale-[.97] disabled:opacity-60"
-        >
-          {paused ? "Resume" : "Pause"}
-        </button>
+        {/* During a break, Pause is replaced rather than sitting alongside:
+            a break is already a pause, and the server rejects pausing on top of
+            one. Stopping for longer means ending the break first, so that's the
+            only action offered. */}
+        {onBreak ? (
+          <button
+            type="button"
+            onClick={handleEndBreak}
+            disabled={pending}
+            className="bg-done/15 text-done flex-1 rounded-[18px] py-4 text-[15px] font-bold active:scale-[.97] disabled:opacity-60"
+          >
+            End break
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={togglePause}
+            disabled={pending}
+            className="bg-brand/10 text-brand flex-1 rounded-[18px] py-4 text-[15px] font-bold active:scale-[.97] disabled:opacity-60"
+          >
+            {paused ? "Resume" : "Pause"}
+          </button>
+        )}
         <button
           type="button"
           onClick={handleStop}

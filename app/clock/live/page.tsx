@@ -34,6 +34,13 @@ export default async function LiveTimerPage() {
       startedAt={active.startedAt}
       pausedMs={active.pausedMs}
       pausedSince={active.pausedSince}
+      plan={{
+        plannedWorkMs: active.plannedWorkMs,
+        workIntervalMs: active.workIntervalMs,
+        breakMs: active.breakMs,
+        onBreak: active.onBreak,
+        breaksTaken: active.breaksTaken,
+      }}
       hasPhoto={active.photoPath != null}
       taskName={active.taskName}
       categoryId={active.categoryId}
