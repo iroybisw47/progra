@@ -78,7 +78,12 @@ import {
   sessionWorkedMs,
 } from "@/lib/session";
 import { useNowMinute } from "@/lib/hooks";
-import { REDESIGN } from "@/lib/flags";
+import { REDESIGN, TIMED_SESSIONS } from "@/lib/flags";
+import {
+  BREAK_PRESETS,
+  SessionPlanPicker,
+  type BreakPreset,
+} from "@/components/v2/session-plan-picker";
 import { cn } from "@/lib/utils";
 import {
   DAY_LABELS,
@@ -185,6 +190,12 @@ export function ClockClient({
 
   const [taskName, setTaskName] = useState("");
   const [description, setDescription] = useState("");
+  // Timed sessions (behind TIMED_SESSIONS). "open" is the default, so with the
+  // flag off — and for every user who never touches the control — this is the
+  // open-ended clock-in the app has always had, writing no plan columns.
+  const [timerMode, setTimerMode] = useState<"open" | "timed">("open");
+  const [plannedMinutes, setPlannedMinutes] = useState<number | null>(null);
+  const [breakPreset, setBreakPreset] = useState<BreakPreset>("none");
   // A clock-in targets EITHER a category OR a goal. `pickerMode` is which list
   // is currently revealed; selecting from one clears the other. When ?goal=<id>
   // points at a real active goal, seed the goal picker with it (guarded so a
@@ -338,6 +349,17 @@ export function ClockClient({
         goalId,
         taskName: name,
         description,
+        // Omitted entirely in open mode, so that path writes the same row it
+        // always has. Break columns ride along only when a preset is chosen.
+        ...(timerMode === "timed" && plannedMinutes !== null
+          ? {
+              plan: {
+                plannedWorkMs: plannedMinutes * 60_000,
+                workIntervalMs: BREAK_PRESETS[breakPreset].workIntervalMs,
+                breakMs: BREAK_PRESETS[breakPreset].breakMs,
+              },
+            }
+          : {}),
       });
       if ("error" in r) {
         toast.error(r.error);
@@ -347,6 +369,9 @@ export function ClockClient({
       setDescription("");
       setSelectedCategoryId(null);
       setSelectedGoalId(null);
+      setTimerMode("open");
+      setPlannedMinutes(null);
+      setBreakPreset("none");
       toast.success(`Clocked into ${label}`);
       if (REDESIGN) {
         // The redesign runs the session on the full-screen /clock/live timer.
@@ -465,7 +490,11 @@ export function ClockClient({
 
   const activeSelection =
     pickerMode === "goal" ? selectedGoalId : selectedCategoryId;
-  const canClockIn = taskName.trim().length > 0 && activeSelection !== null;
+  // In timed mode a duration is required — there's no sensible default target,
+  // and silently picking one would start a session nobody asked for.
+  const timedPlanReady = timerMode === "open" || plannedMinutes !== null;
+  const canClockIn =
+    taskName.trim().length > 0 && activeSelection !== null && timedPlanReady;
 
   return (
     <div
@@ -744,12 +773,32 @@ export function ClockClient({
                   />
                 )}
               </div>
+              {TIMED_SESSIONS && (
+                <SessionPlanPicker
+                  mode={timerMode}
+                  onModeChange={setTimerMode}
+                  plannedMinutes={plannedMinutes}
+                  onPlannedMinutesChange={setPlannedMinutes}
+                  breakPreset={breakPreset}
+                  onBreakPresetChange={setBreakPreset}
+                />
+              )}
               <Button
                 className="h-11 w-full text-base"
                 disabled={!canClockIn}
                 onClick={handleClockIn}
               >
-                Clock In
+                {/* The label is the real affordance for "which of the two am I
+                    starting?" — whatever else gets skimmed, this doesn't. */}
+                {TIMED_SESSIONS && timerMode === "timed" && plannedMinutes !== null
+                  ? `Clock in for ${
+                      plannedMinutes < 60
+                        ? `${plannedMinutes}m`
+                        : plannedMinutes % 60 === 0
+                          ? `${plannedMinutes / 60}h`
+                          : `${Math.floor(plannedMinutes / 60)}h${plannedMinutes % 60}`
+                    }`
+                  : "Clock In"}
               </Button>
               <Button
                 variant="ghost"

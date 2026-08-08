@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   SESSION_CAP_MS,
   breakRemainingMs,
+  estimatedWallClockMs,
   isBreakDue,
+  plannedBreakCount,
   isOverSessionCap,
   isPaused,
   isPlanComplete,
@@ -378,6 +380,56 @@ describe("breakRemainingMs", () => {
   it("is zero when not on a break", () => {
     const s = makeSession({ startedAt: 0, pausedSince: null });
     expect(breakRemainingMs(s, makePlan(), 30 * MIN)).toBe(0);
+  });
+});
+
+describe("plannedBreakCount / estimatedWallClockMs", () => {
+  // The boundary that coincides with the finish line must NOT count — this is
+  // the same rule isBreakDue enforces, and the clock-in preview lies to the
+  // user if the two ever disagree.
+  it("never counts a break that falls on the finish line", () => {
+    expect(plannedBreakCount(50 * MIN, 25 * MIN)).toBe(1); // 25 only, not 50
+    expect(plannedBreakCount(75 * MIN, 25 * MIN)).toBe(2); // 25, 50
+  });
+
+  it("counts every boundary strictly before the target", () => {
+    expect(plannedBreakCount(2 * HOUR, 25 * MIN)).toBe(4); // 25/50/75/100
+    expect(plannedBreakCount(HOUR, 50 * MIN)).toBe(1); // 50 only
+  });
+
+  it("is zero when the target is shorter than one interval", () => {
+    expect(plannedBreakCount(20 * MIN, 25 * MIN)).toBe(0);
+  });
+
+  it("is zero when breaks aren't configured", () => {
+    expect(plannedBreakCount(2 * HOUR, null)).toBe(0);
+  });
+
+  it("adds every served break to the wall clock", () => {
+    // 2h of work + 4 breaks x 5m = 2h20m.
+    expect(estimatedWallClockMs(2 * HOUR, 25 * MIN, 5 * MIN)).toBe(140 * MIN);
+    // No breaks configured → wall clock is just the target.
+    expect(estimatedWallClockMs(2 * HOUR, null, null)).toBe(2 * HOUR);
+  });
+
+  // The preview and the runtime must agree: the count the preview shows is the
+  // number of times isBreakDue will actually fire.
+  it("agrees with isBreakDue over a whole simulated session", () => {
+    const planned = 2 * HOUR;
+    const interval = 25 * MIN;
+    let breaksTaken = 0;
+    // Walk worked time in 1-minute steps, taking a break whenever one is due.
+    for (let worked = 0; worked <= planned; worked += MIN) {
+      const s = makeSession({ startedAt: 0, pausedMs: 0 });
+      const plan = makePlan({
+        plannedWorkMs: planned,
+        workIntervalMs: interval,
+        breakMs: 5 * MIN,
+        breaksTaken,
+      });
+      if (isBreakDue(s, plan, worked)) breaksTaken += 1;
+    }
+    expect(breaksTaken).toBe(plannedBreakCount(planned, interval));
   });
 });
 

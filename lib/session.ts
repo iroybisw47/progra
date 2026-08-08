@@ -181,6 +181,36 @@ export function isBreakDue(
   return worked >= due;
 }
 
+// How many breaks a plan will actually serve.
+//
+// Breaks land at each interval boundary strictly BEFORE the target, so the
+// boundary that coincides with the finish line never fires — the same rule
+// isBreakDue enforces by refusing to interrupt the run-in to the end. 2h at
+// 25/5 gives 4 breaks (25/50/75/100, not 120); 50m at 25/5 gives 1, because
+// the 50m boundary IS the finish.
+//
+// Used by the clock-in preview. It must stay in step with isBreakDue, which is
+// why it lives here next to it rather than in the component.
+export function plannedBreakCount(
+  plannedWorkMs: number,
+  workIntervalMs: number | null
+): number {
+  if (workIntervalMs === null || workIntervalMs <= 0) return 0;
+  return Math.max(0, Math.ceil(plannedWorkMs / workIntervalMs) - 1);
+}
+
+// Roughly how long a plan takes on the wall clock: the work target plus every
+// break it will serve. "Roughly" because a manual pause pushes it out further —
+// the clock-in preview says "about".
+export function estimatedWallClockMs(
+  plannedWorkMs: number,
+  workIntervalMs: number | null,
+  breakMs: number | null
+): number {
+  if (workIntervalMs === null || breakMs === null) return plannedWorkMs;
+  return plannedWorkMs + plannedBreakCount(plannedWorkMs, workIntervalMs) * breakMs;
+}
+
 // Time left in the current break, floored at zero. `pausedSince` IS the break's
 // start instant — a break sets it exactly as a manual pause does — so no
 // separate column is needed to time it.
