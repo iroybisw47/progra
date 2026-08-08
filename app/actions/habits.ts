@@ -5,11 +5,6 @@ import { revalidateHabitSurfaces } from "@/lib/revalidate";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { todayInTimeZone } from "@/lib/dates";
-import {
-  MAX_ACTIVE_HABITS,
-  canAddHabit,
-  shouldPostCheckoffToFeed,
-} from "@/lib/habits";
 
 type Result = { ok: true } | { error: string };
 
@@ -23,21 +18,6 @@ export async function createHabit(
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
-
-  // Cap on ACTIVE habits — archived ones don't count, so archiving frees a slot.
-  // The UI disables its add control at the same number; this is the backstop,
-  // and the wording is user-facing because a client can always call an action
-  // directly.
-  const { count: activeCount } = await supabase
-    .from("habits")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .is("archived_at", null);
-  if (!canAddHabit(activeCount ?? 0)) {
-    return {
-      error: `You can have up to ${MAX_ACTIVE_HABITS} habits. Archive one to add another.`,
-    };
-  }
 
   // Auto-assign from the shared 12-swatch palette (same one categories use),
   // cycling by existing habit count. Editable afterwards via updateHabit.
@@ -154,21 +134,10 @@ export async function toggleHabitCompletion(
       .eq("id", (existing as { id: string }).id);
     if (error) return { error: error.message };
   } else {
-    // posted_at is what puts a check-off in friends' feeds, and it's set ONLY
-    // when you're checking off today. Backfilling a missed day is catch-up
-    // bookkeeping, not a moment worth broadcasting — and without this rule a
-    // card would announce "just now" about last Tuesday.
-    //
-    // Storing it beats deriving it later: `completed_on` is a date in the
-    // author's timezone and `created_at` is a timestamptz, so a reader would
-    // otherwise have to join every author's profile timezone just to work out
-    // whether the two describe the same day. It doubles as the feed sort key.
-    const isToday = shouldPostCheckoffToFeed(localDate, serverToday);
     const { error } = await supabase.from("habit_completions").insert({
       user_id: user.id,
       habit_id: habitId,
       completed_on: localDate,
-      posted_at: isToday ? new Date().toISOString() : null,
     });
     if (error) return { error: error.message };
   }

@@ -4,7 +4,6 @@ import { AvatarInitials } from "@/components/avatar-initials";
 import { ClockedInStrip } from "@/components/clocked-in-strip";
 import { FeedLivePoll } from "@/components/feed-live-poll";
 import { InviteShare } from "@/components/v2/invite-share";
-import { HabitCheckoffCard } from "@/components/v2/habit-checkoff-card";
 import { RecapFeedCard } from "@/components/v2/recap-feed-card";
 import { SessionCard } from "@/components/v2/session-card";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,8 +17,6 @@ import {
 } from "@/lib/db/feed";
 import { listCommentsForSessions } from "@/lib/db/comments";
 import { listReactionsForSessions } from "@/lib/db/reactions";
-import { listFriendHabitCheckoffs } from "@/lib/db/habit-feed";
-import { listHabitKudos } from "@/lib/db/habit-social";
 import { listRecapKudos, listRecapComments } from "@/lib/db/recap-social";
 import { LIKE_EMOJI } from "@/lib/social/reactions";
 import { formatRelativeTime } from "@/lib/dates";
@@ -49,11 +46,6 @@ export async function FeedV2() {
   const recapCommentsPromise = recapPromise.then((items) =>
     listRecapComments(items.map((i) => i.id))
   );
-  // Habit kudos chain off the check-offs the same way — keyed by completion id.
-  const habitPromise = listFriendHabitCheckoffs();
-  const habitKudosPromise = habitPromise.then((items) =>
-    listHabitKudos(items.map((i) => i.id))
-  );
   const [
     sessionItems,
     clockedIn,
@@ -63,8 +55,6 @@ export async function FeedV2() {
     reactionsBySession,
     recapKudosById,
     recapCommentsById,
-    habitItems,
-    habitKudosById,
     viewerProfile,
   ] = await Promise.all([
     feedPromise,
@@ -75,17 +65,13 @@ export async function FeedV2() {
     reactionsPromise,
     recapKudosPromise,
     recapCommentsPromise,
-    habitPromise,
-    habitKudosPromise,
     // Own handle for the empty-state invite link (cache()-wrapped — free).
     getProfile(),
   ]);
   const now = Date.now();
 
-  // Merge sessions + join announcements + recap posts + habit check-offs,
-  // newest-first (sessions by end time, joins by when the member joined, recaps
-  // and habit check-offs by when posted — both carry `postedAt`, so the final
-  // branch covers the two).
+  // Merge sessions + join announcements + recap posts, newest-first (sessions by
+  // end time, joins by when the member joined, recaps by when posted).
   const sortAt = (e: FeedEntry) =>
     e.kind === "session"
       ? e.endedAt
@@ -96,7 +82,6 @@ export async function FeedV2() {
     ...sessionItems,
     ...joinItems,
     ...recapItems,
-    ...habitItems,
   ].sort((a, b) => sortAt(b) - sortAt(a));
 
   return (
@@ -191,19 +176,6 @@ export async function FeedV2() {
                   now={now}
                   kudos={recapKudosById.get(entry.id) ?? { count: 0, mine: false }}
                   comments={recapCommentsById.get(entry.id) ?? []}
-                />
-              );
-            }
-
-            if (entry.kind === "habit") {
-              return (
-                <HabitCheckoffCard
-                  key={entry.id}
-                  entry={entry}
-                  now={now}
-                  kudos={
-                    habitKudosById.get(entry.id) ?? { count: 0, mine: false }
-                  }
                 />
               );
             }
