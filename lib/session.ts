@@ -181,6 +181,22 @@ export function isBreakDue(
   return worked >= due;
 }
 
+// Can a break schedule ever fire inside this target?
+//
+// A break lands at each interval boundary strictly BEFORE the finish line, so
+// an interval at or beyond the target produces a schedule with no breaks in it.
+// Rejecting that beats silently recording break settings that never fire.
+//
+// Shared deliberately: the clock-in picker greys out presets with this, and
+// resolvePlan rejects with it. Two copies of this rule would eventually let the
+// UI offer something the action refuses.
+export function breakFitsTarget(
+  workIntervalMs: number,
+  plannedWorkMs: number
+): boolean {
+  return workIntervalMs < plannedWorkMs;
+}
+
 // How many breaks a plan will actually serve.
 //
 // Breaks land at each interval boundary strictly BEFORE the target, so the

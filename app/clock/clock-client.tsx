@@ -791,13 +791,7 @@ export function ClockClient({
                 {/* The label is the real affordance for "which of the two am I
                     starting?" — whatever else gets skimmed, this doesn't. */}
                 {TIMED_SESSIONS && timerMode === "timed" && plannedMinutes !== null
-                  ? `Clock in for ${
-                      plannedMinutes < 60
-                        ? `${plannedMinutes}m`
-                        : plannedMinutes % 60 === 0
-                          ? `${plannedMinutes / 60}h`
-                          : `${Math.floor(plannedMinutes / 60)}h${plannedMinutes % 60}`
-                    }`
+                  ? `Clock in for ${formatDuration(plannedMinutes * 60_000)}`
                   : "Clock In"}
               </Button>
               <Button

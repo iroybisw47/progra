@@ -25,3 +25,37 @@ export function formatDuration(ms: number): string {
   if (h === 0) return `${m}m`;
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
+
+// --- Duration stepper (timed clock-in) -------------------------------------
+//
+// Bounds for a session's work target, in minutes. The ceiling matches
+// SESSION_CAP_MS: the 10-hour cap would end a longer session anyway, so
+// offering more would be offering something we can't honour.
+export const MIN_DURATION_MINUTES = 10;
+export const MAX_DURATION_MINUTES = 600;
+const STEP_MINUTES = 10;
+
+export function clampDurationMinutes(min: number): number {
+  if (!Number.isFinite(min)) return MIN_DURATION_MINUTES;
+  return Math.min(
+    MAX_DURATION_MINUTES,
+    Math.max(MIN_DURATION_MINUTES, Math.round(min))
+  );
+}
+
+// The next/previous multiple of ten, NOT +10 and -10.
+//
+// Typing an off-step value is honoured exactly — type 47 and you get 47 — but
+// stepping from it lands on round numbers (47 → 50, or 47 → 40) instead of
+// stranding you on 57 and 67 forever with no way back except retyping.
+export function stepDurationUp(min: number): number {
+  return clampDurationMinutes(
+    Math.floor(min / STEP_MINUTES) * STEP_MINUTES + STEP_MINUTES
+  );
+}
+
+export function stepDurationDown(min: number): number {
+  return clampDurationMinutes(
+    Math.ceil(min / STEP_MINUTES) * STEP_MINUTES - STEP_MINUTES
+  );
+}

@@ -10,6 +10,7 @@ import { listCategories } from "@/lib/db/categories";
 import { listHistoryPage, type HistoryItem } from "@/lib/db/history";
 import {
   SESSION_CAP_MS,
+  breakFitsTarget,
   isOverSessionCap,
   isPlanComplete,
   plannedEndMs,
@@ -89,8 +90,10 @@ function resolvePlan(
       return { error: "Break settings must be longer than zero" };
     }
     // A first break that lands at or past the finish line can never happen, so
-    // reject it rather than silently recording breaks that never fire.
-    if (interval >= planned) {
+    // reject it rather than silently recording breaks that never fire. Same
+    // helper the clock-in picker greys presets out with, so the UI can't offer
+    // a combination this rejects.
+    if (!breakFitsTarget(interval, planned)) {
       return { error: "Breaks must come sooner than the end of the session" };
     }
   }

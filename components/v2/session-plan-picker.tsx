@@ -1,8 +1,24 @@
 "use client";
 
+import { useState } from "react";
+import { MinusIcon, PlusIcon } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { estimatedWallClockMs, plannedBreakCount } from "@/lib/session";
+import { Input } from "@/components/ui/input";
+import {
+  MAX_DURATION_MINUTES,
+  MIN_DURATION_MINUTES,
+  clampDurationMinutes,
+  formatDuration,
+  stepDurationDown,
+  stepDurationUp,
+} from "@/lib/duration";
+import {
+  breakFitsTarget,
+  estimatedWallClockMs,
+  plannedBreakCount,
+} from "@/lib/session";
 
 // Break schedules, named the way people say them. "None" is a real choice, not
 // an absence — a target with no breaks is a perfectly ordinary way to work.
@@ -14,17 +30,12 @@ export const BREAK_PRESETS = {
 
 export type BreakPreset = keyof typeof BREAK_PRESETS;
 
-// Five options cover essentially every study session. Deliberately no custom
-// field: every extra input is a decision standing between someone and starting
-// work, and the common path here should be two taps.
-const DURATIONS_MIN = [30, 60, 90, 120, 180] as const;
+// What the stepper starts at when someone switches to a timed session. A real
+// value beats an empty box: the control reads as a control, and the clock-in
+// button already states the target, so nothing starts by surprise.
+export const DEFAULT_DURATION_MINUTES = 60;
 
-function formatDuration(min: number): string {
-  if (min < 60) return `${min}m`;
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return m === 0 ? `${h}h` : `${h}h${m}`;
-}
+const asMinutes = (min: number) => formatDuration(min * 60_000);
 
 // A break preset can only be offered if its interval falls strictly INSIDE the
 // target — otherwise the break never fires, and resolvePlan rejects it server
@@ -36,7 +47,7 @@ export function presetFitsDuration(
   const cfg = BREAK_PRESETS[preset];
   if (cfg.workIntervalMs === null) return true;
   if (plannedMinutes === null) return true;
-  return cfg.workIntervalMs < plannedMinutes * 60_000;
+  return breakFitsTarget(cfg.workIntervalMs, plannedMinutes * 60_000);
 }
 
 type Props = {
@@ -65,16 +76,31 @@ export function SessionPlanPicker({
 }: Props) {
   const timed = mode === "timed";
   const cfg = BREAK_PRESETS[breakPreset];
+  const minutes = plannedMinutes ?? DEFAULT_DURATION_MINUTES;
 
-  // Changing the duration can strand a break preset that no longer fits (pick
-  // 1h + 50/10, drop to 30m). Reset it here rather than letting the server
-  // reject a combination the UI itself offered.
-  function selectDuration(min: number) {
-    const next = plannedMinutes === min ? null : min;
+  // While the value is being typed it lives here as a raw string, so a
+  // half-finished entry ("4" on the way to "45") isn't clamped out from under
+  // the user's fingers. null = not editing.
+  const [draft, setDraft] = useState<string | null>(null);
+
+  // The ONLY way the duration changes — both buttons and the typed commit go
+  // through it, so the break-preset reset can't be forgotten on one path.
+  function setDuration(next: number) {
     onPlannedMinutesChange(next);
-    if (next !== null && !presetFitsDuration(breakPreset, next)) {
-      onBreakPresetChange("none");
-    }
+    // Stepping down can strand a preset whose interval no longer fits (1h with
+    // 50/10, stepped to 50m). The chip disables in the same frame, so the cause
+    // is on screen — but the selection has to move or the server would reject
+    // a combination this UI itself offered.
+    if (!presetFitsDuration(breakPreset, next)) onBreakPresetChange("none");
+  }
+
+  function commitDraft() {
+    if (draft === null) return;
+    const parsed = Number.parseInt(draft, 10);
+    // Empty or unparseable reverts to what was there. Clearing the field should
+    // never leave the session with no target.
+    if (Number.isFinite(parsed)) setDuration(clampDurationMinutes(parsed));
+    setDraft(null);
   }
 
   return (
@@ -94,7 +120,13 @@ export function SessionPlanPicker({
           variant={timed ? "secondary" : "outline"}
           className="h-9 flex-1"
           aria-pressed={timed}
-          onClick={() => onModeChange("timed")}
+          onClick={() => {
+            onModeChange("timed");
+            // Seed a real target so the stepper never renders empty.
+            if (plannedMinutes === null) {
+              onPlannedMinutesChange(DEFAULT_DURATION_MINUTES);
+            }
+          }}
         >
           Set a timer
         </Button>
@@ -104,23 +136,65 @@ export function SessionPlanPicker({
         <div className="flex flex-col gap-3 pt-1">
           <div className="flex flex-col gap-2">
             <span className="text-caption text-xs font-medium">How long</span>
-            <div className="flex flex-wrap gap-2">
-              {DURATIONS_MIN.map((min) => (
-                <Badge
-                  key={min}
-                  variant={plannedMinutes === min ? "default" : "outline"}
-                  className="h-8 cursor-pointer px-3 text-sm tabular-nums"
-                  render={
-                    <button
-                      type="button"
-                      aria-pressed={plannedMinutes === min}
-                      onClick={() => selectDuration(min)}
-                    />
-                  }
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-10 shrink-0"
+                aria-label="10 minutes less"
+                disabled={minutes <= MIN_DURATION_MINUTES}
+                onClick={() => setDuration(stepDurationDown(minutes))}
+              >
+                <MinusIcon className="size-4" />
+              </Button>
+
+              {draft !== null ? (
+                <Input
+                  autoFocus
+                  type="number"
+                  inputMode="numeric"
+                  step={10}
+                  min={MIN_DURATION_MINUTES}
+                  max={MAX_DURATION_MINUTES}
+                  aria-label="Minutes"
+                  className="h-10 flex-1 text-center text-base tabular-nums"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onBlur={commitDraft}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                    if (e.key === "Escape") setDraft(null);
+                  }}
+                />
+              ) : (
+                // The number IS the edit affordance. At 10-minute steps, 1h to
+                // 3h is 12 taps and the 10h ceiling is 54 — typing is the
+                // escape hatch, so it can't hide behind a small icon.
+                <button
+                  type="button"
+                  className="border-hairline hover:bg-muted/50 h-10 flex-1 rounded-xl border text-center text-base font-medium tabular-nums transition-colors"
+                  aria-label={`Work for ${asMinutes(minutes)}. Tap to type a different length`}
+                  onClick={() => setDraft(String(minutes))}
                 >
-                  {formatDuration(min)}
-                </Badge>
-              ))}
+                  {asMinutes(minutes)}
+                </button>
+              )}
+
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-10 shrink-0"
+                aria-label="10 minutes more"
+                disabled={minutes >= MAX_DURATION_MINUTES}
+                onClick={() => setDuration(stepDurationUp(minutes))}
+              >
+                <PlusIcon className="size-4" />
+              </Button>
             </div>
           </div>
 
@@ -155,32 +229,28 @@ export function SessionPlanPicker({
 
           {/* Says out loud that the target is WORK time and the wall clock runs
               longer — the one thing people would otherwise guess wrong. */}
-          {plannedMinutes !== null && (
-            <p className="text-caption text-xs text-pretty">
-              {formatDuration(plannedMinutes)} of work
-              {cfg.workIntervalMs !== null && cfg.breakMs !== null && (
-                <>
-                  {" · "}
-                  {cfg.breakMs / 60_000}m break every {cfg.workIntervalMs / 60_000}m
-                  {" · about "}
-                  {formatDuration(
-                    Math.round(
-                      estimatedWallClockMs(
-                        plannedMinutes * 60_000,
-                        cfg.workIntervalMs,
-                        cfg.breakMs
-                      ) / 60_000
-                    )
-                  )}{" "}
-                  total
-                  {plannedBreakCount(
-                    plannedMinutes * 60_000,
-                    cfg.workIntervalMs
-                  ) === 0 && " (no break fits)"}
-                </>
-              )}
-            </p>
-          )}
+          {/* Says out loud that the target is WORK time and the wall clock runs
+              longer — the one thing people would otherwise guess wrong. */}
+          <p className="text-caption text-xs text-pretty">
+            {asMinutes(minutes)} of work
+            {cfg.workIntervalMs !== null && cfg.breakMs !== null && (
+              <>
+                {" · "}
+                {cfg.breakMs / 60_000}m break every {cfg.workIntervalMs / 60_000}m
+                {" · about "}
+                {formatDuration(
+                  estimatedWallClockMs(
+                    minutes * 60_000,
+                    cfg.workIntervalMs,
+                    cfg.breakMs
+                  )
+                )}{" "}
+                total
+                {plannedBreakCount(minutes * 60_000, cfg.workIntervalMs) === 0 &&
+                  " (no break fits)"}
+              </>
+            )}
+          </p>
         </div>
       )}
     </div>

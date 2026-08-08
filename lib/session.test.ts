@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   SESSION_CAP_MS,
+  breakFitsTarget,
   breakRemainingMs,
   estimatedWallClockMs,
   isBreakDue,
@@ -380,6 +381,33 @@ describe("breakRemainingMs", () => {
   it("is zero when not on a break", () => {
     const s = makeSession({ startedAt: 0, pausedSince: null });
     expect(breakRemainingMs(s, makePlan(), 30 * MIN)).toBe(0);
+  });
+});
+
+describe("breakFitsTarget", () => {
+  // One rule, two consumers: the picker greys presets out with it and
+  // resolvePlan rejects with it. If they ever disagreed, the UI would offer a
+  // combination the server refuses.
+  it("requires the interval to fall strictly inside the target", () => {
+    expect(breakFitsTarget(25 * MIN, HOUR)).toBe(true);
+    expect(breakFitsTarget(50 * MIN, HOUR)).toBe(true);
+    // The boundary case: an interval equal to the target puts the only break
+    // exactly on the finish line, where isBreakDue refuses to fire it.
+    expect(breakFitsTarget(50 * MIN, 50 * MIN)).toBe(false);
+    expect(breakFitsTarget(50 * MIN, 30 * MIN)).toBe(false);
+  });
+
+  it("agrees with plannedBreakCount — a fitting schedule serves >= 1 break", () => {
+    for (const [interval, target] of [
+      [25 * MIN, HOUR],
+      [50 * MIN, HOUR],
+      [25 * MIN, 47 * MIN],
+      [50 * MIN, 50 * MIN],
+      [50 * MIN, 30 * MIN],
+    ] as const) {
+      const fits = breakFitsTarget(interval, target);
+      expect(plannedBreakCount(target, interval) > 0).toBe(fits);
+    }
   });
 });
 
