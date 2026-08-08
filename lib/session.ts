@@ -227,6 +227,26 @@ export function estimatedWallClockMs(
   return plannedWorkMs + plannedBreakCount(plannedWorkMs, workIntervalMs) * breakMs;
 }
 
+// Worked time remaining until the next break starts, or null when no further
+// break will fire — because breaks aren't configured, because one is already
+// running, or because the next boundary falls at or beyond the target.
+//
+// That last case is the one worth having a function for: with a 1h target and
+// 25/5, breaks land at 25m and 50m and then never again, so after the second
+// one the timer must stop promising a third. Mirrors isBreakDue's refusal to
+// interrupt the run-in to the finish line.
+export function msUntilNextBreak(
+  s: SessionTiming,
+  plan: SessionPlan,
+  now: number
+): number | null {
+  if (plan.onBreak || s.endedAt !== null) return null;
+  const due = nextBreakDueAtWorkedMs(plan);
+  if (due === null) return null;
+  if (plan.plannedWorkMs !== null && due >= plan.plannedWorkMs) return null;
+  return Math.max(0, due - rawWorkedMs(s, now));
+}
+
 // Time left in the current break, floored at zero. `pausedSince` IS the break's
 // start instant — a break sets it exactly as a manual pause does — so no
 // separate column is needed to time it.

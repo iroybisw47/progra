@@ -47,6 +47,7 @@ import {
 } from "@/app/actions/sessions";
 import {
   breakRemainingMs,
+  msUntilNextBreak,
   sessionWorkedMs,
   type SessionPlan,
 } from "@/lib/session";
@@ -473,6 +474,17 @@ export function LiveTimerClient({
                       {onBreak
                         ? `Break · ${formatElapsed(breakRemainingMs(timing, plan, now))} left`
                         : `${formatHM(Math.max(0, target - worked))} left of ${formatHM(target)}`}
+                      {/* Only while working, and only when another break will
+                          actually fire — msUntilNextBreak returns null once the
+                          next boundary would fall at or past the target, which
+                          is where isBreakDue stops firing them. */}
+                      {!onBreak &&
+                        (() => {
+                          const next = msUntilNextBreak(timing, plan, now);
+                          return next === null
+                            ? null
+                            : ` · break in ${formatHM(next)}`;
+                        })()}
                     </span>
                   </>
                 );

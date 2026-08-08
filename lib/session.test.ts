@@ -10,6 +10,7 @@ import {
   isOverSessionCap,
   isPaused,
   isPlanComplete,
+  msUntilNextBreak,
   nextBreakDueAtWorkedMs,
   plannedEndMs,
   sessionAttributionEnd,
@@ -368,6 +369,42 @@ describe("isBreakDue", () => {
     expect(
       isBreakDue(s, makePlan({ workIntervalMs: null, breakMs: null }), 99 * HOUR)
     ).toBe(false);
+  });
+});
+
+describe("msUntilNextBreak", () => {
+  it("counts down the worked time to the next boundary", () => {
+    const s = makeSession({ startedAt: 0 });
+    expect(msUntilNextBreak(s, makePlan(), 0)).toBe(25 * MIN);
+    expect(msUntilNextBreak(s, makePlan(), 10 * MIN)).toBe(15 * MIN);
+  });
+
+  it("ignores paused time, matching worked-time semantics", () => {
+    // 40m elapsed but 15m of it paused → 25m worked, so the boundary is here.
+    const s = makeSession({ startedAt: 0, pausedMs: 15 * MIN });
+    expect(msUntilNextBreak(s, makePlan(), 40 * MIN)).toBe(0);
+  });
+
+  // The case this function exists for: with a 1h target at 25/5 the breaks are
+  // at 25m and 50m and then there are no more, so the timer must stop
+  // promising one that isBreakDue would refuse to fire.
+  it("returns null once no further break can fire", () => {
+    const s = makeSession({ startedAt: 0 });
+    const plan = makePlan({ plannedWorkMs: HOUR, breaksTaken: 2 });
+    // Next boundary would be 75m, past the 60m target.
+    expect(msUntilNextBreak(s, plan, 50 * MIN)).toBe(null);
+  });
+
+  it("is null while on a break, and when breaks aren't configured", () => {
+    const s = makeSession({ startedAt: 0, pausedSince: 25 * MIN });
+    expect(msUntilNextBreak(s, makePlan({ onBreak: true }), 26 * MIN)).toBe(null);
+    expect(
+      msUntilNextBreak(
+        makeSession({ startedAt: 0 }),
+        makePlan({ workIntervalMs: null, breakMs: null }),
+        10 * MIN
+      )
+    ).toBe(null);
   });
 });
 
