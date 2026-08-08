@@ -63,7 +63,11 @@ export function allReminderIds(): number[] {
 export function clockReminders(
   timing: SessionTiming,
   plan: SessionPlan,
-  now: number
+  now: number,
+  // How long an "hour" is. Only ever overridden by the `fast` test mode, which
+  // shortens it to two minutes — passed IN rather than read from a flag here,
+  // so this module stays pure and its tests stay independent of the env.
+  hourMs: number = HOUR_MS
 ): ClockReminder[] {
   // An ended session has nothing pending.
   if (timing.endedAt !== null) return [];
@@ -96,7 +100,7 @@ export function clockReminders(
   // OPEN-ENDED: hourly nudges, one per hour of WORKED time.
   const out: ClockReminder[] = [];
   for (let hour = 1; hour <= MAX_HOURLY_REMINDERS; hour++) {
-    const workedMark = hour * HOUR_MS;
+    const workedMark = hour * hourMs;
     // Same conversion as the timed branch — deliberately the same function.
     const at = plannedEndMs(timing, workedMark);
     // Drop marks already behind us: opening three hours into a session must

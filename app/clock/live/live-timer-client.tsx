@@ -53,6 +53,9 @@ import {
   sessionWorkedMs,
   type SessionPlan,
 } from "@/lib/session";
+import { canScheduleReminders } from "@/lib/clock-notifications";
+import { CLOCK_REMINDERS } from "@/lib/flags";
+import { isNativeApp } from "@/lib/native";
 import { primeTimerSound, setTimerSoundMuted } from "@/lib/timer-sound";
 import { useTimerSoundMuted } from "@/lib/use-muted";
 import { useBreakSchedule } from "./use-break-schedule";
@@ -164,6 +167,19 @@ export function LiveTimerClient({
   // loses that — so re-prime on the first press anywhere on this screen.
   // Once, passively, and idempotent.
   const muted = useTimerSoundMuted();
+
+  // Reminders need notification permission, and on iOS that's the SAME
+  // authorization push already asked for — so anyone who dismissed that prompt
+  // has silently blocked these, with Settings the only cure. Say so rather
+  // than let them wonder why nothing arrives.
+  //
+  // Set from an async .then(), never synchronously in the effect body: that
+  // distinction is what the lint baseline turns on.
+  const [remindersBlocked, setRemindersBlocked] = useState(false);
+  useEffect(() => {
+    if (!CLOCK_REMINDERS || !isNativeApp()) return;
+    void canScheduleReminders().then((ok) => setRemindersBlocked(!ok));
+  }, []);
   useEffect(() => {
     if (!timed) return;
     const onFirstPress = () => primeTimerSound();
@@ -585,6 +601,15 @@ export function LiveTimerClient({
           )}
         </div>
       </div>
+
+      {/* Quiet, and only when it's actually true. iOS shares one notification
+          authorization with push, so this is usually already granted. */}
+      {remindersBlocked && (
+        <p className="text-faint mx-6 mb-2 text-center text-xs text-pretty">
+          Reminders are off — turn on notifications for Progra in Settings to
+          get them.
+        </p>
+      )}
 
       {/* Target reached: a few seconds to bail before this finishes itself. */}
       {finishingIn !== null && (

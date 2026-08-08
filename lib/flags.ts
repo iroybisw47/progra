@@ -51,4 +51,18 @@ export const TIMED_SESSIONS = envFlag(process.env.NEXT_PUBLIC_TIMED_SESSIONS);
 // open-ended sessions, which is what every user has today — so without its own
 // flag, shipping the native build that adds the plugin would start notifying
 // the whole beta group with no warning.
-export const CLOCK_REMINDERS = envFlag(process.env.NEXT_PUBLIC_CLOCK_REMINDERS);
+//
+// Accepts one extra value beyond the usual 1/true: "fast", which shortens an
+// "hour" to two minutes so the hourly nudge can actually be tested. Verifying
+// it otherwise costs a real hour per attempt, which means in practice it would
+// ship unverified. A distinct value rather than a second boolean, so it can't
+// be switched on by accident — but production must be set to "1", not "fast".
+const CLOCK_REMINDERS_RAW = process.env.NEXT_PUBLIC_CLOCK_REMINDERS;
+export const CLOCK_REMINDERS_FAST = CLOCK_REMINDERS_RAW === "fast";
+export const CLOCK_REMINDERS =
+  envFlag(CLOCK_REMINDERS_RAW) || CLOCK_REMINDERS_FAST;
+
+// How long an "hour" is for the hourly nudge. Only ever anything else in test
+// mode; lib/clock-reminders.ts stays pure and takes this as an argument rather
+// than reading the flag itself.
+export const REMINDER_HOUR_MS = CLOCK_REMINDERS_FAST ? 2 * 60_000 : 60 * 60_000;

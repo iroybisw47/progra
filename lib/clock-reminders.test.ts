@@ -132,6 +132,28 @@ describe("bounds", () => {
   });
 });
 
+describe("the hour interval is injectable (fast test mode)", () => {
+  // The `fast` flag shortens an "hour" so the nudge is testable without waiting
+  // a real one. The interval is an argument rather than a flag read inside this
+  // module, which is what keeps these tests independent of the environment.
+  it("places marks on the supplied interval", () => {
+    const out = clockReminders(timing(), plan(), 0, 2 * MIN);
+    expect(out[0].at).toBe(2 * MIN);
+    expect(out[1].at).toBe(4 * MIN);
+  });
+
+  it("keeps the same count and copy regardless of interval", () => {
+    const fast = clockReminders(timing(), plan(), 0, 2 * MIN);
+    const real = clockReminders(timing(), plan(), 0);
+    expect(fast).toHaveLength(real.length);
+    expect(fast[0].body).toBe(real[0].body);
+  });
+
+  it("defaults to a real hour when omitted", () => {
+    expect(clockReminders(timing(), plan(), 0)[0].at).toBe(HOUR);
+  });
+});
+
 describe("ids", () => {
   it("never collide between the two kinds", () => {
     const ids = allReminderIds();

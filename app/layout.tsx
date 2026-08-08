@@ -8,6 +8,7 @@ import { EnsureSessionCap } from "@/components/ensure-session-cap";
 import { PushRegistration } from "@/components/push-registration";
 import { Toaster } from "@/components/ui/sonner";
 import { EnsurePlanComplete } from "@/components/ensure-plan-complete";
+import { SyncClockReminders } from "@/components/sync-clock-reminders";
 import { PlanCompleteModal } from "@/components/v2/plan-complete-modal";
 import {
   getActiveSession,
@@ -128,6 +129,19 @@ export default async function RootLayout({
             sessionId={planComplete.id}
             taskName={planComplete.taskName}
             workedMs={planComplete.workedMs}
+          />
+        )}
+        {/* Flat primitives again: an object literal is a fresh reference every
+            render and would re-sync the device's notification schedule on every
+            layout render. Only these five are needed — clockReminders reads
+            nothing else, and breaks arrive via pausedSince. */}
+        {user && (
+          <SyncClockReminders
+            sessionId={activeSession?.id ?? null}
+            startedAt={activeSession?.startedAt ?? null}
+            pausedMs={activeSession?.pausedMs ?? null}
+            pausedSince={activeSession?.pausedSince ?? null}
+            plannedWorkMs={activeSession?.plannedWorkMs ?? null}
           />
         )}
         {/* Gated on `user`: the push token is stored against the current
