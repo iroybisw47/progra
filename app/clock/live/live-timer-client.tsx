@@ -52,6 +52,7 @@ import {
   type SessionPlan,
 } from "@/lib/session";
 import { useBreakSchedule } from "./use-break-schedule";
+import { usePlanFinish } from "./use-plan-finish";
 import { formatTime } from "@/lib/dates";
 import type { Attribution } from "@/lib/session-attribution";
 import type { Category } from "@/lib/storage";
@@ -153,6 +154,17 @@ export function LiveTimerClient({
   // elapse. Does nothing for open-ended sessions, and nothing at all while the
   // app is closed — a break you were never offered didn't happen.
   useBreakSchedule({ sessionId, timing, plan, enabled: timed });
+
+  // The finishing countdown. Reaching the target while you're watching gives a
+  // few seconds to bail rather than yanking you into the finish screen
+  // mid-thought — see usePlanFinish for why "Keep going" clears the plan
+  // outright instead of merely skipping this once.
+  const { finishingIn, keepGoing } = usePlanFinish({
+    timing,
+    plan,
+    enabled: timed,
+    onFinished: (sid) => router.replace(`/clock/finish?sid=${sid}`),
+  });
 
   function handleEndBreak() {
     startTransition(async () => {
@@ -535,6 +547,22 @@ export function LiveTimerClient({
           )}
         </div>
       </div>
+
+      {/* Target reached: a few seconds to bail before this finishes itself. */}
+      {finishingIn !== null && (
+        <div className="mx-6 mb-2 flex items-center gap-3 rounded-[18px] border border-[color:var(--done)]/30 bg-[color:var(--done)]/10 px-4 py-3">
+          <span className="flex-1 text-sm font-medium">
+            Time&rsquo;s up — finishing in {Math.max(0, finishingIn)}s
+          </span>
+          <button
+            type="button"
+            onClick={keepGoing}
+            className="text-done shrink-0 text-sm font-bold underline underline-offset-4 active:scale-95"
+          >
+            Keep going
+          </button>
+        </div>
+      )}
 
       {/* Bottom: pause/resume + stop */}
       <div className="flex gap-3 px-6 pb-[max(env(safe-area-inset-bottom),48px)] pt-2">

@@ -7,7 +7,12 @@ import { EnsureProfileSync } from "@/components/ensure-profile-sync";
 import { EnsureSessionCap } from "@/components/ensure-session-cap";
 import { PushRegistration } from "@/components/push-registration";
 import { Toaster } from "@/components/ui/sonner";
-import { getActiveSession } from "@/lib/db/sessions";
+import { EnsurePlanComplete } from "@/components/ensure-plan-complete";
+import { PlanCompleteModal } from "@/components/v2/plan-complete-modal";
+import {
+  getActiveSession,
+  getUnreviewedPlanComplete,
+} from "@/lib/db/sessions";
 import { getNavBadges } from "@/lib/db/notifications";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
@@ -63,12 +68,15 @@ export default async function RootLayout({
   // page; the auth read inside each is shared via cache(). The profile feeds
   // EnsureProfileSync's stored-timezone comparison (and is free on routes that
   // fetch it anyway).
-  const [user, activeSession, profile, navBadges] = await Promise.all([
-    getOptionalUser(),
-    getActiveSession(),
-    getProfile(),
-    getNavBadges(),
-  ]);
+  const [user, activeSession, profile, navBadges, planComplete] =
+    await Promise.all([
+      getOptionalUser(),
+      getActiveSession(),
+      getProfile(),
+      getNavBadges(),
+      // Null on the common path — the partial index makes it a cheap miss.
+      getUnreviewedPlanComplete(),
+    ]);
   return (
     <html lang="en" className={`${ptSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
@@ -99,6 +107,27 @@ export default async function RootLayout({
             startedAt={activeSession?.startedAt ?? null}
             pausedMs={activeSession?.pausedMs ?? null}
             pausedSince={activeSession?.pausedSince ?? null}
+          />
+        )}
+        {/* Flat primitives here too, and for the same reason as the cap leaf:
+            an object literal is a fresh reference every render and would
+            re-schedule the completion timer on every layout re-render. */}
+        {user && (
+          <EnsurePlanComplete
+            sessionId={activeSession?.id ?? null}
+            startedAt={activeSession?.startedAt ?? null}
+            pausedMs={activeSession?.pausedMs ?? null}
+            pausedSince={activeSession?.pausedSince ?? null}
+            plannedWorkMs={activeSession?.plannedWorkMs ?? null}
+          />
+        )}
+        {/* Shown once, on the first load after a timed session finished while
+            nobody was watching. Both of its buttons stamp plan_reviewed_at. */}
+        {user && planComplete && (
+          <PlanCompleteModal
+            sessionId={planComplete.id}
+            taskName={planComplete.taskName}
+            workedMs={planComplete.workedMs}
           />
         )}
         {/* Gated on `user`: the push token is stored against the current

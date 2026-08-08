@@ -375,6 +375,37 @@ export async function completePlannedSession(): Promise<
   return { ok: true, ended: true, sessionId: row.id };
 }
 
+// Drops the plan from the active session, turning it back into an ordinary
+// open-ended one. Timing is untouched: worked time, breaks already taken and
+// banked pauses all stay exactly as they are.
+//
+// This is what "Keep going" does when a target is reached. It has to clear the
+// plan rather than merely skip the auto-end, because a timed session left
+// running past its target is an incoherent state — the root-layout leaf would
+// end it the moment the user navigated away, so the "undo" would undo nothing.
+export async function clearSessionPlan(): Promise<Result> {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { error } = await supabase
+    .from("sessions")
+    .update({
+      planned_work_ms: null,
+      work_interval_ms: null,
+      break_ms: null,
+      // A break in progress stays a pause — dropping the plan must not silently
+      // resume the clock. Only the "this pause is a break" label goes.
+      on_break: false,
+    })
+    .eq("user_id", user.id)
+    .is("ended_at", null);
+  if (error) return { error: error.message };
+
+  revalidateSessionSurfaces();
+  return { ok: true };
+}
+
 // Dismisses the "your session finished" modal once it's been seen, so it can't
 // reappear on another device. Mirrors markAutoEndReviewed.
 export async function markPlanReviewed(id: string): Promise<Result> {

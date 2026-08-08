@@ -4,6 +4,7 @@ import { cache } from "react";
 
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
+import { sessionWorkedMs } from "@/lib/session";
 import type { Session } from "@/lib/storage";
 
 export type SessionRow = {
@@ -92,6 +93,53 @@ export const getUnreviewedAutoEnd = cache(
       .maybeSingle();
 
     return (data as { id: string } | null) ?? null;
+  }
+);
+
+// The most recent timed session that reached its target and hasn't been
+// acknowledged — drives the completion modal. Null on the common path (the
+// partial index makes that a cheap miss). Cached per request.
+//
+// Completion is DERIVED rather than stored: a session ended by its plan reads
+// back as exactly planned_work_ms of worked time (that's plannedEndMs's
+// invariant), while one clocked out early reads back as less. There's no
+// PostgREST filter for "(ended_at - started_at) - paused_ms >= planned", so the
+// comparison happens here.
+//
+// Takes a handful rather than the newest row: a timed session someone clocked
+// out early stays unreviewed forever, and limit(1) would let it mask a real
+// completion sitting behind it.
+export const getUnreviewedPlanComplete = cache(
+  async (): Promise<{ id: string; taskName: string; workedMs: number } | null> => {
+    const me = await getCurrentUser();
+    if (!me) return null;
+
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("sessions")
+      .select(SESSION_COLUMNS)
+      .eq("user_id", me.id)
+      .not("planned_work_ms", "is", null)
+      .not("ended_at", "is", null)
+      .is("plan_reviewed_at", null)
+      .order("ended_at", { ascending: false })
+      .limit(5);
+    if (!data) return null;
+
+    for (const row of data as SessionRow[]) {
+      const s = rowToSession(row);
+      if (s.plannedWorkMs === null) continue;
+      // `now` is irrelevant for an ended row — sessionWorkedMs reads what's
+      // stored — but the signature wants it.
+      if (sessionWorkedMs(s, Date.now()) >= s.plannedWorkMs) {
+        return {
+          id: s.id,
+          taskName: s.taskName.trim() || "Untitled session",
+          workedMs: s.plannedWorkMs,
+        };
+      }
+    }
+    return null;
   }
 );
 
