@@ -43,3 +43,12 @@ export const REFER_ENABLED = envFlag(process.env.NEXT_PUBLIC_REFER_ENABLED);
 // Built across several passes, so this exists to let the unfinished middle ship
 // to production dark rather than sitting on a long-lived branch.
 export const TIMED_SESSIONS = envFlag(process.env.NEXT_PUBLIC_TIMED_SESSIONS);
+
+// Master switch for on-device clock reminders: an hourly nudge on open-ended
+// sessions, and a single alert when a timed session reaches its target.
+//
+// Deliberately INDEPENDENT of TIMED_SESSIONS. The hourly nudge applies to
+// open-ended sessions, which is what every user has today — so without its own
+// flag, shipping the native build that adds the plugin would start notifying
+// the whole beta group with no warning.
+export const CLOCK_REMINDERS = envFlag(process.env.NEXT_PUBLIC_CLOCK_REMINDERS);
