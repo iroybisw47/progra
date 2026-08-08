@@ -1,18 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { MinusIcon, PlusIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  MAX_DURATION_MINUTES,
-  MIN_DURATION_MINUTES,
   formatDuration,
   splitHoursMinutes,
-  stepDurationDown,
-  stepDurationUp,
   totalMinutesFrom,
 } from "@/lib/duration";
 import {
@@ -81,8 +76,13 @@ export function SessionPlanPicker({
 
   // While the value is being typed it lives here as raw strings, so a
   // half-finished entry ("4" on the way to "45") isn't clamped out from under
-  // the user's fingers. null = not editing.
+  // the user's fingers. null = not editing, in which case the fields render
+  // straight from the committed value — which is what keeps them in step with
+  // an external change (switching modes seeds 1h) without a sync effect, and
+  // therefore without tripping react-hooks/set-state-in-effect.
   const [draft, setDraft] = useState<{ h: string; m: string } | null>(null);
+  const parts = splitHoursMinutes(minutes);
+  const shown = draft ?? { h: String(parts.h), m: String(parts.m) };
 
   // The ONLY way the duration changes — both buttons and the typed commit go
   // through it, so the break-preset reset can't be forgotten on one path.
@@ -96,8 +96,7 @@ export function SessionPlanPicker({
   }
 
   function beginEdit() {
-    const { h, m } = splitHoursMinutes(minutes);
-    setDraft({ h: String(h), m: String(m) });
+    if (draft === null) setDraft({ h: String(parts.h), m: String(parts.m) });
   }
 
   function commitDraft() {
@@ -142,94 +141,60 @@ export function SessionPlanPicker({
         <div className="flex flex-col gap-3 pt-1">
           <div className="flex flex-col gap-2">
             <span className="text-caption text-xs font-medium">How long</span>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="size-10 shrink-0"
-                aria-label="10 minutes less"
-                disabled={minutes <= MIN_DURATION_MINUTES}
-                onClick={() => setDuration(stepDurationDown(minutes))}
-              >
-                <MinusIcon className="size-4" />
-              </Button>
+            {/* Two plain fields, hours and minutes. No stepper: if you can type
+                the number, +/− buttons are just two more things between you and
+                starting. Blank counts as zero in both, so filling in only the
+                one you care about works — "45" in minutes alone, or "2" in
+                hours alone.
 
-              {draft !== null ? (
-                // Two fields, hours and minutes. Blank counts as zero in both,
-                // which is what lets someone type only the one they care about.
-                // Commit happens when focus leaves the PAIR — tabbing from
-                // hours to minutes must not close the editor.
-                <div
-                  className="flex flex-1 items-center gap-1.5"
-                  onBlur={(e) => {
-                    if (e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                      return;
-                    }
-                    commitDraft();
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      commitDraft();
-                    }
-                    if (e.key === "Escape") setDraft(null);
-                  }}
-                >
-                  <Input
-                    autoFocus
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    aria-label="Hours"
-                    className="h-10 min-w-0 flex-1 text-center text-base tabular-nums"
-                    value={draft.h}
-                    onChange={(e) =>
-                      setDraft((d) => ({ h: e.target.value, m: d?.m ?? "" }))
-                    }
-                  />
-                  <span className="text-caption shrink-0 text-xs">h</span>
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    // Deliberately no max: typing 90 minutes means 1h 30m.
-                    // Treating a shorthand as an error would be worse than
-                    // rolling it over, and the total is clamped either way.
-                    aria-label="Minutes"
-                    className="h-10 min-w-0 flex-1 text-center text-base tabular-nums"
-                    value={draft.m}
-                    onChange={(e) =>
-                      setDraft((d) => ({ h: d?.h ?? "", m: e.target.value }))
-                    }
-                  />
-                  <span className="text-caption shrink-0 text-xs">m</span>
-                </div>
-              ) : (
-                // The number IS the edit affordance. At 10-minute steps, 1h to
-                // 3h is 12 taps and the 10h ceiling is 54 — typing is the
-                // escape hatch, so it can't hide behind a small icon.
-                <button
-                  type="button"
-                  className="border-hairline hover:bg-muted/50 h-10 flex-1 rounded-xl border text-center text-base font-medium tabular-nums transition-colors"
-                  aria-label={`Work for ${asMinutes(minutes)}. Tap to type a different length`}
-                  onClick={beginEdit}
-                >
-                  {asMinutes(minutes)}
-                </button>
-              )}
-
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="size-10 shrink-0"
-                aria-label="10 minutes more"
-                disabled={minutes >= MAX_DURATION_MINUTES}
-                onClick={() => setDuration(stepDurationUp(minutes))}
-              >
-                <PlusIcon className="size-4" />
-              </Button>
+                Commit happens when focus leaves the PAIR, so tabbing from hours
+                to minutes doesn't commit a half-finished entry. */}
+            <div
+              className="flex items-center gap-1.5"
+              onBlur={(e) => {
+                if (e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                  return;
+                }
+                commitDraft();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitDraft();
+                }
+                if (e.key === "Escape") setDraft(null);
+              }}
+            >
+              <Input
+                // type="text" + inputMode, NOT type="number": number inputs
+                // render spinner arrows, change value on an accidental scroll,
+                // and accept "e". This gets the numeric keypad without any of
+                // that.
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                aria-label="Hours"
+                className="h-10 min-w-0 flex-1 text-center text-base tabular-nums"
+                value={shown.h}
+                onFocus={beginEdit}
+                onChange={(e) =>
+                  setDraft((d) => ({ h: e.target.value, m: d?.m ?? shown.m }))
+                }
+              />
+              <span className="text-caption shrink-0 text-xs">h</span>
+              <Input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                aria-label="Minutes"
+                className="h-10 min-w-0 flex-1 text-center text-base tabular-nums"
+                value={shown.m}
+                onFocus={beginEdit}
+                onChange={(e) =>
+                  setDraft((d) => ({ h: d?.h ?? shown.h, m: e.target.value }))
+                }
+              />
+              <span className="text-caption shrink-0 text-xs">m</span>
             </div>
           </div>
 
