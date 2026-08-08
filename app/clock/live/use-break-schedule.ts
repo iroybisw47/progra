@@ -11,6 +11,7 @@ import {
   type SessionPlan,
   type SessionTiming,
 } from "@/lib/session";
+import { playTimerCue } from "@/lib/timer-sound";
 
 // Drives the automatic half of a timed session's break schedule: starting a
 // break when an interval's worth of work is done, and ending it when it elapses.
@@ -74,7 +75,12 @@ export function useBreakSchedule({
       inFlight = true;
       try {
         const r = onBreak ? await endBreak() : await startBreak();
-        if (!cancelled && !("error" in r)) router.refresh();
+        if (!cancelled && !("error" in r)) {
+          // Only after the write lands, so a failed transition is silent — a
+          // chime for a break that didn't start would be worse than nothing.
+          playTimerCue(onBreak ? "breakEnd" : "breakStart");
+          router.refresh();
+        }
       } finally {
         inFlight = false;
       }

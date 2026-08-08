@@ -8,7 +8,13 @@ import {
   clearSessionPlan,
   completePlannedSession,
 } from "@/app/actions/sessions";
-import { isPlanComplete, plannedEndMs, type SessionPlan, type SessionTiming } from "@/lib/session";
+import {
+  isPlanComplete,
+  plannedEndMs,
+  type SessionPlan,
+  type SessionTiming,
+} from "@/lib/session";
+import { playTimerCue } from "@/lib/timer-sound";
 
 // Seconds of grace before a timed session ends itself, while you're watching.
 const GRACE_SECONDS = 5;
@@ -84,16 +90,17 @@ export function usePlanFinish({
     if (isPlanComplete(t, { plannedWorkMs }, Date.now())) return;
 
     const end = plannedEndMs(t, plannedWorkMs);
-    const id = window.setTimeout(
-      () => setFinishingIn(GRACE_SECONDS),
-      Math.max(0, end - Date.now())
-    );
+    const id = window.setTimeout(() => {
+      playTimerCue("finished");
+      setFinishingIn(GRACE_SECONDS);
+    }, Math.max(0, end - Date.now()));
     // A suspended webview never fires its timer; catch up on return.
     const onVisible = () => {
       if (
         document.visibilityState === "visible" &&
         isPlanComplete(t, { plannedWorkMs }, Date.now())
       ) {
+        playTimerCue("finished");
         setFinishingIn(GRACE_SECONDS);
       }
     };

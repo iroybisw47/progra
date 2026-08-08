@@ -10,6 +10,8 @@ import {
   FileTextIcon,
   ImageIcon,
   PencilIcon,
+  Volume2Icon,
+  VolumeXIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -51,6 +53,8 @@ import {
   sessionWorkedMs,
   type SessionPlan,
 } from "@/lib/session";
+import { primeTimerSound, setTimerSoundMuted } from "@/lib/timer-sound";
+import { useTimerSoundMuted } from "@/lib/use-muted";
 import { useBreakSchedule } from "./use-break-schedule";
 import { usePlanFinish } from "./use-plan-finish";
 import { formatTime } from "@/lib/dates";
@@ -154,6 +158,18 @@ export function LiveTimerClient({
   // elapse. Does nothing for open-ended sessions, and nothing at all while the
   // app is closed — a break you were never offered didn't happen.
   useBreakSchedule({ sessionId, timing, plan, enabled: timed });
+
+  // Cues can't play from a setTimeout unless audio was unlocked by a real
+  // gesture first. Clock-in primes it, but a reload or a reopen mid-session
+  // loses that — so re-prime on the first press anywhere on this screen.
+  // Once, passively, and idempotent.
+  const muted = useTimerSoundMuted();
+  useEffect(() => {
+    if (!timed) return;
+    const onFirstPress = () => primeTimerSound();
+    document.addEventListener("pointerdown", onFirstPress, { once: true });
+    return () => document.removeEventListener("pointerdown", onFirstPress);
+  }, [timed]);
 
   // The finishing countdown. Reaching the target while you're watching gives a
   // few seconds to bail rather than yanking you into the finish screen
@@ -399,6 +415,28 @@ export function LiveTimerClient({
             )}
           />
           {onBreak ? "On a break" : paused ? "Paused" : "Tracking"}
+          {/* Only meaningful when something will actually chime. A per-device
+              preference (localStorage), not an account setting — muted in a
+              library shouldn't mute your laptop. */}
+          {timed && (
+            <button
+              type="button"
+              aria-label={muted ? "Unmute timer sounds" : "Mute timer sounds"}
+              aria-pressed={muted}
+              onClick={() => {
+                // Toggling is itself a gesture, so unmuting can unlock audio.
+                primeTimerSound();
+                setTimerSoundMuted(!muted);
+              }}
+              className="text-faint hover:text-caption -my-1 ml-0.5 p-1 active:scale-90"
+            >
+              {muted ? (
+                <VolumeXIcon className="size-3.5" />
+              ) : (
+                <Volume2Icon className="size-3.5" />
+              )}
+            </button>
+          )}
         </div>
         <button
           type="button"

@@ -79,6 +79,7 @@ import {
 } from "@/lib/session";
 import { useNowMinute } from "@/lib/hooks";
 import { REDESIGN, TIMED_SESSIONS } from "@/lib/flags";
+import { primeTimerSound } from "@/lib/timer-sound";
 import {
   BREAK_PRESETS,
   SessionPlanPicker,
@@ -343,6 +344,10 @@ export function ClockClient({
       goalId !== null
         ? `Goal: ${goalById.get(goalId)?.title ?? "goal"}`
         : categoryName(categoryId);
+    // Unlock audio here, while a real user gesture is still in scope: a break
+    // chime fires from a setTimeout much later, which has no gesture behind it
+    // and would be blocked. Harmless for open-ended sessions.
+    primeTimerSound();
     startTransition(async () => {
       const r = await clockIn({
         categoryId,
