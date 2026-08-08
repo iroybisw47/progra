@@ -92,6 +92,44 @@ export async function syncClockReminders(
   }
 }
 
+// TEMPORARY DIAGNOSTIC — delete once reminders are confirmed working.
+//
+// Everything above swallows its errors so a reminder can never break the clock,
+// which is right for production and useless while debugging: a failure looks
+// exactly like nothing happening. This reports each step instead.
+//
+// Deliberately readable from JS alone, so it ships over Vercel with no Xcode
+// rebuild — which is what makes it able to answer the first question that
+// matters: is the plugin actually in this binary?
+export async function reminderDiagnostics(): Promise<string> {
+  if (!isNativeApp()) return "web (reminders are native-only)";
+
+  let ln;
+  try {
+    const mod = await import("@capacitor/local-notifications");
+    ln = mod.LocalNotifications;
+  } catch (e) {
+    return `PLUGIN MISSING — rebuild in Xcode (${(e as Error)?.message ?? "?"})`;
+  }
+  if (!ln) return "PLUGIN MISSING — rebuild in Xcode";
+
+  let perm = "?";
+  try {
+    perm = (await ln.checkPermissions()).display;
+  } catch (e) {
+    return `checkPermissions threw: ${(e as Error)?.message ?? "?"}`;
+  }
+
+  let pending = -1;
+  try {
+    pending = (await ln.getPending()).notifications.length;
+  } catch (e) {
+    return `getPending threw: ${(e as Error)?.message ?? "?"}`;
+  }
+
+  return `plugin ok · perm=${perm} · pending=${pending}`;
+}
+
 // Clear everything this module owns. Used when a session ends by any route.
 export async function cancelClockReminders(): Promise<void> {
   const ln = await plugin();

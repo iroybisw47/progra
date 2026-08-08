@@ -53,8 +53,11 @@ import {
   sessionWorkedMs,
   type SessionPlan,
 } from "@/lib/session";
-import { canScheduleReminders } from "@/lib/clock-notifications";
-import { CLOCK_REMINDERS } from "@/lib/flags";
+import {
+  canScheduleReminders,
+  reminderDiagnostics,
+} from "@/lib/clock-notifications";
+import { CLOCK_REMINDERS, CLOCK_REMINDERS_FAST } from "@/lib/flags";
 import { isNativeApp } from "@/lib/native";
 import { primeTimerSound, setTimerSoundMuted } from "@/lib/timer-sound";
 import { useTimerSoundMuted } from "@/lib/use-muted";
@@ -179,6 +182,17 @@ export function LiveTimerClient({
   useEffect(() => {
     if (!CLOCK_REMINDERS || !isNativeApp()) return;
     void canScheduleReminders().then((ok) => setRemindersBlocked(!ok));
+  }, []);
+
+  // TEMPORARY DIAGNOSTIC — delete once reminders are confirmed working.
+  // Deliberately NOT gated on CLOCK_REMINDERS: if the flag never reached the
+  // deployed bundle, that's exactly what we need to see.
+  const [diag, setDiag] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    void reminderDiagnostics().then((d) =>
+      setDiag(`${CLOCK_REMINDERS ? (CLOCK_REMINDERS_FAST ? "flag=fast" : "flag=on") : "flag=OFF"} · ${d}`)
+    );
   }, []);
   useEffect(() => {
     if (!timed) return;
@@ -601,6 +615,13 @@ export function LiveTimerClient({
           )}
         </div>
       </div>
+
+      {/* TEMPORARY DIAGNOSTIC — delete once reminders are confirmed working. */}
+      {diag && (
+        <p className="text-faint mx-6 mb-2 text-center font-mono text-[10px] break-all">
+          {diag}
+        </p>
+      )}
 
       {/* Quiet, and only when it's actually true. iOS shares one notification
           authorization with push, so this is usually already granted. */}
