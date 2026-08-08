@@ -4,8 +4,10 @@ import {
   MAX_DURATION_MINUTES,
   MIN_DURATION_MINUTES,
   clampDurationMinutes,
+  splitHoursMinutes,
   stepDurationDown,
   stepDurationUp,
+  totalMinutesFrom,
 } from "@/lib/duration";
 
 describe("duration stepper", () => {
@@ -29,6 +31,42 @@ describe("duration stepper", () => {
     expect(stepDurationUp(MAX_DURATION_MINUTES)).toBe(MAX_DURATION_MINUTES);
     // From just inside the ceiling, the step is truncated rather than skipped.
     expect(stepDurationUp(595)).toBe(MAX_DURATION_MINUTES);
+  });
+});
+
+describe("splitHoursMinutes / totalMinutesFrom", () => {
+  it("round-trips a total through the two fields", () => {
+    expect(splitHoursMinutes(90)).toEqual({ h: 1, m: 30 });
+    expect(splitHoursMinutes(45)).toEqual({ h: 0, m: 45 });
+    expect(splitHoursMinutes(120)).toEqual({ h: 2, m: 0 });
+    expect(totalMinutesFrom("1", "30")).toBe(90);
+  });
+
+  // The whole point of two fields: neither has to be filled in. 0 hours means
+  // "just minutes"; 0 minutes means "just hours".
+  it("treats zero or blank in one field as only the other", () => {
+    expect(totalMinutesFrom("0", "45")).toBe(45);
+    expect(totalMinutesFrom("", "45")).toBe(45);
+    expect(totalMinutesFrom("2", "0")).toBe(120);
+    expect(totalMinutesFrom("2", "")).toBe(120);
+  });
+
+  // Typing 90 in the minutes box is shorthand, not an error.
+  it("rolls minutes over 59 into hours", () => {
+    expect(totalMinutesFrom("1", "90")).toBe(150);
+    expect(totalMinutesFrom("0", "90")).toBe(90);
+  });
+
+  it("returns null only when there's nothing usable, so the caller can revert", () => {
+    expect(totalMinutesFrom("", "")).toBe(null);
+    expect(totalMinutesFrom("abc", "")).toBe(null);
+    // A real zero total is a value, not nothing — it clamps to the floor.
+    expect(totalMinutesFrom("0", "0")).toBe(MIN_DURATION_MINUTES);
+  });
+
+  it("clamps the combined total to the session bounds", () => {
+    expect(totalMinutesFrom("99", "0")).toBe(MAX_DURATION_MINUTES);
+    expect(totalMinutesFrom("0", "3")).toBe(MIN_DURATION_MINUTES);
   });
 });
 

@@ -59,3 +59,31 @@ export function stepDurationDown(min: number): number {
     Math.ceil(min / STEP_MINUTES) * STEP_MINUTES - STEP_MINUTES
   );
 }
+
+// Split a total into the two fields the duration editor shows.
+export function splitHoursMinutes(total: number): { h: number; m: number } {
+  const safe = Math.max(0, Math.round(total));
+  return { h: Math.floor(safe / 60), m: safe % 60 };
+}
+
+// Combine the two typed fields back into a total, or null when there's nothing
+// usable to combine (both blank/garbage) so the caller can keep the old value
+// rather than wipe the target.
+//
+// A blank field counts as zero, which is what makes "0 hours" mean just minutes
+// and "0 minutes" mean just hours without either needing to be filled in.
+//
+// Minutes are NOT capped at 59: typing 90 minutes means 1h 30m. Rejecting it
+// would be treating a shorthand as a mistake, and the total gets clamped to the
+// session bounds anyway.
+export function totalMinutesFrom(
+  hours: string,
+  minutes: string
+): number | null {
+  const h = Number.parseInt(hours, 10);
+  const m = Number.parseInt(minutes, 10);
+  const hOk = Number.isFinite(h) && h >= 0;
+  const mOk = Number.isFinite(m) && m >= 0;
+  if (!hOk && !mOk) return null;
+  return clampDurationMinutes((hOk ? h : 0) * 60 + (mOk ? m : 0));
+}

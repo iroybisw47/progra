@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input";
 import {
   MAX_DURATION_MINUTES,
   MIN_DURATION_MINUTES,
-  clampDurationMinutes,
   formatDuration,
+  splitHoursMinutes,
   stepDurationDown,
   stepDurationUp,
+  totalMinutesFrom,
 } from "@/lib/duration";
 import {
   breakFitsTarget,
@@ -78,10 +79,10 @@ export function SessionPlanPicker({
   const cfg = BREAK_PRESETS[breakPreset];
   const minutes = plannedMinutes ?? DEFAULT_DURATION_MINUTES;
 
-  // While the value is being typed it lives here as a raw string, so a
+  // While the value is being typed it lives here as raw strings, so a
   // half-finished entry ("4" on the way to "45") isn't clamped out from under
   // the user's fingers. null = not editing.
-  const [draft, setDraft] = useState<string | null>(null);
+  const [draft, setDraft] = useState<{ h: string; m: string } | null>(null);
 
   // The ONLY way the duration changes — both buttons and the typed commit go
   // through it, so the break-preset reset can't be forgotten on one path.
@@ -94,12 +95,17 @@ export function SessionPlanPicker({
     if (!presetFitsDuration(breakPreset, next)) onBreakPresetChange("none");
   }
 
+  function beginEdit() {
+    const { h, m } = splitHoursMinutes(minutes);
+    setDraft({ h: String(h), m: String(m) });
+  }
+
   function commitDraft() {
     if (draft === null) return;
-    const parsed = Number.parseInt(draft, 10);
-    // Empty or unparseable reverts to what was there. Clearing the field should
-    // never leave the session with no target.
-    if (Number.isFinite(parsed)) setDuration(clampDurationMinutes(parsed));
+    const total = totalMinutesFrom(draft.h, draft.m);
+    // null means both fields were blank or unparseable — keep the old target
+    // rather than leaving the session without one.
+    if (total !== null) setDuration(total);
     setDraft(null);
   }
 
@@ -150,26 +156,55 @@ export function SessionPlanPicker({
               </Button>
 
               {draft !== null ? (
-                <Input
-                  autoFocus
-                  type="number"
-                  inputMode="numeric"
-                  step={10}
-                  min={MIN_DURATION_MINUTES}
-                  max={MAX_DURATION_MINUTES}
-                  aria-label="Minutes"
-                  className="h-10 flex-1 text-center text-base tabular-nums"
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onBlur={commitDraft}
+                // Two fields, hours and minutes. Blank counts as zero in both,
+                // which is what lets someone type only the one they care about.
+                // Commit happens when focus leaves the PAIR — tabbing from
+                // hours to minutes must not close the editor.
+                <div
+                  className="flex flex-1 items-center gap-1.5"
+                  onBlur={(e) => {
+                    if (e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                      return;
+                    }
+                    commitDraft();
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      e.currentTarget.blur();
+                      commitDraft();
                     }
                     if (e.key === "Escape") setDraft(null);
                   }}
-                />
+                >
+                  <Input
+                    autoFocus
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    aria-label="Hours"
+                    className="h-10 min-w-0 flex-1 text-center text-base tabular-nums"
+                    value={draft.h}
+                    onChange={(e) =>
+                      setDraft((d) => ({ h: e.target.value, m: d?.m ?? "" }))
+                    }
+                  />
+                  <span className="text-caption shrink-0 text-xs">h</span>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    // Deliberately no max: typing 90 minutes means 1h 30m.
+                    // Treating a shorthand as an error would be worse than
+                    // rolling it over, and the total is clamped either way.
+                    aria-label="Minutes"
+                    className="h-10 min-w-0 flex-1 text-center text-base tabular-nums"
+                    value={draft.m}
+                    onChange={(e) =>
+                      setDraft((d) => ({ h: d?.h ?? "", m: e.target.value }))
+                    }
+                  />
+                  <span className="text-caption shrink-0 text-xs">m</span>
+                </div>
               ) : (
                 // The number IS the edit affordance. At 10-minute steps, 1h to
                 // 3h is 12 taps and the 10h ceiling is 54 — typing is the
@@ -178,7 +213,7 @@ export function SessionPlanPicker({
                   type="button"
                   className="border-hairline hover:bg-muted/50 h-10 flex-1 rounded-xl border text-center text-base font-medium tabular-nums transition-colors"
                   aria-label={`Work for ${asMinutes(minutes)}. Tap to type a different length`}
-                  onClick={() => setDraft(String(minutes))}
+                  onClick={beginEdit}
                 >
                   {asMinutes(minutes)}
                 </button>
