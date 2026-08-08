@@ -32,3 +32,14 @@ export const SOCIAL_ENABLED =
 // (/i/{username}) only resolves while social is on, since that page 404s
 // otherwise.
 export const REFER_ENABLED = envFlag(process.env.NEXT_PUBLIC_REFER_ENABLED);
+
+// Master switch for timed clock-in: a work target plus optional breaks, as an
+// alternative to the open-ended "stop when you stop" session.
+//
+// While false, Clock in behaves exactly as it always has and every timed-session
+// column stays null — which is also true of every session that already exists,
+// so the two paths are the same code path with the plan omitted.
+//
+// Built across several passes, so this exists to let the unfinished middle ship
+// to production dark rather than sitting on a long-lived branch.
+export const TIMED_SESSIONS = envFlag(process.env.NEXT_PUBLIC_TIMED_SESSIONS);

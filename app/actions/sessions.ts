@@ -9,7 +9,10 @@ import { createClient } from "@/lib/supabase/server";
 import { listCategories } from "@/lib/db/categories";
 import { listHistoryPage, type HistoryItem } from "@/lib/db/history";
 import {
+  SESSION_CAP_MS,
   isOverSessionCap,
+  isPlanComplete,
+  plannedEndMs,
   sessionCapEndMs,
   type SessionTiming,
 } from "@/lib/session";
@@ -36,7 +39,64 @@ type ClockInInput = {
   goalId?: string | null;
   taskName: string;
   description?: string;
+  // Timed sessions. Omit entirely for the open-ended session this app has
+  // always had — that path writes none of these columns.
+  plan?: {
+    // Target WORK time. Breaks and pauses sit on top, so the wall clock runs
+    // longer; the logged number is this one.
+    plannedWorkMs: number;
+    // Break config is all-or-nothing. Omit both for a target with no breaks.
+    workIntervalMs?: number | null;
+    breakMs?: number | null;
+  };
 };
+
+// Validates and normalizes a clock-in plan into the columns it maps to.
+//
+// Clamping rather than rejecting on the target: the cap would end an over-long
+// session at 10h anyway, so a larger number could never have been honoured. The
+// UI shouldn't offer one — this is the backstop.
+function resolvePlan(
+  plan: ClockInInput["plan"]
+):
+  | {
+      planned_work_ms: number | null;
+      work_interval_ms: number | null;
+      break_ms: number | null;
+    }
+  | { error: string } {
+  if (!plan) {
+    return { planned_work_ms: null, work_interval_ms: null, break_ms: null };
+  }
+
+  const target = Math.round(plan.plannedWorkMs);
+  if (!Number.isFinite(target) || target <= 0) {
+    return { error: "Pick how long you want to work" };
+  }
+  const planned = Math.min(target, SESSION_CAP_MS);
+
+  const interval =
+    plan.workIntervalMs != null ? Math.round(plan.workIntervalMs) : null;
+  const brk = plan.breakMs != null ? Math.round(plan.breakMs) : null;
+
+  // All-or-nothing: an interval with no break length (or vice versa) would
+  // leave a half-configured schedule that can never fire correctly.
+  if ((interval === null) !== (brk === null)) {
+    return { error: "Set both a break length and how often" };
+  }
+  if (interval !== null && brk !== null) {
+    if (interval <= 0 || brk <= 0) {
+      return { error: "Break settings must be longer than zero" };
+    }
+    // A first break that lands at or past the finish line can never happen, so
+    // reject it rather than silently recording breaks that never fire.
+    if (interval >= planned) {
+      return { error: "Breaks must come sooner than the end of the session" };
+    }
+  }
+
+  return { planned_work_ms: planned, work_interval_ms: interval, break_ms: brk };
+}
 
 // A clock-in counts toward EITHER a category OR a goal — never both, never
 // neither. Returns an error string when that invariant is violated.
@@ -64,6 +124,9 @@ export async function clockIn(
   const axis = resolveAxis(input.categoryId, input.goalId);
   if ("error" in axis) return axis;
 
+  const plan = resolvePlan(input.plan);
+  if ("error" in plan) return plan;
+
   const { data, error } = await supabase
     .from("sessions")
     .insert({
@@ -74,6 +137,8 @@ export async function clockIn(
       description: capText(input.description, SESSION_DESC_MAX),
       started_at: new Date().toISOString(),
       ended_at: null,
+      // All null for an open-ended session, which is every caller today.
+      ...plan,
     })
     .select("id")
     .single();
@@ -230,6 +295,102 @@ export async function autoClockOut(): Promise<
   return { ok: true, ended: true, sessionId: row.id };
 }
 
+// Ends a timed session that has reached its work target.
+//
+// Mirrors autoClockOut in shape — no arguments, recomputes from the stored row
+// and the SERVER clock, guarded so racing tabs produce one write — but differs
+// in the one way that matters: it does NOT set auto_ended_at. That column makes
+// sessionWorkedMs return zero, because hitting the 10-hour cap means you forgot
+// to clock out. A completed plan is the opposite: time you set out to do and
+// did, which must count in full toward goals, recaps, rollups and the
+// leaderboard.
+//
+// Back-dates to the instant the target was actually reached, so a session that
+// completed while the app was shut invents no time and lands in the right day.
+export async function completePlannedSession(): Promise<
+  | { ok: true; ended: false }
+  | { ok: true; ended: true; sessionId: string }
+  | { error: string }
+> {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data: active } = await supabase
+    .from("sessions")
+    .select("id, started_at, paused_ms, paused_since, planned_work_ms")
+    .eq("user_id", user.id)
+    .is("ended_at", null)
+    .maybeSingle();
+
+  const row = active as {
+    id: string;
+    started_at: string;
+    paused_ms: number | string | null;
+    paused_since: string | null;
+    planned_work_ms: number | string | null;
+  } | null;
+  if (!row || row.planned_work_ms == null) return { ok: true, ended: false };
+
+  const timing: SessionTiming = {
+    startedAt: new Date(row.started_at).getTime(),
+    endedAt: null,
+    // PostgREST returns bigint as string (mirrors rowToSession).
+    pausedMs: row.paused_ms != null ? Number(row.paused_ms) : 0,
+    pausedSince: row.paused_since ? new Date(row.paused_since).getTime() : null,
+  };
+  const plannedWorkMs = Number(row.planned_work_ms);
+
+  if (!isPlanComplete(timing, { plannedWorkMs }, Date.now())) {
+    return { ok: true, ended: false };
+  }
+
+  const end = plannedEndMs(timing, plannedWorkMs);
+
+  // paused_ms written back UNCHANGED, and on_break cleared: as with the cap, an
+  // in-progress pause can only have begun after the target was met, so that
+  // segment sits entirely after the session was already over.
+  const { data: updated, error } = await supabase
+    .from("sessions")
+    .update({
+      ended_at: new Date(end).toISOString(),
+      paused_since: null,
+      on_break: false,
+      // Draft convention: draft == private, so nothing the user never composed
+      // reaches the feed. They review and Post from /clock/finish.
+      is_private: true,
+    })
+    .eq("id", row.id)
+    .eq("user_id", user.id)
+    .is("ended_at", null)
+    .select("id");
+
+  if (error) return { error: error.message };
+  if (!updated || updated.length === 0) return { ok: true, ended: false };
+
+  revalidateSessionSurfaces();
+  return { ok: true, ended: true, sessionId: row.id };
+}
+
+// Dismisses the "your session finished" modal once it's been seen, so it can't
+// reappear on another device. Mirrors markAutoEndReviewed.
+export async function markPlanReviewed(id: string): Promise<Result> {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data, error } = await supabase
+    .from("sessions")
+    .update({ plan_reviewed_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select("id");
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "Session not found" };
+  revalidateSessionSurfaces();
+  return { ok: true };
+}
+
 // Dismisses the auto-end review nudge once the user has seen the session.
 export async function markAutoEndReviewed(id: string): Promise<Result> {
   const supabase = await createClient();
@@ -343,19 +504,113 @@ export async function pauseSession(): Promise<Result> {
 
   const { data: active } = await supabase
     .from("sessions")
-    .select("id, paused_since")
+    .select("id, paused_since, on_break")
     .eq("user_id", user.id)
     .is("ended_at", null)
     .maybeSingle();
 
-  const row = active as { id: string; paused_since: string | null } | null;
+  const row = active as {
+    id: string;
+    paused_since: string | null;
+    on_break: boolean | null;
+  } | null;
   if (!row) return { error: "No active session" };
+  // A break is already a pause, and the two mean different things to the timer.
+  // Stopping for longer means ending the break first — enforced here and not
+  // just by hiding the button, since an action is reachable directly.
+  if (row.on_break) {
+    return { error: "End the break first, then pause" };
+  }
   if (row.paused_since) return { ok: true }; // already paused
 
   const { error } = await supabase
     .from("sessions")
     .update({ paused_since: new Date().toISOString() })
     .eq("id", row.id);
+  if (error) return { error: error.message };
+
+  revalidateSessionSurfaces();
+  return { ok: true };
+}
+
+// Start a scheduled break. A break IS a pause — it stamps paused_since exactly
+// as pauseSession does, so worked time stops and every aggregation downstream
+// excludes it for free. `on_break` is what distinguishes the two, and
+// breaks_taken is what makes the NEXT break land a full interval later even if
+// this one is ended early.
+export async function startBreak(): Promise<Result> {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data: active } = await supabase
+    .from("sessions")
+    .select("id, paused_since, breaks_taken")
+    .eq("user_id", user.id)
+    .is("ended_at", null)
+    .maybeSingle();
+
+  const row = active as {
+    id: string;
+    paused_since: string | null;
+    breaks_taken: number | string | null;
+  } | null;
+  if (!row) return { error: "No active session" };
+  // Already paused (manually or on a break) — nothing to start.
+  if (row.paused_since) return { ok: true };
+
+  const taken = row.breaks_taken != null ? Number(row.breaks_taken) : 0;
+
+  const { error } = await supabase
+    .from("sessions")
+    .update({
+      paused_since: new Date().toISOString(),
+      on_break: true,
+      breaks_taken: taken + 1,
+    })
+    .eq("id", row.id)
+    // Re-assert not-paused so two tabs crossing the boundary together produce
+    // exactly one break rather than double-counting breaks_taken.
+    .is("paused_since", null);
+  if (error) return { error: error.message };
+
+  revalidateSessionSurfaces();
+  return { ok: true };
+}
+
+// End a break — whether it ran its course or the user cut it short. Both are
+// the same write, which is why "End break early" needs no separate path: bank
+// the elapsed break into paused_ms exactly as resumeSession banks a pause.
+export async function endBreak(): Promise<Result> {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data: active } = await supabase
+    .from("sessions")
+    .select("id, paused_ms, paused_since, on_break")
+    .eq("user_id", user.id)
+    .is("ended_at", null)
+    .maybeSingle();
+
+  const row = active as {
+    id: string;
+    paused_ms: number | string | null;
+    paused_since: string | null;
+    on_break: boolean | null;
+  } | null;
+  if (!row) return { error: "No active session" };
+  if (!row.on_break || !row.paused_since) return { ok: true }; // not on a break
+
+  const banked = row.paused_ms != null ? Number(row.paused_ms) : 0;
+  const pausedMs =
+    banked + Math.max(0, Date.now() - new Date(row.paused_since).getTime());
+
+  const { error } = await supabase
+    .from("sessions")
+    .update({ paused_ms: pausedMs, paused_since: null, on_break: false })
+    .eq("id", row.id)
+    .eq("on_break", true);
   if (error) return { error: error.message };
 
   revalidateSessionSurfaces();

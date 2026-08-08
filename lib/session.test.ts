@@ -2,13 +2,19 @@ import { describe, expect, it } from "vitest";
 
 import {
   SESSION_CAP_MS,
+  breakRemainingMs,
+  isBreakDue,
   isOverSessionCap,
   isPaused,
+  isPlanComplete,
+  nextBreakDueAtWorkedMs,
+  plannedEndMs,
   sessionAttributionEnd,
   sessionCapEndMs,
   sessionPausedMs,
   sessionWorkedMs,
 } from "@/lib/session";
+import type { SessionPlan } from "@/lib/session";
 import type { Session } from "@/lib/storage";
 
 const MIN = 60_000;
@@ -232,5 +238,163 @@ describe("isPaused", () => {
     expect(isPaused(makeSession({ endedAt: null, pausedSince: 1 }))).toBe(true);
     expect(isPaused(makeSession({ endedAt: null, pausedSince: null }))).toBe(false);
     expect(isPaused(makeSession({ endedAt: 100, pausedSince: 1 }))).toBe(false);
+  });
+});
+
+// --- Timed sessions -------------------------------------------------------
+
+function makePlan(over: Partial<SessionPlan> = {}): SessionPlan {
+  return {
+    plannedWorkMs: 2 * HOUR,
+    workIntervalMs: 25 * MIN,
+    breakMs: 5 * MIN,
+    onBreak: false,
+    breaksTaken: 0,
+    ...over,
+  };
+}
+
+describe("plannedEndMs", () => {
+  // THE invariant the whole feature rests on: end a session at this instant and
+  // it reads back as exactly the target. Everything else (breaks, pauses,
+  // reconciling after the app was closed) is downstream of this holding.
+  it("a session ended here reads back as exactly the target", () => {
+    const plan = 2 * HOUR;
+
+    const clean = makeSession({ startedAt: 1000, pausedMs: 0 });
+    const end1 = plannedEndMs(clean, plan);
+    expect(sessionWorkedMs({ ...clean, endedAt: end1 }, end1)).toBe(plan);
+
+    // With a manual pause banked.
+    const paused = makeSession({ startedAt: 1000, pausedMs: 17 * MIN });
+    const end2 = plannedEndMs(paused, plan);
+    expect(sessionWorkedMs({ ...paused, endedAt: end2 }, end2)).toBe(plan);
+
+    // With four 5-minute breaks banked (breaks are pauses).
+    const withBreaks = makeSession({ startedAt: 1000, pausedMs: 4 * 5 * MIN });
+    const end3 = plannedEndMs(withBreaks, plan);
+    expect(sessionWorkedMs({ ...withBreaks, endedAt: end3 }, end3)).toBe(plan);
+
+    // Breaks and a manual pause mixed.
+    const mixed = makeSession({ startedAt: 1000, pausedMs: 4 * 5 * MIN + 9 * MIN });
+    const end4 = plannedEndMs(mixed, plan);
+    expect(sessionWorkedMs({ ...mixed, endedAt: end4 }, end4)).toBe(plan);
+  });
+
+  it("pausing pushes the target instant later by exactly that much", () => {
+    const before = plannedEndMs(makeSession({ pausedMs: 0 }), HOUR);
+    const after = plannedEndMs(makeSession({ pausedMs: 7 * MIN }), HOUR);
+    expect(after - before).toBe(7 * MIN);
+  });
+});
+
+describe("isPlanComplete", () => {
+  it("flips exactly at the target, not before", () => {
+    const s = makeSession({ startedAt: 0 });
+    const plan = { plannedWorkMs: HOUR };
+    expect(isPlanComplete(s, plan, HOUR - 1)).toBe(false);
+    expect(isPlanComplete(s, plan, HOUR)).toBe(true);
+  });
+
+  it("excludes paused time, so a paused session can't complete on the clock", () => {
+    // Started 90m ago but paused for 40m → only 50m worked.
+    const s = makeSession({ startedAt: 0, pausedMs: 40 * MIN });
+    expect(isPlanComplete(s, { plannedWorkMs: HOUR }, 90 * MIN)).toBe(false);
+    expect(isPlanComplete(s, { plannedWorkMs: HOUR }, 100 * MIN)).toBe(true);
+  });
+
+  it("is false for open-ended sessions and for ended rows", () => {
+    const s = makeSession({ startedAt: 0 });
+    expect(isPlanComplete(s, { plannedWorkMs: null }, 99 * HOUR)).toBe(false);
+    const ended = makeSession({ startedAt: 0, endedAt: HOUR });
+    expect(isPlanComplete(ended, { plannedWorkMs: HOUR }, 99 * HOUR)).toBe(false);
+  });
+});
+
+describe("nextBreakDueAtWorkedMs", () => {
+  it("advances a full interval per break taken", () => {
+    expect(nextBreakDueAtWorkedMs(makePlan({ breaksTaken: 0 }))).toBe(25 * MIN);
+    expect(nextBreakDueAtWorkedMs(makePlan({ breaksTaken: 1 }))).toBe(50 * MIN);
+    expect(nextBreakDueAtWorkedMs(makePlan({ breaksTaken: 3 }))).toBe(100 * MIN);
+  });
+
+  it("is null when breaks aren't configured", () => {
+    expect(
+      nextBreakDueAtWorkedMs(makePlan({ workIntervalMs: null, breakMs: null }))
+    ).toBe(null);
+  });
+});
+
+describe("isBreakDue", () => {
+  it("fires once the interval's worth of WORK has been done", () => {
+    const s = makeSession({ startedAt: 0 });
+    expect(isBreakDue(s, makePlan(), 25 * MIN - 1)).toBe(false);
+    expect(isBreakDue(s, makePlan(), 25 * MIN)).toBe(true);
+  });
+
+  // The point of counting breaks rather than elapsed time: ending one early
+  // must still buy a full interval of work before the next.
+  it("gives a full interval after a break ended early", () => {
+    // One break taken, and it was cut short — only 1m of it banked.
+    const s = makeSession({ startedAt: 0, pausedMs: 1 * MIN });
+    const plan = makePlan({ breaksTaken: 1 });
+    // 49m worked → not yet.
+    expect(isBreakDue(s, plan, 49 * MIN + 1 * MIN)).toBe(false);
+    // 50m worked → due.
+    expect(isBreakDue(s, plan, 50 * MIN + 1 * MIN)).toBe(true);
+  });
+
+  it("never interrupts the run-in to the finish line", () => {
+    // Target 25m and the interval also 25m: the break and the end coincide,
+    // and finishing must win.
+    const s = makeSession({ startedAt: 0 });
+    const plan = makePlan({ plannedWorkMs: 25 * MIN });
+    expect(isBreakDue(s, plan, 25 * MIN)).toBe(false);
+  });
+
+  it("is false while already on a break, and when breaks are off", () => {
+    const s = makeSession({ startedAt: 0, pausedSince: 25 * MIN });
+    expect(isBreakDue(s, makePlan({ onBreak: true }), 30 * MIN)).toBe(false);
+    expect(
+      isBreakDue(s, makePlan({ workIntervalMs: null, breakMs: null }), 99 * HOUR)
+    ).toBe(false);
+  });
+});
+
+describe("breakRemainingMs", () => {
+  it("counts down from the break length", () => {
+    const s = makeSession({ startedAt: 0, pausedSince: 25 * MIN });
+    const plan = makePlan({ onBreak: true });
+    expect(breakRemainingMs(s, plan, 25 * MIN)).toBe(5 * MIN);
+    expect(breakRemainingMs(s, plan, 27 * MIN)).toBe(3 * MIN);
+  });
+
+  it("floors at zero instead of going negative", () => {
+    const s = makeSession({ startedAt: 0, pausedSince: 25 * MIN });
+    const plan = makePlan({ onBreak: true });
+    expect(breakRemainingMs(s, plan, 40 * MIN)).toBe(0);
+  });
+
+  it("is zero when not on a break", () => {
+    const s = makeSession({ startedAt: 0, pausedSince: null });
+    expect(breakRemainingMs(s, makePlan(), 30 * MIN)).toBe(0);
+  });
+});
+
+describe("open-ended sessions are untouched", () => {
+  // Every session that existed before this feature, and every one started with
+  // the flag off. If this ever fails, the feature has leaked into the old path.
+  it("all plan helpers no-op and worked time is unchanged", () => {
+    const s = makeSession({ startedAt: 0, endedAt: 90 * MIN, pausedMs: 10 * MIN });
+    const none = makePlan({
+      plannedWorkMs: null,
+      workIntervalMs: null,
+      breakMs: null,
+    });
+    expect(sessionWorkedMs(s, 99 * HOUR)).toBe(80 * MIN);
+    expect(isPlanComplete(s, none, 99 * HOUR)).toBe(false);
+    expect(nextBreakDueAtWorkedMs(none)).toBe(null);
+    expect(isBreakDue(s, none, 99 * HOUR)).toBe(false);
+    expect(breakRemainingMs(s, none, 99 * HOUR)).toBe(0);
   });
 });

@@ -94,6 +94,105 @@ export function sessionAttributionEnd(s: SessionTiming, now: number): number {
   return isOverSessionCap(s, now) ? sessionCapEndMs(s) : now;
 }
 
+// ---------------------------------------------------------------------------
+// Timed sessions: a work target, plus optional breaks at intervals.
+//
+// A session with `plannedWorkMs === null` is open-ended — every session that
+// existed before this feature, and every one started with the flag off. All of
+// the helpers below return null/false/0 for that case, so nothing downstream
+// needs to branch on the mode.
+//
+// Two things make this fit the existing model rather than fight it:
+//
+//   1. A BREAK IS A PAUSE. Break time accrues into `pausedMs` exactly like a
+//      manual pause, so sessionWorkedMs already excludes it and no aggregation
+//      anywhere needs to learn about breaks. `onBreak` exists only to tell the
+//      two apart in the UI (and to refuse a manual pause during a break).
+//   2. THE TARGET IS WORKED TIME, not wall clock. So the instant a plan
+//      completes moves later on its own as pauses and breaks accumulate —
+//      there is no deadline to cache, recompute or reschedule.
+// ---------------------------------------------------------------------------
+
+export type SessionPlan = {
+  // The work target in ms. null = open-ended.
+  plannedWorkMs: number | null;
+  // Work between breaks, and how long a break lasts. Both null = a target with
+  // no breaks. They are set and cleared together.
+  workIntervalMs: number | null;
+  breakMs: number | null;
+  // True while the current pause is a scheduled break rather than a manual one.
+  onBreak: boolean;
+  // How many breaks have started. Drives when the next one is due, so ending a
+  // break early doesn't hand out a short work interval afterwards.
+  breaksTaken: number;
+};
+
+// The wall-clock instant at which worked time reaches the target — what
+// completePlannedSession stamps into ended_at.
+//
+// Same shape as sessionCapEndMs, and the same invariant: a row ended here reads
+// back as EXACTLY plannedWorkMs, since
+// (start + planned + paused) - start - paused = planned.
+//
+// Only banked `pausedMs` enters, matching sessionCapEndMs. An in-progress pause
+// can only have begun after this instant (worked time freezes while paused, so
+// a paused session has reached its target only if it did so before the pause
+// started), which also proves the stamped end is never in the future.
+export function plannedEndMs(s: SessionTiming, plannedWorkMs: number): number {
+  return s.startedAt + plannedWorkMs + s.pausedMs;
+}
+
+// Has an ACTIVE session reached its target? False for open-ended sessions and
+// for anything already ended — an ended row is whatever it recorded.
+export function isPlanComplete(
+  s: SessionTiming,
+  plan: Pick<SessionPlan, "plannedWorkMs">,
+  now: number
+): boolean {
+  if (plan.plannedWorkMs === null || s.endedAt !== null) return false;
+  return rawWorkedMs(s, now) >= plan.plannedWorkMs;
+}
+
+// The worked-time boundary at which the next break falls due, or null when
+// breaks aren't configured.
+//
+// Keyed off the COUNT of breaks taken rather than elapsed time, which is what
+// makes "end break early" behave: worked time doesn't advance during a break,
+// so the next boundary is still a full interval of actual work away.
+export function nextBreakDueAtWorkedMs(plan: SessionPlan): number | null {
+  if (plan.workIntervalMs === null || plan.breakMs === null) return null;
+  return (plan.breaksTaken + 1) * plan.workIntervalMs;
+}
+
+// Should a break start right now?
+export function isBreakDue(
+  s: SessionTiming,
+  plan: SessionPlan,
+  now: number
+): boolean {
+  if (plan.onBreak || s.endedAt !== null) return false;
+  const due = nextBreakDueAtWorkedMs(plan);
+  if (due === null) return false;
+
+  const worked = rawWorkedMs(s, now);
+  // Never interrupt the run-in to the finish line: if the target is already met
+  // the session is about to end, and a break there would be pure friction.
+  if (plan.plannedWorkMs !== null && worked >= plan.plannedWorkMs) return false;
+  return worked >= due;
+}
+
+// Time left in the current break, floored at zero. `pausedSince` IS the break's
+// start instant — a break sets it exactly as a manual pause does — so no
+// separate column is needed to time it.
+export function breakRemainingMs(
+  s: SessionTiming,
+  plan: SessionPlan,
+  now: number
+): number {
+  if (!plan.onBreak || plan.breakMs === null || s.pausedSince === null) return 0;
+  return Math.max(0, plan.breakMs - (now - s.pausedSince));
+}
+
 // Total paused time for a session, including any in-progress pause.
 export function sessionPausedMs(s: Session, now: number): number {
   const currentPause =
