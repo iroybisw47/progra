@@ -63,20 +63,37 @@ export async function canScheduleReminders(): Promise<boolean> {
 // is why the caller can be a single layout leaf instead of six wired-up call
 // sites — every path that changes a session ends in revalidateSessionSurfaces,
 // which re-renders the leaf, which calls this.
+// TEMPORARY: records where the last sync got to, so the on-screen diagnostic
+// can report it. Delete alongside reminderDiagnostics().
+let lastSync = "never ran";
+export function lastSyncReport(): string {
+  return lastSync;
+}
+
 export async function syncClockReminders(
   reminders: ClockReminder[]
 ): Promise<void> {
+  lastSync = `n=${reminders.length}`;
   const ln = await plugin();
-  if (!ln) return;
+  if (!ln) {
+    lastSync += " NO-PLUGIN";
+    return;
+  }
 
   try {
     // Unconditional: cancelling ids that aren't scheduled is a no-op.
     await ln.cancel({ notifications: allReminderIds().map((id) => ({ id })) });
 
-    if (reminders.length === 0) return;
-    if (!(await canScheduleReminders())) return;
+    if (reminders.length === 0) {
+      lastSync += " (nothing to schedule)";
+      return;
+    }
+    if (!(await canScheduleReminders())) {
+      lastSync += " NO-PERM";
+      return;
+    }
 
-    await ln.schedule({
+    const res = await ln.schedule({
       notifications: reminders.map((r) => ({
         id: r.id,
         title: r.title,
@@ -87,8 +104,11 @@ export async function syncClockReminders(
         schedule: { at: new Date(r.at) },
       })),
     });
-  } catch {
-    // Swallowed on purpose — see the file header.
+    lastSync += ` scheduled=${res?.notifications?.length ?? "?"}`;
+  } catch (e) {
+    // Still swallowed for the caller — a reminder may never break the clock —
+    // but no longer invisible.
+    lastSync += ` THREW: ${(e as Error)?.message ?? String(e)}`;
   }
 }
 
@@ -127,7 +147,31 @@ export async function reminderDiagnostics(): Promise<string> {
     return `getPending threw: ${(e as Error)?.message ?? "?"}`;
   }
 
-  return `plugin ok · perm=${perm} · pending=${pending}`;
+  // A live schedule attempt 30s out. This is the decisive test: if the bridge
+  // can't turn a JS Date into a usable trigger, iOS treats the request as
+  // "deliver now" instead of queueing it, which reads as pending=0 with no
+  // error anywhere. Scheduling one and re-reading pending distinguishes
+  // "scheduling failed" from "scheduling worked but delivery didn't".
+  const PROBE_ID = 9999;
+  let probe = "?";
+  try {
+    await ln.schedule({
+      notifications: [
+        {
+          id: PROBE_ID,
+          title: "Progra test",
+          body: "If you see this, scheduling works.",
+          schedule: { at: new Date(Date.now() + 30_000) },
+        },
+      ],
+    });
+    const after = (await ln.getPending()).notifications.length;
+    probe = after > pending ? "QUEUED ok" : "did NOT queue";
+  } catch (e) {
+    probe = `threw: ${(e as Error)?.message ?? String(e)}`;
+  }
+
+  return `plugin ok · perm=${perm} · pending=${pending} · probe=${probe} · sync[${lastSyncReport()}]`;
 }
 
 // Clear everything this module owns. Used when a session ends by any route.
