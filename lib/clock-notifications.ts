@@ -66,13 +66,36 @@ export async function canScheduleReminders(): Promise<boolean> {
 // TEMPORARY: records where the last sync got to, so the on-screen diagnostic
 // can report it. Delete alongside reminderDiagnostics().
 let lastSync = "never ran";
+let syncRuns = 0;
 export function lastSyncReport(): string {
-  return lastSync;
+  return `runs=${syncRuns} ${lastSync}`;
 }
+
+// Fingerprint of the last schedule actually written, so an identical request is
+// a no-op.
+//
+// THIS IS THE FIX, not an optimisation. syncClockReminders cancels our whole id
+// range before scheduling — so if it's called repeatedly with the same input
+// (a layout re-render, a router.refresh, a poll), each run wipes the previous
+// run's notifications before they can fire. Nothing survives, pending stays 0,
+// and the failure is invisible.
+//
+// It went unnoticed because the diagnostic probe used id 9999, which is NOT in
+// the cancelled range — so the probe queued and delivered perfectly while the
+// real reminders were being destroyed on a loop.
+let lastFingerprint = "";
 
 export async function syncClockReminders(
   reminders: ClockReminder[]
 ): Promise<void> {
+  syncRuns += 1;
+
+  const fingerprint = reminders.map((r) => `${r.id}@${r.at}`).join("|");
+  if (fingerprint === lastFingerprint) {
+    lastSync = `n=${reminders.length} unchanged`;
+    return;
+  }
+
   lastSync = `n=${reminders.length}`;
   const ln = await plugin();
   if (!ln) {
@@ -85,6 +108,8 @@ export async function syncClockReminders(
     await ln.cancel({ notifications: allReminderIds().map((id) => ({ id })) });
 
     if (reminders.length === 0) {
+      // Cancelled above; record it so a later identical call skips even this.
+      lastFingerprint = fingerprint;
       lastSync += " (nothing to schedule)";
       return;
     }
@@ -104,6 +129,9 @@ export async function syncClockReminders(
         schedule: { at: new Date(r.at) },
       })),
     });
+    // Only recorded once the write actually succeeded, so a throw leaves the
+    // fingerprint stale and the next call retries rather than skipping.
+    lastFingerprint = fingerprint;
     lastSync += ` scheduled=${res?.notifications?.length ?? "?"}`;
   } catch (e) {
     // Still swallowed for the caller — a reminder may never break the clock —
