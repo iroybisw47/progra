@@ -190,9 +190,18 @@ export function LiveTimerClient({
   const [diag, setDiag] = useState<string | null>(null);
   useEffect(() => {
     if (!isNativeApp()) return;
-    void reminderDiagnostics().then((d) =>
-      setDiag(`${CLOCK_REMINDERS ? (CLOCK_REMINDERS_FAST ? "flag=fast" : "flag=on") : "flag=OFF"} · ${d}`)
-    );
+    // Re-read every 3s. The first version snapshotted once on mount, which
+    // raced the layout leaf's sync still being in flight — so it reported
+    // pending=0 and a half-written sync line and never corrected itself.
+    const read = () =>
+      void reminderDiagnostics().then((d) =>
+        setDiag(
+          `${CLOCK_REMINDERS ? (CLOCK_REMINDERS_FAST ? "flag=fast" : "flag=on") : "flag=OFF"} · ${d}`
+        )
+      );
+    read();
+    const id = window.setInterval(read, 3000);
+    return () => window.clearInterval(id);
   }, []);
   useEffect(() => {
     if (!timed) return;

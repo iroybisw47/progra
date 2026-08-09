@@ -152,26 +152,17 @@ export async function reminderDiagnostics(): Promise<string> {
   // "deliver now" instead of queueing it, which reads as pending=0 with no
   // error anywhere. Scheduling one and re-reading pending distinguishes
   // "scheduling failed" from "scheduling worked but delivery didn't".
-  const PROBE_ID = 9999;
-  let probe = "?";
-  try {
-    await ln.schedule({
-      notifications: [
-        {
-          id: PROBE_ID,
-          title: "Progra test",
-          body: "If you see this, scheduling works.",
-          schedule: { at: new Date(Date.now() + 30_000) },
-        },
-      ],
-    });
-    const after = (await ln.getPending()).notifications.length;
-    probe = after > pending ? "QUEUED ok" : "did NOT queue";
-  } catch (e) {
-    probe = `threw: ${(e as Error)?.message ?? String(e)}`;
-  }
+  // The probe already proved scheduling works, so it's gone — re-running it
+  // every 3s would queue a test notification repeatedly. What matters now is
+  // the settled pending count and where the leaf's sync finished.
+  const ids = (await ln.getPending()).notifications
+    .map((n) => n.id)
+    .sort((a, b) => a - b)
+    .join(",");
 
-  return `plugin ok · perm=${perm} · pending=${pending} · probe=${probe} · sync[${lastSyncReport()}]`;
+  return `plugin ok · perm=${perm} · pending=${pending}${
+    pending > 0 ? ` [${ids}]` : ""
+  } · sync[${lastSyncReport()}]`;
 }
 
 // Clear everything this module owns. Used when a session ends by any route.
