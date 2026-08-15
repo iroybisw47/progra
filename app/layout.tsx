@@ -8,6 +8,7 @@ import { EnsureSessionCap } from "@/components/ensure-session-cap";
 import { PushRegistration } from "@/components/push-registration";
 import { Toaster } from "@/components/ui/sonner";
 import { EnsurePlanComplete } from "@/components/ensure-plan-complete";
+import { PostHogInit } from "@/components/posthog-init";
 import { SyncClockReminders } from "@/components/sync-clock-reminders";
 import { PlanCompleteModal } from "@/components/v2/plan-complete-modal";
 import {
@@ -82,6 +83,9 @@ export default async function RootLayout({
     <html lang="en" className={`${ptSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         {children}
+        {/* Analytics. Deliberately NOT gated on `user`: the signed-out landing
+            and the invite pages are exactly where drop-off matters most. */}
+        <PostHogInit />
         {user && (
           <BottomNav
             activeSession={
