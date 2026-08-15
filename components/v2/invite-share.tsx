@@ -1,6 +1,8 @@
 "use client";
 
 import { toast } from "sonner";
+
+import { track } from "@/lib/analytics";
 import { CopyIcon, Share2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -44,6 +46,9 @@ export function InviteShare({ username }: { username: string }) {
     if (typeof nav.share === "function") {
       try {
         await nav.share({ title: "Progra", text: SHARE_TEXT, url: linkFor() });
+        // Only after the sheet resolves — an AbortError below means the user
+        // dismissed it, which isn't an invite.
+        track("invite_sent", { method: "share_sheet" });
         return;
       } catch (e) {
         if ((e as Error).name === "AbortError") return; // user dismissed the sheet

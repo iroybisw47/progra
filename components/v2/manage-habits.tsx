@@ -2,6 +2,8 @@
 
 import { useEffect, useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
+
+import { track } from "@/lib/analytics";
 import {
   CheckIcon,
   ChevronLeftIcon,
@@ -118,6 +120,9 @@ export function ManageHabits({
   function toggleCell(habitId: string, date: string) {
     if (date > today) return; // future days aren't checkable
     const key = `${habitId}|${date}`;
+    // The action toggles, so read the CURRENT state to know which way it went —
+    // only checking a habit ON is the activation signal worth counting.
+    const checkingOn = !doneSet.has(key);
     startTransition(async () => {
       addOptimistic(key);
       const r = await toggleHabitCompletion(habitId, date);
@@ -125,6 +130,7 @@ export function ManageHabits({
         toast.error(r.error);
         return;
       }
+      if (checkingOn) track("habit_checked", { backfilled: date !== today });
     });
   }
 

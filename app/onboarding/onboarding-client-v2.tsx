@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+
+import { track } from "@/lib/analytics";
 import {
   BarChart3Icon,
   CheckIcon,
@@ -194,6 +196,7 @@ export function OnboardingClientV2({
         toast.error(r.error);
         return;
       }
+      track("onboarding_completed");
       toast.success("You're all set — welcome to Progra.");
       router.push("/");
     });

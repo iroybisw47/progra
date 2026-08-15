@@ -85,7 +85,10 @@ export default async function RootLayout({
         {children}
         {/* Analytics. Deliberately NOT gated on `user`: the signed-out landing
             and the invite pages are exactly where drop-off matters most. */}
-        <PostHogInit />
+        <PostHogInit
+          userId={user?.id ?? null}
+          username={profile?.username ?? null}
+        />
         {user && (
           <BottomNav
             activeSession={

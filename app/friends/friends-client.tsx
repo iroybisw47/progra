@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { track } from "@/lib/analytics";
+
 import { AvatarInitials } from "@/components/avatar-initials";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { Button } from "@/components/ui/button";
@@ -99,7 +101,11 @@ export function FriendsClient({
   }, [query]);
 
   // Run a mutating action, surface errors, and refetch server data on success.
-  function run(action: () => Promise<ActionResult>, okMsg?: string) {
+  function run(
+    action: () => Promise<ActionResult>,
+    okMsg?: string,
+    onOk?: () => void
+  ) {
     startTransition(async () => {
       const r = await action();
       if ("error" in r) {
@@ -107,6 +113,7 @@ export function FriendsClient({
         return;
       }
       if (okMsg) toast.success(okMsg);
+      onOk?.();
     });
   }
 
@@ -133,7 +140,11 @@ export function FriendsClient({
         <Button
           size="sm"
           disabled={pending}
-          onClick={() => run(() => acceptFriendRequest(requestId), "Friend added")}
+          onClick={() =>
+            run(() => acceptFriendRequest(requestId), "Friend added", () =>
+              track("friend_added", { from: "friends_tab" })
+            )
+          }
         >
           Accept
         </Button>

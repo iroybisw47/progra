@@ -53,6 +53,7 @@ import {
   sessionWorkedMs,
   type SessionPlan,
 } from "@/lib/session";
+import { track } from "@/lib/analytics";
 import {
   canScheduleReminders,
   reminderDiagnostics,
@@ -352,6 +353,14 @@ export function LiveTimerClient({
         toast.error(r.error);
         return;
       }
+      // Only on the user-initiated stop. autoClockOut and
+      // completePlannedSession end sessions without anyone doing anything, and
+      // counting those would inflate "sessions completed".
+      track("session_completed", {
+        worked_minutes: Math.round(sessionWorkedMs(timing, Date.now()) / 60_000),
+        timed: timed,
+        breaks_taken: plan.breaksTaken,
+      });
       router.push(`/clock/finish?sid=${r.sessionId}`);
     });
   }

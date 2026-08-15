@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { identifyUser, resetUser } from "@/lib/analytics";
+
 // Product analytics. Mounted once in the root layout, alongside the other
 // client leaves (EnsureProfileSync, PushRegistration, SyncClockReminders).
 //
@@ -12,7 +14,13 @@ import { useEffect } from "react";
 // Init runs in an effect rather than at module scope. Module-scope init would
 // execute during SSR (where `window` doesn't exist) and again on hydration; an
 // effect is client-only and runs once, which is what posthog.init expects.
-export function PostHogInit() {
+export function PostHogInit({
+  userId,
+  username,
+}: {
+  userId: string | null;
+  username: string | null;
+}) {
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
     if (!key) return; // Unset in an environment → analytics simply off.
@@ -23,8 +31,13 @@ export function PostHogInit() {
       if (cancelled || posthog.__loaded) return;
 
       posthog.init(key, {
-        api_host:
-          process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com",
+        // Same-origin, proxied by the /ingest rewrite in next.config.ts, so
+        // blockers that filter *.i.posthog.com by hostname don't drop events.
+        // Relative on purpose: it resolves to progra.world inside the iOS
+        // shell exactly as it does on the web.
+        api_host: "/ingest",
+        // Links in the PostHog toolbar still need the real host.
+        ui_host: "https://us.posthog.com",
 
         // Anonymous events cost nothing and create no person record. A profile
         // is only made if something calls posthog.identify() — nothing does
@@ -55,5 +68,30 @@ export function PostHogInit() {
     };
   }, []);
 
+  // Identity, in its own effect so it re-runs on sign-in and sign-out without
+  // touching init.
+  //
+  // Sign-out is handled implicitly and reliably: /auth/signout is a server
+  // route, so there's no client code there to call reset() — but afterwards
+  // the layout re-renders with no user, userId arrives as null, and the reset
+  // happens here. lastIdentified stops it firing on every render for a
+  // signed-out visitor.
+  useEffect(() => {
+    if (userId) {
+      if (lastIdentified === userId) return;
+      lastIdentified = userId;
+      identifyUser(userId, username);
+      return;
+    }
+    if (lastIdentified !== null) {
+      lastIdentified = null;
+      resetUser();
+    }
+  }, [userId, username]);
+
   return null;
 }
+
+// Module scope, not state: this must survive the remounts a client-side
+// navigation causes, or every navigation would re-identify.
+let lastIdentified: string | null = null;
