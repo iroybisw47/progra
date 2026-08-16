@@ -14,22 +14,21 @@ import { allReminderIds, type ClockReminder } from "@/lib/clock-reminders";
 // clocking out must behave identically whether or not a reminder gets
 // scheduled; a reminder is a nicety, and it may never break the clock.
 
-// Read straight off the Capacitor global — NOT imported, statically or
-// dynamically. Both import forms were tried on device and both failed:
-// `await import(...)` never settled, and a static import still produced
-// PLUGIN-TIMEOUT, which a synchronous body in an async wrapper should have made
-// impossible. Two theories about bundler behaviour, two wrong.
+// Read straight off the Capacitor global. DO NOT import this plugin.
 //
-// This is the one path with evidence behind it. From the Safari inspector on
-// the device, window.Capacitor.Plugins.LocalNotifications reported
-// display=granted, accepted a schedule, and iOS delivered the banner. Capacitor
-// registers its plugins on that global at bridge startup, so there is no module
-// resolution, no chunk fetch, and nothing that can be pending.
+// Both import forms fail on device: `await import(...)` never settles, and a
+// static import stalled too — impossible for a synchronous body in an async
+// wrapper, which is how we know the bundler is doing something unexplained.
+// Root cause was never established. What IS proven, from the Safari inspector
+// on the device, is that window.Capacitor.Plugins.LocalNotifications reports
+// display=granted, accepts a schedule and delivers the banner. Capacitor
+// registers plugins on that global at bridge startup, so there's no module
+// resolution and no chunk fetch that can be left pending.
 //
-// SYNCHRONOUS on purpose. The old signature returned a promise, which is what
-// let a stall hide as a pending await for three debugging rounds; a plain
-// function has nowhere to hang. Off-native (the website, SSR) the global is
-// absent and this returns null, which is the same contract as before.
+// SYNCHRONOUS on purpose: a promise-returning accessor is what let the stall
+// hide as a pending await through three rounds of debugging. Off-native the
+// global is absent and this returns null, so the website and SSR are
+// unaffected.
 function plugin(): LocalNotificationsPlugin | null {
   if (typeof window === "undefined") return null;
   const cap = (
@@ -85,80 +84,38 @@ export async function canScheduleReminders(): Promise<boolean> {
 // is why the caller can be a single layout leaf instead of six wired-up call
 // sites — every path that changes a session ends in revalidateSessionSurfaces,
 // which re-renders the leaf, which calls this.
-// TEMPORARY: records where the last sync got to, so the on-screen diagnostic
-// can report it. Delete alongside reminderDiagnostics().
-let lastSync = "never ran";
-let syncRuns = 0;
-export function lastSyncReport(): string {
-  return `runs=${syncRuns} ${lastSync}`;
-}
 
 // Fingerprint of the last schedule actually written, so an identical request is
 // a no-op.
 //
-// THIS IS THE FIX, not an optimisation. syncClockReminders cancels our whole id
+// LOAD-BEARING, not an optimisation. syncClockReminders cancels our whole id
 // range before scheduling — so if it's called repeatedly with the same input
 // (a layout re-render, a router.refresh, a poll), each run wipes the previous
 // run's notifications before they can fire. Nothing survives, pending stays 0,
 // and the failure is invisible.
-//
-// It went unnoticed because the diagnostic probe used id 9999, which is NOT in
-// the cancelled range — so the probe queued and delivered perfectly while the
-// real reminders were being destroyed on a loop.
 let lastFingerprint = "";
 
 export async function syncClockReminders(
   reminders: ClockReminder[]
 ): Promise<void> {
-  syncRuns += 1;
-
   const fingerprint = reminders.map((r) => `${r.id}@${r.at}`).join("|");
-  if (fingerprint === lastFingerprint) {
-    lastSync = `n=${reminders.length} unchanged`;
-    return;
-  }
+  if (fingerprint === lastFingerprint) return;
 
-  // TEMPORARY: bump whenever these breadcrumbs change, so the report itself
-  // says whether the device is running the JS we just shipped. Without it, "old
-  // cached bundle" and "new code that hung before the first breadcrumb" produce
-  // an identical string, which cost a round trip once already.
-  lastSync = `v6 n=${reminders.length}`;
-
-  // No race and no try needed any more: plugin() is a synchronous property read
-  // off the Capacitor global. There is no promise here to leave pending, which
-  // is the entire point of the change.
   const ln = plugin();
-  if (!ln) {
-    lastSync += " NO-PLUGIN";
-    return;
-  }
-  lastSync += " ok";
+  if (!ln) return;
 
   try {
-    // TEMPORARY breadcrumbs. A bare `n=9` in the report means one of the three
-    // awaits below never settled, and they're indistinguishable without
-    // markers — the arrow goes in BEFORE the call, the check after it, so the
-    // last arrow with no check is the one that hung. Delete with the rest of
-    // the diagnostic.
-    lastSync += " →cancel";
     // Unconditional: cancelling ids that aren't scheduled is a no-op.
     await ln.cancel({ notifications: allReminderIds().map((id) => ({ id })) });
-    lastSync += " ok";
 
     if (reminders.length === 0) {
       // Cancelled above; record it so a later identical call skips even this.
       lastFingerprint = fingerprint;
-      lastSync += " (nothing to schedule)";
       return;
     }
-    lastSync += " →perm";
-    if (!(await canScheduleReminders())) {
-      lastSync += " NO-PERM";
-      return;
-    }
-    lastSync += " ok →sched";
+    if (!(await canScheduleReminders())) return;
 
-    const res = await ln.schedule({
+    await ln.schedule({
       notifications: reminders.map((r) => ({
         id: r.id,
         title: r.title,
@@ -172,60 +129,9 @@ export async function syncClockReminders(
     // Only recorded once the write actually succeeded, so a throw leaves the
     // fingerprint stale and the next call retries rather than skipping.
     lastFingerprint = fingerprint;
-    lastSync += ` scheduled=${res?.notifications?.length ?? "?"}`;
-  } catch (e) {
-    // Still swallowed for the caller — a reminder may never break the clock —
-    // but no longer invisible.
-    lastSync += ` THREW: ${(e as Error)?.message ?? String(e)}`;
+  } catch {
+    // Swallowed on purpose — a reminder may never break the clock.
   }
-}
-
-// TEMPORARY DIAGNOSTIC — delete once reminders are confirmed working.
-//
-// Everything above swallows its errors so a reminder can never break the clock,
-// which is right for production and useless while debugging: a failure looks
-// exactly like nothing happening. This reports each step instead.
-//
-// Deliberately readable from JS alone, so it ships over Vercel with no Xcode
-// rebuild — which is what makes it able to answer the first question that
-// matters: is the plugin actually in this binary?
-export async function reminderDiagnostics(): Promise<string> {
-  // Same global read as plugin(), so the diagnostic and the sync can no longer
-  // disagree about whether the plugin exists — which they did for three rounds,
-  // reporting "plugin ok" and "PLUGIN-TIMEOUT" in the same string.
-  const ln = plugin();
-  if (!ln) return "PLUGIN MISSING (or web) — check Capacitor.Plugins";
-
-  let perm = "?";
-  try {
-    perm = (await ln.checkPermissions()).display;
-  } catch (e) {
-    return `checkPermissions threw: ${(e as Error)?.message ?? "?"}`;
-  }
-
-  let pending = -1;
-  try {
-    pending = (await ln.getPending()).notifications.length;
-  } catch (e) {
-    return `getPending threw: ${(e as Error)?.message ?? "?"}`;
-  }
-
-  // A live schedule attempt 30s out. This is the decisive test: if the bridge
-  // can't turn a JS Date into a usable trigger, iOS treats the request as
-  // "deliver now" instead of queueing it, which reads as pending=0 with no
-  // error anywhere. Scheduling one and re-reading pending distinguishes
-  // "scheduling failed" from "scheduling worked but delivery didn't".
-  // The probe already proved scheduling works, so it's gone — re-running it
-  // every 3s would queue a test notification repeatedly. What matters now is
-  // the settled pending count and where the leaf's sync finished.
-  const ids = (await ln.getPending()).notifications
-    .map((n) => n.id)
-    .sort((a, b) => a - b)
-    .join(",");
-
-  return `plugin ok · perm=${perm} · pending=${pending}${
-    pending > 0 ? ` [${ids}]` : ""
-  } · sync[${lastSyncReport()}]`;
 }
 
 // Clear everything this module owns. Used when a session ends by any route.

@@ -54,11 +54,8 @@ import {
   type SessionPlan,
 } from "@/lib/session";
 import { track } from "@/lib/analytics";
-import {
-  canScheduleReminders,
-  reminderDiagnostics,
-} from "@/lib/clock-notifications";
-import { CLOCK_REMINDERS, CLOCK_REMINDERS_FAST } from "@/lib/flags";
+import { canScheduleReminders } from "@/lib/clock-notifications";
+import { CLOCK_REMINDERS } from "@/lib/flags";
 import { isNativeApp } from "@/lib/native";
 import { primeTimerSound, setTimerSoundMuted } from "@/lib/timer-sound";
 import { useTimerSoundMuted } from "@/lib/use-muted";
@@ -196,25 +193,6 @@ export function LiveTimerClient({
     void canScheduleReminders().then((ok) => setRemindersBlocked(!ok));
   }, []);
 
-  // TEMPORARY DIAGNOSTIC — delete once reminders are confirmed working.
-  // Deliberately NOT gated on CLOCK_REMINDERS: if the flag never reached the
-  // deployed bundle, that's exactly what we need to see.
-  const [diag, setDiag] = useState<string | null>(null);
-  useEffect(() => {
-    if (!isNativeApp()) return;
-    // Re-read every 3s. The first version snapshotted once on mount, which
-    // raced the layout leaf's sync still being in flight — so it reported
-    // pending=0 and a half-written sync line and never corrected itself.
-    const read = () =>
-      void reminderDiagnostics().then((d) =>
-        setDiag(
-          `${CLOCK_REMINDERS ? (CLOCK_REMINDERS_FAST ? "flag=fast" : "flag=on") : "flag=OFF"} · ${d}`
-        )
-      );
-    read();
-    const id = window.setInterval(read, 3000);
-    return () => window.clearInterval(id);
-  }, []);
   useEffect(() => {
     if (!timed) return;
     const onFirstPress = () => primeTimerSound();
@@ -684,13 +662,6 @@ export function LiveTimerClient({
           )}
         </div>
       </div>
-
-      {/* TEMPORARY DIAGNOSTIC — delete once reminders are confirmed working. */}
-      {diag && (
-        <p className="text-faint mx-6 mb-2 text-center font-mono text-[10px] break-all">
-          {diag}
-        </p>
-      )}
 
       {/* Quiet, and only when it's actually true. iOS shares one notification
           authorization with push, so this is usually already granted. */}

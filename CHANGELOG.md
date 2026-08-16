@@ -4,6 +4,46 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-08-16
+
+### · Clock reminders actually fire — read the plugin off the Capacitor global
+Hourly nudges on an open-ended session and the "Time's up" alert on a timed one
+were written on 2026-08-08 and had never once worked. `syncClockReminders`
+computed the right 9 reminders on every run and then parked before writing any
+of them, so `getPending()` stayed at 0 with no error anywhere.
+
+The stall was `await import("@capacitor/local-notifications")` inside
+`plugin()` — on device that promise never settles. A static import didn't fix
+it either: it still timed out, which is impossible for a synchronous body in an
+async wrapper, so the built artifact is doing something we never explained.
+**Root cause remains unknown.**
+
+What's proven is the other path. From the Safari inspector on the device,
+`window.Capacitor.Plugins.LocalNotifications` reports `display=granted`, accepts
+a schedule and delivers the banner. Capacitor registers plugins on that global
+at bridge startup, so there's no module resolution and no chunk fetch that can
+be left pending. `plugin()` now reads it there, and is **synchronous** — the
+promise-returning signature is precisely what let the stall hide as a pending
+await across three rounds of debugging. Exported as `notificationsPlugin` so the
+tap listener in `sync-clock-reminders.tsx`, which had the identical import and
+would have failed the same way, shares it rather than growing its own.
+
+**Do not import a Capacitor plugin in this app.** Use a sync accessor off the
+global, returning null when `isNativePlatform()` is false so web and SSR are
+unaffected. `push-registration.tsx` still dynamically imports
+`@capacitor/push-notifications`, and that is now a live candidate explanation
+for why push registration has never once succeeded.
+
+Also removed the temporary on-screen diagnostic (visible to beta users on the
+live timer since 2026-08-08) and the `[push]` console logging. The fingerprint
+guard stays — it's load-bearing, not an optimisation: the sync cancels its whole
+id range before scheduling, so without it each re-render destroyed the previous
+run's notifications before they could fire.
+
+Reserved ids are `9001` (duration end) and `9102–9110` (hours 1–9).
+`HOURLY_ID_BASE` is 9101 and hours start at 1, so 9101 itself is never used;
+schedule and cancel both derive from `hourlyReminderId()`, so they agree.
+
 ## 2026-08-15
 
 ### · Goals get a real color — **requires SQL (run by hand, before deploy)**
