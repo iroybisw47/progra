@@ -104,8 +104,15 @@ export async function syncClockReminders(
   }
 
   try {
+    // TEMPORARY breadcrumbs. A bare `n=9` in the report means one of the three
+    // awaits below never settled, and they're indistinguishable without
+    // markers — the arrow goes in BEFORE the call, the check after it, so the
+    // last arrow with no check is the one that hung. Delete with the rest of
+    // the diagnostic.
+    lastSync += " →cancel";
     // Unconditional: cancelling ids that aren't scheduled is a no-op.
     await ln.cancel({ notifications: allReminderIds().map((id) => ({ id })) });
+    lastSync += " ok";
 
     if (reminders.length === 0) {
       // Cancelled above; record it so a later identical call skips even this.
@@ -113,10 +120,12 @@ export async function syncClockReminders(
       lastSync += " (nothing to schedule)";
       return;
     }
+    lastSync += " →perm";
     if (!(await canScheduleReminders())) {
       lastSync += " NO-PERM";
       return;
     }
+    lastSync += " ok →sched";
 
     const res = await ln.schedule({
       notifications: reminders.map((r) => ({
