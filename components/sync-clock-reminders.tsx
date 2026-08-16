@@ -1,11 +1,13 @@
 "use client";
 
-import { LocalNotifications } from "@capacitor/local-notifications";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { clockReminders } from "@/lib/clock-reminders";
-import { syncClockReminders } from "@/lib/clock-notifications";
+import {
+  notificationsPlugin,
+  syncClockReminders,
+} from "@/lib/clock-notifications";
 import { CLOCK_REMINDERS, REMINDER_HOUR_MS } from "@/lib/flags";
 
 // Keeps the device's scheduled clock reminders in step with the active session.
@@ -79,7 +81,12 @@ export function SyncClockReminders({
 
     void (async () => {
       try {
-        const h = await LocalNotifications.addListener(
+        // Off the Capacitor global, same as lib/clock-notifications.ts — see
+        // the long note on plugin() there for why neither import form works on
+        // device. Null on web, where there is no listener to attach.
+        const ln = notificationsPlugin();
+        if (!ln) return;
+        const h = await ln.addListener(
           "localNotificationActionPerformed",
           () => router.push("/clock/live")
         );
