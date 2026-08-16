@@ -6,7 +6,6 @@ import { FeedLivePoll } from "@/components/feed-live-poll";
 import { InviteShare } from "@/components/v2/invite-share";
 import { RecapFeedCard } from "@/components/v2/recap-feed-card";
 import { SessionCard } from "@/components/v2/session-card";
-import { Card, CardContent } from "@/components/ui/card";
 import { getProfile } from "@/lib/auth/profile";
 import {
   listClockedInNow,
@@ -85,13 +84,10 @@ export async function FeedV2() {
   ].sort((a, b) => sortAt(b) - sortAt(a));
 
   return (
-    <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-28">
-      <main className="flex w-full max-w-md flex-col gap-5">
-        <header className="flex flex-col gap-1">
-          <h1 className="text-[26px] font-bold tracking-tight">Feed</h1>
-          <p className="text-caption text-sm">
-            What your friends have been working on.
-          </p>
+    <div className="flex flex-1 flex-col items-center pt-7 pb-28">
+      <main className="flex w-full max-w-md flex-col">
+        <header className="px-5">
+          <span className="section-label">Feed</span>
         </header>
 
         <FeedLivePoll />
@@ -99,23 +95,21 @@ export async function FeedV2() {
 
         {entries.length === 0 ? (
           clockedIn.length === 0 && (
-            <Card>
-              <CardContent className="flex flex-col gap-3 py-8">
-                <p className="text-caption text-center text-sm text-pretty">
-                  Your feed&rsquo;s quiet — invite a friend and you&rsquo;ll see
-                  each other show up.
-                </p>
-                {viewerProfile?.username && (
-                  <InviteShare username={viewerProfile.username} />
-                )}
-                <Link
-                  href="/friends"
-                  className="text-caption hover:text-ink self-center text-xs font-medium"
-                >
-                  or find people already on Progra
-                </Link>
-              </CardContent>
-            </Card>
+            <div className="flex flex-col gap-3 px-5 py-10">
+              <p className="text-caption text-center text-sm text-pretty">
+                Your feed&rsquo;s quiet — invite a friend and you&rsquo;ll see
+                each other show up.
+              </p>
+              {viewerProfile?.username && (
+                <InviteShare username={viewerProfile.username} />
+              )}
+              <Link
+                href="/friends"
+                className="text-caption hover:text-ink self-center text-xs font-medium"
+              >
+                or find people already on Progra
+              </Link>
+            </div>
           )
         ) : (
           entries.map((entry) => {
@@ -123,47 +117,44 @@ export async function FeedV2() {
             // reactions/comments (those need a real session).
             if (entry.kind === "join") {
               return (
-                <Card key={entry.id}>
-                  <CardContent className="flex flex-col gap-2 py-4">
-                    <div className="flex items-center gap-3">
-                      <Link href={`/profile/${entry.author.username}`}>
-                        <AvatarInitials
-                          name={entry.author.displayName}
-                          username={entry.author.username}
-                          avatarUrl={entry.author.avatarUrl}
-                          className="size-10 text-sm"
-                        />
+                <div
+                  key={entry.id}
+                  className="border-hairline flex flex-col gap-2 border-b px-5 py-4"
+                >
+                  <div className="flex items-center gap-[11px]">
+                    <Link href={`/profile/${entry.author.username}`}>
+                      <AvatarInitials
+                        name={entry.author.displayName}
+                        username={entry.author.username}
+                        avatarUrl={entry.author.avatarUrl}
+                        className="size-[34px] text-xs"
+                      />
+                    </Link>
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <Link
+                        href={`/profile/${entry.author.username}`}
+                        className="text-body truncate text-[13px] leading-[1.25] font-semibold"
+                      >
+                        {entry.author.displayName ||
+                          `@${entry.author.username}`}
                       </Link>
-                      <div className="flex min-w-0 flex-col">
-                        <span className="text-sm">
-                          <Link
-                            href={`/profile/${entry.author.username}`}
-                            className="font-bold hover:underline"
-                          >
-                            {entry.author.displayName ||
-                              `@${entry.author.username}`}
-                          </Link>{" "}
-                          <span className="text-caption">
-                            just joined Progra!
-                          </span>
-                        </span>
-                        <span className="text-faint text-xs">
-                          {formatRelativeTime(entry.joinedAt, now)}
-                        </span>
-                      </div>
+                      <span className="text-faint text-[11px] leading-[1.3]">
+                        just joined Progra
+                      </span>
                     </div>
-                    {entry.firstGoalTitle ? (
-                      <p className="text-sm">
-                        <span className="text-caption font-normal">
-                          Their first goal is{" "}
-                        </span>
-                        <span className="font-medium">
-                          {entry.firstGoalTitle}
-                        </span>
-                      </p>
-                    ) : null}
-                  </CardContent>
-                </Card>
+                    <span className="text-disabled shrink-0 text-[11px]">
+                      {formatRelativeTime(entry.joinedAt, now)}
+                    </span>
+                  </div>
+                  {entry.firstGoalTitle ? (
+                    <p className="text-[13px] leading-[1.5] text-[var(--secondary-ink)]">
+                      Their first goal is{" "}
+                      <span className="text-body font-semibold">
+                        {entry.firstGoalTitle}
+                      </span>
+                    </p>
+                  ) : null}
+                </div>
               );
             }
 

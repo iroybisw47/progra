@@ -52,14 +52,14 @@ export function KudosButton({
       aria-pressed={optimistic.liked}
       aria-label={optimistic.liked ? "Remove kudos" : "Give kudos"}
       className={cn(
-        "flex items-center gap-1.5 text-xs font-medium transition-colors active:scale-90 disabled:opacity-60",
-        optimistic.liked ? "text-brand" : "text-caption hover:text-body"
+        "flex items-center gap-1 rounded-full px-2 py-[3px] text-[11px] font-semibold tabular-nums transition-transform active:scale-90 disabled:opacity-60",
+        optimistic.liked ? "text-brand" : "text-disabled hover:text-brand"
       )}
     >
-      <HeartIcon className={cn("size-4", optimistic.liked && "fill-current")} />
-      {optimistic.count > 0 && (
-        <span className="tabular-nums">{optimistic.count}</span>
-      )}
+      <HeartIcon
+        className={cn("size-[13px]", optimistic.liked && "fill-current")}
+      />
+      {optimistic.count > 0 && optimistic.count}
     </button>
   );
 }

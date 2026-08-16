@@ -1,3 +1,4 @@
+import { tint, userColor } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 
 // Initials from a display name (first letters of the first two words) or, when
@@ -42,13 +43,17 @@ export function AvatarInitials({
       />
     );
   }
+  // No photo: initials on a wash of the person's own palette color, so people
+  // are as recognizable by color as goals and categories are.
+  const color = userColor(username ?? "");
   return (
     <span
       aria-hidden
       className={cn(
-        "bg-brand flex items-center justify-center rounded-full font-semibold text-[#fcf6ef]",
+        "flex items-center justify-center rounded-full font-semibold",
         className
       )}
+      style={{ backgroundColor: tint(color, 0.16), color }}
     >
       {initialsOf(name, username)}
     </span>

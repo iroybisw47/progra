@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { ClockIcon, LockIcon, MessageCircleIcon } from "lucide-react";
+import { LockIcon, MessageCircleIcon } from "lucide-react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { CategoryMarker } from "@/components/category-marker";
 import { KudosButton } from "@/components/kudos-button";
 import { ReportButton } from "@/components/report-button";
-import { Card } from "@/components/ui/card";
+import { entityColor, tint } from "@/lib/colors";
 import type { CommentItem } from "@/lib/db/comments";
 import type { SessionCardItem } from "@/lib/db/feed";
 import type { PublicUser } from "@/lib/db/friends";
@@ -89,142 +89,131 @@ export function SessionCard({
     </span>
   );
 
+  // The post's accent: whatever it was clocked into. Uncategorized falls back
+  // to the neutral grey entityColor already returns.
+  const accent = entityColor(a?.color ?? null);
+
   return (
-    <Card className="overflow-hidden">
-      <div className="flex flex-col">
-        {/* Header: who + "clocked into ⟨marker⟩ {target} for {dur}" */}
-        <div className="flex items-start gap-3 px-4 pt-4">
-          {author && (
-            <Link href={`/profile/${author.username}`}>
-              <AvatarInitials
-                name={author.displayName}
-                username={author.username}
-                avatarUrl={author.avatarUrl}
-                className="size-10 text-sm"
-              />
-            </Link>
-          )}
-          <div className="flex min-w-0 flex-1 flex-col">
-            {author ? (
-              <>
-                {/* Name left, timestamp hard right; sub-line beneath. */}
-                <div className="flex items-baseline justify-between gap-2">
-                  <Link
-                    href={`/profile/${author.username}`}
-                    className="truncate text-sm font-bold hover:underline"
-                  >
-                    {author.displayName || `@${author.username}`}
-                  </Link>
-                  {meta}
-                </div>
-                {subLine()}
-              </>
-            ) : (
-              // No name row for the timestamp to hang off, so the sub-line
-              // takes that row instead — "clocked into x" now sits on the same
-              // baseline as "3h ago" rather than on a line below an empty one.
-              <div className="flex items-baseline justify-between gap-2">
-                {subLine("min-w-0 flex-1")}
-                {meta}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Body: title + description, taps through to the detail. */}
-        <Link
-          href={`/session/${item.sessionId}`}
-          className="hover:bg-track/30 flex flex-col gap-1 px-4 py-3 transition-colors"
-        >
-          <span className="text-lg font-medium leading-snug tracking-[-0.01em]">
-            {item.title}
-          </span>
-          {item.description ? (
-            <p className="text-body line-clamp-3 text-sm leading-relaxed">
-              {item.description}
-            </p>
-          ) : null}
-        </Link>
-
-        {/* Photo — full-bleed band. Raw <img>: the src is a short-lived
-            signed URL into a private bucket that next/image can neither
-            cache sanely nor reach without a remotePatterns allowlist. */}
-        {item.photoUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.photoUrl}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="aspect-square w-full object-cover"
-          />
-        )}
-
-        {/* Footer — duration pill + kudos/comments. A private session shows a
-            Private chip instead: nobody else can see the post, so there is
-            nothing to like and an "Add a comment" prompt would be a lie. */}
-        <div className="border-divider flex items-center justify-between gap-3 border-t px-4 py-2.5">
-          <span className="bg-brand/10 text-brand inline-flex h-[26px] items-center gap-1.5 rounded-full px-2.5 font-mono text-xs font-semibold tabular-nums">
-            <ClockIcon className="size-3" />
-            {durationLabel}
-          </span>
-          {item.isPrivate ? (
-            <span className="text-caption flex items-center gap-1.5 text-xs font-medium">
-              <LockIcon className="size-3.5" />
-              Private
-            </span>
-          ) : (
-            <div className="flex items-center gap-3.5">
-              <Link
-                href={`/session/${item.sessionId}`}
-                className="text-caption hover:text-body flex items-center gap-1.5 text-xs font-medium"
-                aria-label={`${comments.length} comments`}
-              >
-                <MessageCircleIcon className="size-4" />
-                {comments.length > 0 && (
-                  <span className="tabular-nums">{comments.length}</span>
-                )}
-              </Link>
-              <KudosButton
-                sessionId={item.sessionId}
-                count={kudos.count}
-                likedByMe={kudos.mine}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Comment preview → session detail (kept alongside the count). Omitted
-            on private sessions, which can never have comments. */}
-        {!item.isPrivate && (
-          <Link
-            href={`/session/${item.sessionId}`}
-            className="border-divider flex flex-col gap-1.5 border-t px-4 py-3"
-          >
-            {preview ? (
-              <>
-                <span className="text-sm">
-                  <span className="font-bold">
-                    {preview.author.displayName ||
-                      `@${preview.author.username}`}
-                  </span>{" "}
-                  <span className="text-body break-words">{preview.body}</span>
-                </span>
-                {comments.length > 1 && (
-                  <span className="text-caption text-xs">
-                    View all {comments.length} comments
-                  </span>
-                )}
-              </>
-            ) : (
-              <span className="text-caption flex items-center gap-1.5 text-xs">
-                <MessageCircleIcon className="size-3.5" />
-                Add a comment
-              </span>
-            )}
+    <article className="border-hairline flex flex-col gap-[9px] border-b px-5 py-4">
+      {/* Header: who, what it counts towards, when */}
+      <div className="flex items-center gap-[11px]">
+        {author && (
+          <Link href={`/profile/${author.username}`}>
+            <AvatarInitials
+              name={author.displayName}
+              username={author.username}
+              avatarUrl={author.avatarUrl}
+              className="size-[34px] text-xs"
+            />
           </Link>
         )}
+        <div className="flex min-w-0 flex-1 flex-col">
+          {author && (
+            <Link
+              href={`/profile/${author.username}`}
+              className="text-body truncate text-[13px] leading-[1.25] font-semibold"
+            >
+              {author.displayName || `@${author.username}`}
+            </Link>
+          )}
+          {subLine("leading-[1.3]")}
+        </div>
+        {meta}
       </div>
-    </Card>
+
+      {/* Body: title + description, taps through to the detail. */}
+      <Link
+        href={`/session/${item.sessionId}`}
+        className="flex flex-col gap-[3px]"
+      >
+        <span className="text-ink font-serif text-[17px] font-medium tracking-[-0.01em]">
+          {item.title}
+        </span>
+        {item.description ? (
+          <p className="line-clamp-3 text-[13px] leading-[1.5] text-[var(--secondary-ink)]">
+            {item.description}
+          </p>
+        ) : null}
+      </Link>
+
+      {/* Photo. Raw <img>: the src is a short-lived signed URL into a private
+          bucket that next/image can neither cache sanely nor reach without a
+          remotePatterns allowlist. */}
+      {item.photoUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={item.photoUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="h-[180px] w-full rounded-[14px] object-cover"
+        />
+      )}
+
+      {/* Footer — duration pill in the session's own color + kudos/comments. A
+          private session shows a Private chip instead: nobody else can see the
+          post, so there is nothing to like and an "Add a comment" prompt would
+          be a lie. */}
+      <div className="flex items-center gap-3.5">
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[11px] font-semibold whitespace-nowrap tabular-nums"
+          style={{ backgroundColor: tint(accent), color: accent }}
+        >
+          <span
+            aria-hidden
+            className="size-1.5 rounded-[2px]"
+            style={{ backgroundColor: accent }}
+          />
+          {durationLabel}
+        </span>
+        <span className="flex-1" />
+        {item.isPrivate ? (
+          <span className="text-caption flex items-center gap-1.5 text-[11px] font-semibold">
+            <LockIcon className="size-3.5" />
+            Private
+          </span>
+        ) : (
+          <div className="border-hairline flex items-center gap-0.5 rounded-full border p-0.5">
+            <Link
+              href={`/session/${item.sessionId}`}
+              className="text-disabled hover:text-brand flex items-center gap-1 rounded-full px-2 py-[3px] text-[11px] font-semibold tabular-nums"
+              aria-label={`${comments.length} comments`}
+            >
+              <MessageCircleIcon className="size-[13px]" />
+              {comments.length > 0 && comments.length}
+            </Link>
+            <span aria-hidden className="bg-hairline h-3 w-px" />
+            <KudosButton
+              sessionId={item.sessionId}
+              count={kudos.count}
+              likedByMe={kudos.mine}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Comment preview → session detail (kept alongside the count). Omitted
+          on private sessions, which can never have comments. */}
+      {!item.isPrivate && preview && (
+        <Link
+          href={`/session/${item.sessionId}`}
+          className="border-divider flex flex-col gap-1.5 border-t pt-2.5"
+        >
+          <span className="text-xs leading-[1.4]">
+            <span className="text-body font-semibold">
+              {preview.author.displayName || `@${preview.author.username}`}
+            </span>{" "}
+            <span className="break-words text-[var(--secondary-ink)]">
+              {preview.body}
+            </span>
+          </span>
+          {comments.length > 1 && (
+            <span className="text-caption text-[11px]">
+              View all {comments.length} comments
+            </span>
+          )}
+        </Link>
+      )}
+    </article>
   );
 }

@@ -4,7 +4,6 @@ import { AvatarInitials } from "@/components/avatar-initials";
 import { ReportButton } from "@/components/report-button";
 import { RecapComments } from "@/components/v2/recap-comments";
 import { RecapKudosButton } from "@/components/v2/recap-kudos-button";
-import { Card, CardContent } from "@/components/ui/card";
 import { formatDuration } from "@/lib/duration";
 import { formatRelativeTime } from "@/lib/dates";
 import type { RecapFeedItem } from "@/lib/db/feed";
@@ -43,98 +42,94 @@ export function RecapFeedCard({
   comments: RecapComment[];
 }) {
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="flex flex-col gap-4 py-4">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <Link href={`/profile/${entry.author.username}`}>
-            <AvatarInitials
-              name={entry.author.displayName}
-              username={entry.author.username}
-              avatarUrl={entry.author.avatarUrl}
-              className="size-10 text-sm"
-            />
+    <article className="border-hairline flex flex-col gap-3.5 border-b px-5 py-4">
+      {/* Header */}
+      <div className="flex items-center gap-[11px]">
+        <Link href={`/profile/${entry.author.username}`}>
+          <AvatarInitials
+            name={entry.author.displayName}
+            username={entry.author.username}
+            avatarUrl={entry.author.avatarUrl}
+            className="size-[34px] text-xs"
+          />
+        </Link>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Link
+            href={`/profile/${entry.author.username}`}
+            className="text-body truncate text-[13px] leading-[1.25] font-semibold"
+          >
+            {entry.author.displayName || `@${entry.author.username}`}
           </Link>
-          <div className="flex min-w-0 flex-col">
-            <span className="text-sm">
-              <Link
-                href={`/profile/${entry.author.username}`}
-                className="font-bold hover:underline"
-              >
-                {entry.author.displayName || `@${entry.author.username}`}
-              </Link>{" "}
-              <span className="text-caption">uploaded their weekly recap!</span>
-            </span>
-            <span className="text-faint text-xs">
-              {formatRelativeTime(entry.postedAt, now)}
-            </span>
-          </div>
+          <span className="text-faint text-[11px] leading-[1.3]">
+            posted their weekly recap
+          </span>
         </div>
+        <span className="text-disabled shrink-0 text-[11px]">
+          {formatRelativeTime(entry.postedAt, now)}
+        </span>
+      </div>
 
-        {/* Summary panel — navy tint sets it apart from session cards */}
-        <div className="bg-brand/5 border-hairline flex flex-col gap-3 rounded-2xl border p-4">
-          <div className="flex items-end justify-between gap-3">
-            <div className="flex flex-col">
-              <span className="text-caption text-xs">
-                Week of {weekRange(entry.weekStartMs)}
-              </span>
-              <span className="text-ink text-3xl font-bold leading-tight tabular-nums">
-                {formatDuration(entry.totalTrackedMs)}
-              </span>
-              <span className="text-caption text-xs">tracked</span>
-            </div>
-            {entry.rank != null && (
-              <div className="flex shrink-0 flex-col items-end">
-                <span className="text-brand text-2xl font-bold tabular-nums">
-                  #{entry.rank}
-                </span>
-                <span className="text-caption text-xs">
-                  of {entry.circleSize}
-                </span>
-              </div>
-            )}
+      {/* Summary panel — a navy wash sets the week apart from a session post */}
+      <div className="flex flex-col gap-3 rounded-2xl bg-[rgba(28,58,94,.05)] p-4">
+        <div className="flex items-end justify-between gap-3">
+          <div className="flex flex-col">
+            <span className="text-faint text-[11px]">
+              Week of {weekRange(entry.weekStartMs)}
+            </span>
+            <span className="stat-num text-3xl leading-tight">
+              {formatDuration(entry.totalTrackedMs)}
+            </span>
+            <span className="text-caption text-[11px]">tracked</span>
           </div>
-          {entry.categories.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              {entry.categories.map((c, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs">
-                  <span
-                    className="size-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: c.color ?? CHART_FALLBACK }}
-                  />
-                  <span className="text-body min-w-0 flex-1 truncate">
-                    {c.name}
-                  </span>
-                  <span className="text-caption shrink-0 font-mono tabular-nums">
-                    {fmtH(c.ms)}
-                  </span>
-                </div>
-              ))}
+          {entry.rank != null && (
+            <div className="flex shrink-0 flex-col items-end">
+              <span className="stat-num text-brand text-2xl">
+                #{entry.rank}
+              </span>
+              <span className="text-caption text-[11px]">
+                of {entry.circleSize}
+              </span>
             </div>
           )}
         </div>
-
-        {entry.caption && (
-          <p className="text-body text-sm text-pretty">{entry.caption}</p>
-        )}
-
-        {/* Social footer — kudos + comments (6b), report (6c) */}
-        <div className="border-divider flex flex-col gap-3 border-t pt-3">
-          <div className="flex items-center justify-between gap-3">
-            <RecapKudosButton
-              recapId={entry.id}
-              count={kudos.count}
-              likedByMe={kudos.mine}
-            />
-            <ReportButton
-              targetType="recap"
-              targetId={entry.id}
-              label="Report"
-            />
+        {entry.categories.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            {entry.categories.map((c, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs">
+                <span
+                  className="size-2 shrink-0 rounded-[2px]"
+                  style={{ backgroundColor: c.color ?? CHART_FALLBACK }}
+                />
+                <span className="text-body min-w-0 flex-1 truncate">
+                  {c.name}
+                </span>
+                <span className="text-ink shrink-0 font-semibold tabular-nums">
+                  {fmtH(c.ms)}
+                </span>
+              </div>
+            ))}
           </div>
-          <RecapComments recapId={entry.id} comments={comments} />
+        )}
+      </div>
+
+      {entry.caption && (
+        <p className="text-[13px] leading-[1.5] text-pretty text-[var(--secondary-ink)]">
+          {entry.caption}
+        </p>
+      )}
+
+      {/* Social footer — kudos + comments, report */}
+      <div className="border-divider flex flex-col gap-3 border-t pt-3">
+        <div className="flex items-center justify-between gap-3">
+          <RecapKudosButton
+            recapId={entry.id}
+            count={kudos.count}
+            likedByMe={kudos.mine}
+          />
+          <ReportButton targetType="recap" targetId={entry.id} label="Report" />
         </div>
-      </CardContent>
-    </Card>
+        <RecapComments recapId={entry.id} comments={comments} />
+      </div>
+    </article>
   );
 }

@@ -1,10 +1,7 @@
-import { StarIcon } from "lucide-react";
-
-// The little row marker in category breakdowns (home week card, /clock week,
-// /history, recap). Goal rows get a small filled star; category rows keep
-// their color dot; colorless categories/Uncategorized render nothing — same
-// as before. `fill-foreground` reads as black on the light theme and stays
-// visible on the clock screen's dark mode.
+// The little row marker in category breakdowns (Progress, /clock, /history,
+// recap, feed posts). Every entity — goal or category — now owns a palette
+// color, so both render the same small square in it; only Uncategorized (no
+// color at all) renders nothing.
 export function CategoryMarker({
   isGoal,
   color,
@@ -12,19 +9,12 @@ export function CategoryMarker({
   isGoal: boolean;
   color: string | null;
 }) {
-  if (isGoal) {
-    return (
-      <StarIcon
-        aria-hidden
-        className="fill-foreground text-foreground size-2.5 shrink-0"
-      />
-    );
-  }
+  void isGoal;
   if (!color) return null;
   return (
     <span
       aria-hidden
-      className="size-2 shrink-0 rounded-full"
+      className="size-2 shrink-0 rounded-[2px]"
       style={{ backgroundColor: color }}
     />
   );

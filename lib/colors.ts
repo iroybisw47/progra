@@ -41,11 +41,21 @@ export function entityColor(hex: string | null | undefined): string {
 // across surfaces and devices without a schema change: same id, same color,
 // forever.
 export function goalColor(goalId: string): string {
+  return PALETTE[hashOf(goalId) % PALETTE.length];
+}
+
+// A person's color, for the initials avatar — same idea as goalColor, so a
+// friend looks the same in the feed, the leaderboard and their profile.
+export function userColor(username: string): string {
+  return PALETTE[hashOf(`u:${username}`) % PALETTE.length];
+}
+
+function hashOf(s: string): number {
   let hash = 0;
-  for (let i = 0; i < goalId.length; i++) {
-    hash = (hash * 31 + goalId.charCodeAt(i)) >>> 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
   }
-  return PALETTE[hash % PALETTE.length];
+  return hash;
 }
 
 // Kept in sync with CATEGORY_COLORS (lib/category-colors.ts) — the values, not
