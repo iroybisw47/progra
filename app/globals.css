@@ -386,16 +386,3 @@
     transition-duration: 0.001ms !important;
   }
 }
-/* Live timer: the soft glow behind the elapsed time gently breathes. Keeps the
-   centering translate so the running animation doesn't knock it off-center. */
-@keyframes breathe {
-  0%,
-  100% {
-    transform: translate(-50%, -50%) scale(0.94);
-    opacity: 0.72;
-  }
-  50% {
-    transform: translate(-50%, -50%) scale(1.06);
-    opacity: 1;
-  }
-}
