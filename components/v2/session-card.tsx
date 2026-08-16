@@ -136,8 +136,14 @@ export function SessionCard({
         ) : null}
       </Link>
 
-      {/* Photo. Raw <img>: the src is a short-lived signed URL into a private
-          bucket that next/image can neither cache sanely nor reach without a
+      {/* Photo, whole. The design's fixed 180px band cropped every tall shot
+          to a letterbox, so this is constrained by width alone and free in
+          height — the image lands at its own aspect ratio, nothing cut off. No
+          max-height either: capping it would letterbox a tall photo inside its
+          own box, which is the thing we're removing.
+
+          Raw <img>: the src is a short-lived signed URL into a private bucket
+          that next/image can neither cache sanely nor reach without a
           remotePatterns allowlist. */}
       {item.photoUrl && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -146,7 +152,7 @@ export function SessionCard({
           alt=""
           loading="lazy"
           decoding="async"
-          className="h-[180px] w-full rounded-[14px] object-cover"
+          className="h-auto w-full rounded-[14px]"
         />
       )}
 

@@ -117,7 +117,9 @@ export default async function SessionDetailPage({
             alt=""
             loading="lazy"
             decoding="async"
-            className="aspect-square w-full rounded-xl object-cover"
+            // Whole photo, same as the feed card — a square crop was cutting
+            // the top and bottom off anything portrait.
+            className="h-auto w-full rounded-xl"
           />
         )}
 
