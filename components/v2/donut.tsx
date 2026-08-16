@@ -65,13 +65,13 @@ export function Donut({
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           {label && (
             <span
-              className={`font-mono font-bold tabular-nums leading-none ${labelClassName}`}
+              className={`text-ink font-semibold leading-none tabular-nums ${labelClassName}`}
             >
               {label}
             </span>
           )}
           {sub && (
-            <span className="text-caption text-[10px] font-bold uppercase tracking-wide">
+            <span className="text-disabled text-[8px] font-semibold uppercase tracking-[0.12em]">
               {sub}
             </span>
           )}

@@ -28,16 +28,17 @@ export default async function Page({
   const user = await getCurrentUser();
   if (!user) return <SignedOutLanding />;
 
-  // In the redesign, Home is the Progress tab (Today / This week / History) —
-  // the consolidated dashboard + recap + history glance. The onboarding gate
-  // still fires first.
+  // In the redesign, Home is the Progress tab (Today / Week) — the
+  // consolidated dashboard + recap glance. The onboarding gate still fires
+  // first.
   if (REDESIGN) {
     const profile = await getProfile();
     if (!profile?.onboarded_at) redirect("/onboarding");
-    // `?tab=history` opens the History sub-tab directly — the "Back to history"
-    // link on /history returns here.
+    // `?tab=week` opens the Week sub-tab directly. History is no longer a
+    // sub-tab (the Sessions header links straight to /history), so an old
+    // `?tab=history` link just lands on Today.
     const { tab } = await searchParams;
-    const initialTab = tab === "history" ? "history" : undefined;
+    const initialTab = tab === "week" ? "week" : undefined;
     // The week start is derivable from the profile alone, so both loaders run
     // in parallel instead of habits waiting on the full progress read.
     const weekStart = currentWeekStart(profile.timezone ?? "UTC");

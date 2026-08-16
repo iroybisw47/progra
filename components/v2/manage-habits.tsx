@@ -28,15 +28,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  BottomSheet,
+  BottomSheetContent,
+} from "@/components/v2/bottom-sheet";
 import { Input } from "@/components/ui/input";
+import { entityColor } from "@/lib/colors";
 import {
   archiveHabit,
   createHabit,
@@ -202,16 +198,9 @@ export function ManageHabits({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
-        <DialogHeader className="border-divider border-b px-5 py-4">
-          <DialogTitle>Manage habits</DialogTitle>
-          <DialogDescription>
-            Tap any past or current day to check it off, and edit your habits.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-6 overflow-y-auto px-5 py-5">
+    <BottomSheet open={open} onOpenChange={onOpenChange}>
+      <BottomSheetContent title="Habits" meta="Tap a day to check it off">
+        <div className="flex flex-col gap-6 pb-1">
           {/* Editable week grid */}
           <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
@@ -239,37 +228,39 @@ export function ManageHabits({
             {habits.length === 0 ? (
               <p className="text-caption text-sm">Add a habit to start tracking.</p>
             ) : (
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1 pb-[7px]">
                   <span className="flex-1" />
-                  <div className="flex gap-1">
-                    {LETTERS.map((l, i) => (
-                      <span
-                        key={i}
-                        className={cn(
-                          "w-7 text-center text-[10px] font-bold uppercase",
-                          dayDates[i] === today ? "text-brand" : "text-caption"
-                        )}
-                      >
-                        {l}
-                      </span>
-                    ))}
-                  </div>
+                  {LETTERS.map((l, i) => (
+                    <span
+                      key={i}
+                      className={cn(
+                        "w-[26px] text-center text-[9px] font-semibold tracking-[0.06em]",
+                        dayDates[i] === today ? "text-brand" : "text-disabled"
+                      )}
+                    >
+                      {l}
+                    </span>
+                  ))}
                 </div>
 
-                {habits.map((h) => (
-                  <div key={h.id} className="flex items-center gap-2">
-                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                      {h.color && (
+                {habits.map((h) => {
+                  const color = entityColor(h.color);
+                  return (
+                    <div
+                      key={h.id}
+                      className="border-divider flex items-center gap-1 border-t py-1.5"
+                    >
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5 pr-1">
                         <span
                           aria-hidden
-                          className="size-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: h.color }}
+                          className="size-2 shrink-0 rounded-[2px]"
+                          style={{ backgroundColor: color }}
                         />
-                      )}
-                      <span className="truncate text-sm">{h.name}</span>
-                    </div>
-                    <div className="flex gap-1">
+                        <span className="text-body truncate text-[13px]">
+                          {h.name}
+                        </span>
+                      </div>
                       {dayDates.map((d, i) => {
                         const isDone = doneSet.has(`${h.id}|${d}`);
                         const isFuture = d > today;
@@ -282,23 +273,25 @@ export function ManageHabits({
                             aria-label={`${h.name} ${LETTERS[i]}${isDone ? " done" : ""}`}
                             aria-pressed={isDone}
                             className={cn(
-                              "flex size-7 items-center justify-center rounded-full border transition-colors",
-                              isDone
-                                ? "border-brand bg-brand text-primary-foreground"
-                                : isFuture
-                                  ? "border-hairline opacity-40"
-                                  : "border-hairline hover:border-brand/60 active:scale-95"
+                              "flex size-[26px] shrink-0 items-center justify-center rounded-[8px] border-[1.5px] text-white transition-[background-color,border-color,transform] duration-150",
+                              !isDone && "border-hairline",
+                              isFuture ? "opacity-35" : "active:scale-90"
                             )}
+                            style={
+                              isDone
+                                ? { backgroundColor: color, borderColor: color }
+                                : undefined
+                            }
                           >
                             {isDone && (
-                              <CheckIcon className="size-3.5" strokeWidth={3} />
+                              <CheckIcon className="size-3" strokeWidth={3.4} />
                             )}
                           </button>
                         );
                       })}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
@@ -306,10 +299,8 @@ export function ManageHabits({
           {/* Habit list — rename / recolor / delete */}
           {habits.length > 0 && (
             <section className="flex flex-col gap-2">
-              <h3 className="text-caption text-xs font-bold uppercase tracking-wide">
-                Your habits
-              </h3>
-              <ul className="border-hairline flex flex-col rounded-xl border">
+              <h3 className="section-label">Your habits</h3>
+              <ul className="border-control-border flex flex-col rounded-2xl border">
                 {habits.map((h, i) => {
                   const priv = isHabitPrivate(h);
                   return (
@@ -322,8 +313,8 @@ export function ManageHabits({
                   >
                     <span
                       aria-hidden
-                      className="size-3 shrink-0 rounded-full"
-                      style={{ backgroundColor: h.color ?? "var(--chart-5)" }}
+                      className="size-[9px] shrink-0 rounded-[2px]"
+                      style={{ backgroundColor: entityColor(h.color) }}
                     />
                     <span className="min-w-0 flex-1 truncate text-sm">
                       {h.name}
@@ -389,11 +380,9 @@ export function ManageHabits({
 
           {/* Add habit */}
           <section className="flex flex-col gap-3">
-            <h3 className="text-caption text-xs font-bold uppercase tracking-wide">
-              Add a habit
-            </h3>
+            <h3 className="section-label">Add a habit</h3>
             <Input
-              className="h-11"
+              className="h-12"
               placeholder="Drink water, read 30m, …"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
@@ -406,7 +395,7 @@ export function ManageHabits({
             />
             <ColorSwatches value={newColor} onChange={setNewColor} />
             <Button
-              className="h-11 w-full gap-1.5"
+              className="h-[46px] w-full gap-1.5 rounded-[15px]"
               onClick={handleAdd}
               disabled={!newName.trim()}
             >
@@ -415,63 +404,41 @@ export function ManageHabits({
             </Button>
           </section>
         </div>
+      </BottomSheetContent>
 
-        <DialogFooter className="border-divider border-t px-5 py-3">
-          <DialogClose render={<Button variant="outline" className="w-full" />}>
-            Done
-          </DialogClose>
-        </DialogFooter>
-      </DialogContent>
-
-      {/* Edit habit — rename + color */}
-      <Dialog
+      {/* Edit habit — rename + recolor, in its own sheet on top. */}
+      <BottomSheet
         open={editing !== null}
         onOpenChange={(o) => {
           if (!o) setEditing(null);
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit habit</DialogTitle>
-            <DialogDescription>Rename it or give it a color.</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium" htmlFor="v2-habit-name">
-                Name
-              </label>
-              <Input
-                id="v2-habit-name"
-                className="h-11"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleSaveEdit();
-                  }
-                }}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">
-                Color{" "}
-                <span className="text-caption font-normal">
-                  (tap the selected one to clear)
-                </span>
-              </span>
-              <ColorSwatches value={editColor} onChange={setEditColor} />
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-            <Button disabled={!editName.trim()} onClick={handleSaveEdit}>
-              Save
+        <BottomSheetContent title="Edit habit" meta="Tap the color again to clear">
+          <div className="flex flex-col gap-5 pb-1">
+            <Input
+              aria-label="Habit name"
+              className="h-12 rounded-[13px] border-[1.5px] text-[15px]"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSaveEdit();
+                }
+              }}
+            />
+            <ColorSwatches value={editColor} onChange={setEditColor} />
+            <Button
+              className="h-12 w-full rounded-[15px]"
+              disabled={!editName.trim()}
+              onClick={handleSaveEdit}
+            >
+              Save habit
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Dialog>
+          </div>
+        </BottomSheetContent>
+      </BottomSheet>
+    </BottomSheet>
   );
 }
 

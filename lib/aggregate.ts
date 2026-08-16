@@ -1,3 +1,4 @@
+import { goalColor } from "@/lib/colors";
 import { dayIndexMonFirst, endOfWeek, startOfWeek } from "@/lib/dates";
 import type { DayEvent } from "@/lib/db/calendar-events";
 import type { Goal } from "@/lib/db/goals";
@@ -6,8 +7,9 @@ import type { Category, Session } from "@/lib/storage";
 
 // A goal-attributed session shows up in the category breakdowns as a synthetic
 // "Goal: {name}" row, keyed by this prefix + the goal id (so it never collides
-// with a real category id). One shared accent colour for all goal rows — the
-// theme primary, so it adapts to the clock page's dark mode too.
+// with a real category id). Each goal draws its own hue from the palette
+// (goalColor), so a goal reads the same here as it does on its quota bar; the
+// shared accent is only the fallback for a goal we couldn't resolve.
 const GOAL_KEY_PREFIX = "goal:";
 export const GOAL_ACCENT = "var(--primary)";
 export function goalCategoryKey(goalId: string): string {
@@ -46,7 +48,7 @@ export function buildCategoryBreakdown(
         return {
           id,
           name: g ? `Goal: ${g.title}` : "Goal",
-          color: GOAL_ACCENT,
+          color: g ? goalColor(g.id) : GOAL_ACCENT,
           isGoal: true,
           ms,
         };

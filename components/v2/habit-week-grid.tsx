@@ -1,13 +1,15 @@
 import { CheckIcon } from "lucide-react";
 
 import { addDaysISO } from "@/lib/dates";
+import { entityColor } from "@/lib/colors";
 import type { Habit, HabitCompletion } from "@/lib/db/habits";
 import { cn } from "@/lib/utils";
 
-// Compact, display-only habits-this-week grid (V2 profile). One row per habit:
-// the habit name on the left, then a circle under each weekday (M–S, Monday
-// first). A filled circle with a check = completed that day; future days are
-// dimmed. Marking happens on the Habits tab — this is a read view.
+// Compact, display-only habits-this-week grid. One row per habit: a color
+// square + the habit name, then a small square under each weekday (M–S, Monday
+// first) filled in the habit's own color when it was completed. Future days are
+// dimmed. Marking happens on the Today pills / the manage sheet — this is a
+// read view, shared by Progress (Week) and You.
 const LETTERS = ["M", "T", "W", "T", "F", "S", "S"] as const;
 
 export function HabitWeekGrid({
@@ -29,38 +31,38 @@ export function HabitWeekGrid({
   const done = new Set(completions.map((c) => `${c.habitId}|${c.completedOn}`));
 
   return (
-    <div className="flex flex-col gap-1.5">
-      {/* Day-letter header, aligned over the circle columns. */}
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col">
+      {/* Day-letter header, aligned over the square columns. */}
+      <div className="flex items-center gap-1 pb-[7px]">
         <span className="flex-1" />
-        <div className="flex gap-1">
-          {LETTERS.map((l, i) => (
-            <span
-              key={i}
-              className={cn(
-                "w-6 text-center text-[10px] font-bold uppercase",
-                dayDates[i] === today ? "text-brand" : "text-caption"
-              )}
-            >
-              {l}
-            </span>
-          ))}
-        </div>
+        {LETTERS.map((l, i) => (
+          <span
+            key={i}
+            className={cn(
+              "w-[26px] text-center text-[9px] font-semibold tracking-[0.06em]",
+              dayDates[i] === today ? "text-brand" : "text-disabled"
+            )}
+          >
+            {l}
+          </span>
+        ))}
       </div>
 
-      {habits.map((h) => (
-        <div key={h.id} className="flex items-center gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            {h.color && (
+      {habits.map((h) => {
+        const color = entityColor(h.color);
+        return (
+          <div
+            key={h.id}
+            className="border-divider flex items-center gap-1 border-t py-1.5"
+          >
+            <div className="flex min-w-0 flex-1 items-center gap-1.5 pr-1">
               <span
                 aria-hidden
-                className="size-2 shrink-0 rounded-full"
-                style={{ backgroundColor: h.color }}
+                className="size-2 shrink-0 rounded-[2px]"
+                style={{ backgroundColor: color }}
               />
-            )}
-            <span className="truncate text-sm">{h.name}</span>
-          </div>
-          <div className="flex gap-1">
+              <span className="text-body truncate text-[13px]">{h.name}</span>
+            </div>
             {dayDates.map((d, i) => {
               const isDone = done.has(`${h.id}|${d}`);
               const isFuture = d > today;
@@ -69,21 +71,23 @@ export function HabitWeekGrid({
                   key={i}
                   aria-label={`${h.name} ${LETTERS[i]}${isDone ? " done" : ""}`}
                   className={cn(
-                    "flex size-6 items-center justify-center rounded-full border",
-                    isDone
-                      ? "border-brand bg-brand text-primary-foreground"
-                      : isFuture
-                        ? "border-hairline opacity-40"
-                        : "border-hairline"
+                    "flex size-[26px] shrink-0 items-center justify-center rounded-[8px] border-[1.5px] text-white",
+                    !isDone && "border-hairline",
+                    isFuture && "opacity-35"
                   )}
+                  style={
+                    isDone
+                      ? { backgroundColor: color, borderColor: color }
+                      : undefined
+                  }
                 >
-                  {isDone && <CheckIcon className="size-3.5" strokeWidth={3} />}
+                  {isDone && <CheckIcon className="size-3" strokeWidth={3.4} />}
                 </span>
               );
             })}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -114,13 +114,13 @@ export function HistoryClient(props: Props) {
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24 sm:pt-12">
       <main className="flex w-full max-w-md flex-col gap-6">
-        {/* Back to the Progress History hub (the 3 period buttons). This
-            focused view shows a single period type; the type is chosen there. */}
+        {/* Back to Progress, which is where this view is entered from (the
+            Sessions section header). The period type is switched below. */}
         <Link
-          href="/?tab=history"
+          href="/"
           className="text-muted-foreground hover:text-foreground -ml-1 flex items-center gap-1 self-start text-sm"
         >
-          <ChevronLeftIcon className="size-4" /> Back to history
+          <ChevronLeftIcon className="size-4" /> Back to progress
         </Link>
 
         {/* Period scrubber */}
