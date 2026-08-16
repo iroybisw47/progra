@@ -1,16 +1,11 @@
 import { notFound } from "next/navigation";
-import { LockIcon } from "lucide-react";
+import Link from "next/link";
 
 import { AvatarInitials } from "@/components/avatar-initials";
-import { GoalProgressBar } from "@/components/goal-progress";
+import { BackButton } from "@/components/v2/back-button";
+import { GoalQuotaRows } from "@/components/v2/goal-quota-rows";
 import { HabitWeekGrid } from "@/components/v2/habit-week-grid";
-import { SessionCard } from "@/components/v2/session-card";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { KudosButton } from "@/components/kudos-button";
 import { requireUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
@@ -23,13 +18,17 @@ import {
 } from "@/lib/db/habits";
 import { listRecentSessionsForUser } from "@/lib/db/sessions";
 import { listProfileSessions } from "@/lib/db/profile-sessions";
-import { listCommentsForSessions } from "@/lib/db/comments";
 import { listReactionsForSessions } from "@/lib/db/reactions";
 import { LIKE_EMOJI } from "@/lib/social/reactions";
 import { aggregateWeekByGoal } from "@/lib/aggregate";
+import { entityColor, goalColor } from "@/lib/colors";
+import { formatDuration } from "@/lib/duration";
 import { todayInTimeZone, weekRangeInTimeZone } from "@/lib/dates";
 
 import { ProfileActions } from "./profile-actions";
+
+const HOUR_MS = 60 * 60 * 1000;
+const formatHours = (ms: number) => `${(ms / HOUR_MS).toFixed(1)}h`;
 
 // A user's public profile (social v2). Flag-gated. Identity is visible to any
 // logged-in user; goals/habits/sessions are gated by RLS via the relationship
@@ -59,24 +58,36 @@ export default async function ProfilePage({
     relationship.kind === "self" || relationship.kind === "friends";
 
   return (
-    <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24">
-      <main className="flex w-full max-w-md flex-col gap-6">
-        <header className="flex flex-col items-center gap-3 text-center">
+    <div className="flex flex-1 flex-col items-center pt-7 pb-24">
+      <main className="flex w-full max-w-md flex-col">
+        <header className="flex items-center gap-2.5 px-5">
+          <BackButton />
+          <span className="section-label">Profile</span>
+        </header>
+
+        {/* Identity */}
+        <div className="flex items-center gap-3.5 px-5 pt-4">
           <AvatarInitials
             name={target.displayName}
             username={target.username}
             avatarUrl={target.avatarUrl}
-            className="size-20 text-2xl"
+            className="size-[58px] shrink-0 text-xl"
           />
-          <div className="flex flex-col gap-0.5">
-            <h1 className="text-2xl font-semibold tracking-tight">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <h1 className="text-ink truncate font-serif text-[22px] font-medium tracking-[-0.015em]">
               {target.displayName || `@${target.username}`}
             </h1>
-            <p className="text-muted-foreground text-sm">@{target.username}</p>
+            <span className="text-faint truncate text-[13px]">
+              @{target.username}
+            </span>
           </div>
-          {target.bio && <p className="text-sm text-pretty">{target.bio}</p>}
           <ProfileActions target={target} relationship={relationship} />
-        </header>
+        </div>
+        {target.bio && (
+          <p className="text-body px-5 pt-2.5 text-[13px] text-pretty">
+            {target.bio}
+          </p>
+        )}
 
         {canSeeContent ? (
           <ProfileContent
@@ -84,14 +95,13 @@ export default async function ProfilePage({
             isOwn={relationship.kind === "self"}
           />
         ) : (
-          <Card>
-            <CardContent className="py-8">
-              <p className="text-muted-foreground text-center text-sm">
-                Add @{target.username} as a friend to see their goals, habits,
-                and sessions.
-              </p>
-            </CardContent>
-          </Card>
+          <>
+            <div className="bg-track border-hairline mt-5 h-1.5 border-t" />
+            <p className="text-caption px-5 py-8 text-center text-[13px] text-pretty">
+              Add @{target.username} as a friend to see their goals, habits, and
+              sessions.
+            </p>
+          </>
         )}
       </main>
     </div>
@@ -107,38 +117,29 @@ async function ProfileContent({
   userId: string;
   isOwn: boolean;
 }) {
+  void isOwn;
   const profile = await getProfile();
   const tz = profile?.timezone ?? "UTC";
   const { startDate, endDate } = weekRangeInTimeZone(tz);
   const today = todayInTimeZone(tz);
   const now = Date.now();
 
-  // Comments/reactions chain off the sessions read alone (FeedV2's pattern), so
-  // they resolve alongside goals/habits rather than after them.
+  // Reactions chain off the sessions read alone (FeedV2's pattern), so they
+  // resolve alongside goals/habits rather than after them. Comments aren't read
+  // here: a session row links to /session/[id], where the thread lives.
   const pastSessionsPromise = listProfileSessions(userId);
-  const commentsPromise = pastSessionsPromise.then((items) =>
-    listCommentsForSessions(items.map((i) => i.sessionId))
-  );
   const reactionsPromise = pastSessionsPromise.then((items) =>
     listReactionsForSessions(items.map((i) => i.sessionId))
   );
-  const [
-    goals,
-    sessions,
-    habits,
-    completions,
-    pastSessions,
-    commentsBySession,
-    reactionsBySession,
-  ] = await Promise.all([
-    listActiveGoalsForUser(userId),
-    listRecentSessionsForUser(userId),
-    listActiveHabitsForUser(userId),
-    listCompletionsForUserInRange(userId, startDate, endDate),
-    pastSessionsPromise,
-    commentsPromise,
-    reactionsPromise,
-  ]);
+  const [goals, sessions, habits, completions, pastSessions, reactionsBySession] =
+    await Promise.all([
+      listActiveGoalsForUser(userId),
+      listRecentSessionsForUser(userId),
+      listActiveHabitsForUser(userId),
+      listCompletionsForUserInRange(userId, startDate, endDate),
+      pastSessionsPromise,
+      reactionsPromise,
+    ]);
 
   const goalWeekly = aggregateWeekByGoal(sessions, now);
   const goalBreakdown = goals
@@ -147,84 +148,142 @@ async function ProfileContent({
       title: g.title,
       quotaHours: g.weeklyQuotaHours,
       actualMs: goalWeekly.perGoal.get(g.id) ?? 0,
-      isPrivate: g.isPrivate,
     }))
     .sort((a, b) => b.actualMs - a.actualMs);
+  const weekTotalMs = goalWeekly.total;
 
   return (
     <>
-      {goalBreakdown.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Goals this week</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {goalBreakdown.map((row) => (
-              <div key={row.id} className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium">{row.title}</span>
-                  {row.isPrivate && (
-                    <LockIcon
-                      aria-label="Private"
-                      className="text-muted-foreground size-3 shrink-0"
-                    />
-                  )}
-                </div>
-                <GoalProgressBar
-                  quotaHours={row.quotaHours}
-                  actualMs={row.actualMs}
-                />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">Habits this week</h2>
-        <Card>
-          <CardContent className="py-4">
-            <HabitWeekGrid
-              habits={habits}
-              completions={completions}
-              weekStart={startDate}
-              today={today}
-            />
-          </CardContent>
-        </Card>
+      {/* Stats */}
+      <div className="flex px-5 pt-[18px]">
+        <Stat value={formatHours(weekTotalMs)} label="This week" />
+        <Stat value={String(pastSessions.length)} label="Sessions" />
+        <Stat value={String(goalBreakdown.length)} label="Goals" />
       </div>
 
-      {/* Sessions: their finished, non-private sessions, photo or not. RLS does
-          the filtering — private ones never reach us. */}
-      <div className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">Sessions</h2>
+      <div className="bg-track border-hairline mt-5 h-1.5 border-t" />
+
+      {/* Their week — one segmented bar, then the same quota rows the
+          leaderboard expansion uses. */}
+      <section className="flex flex-col">
+        <div className="flex items-center gap-[7px] px-5 pt-4 pb-2">
+          <span className="section-label">Their week</span>
+          <span className="flex-1" />
+          <span className="text-caption text-[10px] font-semibold tracking-[0.06em]">
+            {formatHours(weekTotalMs)}
+          </span>
+        </div>
+        {goalBreakdown.length === 0 ? (
+          <p className="text-caption border-divider border-t px-5 py-3 text-[13px]">
+            Nothing tracked against a goal this week.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2.5 px-5">
+            <div className="bg-track flex h-[9px] w-full gap-[3px] overflow-hidden rounded-full">
+              {goalBreakdown.map((g) => (
+                <span
+                  key={g.id}
+                  className="h-full"
+                  style={{
+                    width:
+                      weekTotalMs > 0
+                        ? `${(g.actualMs / weekTotalMs) * 100}%`
+                        : "0%",
+                    backgroundColor: goalColor(g.id),
+                  }}
+                />
+              ))}
+            </div>
+            <GoalQuotaRows goals={goalBreakdown} />
+          </div>
+        )}
+        <div className="bg-hairline mx-5 mt-4 h-px" />
+      </section>
+
+      {/* Habits this week */}
+      <section className="flex flex-col">
+        <div className="flex items-center gap-[7px] px-5 pt-3.5 pb-2">
+          <span className="section-label">Habits</span>
+        </div>
+        <div className="px-5">
+          <HabitWeekGrid
+            habits={habits}
+            completions={completions}
+            weekStart={startDate}
+            today={today}
+          />
+        </div>
+      </section>
+
+      <div className="bg-track border-hairline mt-[18px] h-1.5 border-t" />
+
+      {/* Sessions: their finished, non-private sessions. RLS does the
+          filtering — private ones never reach us. */}
+      <section className="flex flex-col">
+        <div className="flex items-center gap-[7px] px-5 pt-4 pb-1.5">
+          <span className="section-label">Recent sessions</span>
+          <span className="flex-1" />
+          <span className="text-caption text-[10px] font-semibold tracking-[0.06em]">
+            {pastSessions.length}
+          </span>
+        </div>
         {pastSessions.length === 0 ? (
-          <Card>
-            <CardContent className="py-8">
-              <p className="text-muted-foreground text-center text-sm">
-                No shared sessions yet.
-              </p>
-            </CardContent>
-          </Card>
+          <p className="text-caption border-divider border-t px-5 py-4 text-[13px]">
+            No shared sessions yet.
+          </p>
         ) : (
           pastSessions.map((s) => {
             const like = (reactionsBySession.get(s.sessionId) ?? []).find(
               (r) => r.emoji === LIKE_EMOJI
             );
             return (
-              // No `author`: the profile header above already identifies them.
-              <SessionCard
+              <div
                 key={s.sessionId}
-                item={s}
-                now={now}
-                comments={commentsBySession.get(s.sessionId) ?? []}
-                kudos={{ count: like?.count ?? 0, mine: like?.mine ?? false }}
-                canReport={!isOwn}
-              />
+                className="border-divider flex items-center gap-2.5 border-t px-5 py-[11px]"
+              >
+                <span
+                  aria-hidden
+                  className="h-6 w-[3px] shrink-0 rounded-[2px]"
+                  style={{
+                    backgroundColor: entityColor(s.attribution?.color ?? null),
+                  }}
+                />
+                <Link
+                  href={`/session/${s.sessionId}`}
+                  className="flex min-w-0 flex-1 flex-col"
+                >
+                  <span className="text-body truncate text-[13px] leading-[1.25] font-semibold">
+                    {s.title}
+                  </span>
+                  <span className="text-faint truncate text-[11px] leading-[1.3]">
+                    {s.attribution?.text ?? "Uncategorized"}
+                  </span>
+                </Link>
+                <span className="shrink-0 text-[13px] font-semibold tabular-nums text-[var(--secondary-ink)]">
+                  {formatDuration(s.workedMs)}
+                </span>
+                <KudosButton
+                  sessionId={s.sessionId}
+                  count={like?.count ?? 0}
+                  likedByMe={like?.mine ?? false}
+                />
+              </div>
             );
           })
         )}
-      </div>
+      </section>
     </>
+  );
+}
+
+// One of the three serif numbers under the identity block.
+function Stat({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="flex flex-1 flex-col gap-0.5">
+      <span className="stat-num text-[21px]">{value}</span>
+      <span className="text-disabled text-[9px] font-semibold uppercase tracking-[0.12em]">
+        {label}
+      </span>
+    </div>
   );
 }

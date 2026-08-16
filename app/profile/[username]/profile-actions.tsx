@@ -58,32 +58,44 @@ export function ProfileActions({
 
   const k = relationship.kind;
 
+  // The header sits these beside the name, so they're 32px chips rather than
+  // full buttons — navy when the action is the primary one, hairline otherwise.
+  const chip =
+    "h-8 rounded-[11px] px-3.5 text-xs font-semibold whitespace-nowrap transition-transform active:scale-95 disabled:opacity-50";
+  const solid = `bg-brand text-primary-foreground ${chip}`;
+  const outline = `border-hairline text-caption border-[1.5px] ${chip}`;
+
   return (
-    <div className="flex flex-wrap justify-center gap-2">
+    <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
       {k === "none" && (
-        <Button
+        <button
+          type="button"
+          className={solid}
           disabled={pending}
           onClick={() =>
             run(() => sendFriendRequest(target.userId), { okMsg: "Request sent" })
           }
         >
           Add friend
-        </Button>
+        </button>
       )}
 
       {k === "outgoing" && (
-        <Button
-          variant="outline"
+        <button
+          type="button"
+          className={outline}
           disabled={pending}
           onClick={() => run(() => removeFriendship(relationship.requestId!))}
         >
-          Requested · Cancel
-        </Button>
+          Requested
+        </button>
       )}
 
       {k === "incoming" && (
         <>
-          <Button
+          <button
+            type="button"
+            className={solid}
             disabled={pending}
             onClick={() =>
               run(() => acceptFriendRequest(relationship.requestId!), {
@@ -92,30 +104,33 @@ export function ProfileActions({
             }
           >
             Accept
-          </Button>
-          <Button
-            variant="outline"
+          </button>
+          <button
+            type="button"
+            className={outline}
             disabled={pending}
             onClick={() => run(() => removeFriendship(relationship.requestId!))}
           >
             Decline
-          </Button>
+          </button>
         </>
       )}
 
       {k === "friends" && (
         <>
-          <Button
-            variant="outline"
+          <button
+            type="button"
+            className={outline}
             disabled={pending}
             onClick={() =>
               run(() => removeFriendship(relationship.friendshipId!))
             }
           >
-            Remove friend
-          </Button>
-          <Button
-            variant="destructive"
+            Friends
+          </button>
+          <button
+            type="button"
+            className={`text-destructive ${chip}`}
             disabled={pending}
             onClick={() =>
               run(() => blockUser(target.userId), {
@@ -125,14 +140,18 @@ export function ProfileActions({
             }
           >
             Block
-          </Button>
+          </button>
         </>
       )}
 
       {k === "self" && (
-        <Button variant="outline" onClick={() => setEditing(true)}>
-          Edit profile
-        </Button>
+        <button
+          type="button"
+          className={outline}
+          onClick={() => setEditing(true)}
+        >
+          Edit
+        </button>
       )}
 
       {k !== "self" && (
