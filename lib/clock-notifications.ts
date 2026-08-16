@@ -100,13 +100,40 @@ export async function syncClockReminders(
   // says whether the device is running the JS we just shipped. Without it, "old
   // cached bundle" and "new code that hung before the first breadcrumb" produce
   // an identical string, which cost a round trip once already.
-  lastSync = `v3 n=${reminders.length}`;
+  lastSync = `v4 n=${reminders.length}`;
 
-  // Instrumented too: this is a dynamic import(), so a chunk that never
-  // arrives parks the whole sync here — before the try block, and before any
-  // other breadcrumb could fire.
+  // Three outcomes here, and `v3` could distinguish none of them — all three
+  // left the report frozen at "→plugin":
+  //
+  //   1. plugin() REJECTS. isNativeApp() runs outside plugin()'s own try/catch,
+  //      and `await plugin()` used to sit outside this function's, so a throw
+  //      escaped all the way into the caller's `void syncClockReminders(...)`
+  //      as an unhandled rejection — invisible, and identical to a hang.
+  //   2. plugin() never SETTLES (a chunk that never arrives).
+  //   3. plugin() resolves null (not native, or the import failed).
+  //
+  // The race turns 2 into an observable result rather than silence, and the
+  // catch turns 1 into a message. Worth keeping the catch after the diagnostic
+  // goes: this module promises it can never break the clock, and an escaping
+  // rejection breaks that promise.
   lastSync += " →plugin";
-  const ln = await plugin();
+  let ln: Awaited<ReturnType<typeof plugin>> = null;
+  try {
+    const raced = await Promise.race([
+      plugin().then((p) => ({ kind: "settled" as const, p })),
+      new Promise<{ kind: "timeout" }>((resolve) =>
+        setTimeout(() => resolve({ kind: "timeout" }), 5000)
+      ),
+    ]);
+    if (raced.kind === "timeout") {
+      lastSync += " PLUGIN-TIMEOUT(5s)";
+      return;
+    }
+    ln = raced.p;
+  } catch (e) {
+    lastSync += ` PLUGIN-THREW: ${(e as Error)?.message ?? String(e)}`;
+    return;
+  }
   if (!ln) {
     lastSync += " NO-PLUGIN";
     return;
