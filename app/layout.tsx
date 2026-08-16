@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { PT_Sans } from "next/font/google";
+import { Hanken_Grotesk, Newsreader } from "next/font/google";
 import "./globals.css";
 
 import { BottomNav } from "@/components/bottom-nav";
@@ -19,15 +19,20 @@ import { getNavBadges } from "@/lib/db/notifications";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 
-// PT Sans everywhere (Progra V2). One family for both body and headings; the
-// serif/heading slot (--font-newsreader) is aliased to --font-hanken in
-// globals.css. PT Sans ships 400/700 (+ italic 400); 500/600 utilities fall back
-// to the nearest weight, matching the V2 prototype.
-const ptSans = PT_Sans({
+// Two families, as the redesign specifies: Hanken Grotesk for all UI text,
+// Newsreader (serif) for headings and the big display numbers. Both are
+// variable fonts, so no `weight` list — the whole 400–700 range ships in one
+// file and 500/600 render as designed rather than snapping to a nearest cut.
+const hanken = Hanken_Grotesk({
   variable: "--font-hanken",
   subsets: ["latin"],
-  weight: ["400", "700"],
-  style: ["normal", "italic"],
+  display: "swap",
+});
+
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
+  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -80,7 +85,10 @@ export default async function RootLayout({
       getUnreviewedPlanComplete(),
     ]);
   return (
-    <html lang="en" className={`${ptSans.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      className={`${hanken.variable} ${newsreader.variable} h-full antialiased`}
+    >
       <body className="min-h-full flex flex-col">
         {children}
         {/* Analytics. Deliberately NOT gated on `user`: the signed-out landing

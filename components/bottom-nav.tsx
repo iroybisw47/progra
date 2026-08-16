@@ -62,7 +62,7 @@ const TABS = REDESIGN
         { href: "/habits", label: "Habits", icon: CheckSquareIcon, center: false, match: (p: string) => p.startsWith("/habits") },
       ] as const);
 
-const INACTIVE = "text-faint";
+const INACTIVE = "text-caption";
 
 // Compact live timer for the center button: H:MM when past an hour, else M:SS.
 function formatTick(ms: number): string {
@@ -179,7 +179,7 @@ export function BottomNav({
   return (
     <nav
       aria-label="Primary"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-[rgba(255,255,255,0.88)] backdrop-blur-[18px] pb-[env(safe-area-inset-bottom)] dark:border-white/10 dark:bg-[rgba(20,24,31,0.9)]"
+      className="border-hairline fixed inset-x-0 bottom-0 z-40 border-t bg-[rgba(255,255,255,0.92)] pb-[env(safe-area-inset-bottom)] backdrop-blur-[18px] dark:border-white/10 dark:bg-[rgba(20,24,31,0.9)]"
     >
       <ul className="mx-auto flex h-[64px] w-full max-w-md items-stretch">
         {TABS.map((tab) => {
@@ -208,13 +208,16 @@ export function BottomNav({
                 >
                   <span
                     className={cn(
-                      "flex size-14 -translate-y-4 items-center justify-center rounded-full text-primary-foreground shadow-[0_10px_24px_-6px_rgba(28,58,94,.5)] ring-4 ring-[var(--screen)] transition-transform active:scale-95",
-                      paused ? "bg-faint" : "bg-brand",
-                      tracking && !paused && "animate-pulse"
+                      "text-primary-foreground flex size-14 -translate-y-4 items-center justify-center rounded-full shadow-[0_12px_26px_-8px_rgba(28,58,94,.55),0_0_0_4px_var(--screen)] transition-[background-color,transform] duration-200 active:scale-[.96]",
+                      paused
+                        ? "bg-disabled"
+                        : tracking
+                          ? "bg-cat-blue"
+                          : "bg-brand"
                     )}
                   >
                     {tickLabel ? (
-                      <span className="font-mono text-[11px] font-bold tabular-nums leading-none">
+                      <span className="text-[11px] font-semibold leading-none tabular-nums">
                         {tickLabel}
                       </span>
                     ) : (
@@ -223,8 +226,8 @@ export function BottomNav({
                   </span>
                   <span
                     className={cn(
-                      "-mt-3 text-[10px]",
-                      active ? "text-brand font-semibold" : INACTIVE + " font-medium"
+                      "-mt-3 text-[10px] font-semibold",
+                      active || tracking ? "text-brand" : "text-faint"
                     )}
                   >
                     {tracking ? (paused ? "Paused" : "Tracking") : tab.label}
@@ -250,20 +253,20 @@ export function BottomNav({
                 prefetch={true}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex h-full flex-col items-center justify-end gap-1 pb-2 transition-colors",
+                  "flex h-full flex-col items-center justify-end gap-1 pb-[9px] transition-colors",
                   active ? "text-brand" : INACTIVE
                 )}
               >
-                <span className="relative">
+                <span className="relative flex">
                   <Icon className="size-5" strokeWidth={active ? 1.9 : 1.75} />
                   {showDot && (
                     <span
                       aria-hidden
-                      className="bg-brand absolute -right-1 -top-0.5 size-2 rounded-full ring-2 ring-[var(--screen)]"
+                      className="bg-cat-burnt absolute -right-[3px] -top-0.5 size-2 rounded-full ring-2 ring-[var(--screen)]"
                     />
                   )}
                 </span>
-                <span className={cn("text-[10px]", active ? "font-semibold" : "font-medium")}>
+                <span className="text-[10px] font-semibold">
                   {tab.label}
                   {showDot && <span className="sr-only"> (new)</span>}
                 </span>

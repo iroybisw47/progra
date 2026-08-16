@@ -12,7 +12,7 @@
   --font-serif: var(--font-newsreader);
   --font-heading: var(--font-newsreader);
 
-  /* Progra warm palette — extended named tokens (surfaces, brand, text, states).
+  /* Progra palette — extended named tokens (surfaces, brand, text, states).
      Enables utilities like bg-brand, text-faint, border-hairline, bg-track. */
   --color-brand: var(--brand);
   --color-brand-deep: var(--brand-deep);
@@ -32,6 +32,24 @@
   --color-caption: var(--caption);
   --color-done: var(--done);
   --color-busy: var(--busy);
+  --color-app-bg: var(--app-bg);
+  --color-inset-2: var(--inset-2);
+  --color-control-border: var(--control-border);
+  --color-disabled: var(--disabled);
+  --color-success: var(--success);
+  --color-tint-you: var(--tint-you);
+
+  /* The nine accent colors. Every category / goal / habit takes its color from
+     this list and keeps it everywhere it appears (dot, bar, pill, border). */
+  --color-cat-brick: var(--cat-brick);
+  --color-cat-burnt: var(--cat-burnt);
+  --color-cat-mustard: var(--cat-mustard);
+  --color-cat-olive: var(--cat-olive);
+  --color-cat-forest: var(--cat-forest);
+  --color-cat-teal: var(--cat-teal);
+  --color-cat-blue: var(--cat-blue);
+  --color-cat-indigo: var(--cat-indigo);
+  --color-cat-plum: var(--cat-plum);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -71,34 +89,45 @@
 }
 
 :root {
-  /* Progra V2 (design_handoff_progra_v2): white surfaces, navy primary, cool
-     blue-gray ink. Mapped onto the same shadcn semantic tokens the warm palette
-     used, so every component follows without markup changes. */
+  /* Progra editorial redesign: flat white screens, navy primary, hairline
+     dividers instead of cards. Mapped onto the same shadcn semantic tokens the
+     earlier palettes used, so every component follows without markup changes. */
   --background: #ffffff; /* screen */
-  --foreground: #1b2129; /* ink */
+  --foreground: #1b2129; /* body headings */
   --card: #ffffff;
   --card-foreground: #1b2129;
   --popover: #ffffff;
   --popover-foreground: #1b2129;
   --primary: #1c3a5e; /* brand/navy */
   --primary-foreground: #ffffff;
-  --secondary: #ebedf0; /* segmented / track */
-  --secondary-foreground: #333a44;
-  --muted: #ebedf0; /* progress track / subtle fill */
+  --secondary: #f1f3f5; /* segmented / track */
+  --secondary-foreground: #1b2129;
+  --muted: #f1f3f5; /* progress track / subtle fill */
   --muted-foreground: #5d6672; /* text/secondary */
   --accent: #f6f7f8; /* inset / hover */
   --accent-foreground: #1b2129;
-  --destructive: #a85842; /* muted terracotta — genuine delete only, never alarmist */
-  --border: #e3e6ea; /* hairline */
-  --input: #e3e6ea;
+  --destructive: #9c5148; /* muted terracotta — genuine delete only, never alarmist */
+  --border: #e6e9ed; /* control border */
+  --input: #e6e9ed;
   --ring: #1c3a5e;
-  /* Charts map to the V2 category palette (Work/Study/Health/Personal + grey). */
-  --chart-1: #1c3a5e; /* work / navy */
-  --chart-2: #5c7f8e; /* study / slate */
-  --chart-3: #6f9077; /* health / green */
-  --chart-4: #8a6a7d; /* personal / mauve */
-  --chart-5: #7f8791; /* grey / uncategorized */
+  /* Charts pull from the nine accent colors (no navy — navy is UI chrome). */
+  --chart-1: #4a6fa5;
+  --chart-2: #46808a;
+  --chart-3: #4e7a5f;
+  --chart-4: #91607f;
+  --chart-5: #a98a38;
   --radius: 0.9rem;
+
+  /* The nine accent colors — the only hues a category / goal / habit may take. */
+  --cat-brick: #9c5148;
+  --cat-burnt: #b0703c;
+  --cat-mustard: #a98a38;
+  --cat-olive: #7d8850;
+  --cat-forest: #4e7a5f;
+  --cat-teal: #46808a;
+  --cat-blue: #4a6fa5;
+  --cat-indigo: #6b639c;
+  --cat-plum: #91607f;
 
   /* Extended Progra tokens */
   --brand: #1c3a5e;
@@ -108,18 +137,24 @@
   --screen: #ffffff;
   --screen-recap: #ffffff;
   --card-warm: #ffffff;
+  --app-bg: #e9ebef; /* page ground behind the app surface */
   --inset: #f6f7f8;
-  --track: #ebedf0;
-  --hairline: #e3e6ea;
-  --warm-border: #e3e6ea;
-  --divider: #ebedf0;
-  --ink: #1b2129;
-  --body: #333a44;
+  --inset-2: #fafbfc;
+  --track: #f1f3f5; /* progress track */
+  --hairline: #eceef1; /* strong hairline (section splits) */
+  --divider: #f4f5f7; /* row divider */
+  --control-border: #e6e9ed;
+  --warm-border: #e6e9ed;
+  --ink: #12171d; /* strongest text */
+  --body: #1b2129;
   --secondary-ink: #5d6672;
   --caption: #8b929c;
-  --faint: #9fa6b0;
-  --done: #6f9077; /* met/complete — V2 green */
-  --busy: #ebedf0;
+  --faint: #9fa6b0; /* section labels / captions */
+  --disabled: #c3c8ce;
+  --success: #266b4d;
+  --done: #266b4d; /* met/complete */
+  --busy: #f1f3f5;
+  --tint-you: rgba(28, 58, 94, 0.05); /* your row / selected row */
 
   --sidebar: #ffffff;
   --sidebar-foreground: #1b2129;
@@ -127,12 +162,8 @@
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #f6f7f8;
   --sidebar-accent-foreground: #1b2129;
-  --sidebar-border: #e3e6ea;
+  --sidebar-border: #e6e9ed;
   --sidebar-ring: #1c3a5e;
-
-  /* PT Sans everywhere (V2). next/font sets --font-hanken on <html>; alias the
-     serif/heading slot to it so headings are PT Sans too (PT Sans has 400/700). */
-  --font-newsreader: var(--font-hanken);
 }
 
 .dark {
@@ -155,11 +186,12 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 12%);
   --ring: #7fa3cc;
-  --chart-1: #7fa3cc;
-  --chart-2: #5c7f8e;
-  --chart-3: #6f9077;
-  --chart-4: #8a6a7d;
-  --chart-5: #7f8791;
+  /* Same nine hues, lifted for contrast on the dark ground. */
+  --chart-1: #7f9fd0;
+  --chart-2: #6ba6b0;
+  --chart-3: #74a086;
+  --chart-4: #b587a4;
+  --chart-5: #c7a85a;
 
   --brand: #7fa3cc;
   --brand-deep: #142c49;
@@ -168,18 +200,24 @@
   --screen: #14181f;
   --screen-recap: #14181f;
   --card-warm: #1b212b;
+  --app-bg: #0e1218;
   --inset: #1f2630;
+  --inset-2: #1b212b;
   --track: #242c38;
   --hairline: oklch(1 0 0 / 10%);
-  --warm-border: oklch(1 0 0 / 11%);
   --divider: oklch(1 0 0 / 7%);
+  --control-border: oklch(1 0 0 / 11%);
+  --warm-border: oklch(1 0 0 / 11%);
   --ink: #eef1f5;
   --body: #dfe4ea;
   --secondary-ink: #a8b0bc;
   --caption: #8b929c;
   --faint: #737b88;
+  --disabled: #5b636e;
+  --success: #6f9077;
   --done: #6f9077;
   --busy: #242c38;
+  --tint-you: rgba(127, 163, 204, 0.09);
 
   --sidebar: #1b212b;
   --sidebar-foreground: #eef1f5;
@@ -218,8 +256,50 @@
   h2,
   h3 {
     font-family: var(--font-newsreader);
-    /* PT Sans ships 400/700 only; V2 headers are 700. */
-    font-weight: 700;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  /* 10px uppercase eyebrow that opens every section on the flat screens. */
+  .section-label {
+    font-size: 10px;
+    line-height: 1;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--faint);
+  }
+  /* Serif display numbers (week totals, timers, stats). */
+  .stat-num {
+    font-family: var(--font-newsreader);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+}
+
+/* Staggered entrance used across the redesigned screens. Delay is set inline
+   via --rise-delay so a list can stagger without a class per index. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@utility rise {
+  animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--rise-delay, 0s);
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise {
+    animation: none;
   }
 }
 
