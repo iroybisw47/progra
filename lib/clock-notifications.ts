@@ -96,12 +96,22 @@ export async function syncClockReminders(
     return;
   }
 
-  lastSync = `n=${reminders.length}`;
+  // TEMPORARY: bump whenever these breadcrumbs change, so the report itself
+  // says whether the device is running the JS we just shipped. Without it, "old
+  // cached bundle" and "new code that hung before the first breadcrumb" produce
+  // an identical string, which cost a round trip once already.
+  lastSync = `v3 n=${reminders.length}`;
+
+  // Instrumented too: this is a dynamic import(), so a chunk that never
+  // arrives parks the whole sync here — before the try block, and before any
+  // other breadcrumb could fire.
+  lastSync += " →plugin";
   const ln = await plugin();
   if (!ln) {
     lastSync += " NO-PLUGIN";
     return;
   }
+  lastSync += " ok";
 
   try {
     // TEMPORARY breadcrumbs. A bare `n=9` in the report means one of the three
