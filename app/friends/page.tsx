@@ -9,6 +9,7 @@ import {
   listOutgoingRequests,
   listSuggestedUsers,
 } from "@/lib/db/friends";
+import { getFriendsLeaderboard } from "@/lib/db/friends-leaderboard";
 import { hasUnseenNotifications } from "@/lib/db/notifications-activity";
 
 import { FriendsClient } from "./friends-client";
@@ -19,15 +20,25 @@ export default async function FriendsPage() {
   if (!SOCIAL_ENABLED) notFound();
   await requireUser();
 
-  const [friends, incoming, outgoing, blocked, suggested, unseenNotifications] =
-    await Promise.all([
-      listFriends(),
-      listIncomingRequests(),
-      listOutgoingRequests(),
-      listBlockedUsers(),
-      listSuggestedUsers(),
-      hasUnseenNotifications(),
-    ]);
+  const [
+    friends,
+    incoming,
+    outgoing,
+    blocked,
+    suggested,
+    unseenNotifications,
+    leaderboard,
+  ] = await Promise.all([
+    listFriends(),
+    listIncomingRequests(),
+    listOutgoingRequests(),
+    listBlockedUsers(),
+    listSuggestedUsers(),
+    hasUnseenNotifications(),
+    // Shares listFriends() and getProfile() via cache(), so it adds one
+    // sessions read and one goals read rather than a whole new wave.
+    getFriendsLeaderboard(),
+  ]);
 
   return (
     <FriendsClient
@@ -37,6 +48,7 @@ export default async function FriendsPage() {
       blocked={blocked}
       suggested={suggested}
       initialUnseen={unseenNotifications}
+      leaderboard={leaderboard}
     />
   );
 }

@@ -5,6 +5,9 @@ import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { track } from "@/lib/analytics";
+import { FeedLivePoll } from "@/components/feed-live-poll";
+import { FriendsLeaderboard } from "@/components/v2/friends-leaderboard";
+import type { FriendsLeaderboardRow } from "@/lib/leaderboard";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { NotificationsBell } from "@/components/notifications-bell";
@@ -39,6 +42,7 @@ type Props = {
   blocked: BlockedEntry[];
   suggested: PublicUser[];
   initialUnseen: boolean;
+  leaderboard: FriendsLeaderboardRow[];
 };
 
 type ActionResult = { ok: true } | { error: string };
@@ -50,6 +54,7 @@ export function FriendsClient({
   blocked,
   suggested,
   initialUnseen,
+  leaderboard,
 }: Props) {
   const [pending, startTransition] = useTransition();
 
@@ -173,6 +178,11 @@ export function FriendsClient({
           </div>
           <NotificationsBell initialUnseen={initialUnseen} />
         </header>
+
+        {/* Keeps friends' totals climbing while you watch, and refreshes on
+            refocus. Same component and cadence the feed uses. */}
+        <FeedLivePoll />
+        <FriendsLeaderboard rows={leaderboard} />
 
         {/* Search */}
         <Card>
