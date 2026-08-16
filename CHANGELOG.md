@@ -4,6 +4,34 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-08-15
+
+### · Editorial redesign — eight screens rebuilt against the new design package
+The whole app moves onto the design handoff's flat, paper-like language: white
+screens split by hairlines and 10px uppercase section labels instead of stacked
+shadcn cards, Newsreader for headings and display numbers, Hanken Grotesk for UI
+text, and a nine-color accent palette that every category, goal and habit draws
+from and keeps everywhere it appears.
+
+Screen by screen: **Progress** (donut + serif week total + legend, session rows,
+a one-tap habit pill grid, goal quota rows; Today/Week replace the three
+sub-tabs and the Sessions header links to /history); **Clock** (compact clock-in
+form with folded note + two expanding chips, navy CTA, and everything else moved
+to an inset quiet zone) and the **live timer** (224px ring in the session's own
+color with a 40px serif elapsed time); **Feed** (flat divider-separated posts,
+tinted initials avatars, kudos/comment pill group); **Friends** (search,
+requests, expandable leaderboard rows with per-goal bars and a "resets in" clock,
+friends list); **You** and the **friend profile** (identity block, serif stats,
+shared goal/habit components, compact date-grouped session rows); and a rebuilt
+**onboarding** — eight steps including a fast-forwarded practice clock-in and a
+practice post, with the goal and picked habits created for real.
+
+Notable non-visual bits: `goalColor()` derives a stable palette hue from a goal's
+id (goals have no color column), the category picker now offers the nine palette
+colors while the previous twelve stay valid on write, and `LeaderboardGoal`
+carries its goal id so a goal looks the same on every surface. Settings was left
+alone at the user's request.
+
 ## 2026-08-03
 
 ### · Push token writes go through a definer RPC — **SQL run**
