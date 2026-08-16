@@ -12,7 +12,6 @@ import { GoalQuotaRows } from "@/components/v2/goal-quota-rows";
 import { SectionHeader } from "@/components/v2/section-header";
 import { AutoEndNudge } from "@/components/v2/auto-end-nudge";
 import { RecapNudge } from "@/components/v2/recap-nudge";
-import { ReferFriendButton } from "@/components/v2/refer-friend-button";
 
 // The manage-habits editor (485 lines) only matters after tapping the Habits
 // header — load it as a lazy chunk after hydration instead of shipping it in
@@ -27,7 +26,6 @@ import type { Habit, HabitCompletion } from "@/lib/db/habits";
 import { entityColor, tint } from "@/lib/colors";
 import { formatDuration } from "@/lib/duration";
 import { formatTime12 } from "@/lib/dates";
-import { REFER_ENABLED } from "@/lib/flags";
 import { cn } from "@/lib/utils";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -207,14 +205,6 @@ export function ProgressClient(props: {
             <AutoEndNudge sessionId={props.autoEndNudge.sessionId} />
           </div>
         )}
-        {/* Flag-gated; NEXT_PUBLIC_ is inlined at build time, so this branch
-            disappears entirely when off. */}
-        {REFER_ENABLED && (
-          <div className="pt-3">
-            <ReferFriendButton />
-          </div>
-        )}
-
         <Hairline className="mt-4" />
 
         {/* Sessions — today's rows; the chevron opens the full history. */}
