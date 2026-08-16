@@ -38,22 +38,13 @@ export function track(event: AnalyticsEvent, props?: Props): void {
   void client().then((p) => p?.capture(event, props));
 }
 
-// Ties subsequent events to a person, and back-fills the anonymous events from
-// before sign-in — which is what makes a signup funnel work at all.
+// NOTE: identify/reset deliberately do NOT live here.
 //
-// Username rather than email: it's already public in the app (public_profiles),
-// so it makes people findable in the PostHog UI without escalating what's
-// collected. Email would be a genuine step up in personal data for no analytic
-// gain.
-export function identifyUser(userId: string, username: string | null): void {
-  void client().then((p) =>
-    p?.identify(userId, username ? { username } : undefined)
-  );
-}
-
-// MUST run on sign-out. Without it PostHog keeps attributing events to the
-// previous person, so a shared device merges two people into one profile and
-// the retention numbers quietly become fiction.
-export function resetUser(): void {
-  void client().then((p) => p?.reset());
-}
+// They ran through this same `client()` helper, which returns null unless
+// posthog.__loaded is true — and identity has to happen immediately after
+// init, where that flag may not be set yet. Routing it through here lost the
+// race and dropped the identify silently.
+//
+// components/posthog-init.tsx now calls posthog.identify/reset directly, in
+// the same sequenced block as init, so ordering is guaranteed by construction.
+// A second entry point here would just reintroduce the race.

@@ -88,6 +88,7 @@ export default async function RootLayout({
         <PostHogInit
           userId={user?.id ?? null}
           username={profile?.username ?? null}
+          signupDate={profile?.created_at ?? null}
         />
         {user && (
           <BottomNav

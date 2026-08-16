@@ -2,8 +2,6 @@
 
 import { useEffect } from "react";
 
-import { identifyUser, resetUser } from "@/lib/analytics";
-
 // Product analytics. Mounted once in the root layout, alongside the other
 // client leaves (EnsureProfileSync, PushRegistration, SyncClockReminders).
 //
@@ -17,10 +15,22 @@ import { identifyUser, resetUser } from "@/lib/analytics";
 export function PostHogInit({
   userId,
   username,
+  signupDate,
 }: {
   userId: string | null;
   username: string | null;
+  signupDate: string | null;
 }) {
+  // ONE effect, init then identity, in that order.
+  //
+  // These were two effects and it was a real bug: identify() bails out unless
+  // posthog.__loaded is true, init is async (dynamic import, then init), and on
+  // first load the identity effect won the race — so identify silently dropped.
+  // The lastIdentified guard was set anyway, so it never retried, and every
+  // session would have looked like a fresh anonymous person. Retention data
+  // built on that is worse than none, because it looks plausible.
+  //
+  // Sequencing them here removes the race by construction rather than by luck.
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
     if (!key) return; // Unset in an environment → analytics simply off.
@@ -28,9 +38,10 @@ export function PostHogInit({
     let cancelled = false;
     void (async () => {
       const posthog = (await import("posthog-js")).default;
-      if (cancelled || posthog.__loaded) return;
+      if (cancelled) return;
 
-      posthog.init(key, {
+      if (!posthog.__loaded) {
+        posthog.init(key, {
         // Same-origin, proxied by the /ingest rewrite in next.config.ts, so
         // blockers that filter *.i.posthog.com by hostname don't drop events.
         // Relative on purpose: it resolves to progra.world inside the iOS
@@ -59,35 +70,41 @@ export function PostHogInit({
         // people's content, not just this user's. Off unless deliberately
         // turned on, and turning it on is a privacy-policy decision rather
         // than a config one.
-        disable_session_recording: true,
-      });
+          disable_session_recording: true,
+        });
+      }
+
+      if (cancelled) return;
+
+      // Identity, only ever AFTER init has run on this client.
+      //
+      // Sign-out needs no explicit hook: /auth/signout is a server route with
+      // no client code, but afterwards the layout re-renders with no user,
+      // userId arrives null, and the reset happens here.
+      if (userId) {
+        if (lastIdentified === userId) return;
+        posthog.identify(userId, {
+          // Both are already public in the app (public_profiles), so they make
+          // people findable in the PostHog UI without escalating what's
+          // collected. signup_date is what lets cohorts be built by join week.
+          ...(username ? { username } : {}),
+          ...(signupDate ? { signup_date: signupDate } : {}),
+        });
+        // Set only AFTER the call, so a failure before this point retries on
+        // the next render rather than being permanently skipped.
+        lastIdentified = userId;
+        return;
+      }
+      if (lastIdentified !== null) {
+        posthog.reset();
+        lastIdentified = null;
+      }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  // Identity, in its own effect so it re-runs on sign-in and sign-out without
-  // touching init.
-  //
-  // Sign-out is handled implicitly and reliably: /auth/signout is a server
-  // route, so there's no client code there to call reset() — but afterwards
-  // the layout re-renders with no user, userId arrives as null, and the reset
-  // happens here. lastIdentified stops it firing on every render for a
-  // signed-out visitor.
-  useEffect(() => {
-    if (userId) {
-      if (lastIdentified === userId) return;
-      lastIdentified = userId;
-      identifyUser(userId, username);
-      return;
-    }
-    if (lastIdentified !== null) {
-      lastIdentified = null;
-      resetUser();
-    }
-  }, [userId, username]);
+  }, [userId, username, signupDate]);
 
   return null;
 }
