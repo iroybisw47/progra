@@ -60,7 +60,9 @@ function build(sessions: Session[], titles: Record<string, string> = {}) {
     user,
     false,
     sessions,
-    new Map(Object.entries(titles)),
+    new Map(
+      Object.entries(titles).map(([id, title]) => [id, { title, color: null }])
+    ),
     WEEK_START,
     WEEK_END,
     NOW
@@ -75,8 +77,8 @@ describe("buildLeaderboardRow", () => {
     });
     expect(row.totalMs).toBe(4 * HOUR);
     expect(row.goals).toEqual([
-      { id: "g1", title: "Thesis", ms: 3 * HOUR },
-      { id: "g2", title: "Spanish", ms: HOUR },
+      { id: "g1", title: "Thesis", color: null, ms: 3 * HOUR },
+      { id: "g2", title: "Spanish", color: null, ms: HOUR },
     ]);
     expect(row.otherMs).toBe(0);
   });
@@ -86,7 +88,9 @@ describe("buildLeaderboardRow", () => {
   it("puts category-tracked time in Other, not in a goal line", () => {
     const row = build([work(2 * HOUR, null), work(HOUR, "g1")], { g1: "Thesis" });
     expect(row.totalMs).toBe(3 * HOUR);
-    expect(row.goals).toEqual([{ id: "g1", title: "Thesis", ms: HOUR }]);
+    expect(row.goals).toEqual([
+      { id: "g1", title: "Thesis", color: null, ms: HOUR },
+    ]);
     expect(row.otherMs).toBe(2 * HOUR);
   });
 
@@ -100,7 +104,9 @@ describe("buildLeaderboardRow", () => {
       // gPrivate deliberately absent — this is what RLS produces.
     });
     expect(row.totalMs).toBe(3 * HOUR);
-    expect(row.goals).toEqual([{ id: "g1", title: "Thesis", ms: HOUR }]);
+    expect(row.goals).toEqual([
+      { id: "g1", title: "Thesis", color: null, ms: HOUR },
+    ]);
     expect(row.otherMs).toBe(2 * HOUR);
     expect(JSON.stringify(row)).not.toContain("gPrivate");
   });

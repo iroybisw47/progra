@@ -80,6 +80,7 @@ export default async function MePage() {
     .map((g) => ({
       id: g.id,
       title: g.title,
+      color: g.color,
       quotaHours: g.weeklyQuotaHours,
       actualMs: goalWeekly.perGoal.get(g.id) ?? 0,
       isPrivate: g.isPrivate,

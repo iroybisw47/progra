@@ -68,7 +68,7 @@ import { type Category, type Session } from "@/lib/storage";
 import type { DayEvent } from "@/lib/db/calendar-events";
 import type { Goal } from "@/lib/db/goals";
 import { aggregateWeek, buildCategoryBreakdown } from "@/lib/aggregate";
-import { entityColor, goalColor } from "@/lib/colors";
+import { entityColor, goalColorOf } from "@/lib/colors";
 import {
   isPaused,
   sessionAttributionEnd,
@@ -526,7 +526,10 @@ export function ClockClient({
   const pickedColor =
     pickerMode === "goal"
       ? selectedGoalId
-        ? goalColor(selectedGoalId)
+        ? goalColorOf({
+            id: selectedGoalId,
+            color: goalById.get(selectedGoalId)?.color ?? null,
+          })
         : "var(--disabled)"
       : selectedCategoryId
         ? entityColor(categoryById.get(selectedCategoryId)?.color ?? null)
@@ -597,7 +600,12 @@ export function ClockClient({
                       backgroundColor: isPaused(activeSession)
                         ? "var(--disabled)"
                         : activeSession.goalId
-                          ? goalColor(activeSession.goalId)
+                          ? goalColorOf({
+                              id: activeSession.goalId,
+                              color:
+                                goalById.get(activeSession.goalId)?.color ??
+                                null,
+                            })
                           : entityColor(
                               categoryById.get(activeSession.categoryId ?? "")
                                 ?.color ?? null
@@ -1081,7 +1089,10 @@ export function ClockClient({
                       className="h-5 w-[3px] shrink-0 rounded-[2px]"
                       style={{
                         backgroundColor: s.goalId
-                          ? goalColor(s.goalId)
+                          ? goalColorOf({
+                              id: s.goalId,
+                              color: goalById.get(s.goalId)?.color ?? null,
+                            })
                           : entityColor(
                               categoryById.get(s.categoryId ?? "")?.color ?? null
                             ),

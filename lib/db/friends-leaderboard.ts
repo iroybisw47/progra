@@ -11,7 +11,7 @@ import { getProfile } from "@/lib/auth/profile";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { endOfWeek, startOfWeek } from "@/lib/dates";
-import { hydrateGoalTitles } from "@/lib/db/feed";
+import { hydrateGoals } from "@/lib/db/feed";
 import { listFriends, type PublicUser } from "@/lib/db/friends";
 import { SESSION_COLUMNS, rowToSession, type SessionRow } from "@/lib/db/sessions";
 import { createClient } from "@/lib/supabase/server";
@@ -70,7 +70,7 @@ export const getFriendsLeaderboard = cache(
           .filter((id): id is string => id !== null)
       ),
     ];
-    const goalTitleById = await hydrateGoalTitles(goalIds);
+    const goalById = await hydrateGoals(goalIds);
 
     // listFriends never includes the caller, so their own row is built here.
     // getProfile is cache()-wrapped and the layout already fetched it, so this
@@ -97,7 +97,7 @@ export const getFriendsLeaderboard = cache(
           p.user,
           p.isMe,
           byUser.get(p.user.userId) ?? [],
-          goalTitleById,
+          goalById,
           weekStartMs,
           weekEndMs,
           now

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ChevronDownIcon } from "lucide-react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
-import { goalColor } from "@/lib/colors";
+import { goalColorOf } from "@/lib/colors";
 import { endOfWeek } from "@/lib/dates";
 import { formatDuration } from "@/lib/duration";
 import { useNowMinute } from "@/lib/hooks";
@@ -106,7 +106,7 @@ export function FriendsLeaderboard({
               {open && (
                 <div className="flex flex-col gap-[9px] pt-0.5 pr-5 pb-3 pl-[52px]">
                   {row.goals.map((g) => {
-                    const color = goalColor(g.id);
+                    const color = goalColorOf(g);
                     return (
                       <div key={g.id} className="flex flex-col gap-1">
                         <div className="flex items-center gap-[7px]">

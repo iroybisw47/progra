@@ -3,7 +3,7 @@ import "server-only";
 import { aggregateRange, buildCategoryBreakdown } from "@/lib/aggregate";
 import { categorizeEvents, fetchEventsRaw } from "@/lib/db/calendar-events";
 import { listCategories } from "@/lib/db/categories";
-import { hydrateGoalTitles } from "@/lib/db/feed";
+import { hydrateGoals } from "@/lib/db/feed";
 import { listActiveGoals } from "@/lib/db/goals";
 import {
   getHabitsWithTodayStatus,
@@ -143,7 +143,7 @@ export async function loadProgressData(): Promise<ProgressData> {
   const catById = new Map(categories.map((c) => [c.id, c] as const));
   // Goal titles for goal-tracked sessions (own goals, RLS-gated → always resolve),
   // so the row can read "Goal: {name}" instead of a bare "Goal".
-  const goalTitles = await hydrateGoalTitles(
+  const goalTitles = await hydrateGoals(
     [...new Set(daySessions.map((s) => s.goalId).filter((g): g is string => g != null))]
   );
   const sessionRows: SessionToday[] = daySessions.map((s) => {
@@ -155,7 +155,7 @@ export async function loadProgressData(): Promise<ProgressData> {
       catName: cat?.name ?? null,
       catColor: cat?.color ?? null,
       isGoal: s.goalId !== null,
-      goalName: s.goalId ? goalTitles.get(s.goalId) ?? null : null,
+      goalName: s.goalId ? goalTitles.get(s.goalId)?.title ?? null : null,
       startedAt: s.startedAt,
       endedAt: s.endedAt,
       workedMs: sessionWorkedMs(s, dayNow),
@@ -199,6 +199,7 @@ export async function loadProgressData(): Promise<ProgressData> {
   const goalRows: GoalRow[] = weekRecap.goalRows.map((g) => ({
     id: g.id,
     title: g.title,
+    color: g.color,
     quotaHours: g.quotaHours,
     actualMs: g.actualMs,
     status: g.status,

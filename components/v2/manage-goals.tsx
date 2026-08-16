@@ -16,8 +16,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { BottomSheet, BottomSheetContent } from "@/components/v2/bottom-sheet";
+import { ColorSwatches } from "@/components/color-swatches";
 import { archiveGoal, createGoal, updateGoal } from "@/app/actions/goals";
-import { goalColor } from "@/lib/colors";
+import { goalColorOf } from "@/lib/colors";
 import { formatDuration } from "@/lib/duration";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -26,6 +27,7 @@ const fmtH = (ms: number) => `${(ms / HOUR_MS).toFixed(1)}h`;
 export type ManageGoal = {
   id: string;
   title: string;
+  color: string | null;
   quotaHours: number;
   actualMs: number;
 };
@@ -49,14 +51,20 @@ export function ManageGoals({
     id: string | null;
     title: string;
     quota: number;
+    color: string | null;
   } | null>(null);
 
   function openNew() {
-    setEditing({ id: null, title: "", quota: 5 });
+    setEditing({ id: null, title: "", quota: 5, color: null });
   }
 
   function openEdit(goal: ManageGoal) {
-    setEditing({ id: goal.id, title: goal.title, quota: goal.quotaHours });
+    setEditing({
+      id: goal.id,
+      title: goal.title,
+      quota: goal.quotaHours,
+      color: goal.color,
+    });
   }
 
   function save() {
@@ -66,11 +74,11 @@ export function ManageGoals({
       toast.error("Give your goal a name");
       return;
     }
-    const { id, quota } = editing;
+    const { id, quota, color } = editing;
     startTransition(async () => {
       const r = id
-        ? await updateGoal(id, { title, weeklyQuotaHours: quota })
-        : await createGoal({ title, weeklyQuotaHours: quota });
+        ? await updateGoal(id, { title, weeklyQuotaHours: quota, color })
+        : await createGoal({ title, weeklyQuotaHours: quota, color });
       if ("error" in r) {
         toast.error(r.error);
         return;
@@ -103,7 +111,7 @@ export function ManageGoals({
             </p>
           )}
           {goals.map((g) => {
-            const color = goalColor(g.id);
+            const color = goalColorOf(g);
             const quotaMs = g.quotaHours * HOUR_MS;
             const pct =
               quotaMs > 0 ? Math.min(100, (g.actualMs / quotaMs) * 100) : 0;
@@ -221,6 +229,13 @@ export function ManageGoals({
                 </QuotaButton>
               </div>
             </div>
+
+            <ColorSwatches
+              value={editing?.color ?? null}
+              onChange={(color) =>
+                setEditing((s) => (s ? { ...s, color } : s))
+              }
+            />
 
             <div className="flex gap-2.5">
               {editing?.id && (

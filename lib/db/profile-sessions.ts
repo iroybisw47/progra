@@ -8,7 +8,7 @@ import {
 } from "@/lib/db/sessions";
 import {
   hydrateCategoryNames,
-  hydrateGoalTitles,
+  hydrateGoals,
   resolveFeedAttribution,
   type SessionCardItem,
 } from "@/lib/db/feed";
@@ -71,8 +71,8 @@ export async function listProfileSessions(
       rows.map((r) => r.category_id).filter((c): c is string => c != null)
     ),
   ];
-  const [goalTitleById, categoryNameById, photoUrlByPath] = await Promise.all([
-    hydrateGoalTitles(goalIds),
+  const [goalById, categoryNameById, photoUrlByPath] = await Promise.all([
+    hydrateGoals(goalIds),
     hydrateCategoryNames(categoryIds),
     hydrateSessionPhotoUrls(photoPaths),
   ]);
@@ -87,7 +87,7 @@ export async function listProfileSessions(
         title: session.taskName.trim() || "Untitled session",
         // Shared with the feed so the private-goal rule (a hidden goal yields
         // no chip rather than falling through to a category) holds identically.
-        attribution: resolveFeedAttribution(row, goalTitleById, categoryNameById),
+        attribution: resolveFeedAttribution(row, goalById, categoryNameById),
         description: session.description?.trim() || null,
         workedMs: sessionWorkedMs(session, now),
         startedAt: session.startedAt,

@@ -11,10 +11,16 @@ import type { Session } from "@/lib/storage";
 // so three keeps rows scannable without hiding much from anyone.
 export const MAX_GOAL_LINES = 3;
 
-// `id` carries no new information — the row is already only built from goals
-// whose titles resolved — but it lets the UI paint each goal in its own
-// palette color (goalColor), the same one it has on its owner's Progress tab.
-export type LeaderboardGoal = { id: string; title: string; ms: number };
+// `id` and `color` carry no new information — the row is already only built
+// from goals whose titles resolved — but together they let the UI paint each
+// goal in its own hue (goalColorOf), the same one it has on its owner's
+// Progress tab.
+export type LeaderboardGoal = {
+  id: string;
+  title: string;
+  color: string | null;
+  ms: number;
+};
 
 export type FriendsLeaderboardRow = {
   user: PublicUser;
@@ -31,8 +37,8 @@ export type FriendsLeaderboardRow = {
 
 // Builds one leaderboard row from a person's sessions.
 //
-// A goal title is only present when the goal is visible to us: RLS drops a
-// friend's private goals from the titles read, so an unresolved id folds into
+// A goal is only present when it's visible to us: RLS drops a
+// friend's private goals from the read, so an unresolved id folds into
 // `otherMs` and a private goal's name can never surface. That's the same
 // boundary resolveFeedAttribution enforces for the feed, reached the same way
 // — by the title simply not being there — rather than by remembering to filter.
@@ -40,7 +46,7 @@ export function buildLeaderboardRow(
   user: PublicUser,
   isMe: boolean,
   sessions: Session[],
-  goalTitleById: Map<string, string>,
+  goalById: Map<string, { title: string; color: string | null }>,
   weekStartMs: number,
   weekEndMs: number,
   now: number
@@ -56,8 +62,8 @@ export function buildLeaderboardRow(
 
   const named: LeaderboardGoal[] = [];
   for (const [goalId, ms] of perGoal) {
-    const title = goalTitleById.get(goalId);
-    if (title) named.push({ id: goalId, title, ms });
+    const goal = goalById.get(goalId);
+    if (goal) named.push({ id: goalId, title: goal.title, color: goal.color, ms });
   }
   named.sort((a, b) => b.ms - a.ms);
   const goals = named.slice(0, MAX_GOAL_LINES);

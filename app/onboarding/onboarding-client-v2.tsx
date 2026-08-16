@@ -15,6 +15,8 @@ import {
 
 import { track } from "@/lib/analytics";
 import { AvatarPicker } from "@/components/avatar-picker";
+import { ColorSwatches } from "@/components/color-swatches";
+import { CATEGORY_COLORS } from "@/lib/category-colors";
 import { InviteShare } from "@/components/v2/invite-share";
 import { PrograMark } from "@/components/progra-mark";
 import { cn } from "@/lib/utils";
@@ -81,8 +83,6 @@ const SIM_TARGET_MS = 25 * 60_000;
 const SIM_REAL_MS = 3_300;
 const SIM_REALTIME_MS = 1_500; // ticks at true speed before fast-forwarding
 
-const PRACTICE_COLOR = "#4A6FA5";
-
 type Props = {
   initialUsername: string;
   initialDisplayName: string | null;
@@ -110,7 +110,13 @@ export function OnboardingClientV2({
   // Goal.
   const [goalTitle, setGoalTitle] = useState("");
   const [hours, setHours] = useState(5);
+  const [goalColorPick, setGoalColorPick] = useState<string | null>(
+    CATEGORY_COLORS[6].value
+  );
   const goalDisplay = goalTitle.trim() || "your first goal";
+  // Whatever they picked paints the practice session, the Progress mock and the
+  // summary, so the color they chose is the one they keep seeing.
+  const goalTint = goalColorPick ?? CATEGORY_COLORS[6].value;
 
   // Practice clock-in.
   const [practiceTask, setPracticeTask] = useState("");
@@ -166,7 +172,11 @@ export function OnboardingClientV2({
       return;
     }
     startTransition(async () => {
-      const r = await createGoal({ title, weeklyQuotaHours: hours });
+      const r = await createGoal({
+        title,
+        weeklyQuotaHours: hours,
+        color: goalColorPick,
+      });
       if ("error" in r) {
         toast.error(r.error);
         return;
@@ -486,6 +496,9 @@ export function OnboardingClientV2({
                 }}
               />
             </Field>
+            <Field label="Color">
+              <ColorSwatches value={goalColorPick} onChange={setGoalColorPick} />
+            </Field>
             <Field label="Hours per week">
               <div className="flex items-center gap-4">
                 <Stepper
@@ -537,7 +550,7 @@ export function OnboardingClientV2({
                       <span
                         aria-hidden
                         className="size-2 shrink-0 rounded-[2px]"
-                        style={{ backgroundColor: PRACTICE_COLOR }}
+                        style={{ backgroundColor: goalTint }}
                       />
                       <span className="truncate">{goalDisplay}</span>
                       <ChevronDownIcon
@@ -568,7 +581,7 @@ export function OnboardingClientV2({
                       <span
                         aria-hidden
                         className="size-2 shrink-0 animate-[pulse-dot_1.6s_infinite] rounded-full"
-                        style={{ backgroundColor: PRACTICE_COLOR }}
+                        style={{ backgroundColor: goalTint }}
                       />
                       <span className="text-body truncate text-[13px] font-semibold">
                         {practiceTask.trim() || goalDisplay}
@@ -584,7 +597,7 @@ export function OnboardingClientV2({
                       className="h-full rounded-full transition-[width] duration-100 ease-linear"
                       style={{
                         width: `${Math.min(100, (sim / SIM_TARGET_MS) * 100)}%`,
-                        backgroundColor: PRACTICE_COLOR,
+                        backgroundColor: goalTint,
                       }}
                     />
                   </div>
@@ -629,7 +642,7 @@ export function OnboardingClientV2({
                 <span
                   aria-hidden
                   className="size-[9px] shrink-0 rounded-[2px]"
-                  style={{ backgroundColor: PRACTICE_COLOR }}
+                  style={{ backgroundColor: goalTint }}
                 />
               </div>
               {photo ? (
@@ -702,7 +715,7 @@ export function OnboardingClientV2({
                 <div className="bg-track flex h-[7px] overflow-hidden rounded-full">
                   <div
                     className="h-full"
-                    style={{ width: "42%", backgroundColor: PRACTICE_COLOR }}
+                    style={{ width: "42%", backgroundColor: goalTint }}
                   />
                 </div>
               </div>
@@ -961,7 +974,7 @@ export function OnboardingClientV2({
                 <span
                   aria-hidden
                   className="size-[9px] shrink-0 rounded-[2px]"
-                  style={{ backgroundColor: PRACTICE_COLOR }}
+                  style={{ backgroundColor: goalTint }}
                 />
                 <span className="text-body min-w-0 flex-1 truncate text-[13.5px] font-semibold">
                   {goalDisplay}

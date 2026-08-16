@@ -22,6 +22,7 @@ export type GoalRecapStatus = "hit" | "close" | "under";
 export type RecapGoalRow = {
   id: string;
   title: string;
+  color: string | null;
   quotaHours: number;
   actualMs: number;
   status: GoalRecapStatus;
@@ -121,6 +122,7 @@ export async function computeWeekRecap(
       return {
         id: g.id,
         title: g.title,
+        color: g.color,
         quotaHours: g.weeklyQuotaHours,
         actualMs,
         status: statusForGoal(actualMs, g.weeklyQuotaHours),

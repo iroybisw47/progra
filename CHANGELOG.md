@@ -6,6 +6,34 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-15
 
+### · Goals get a real color — **requires SQL (run by hand, before deploy)**
+```sql
+alter table public.goals add column color text;
+```
+Nullable, no default, no RLS change — the existing row policies already cover
+it. Every goal created before this stays `null`.
+
+Goal color was derived from the goal id (`goalColor`), which was stable and
+consistent but not *yours*. Now it's a stored pick from the same nine-swatch
+palette categories and habits use, editable in the goals sheet and chosen
+during onboarding. `goalColorOf()` resolves stored-or-derived in one place, so
+a `null` color still renders the same hue everywhere it used to — nothing
+looks different until someone picks.
+
+Server-side the value is validated against `isCategoryColor` on both create and
+update, so a freehand hex is rejected rather than stored, and `null` clears the
+pick back to the derived hue.
+
+Plumbing: `hydrateGoalTitles` became `hydrateGoals` (it now returns
+`{title, color}`), which is what carries the color into feed attribution — so a
+goal-tracked session's duration pill is finally the goal's color instead of
+grey — plus the leaderboard breakdown, session detail, profile sessions and
+notification activity. `RecapGoalRow`, `GoalRow` and `LeaderboardGoal` each
+carry it too.
+
+**If the SQL hasn't run, every goal read fails and goals disappear app-wide** —
+the select names a column that isn't there. Run it first.
+
 ### · Editorial redesign — eight screens rebuilt against the new design package
 The whole app moves onto the design handoff's flat, paper-like language: white
 screens split by hairlines and 10px uppercase section labels instead of stacked

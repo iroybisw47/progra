@@ -14,6 +14,10 @@ export type Goal = {
   weeklyQuotaHours: number;
   status: GoalStatus;
   createdAt: number;
+  // One of the nine palette hues (lib/category-colors.ts), or null for goals
+  // created before the column existed — those fall back to a hue derived from
+  // the id (goalColorOf), so every goal has a stable color either way.
+  color: string | null;
   // Social v2: false = visible to accepted friends (once the Aspect 4 RLS
   // rewrite lands), true = owner-only. Inert until then.
   isPrivate: boolean;
@@ -27,6 +31,7 @@ type GoalRow = {
   status: string;
   created_at: string;
   is_private: boolean;
+  color: string | null;
 };
 
 function rowToGoal(row: GoalRow): Goal {
@@ -39,6 +44,7 @@ function rowToGoal(row: GoalRow): Goal {
     status: row.status === "archived" ? "archived" : "active",
     createdAt: new Date(row.created_at).getTime(),
     isPrivate: row.is_private ?? false,
+    color: row.color ?? null,
   };
 }
 
@@ -50,7 +56,9 @@ export const listActiveGoals = cache(async (): Promise<Goal[]> => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("goals")
-    .select("id, title, description, weekly_quota_hours, status, created_at, is_private")
+    .select(
+      "id, title, description, weekly_quota_hours, status, created_at, is_private, color"
+    )
     .eq("user_id", me.id)
     .eq("status", "active")
     .order("created_at", { ascending: true });
@@ -68,7 +76,9 @@ export async function getGoalsByIds(ids: string[]): Promise<Goal[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("goals")
-    .select("id, title, description, weekly_quota_hours, status, created_at, is_private")
+    .select(
+      "id, title, description, weekly_quota_hours, status, created_at, is_private, color"
+    )
     .eq("user_id", me.id)
     .in("id", ids);
   if (!data) return [];
@@ -81,7 +91,9 @@ export async function getGoal(id: string): Promise<Goal | null> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("goals")
-    .select("id, title, description, weekly_quota_hours, status, created_at, is_private")
+    .select(
+      "id, title, description, weekly_quota_hours, status, created_at, is_private, color"
+    )
     .eq("user_id", me.id)
     .eq("id", id)
     .maybeSingle();
@@ -96,7 +108,9 @@ export async function listActiveGoalsForUser(userId: string): Promise<Goal[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("goals")
-    .select("id, title, description, weekly_quota_hours, status, created_at, is_private")
+    .select(
+      "id, title, description, weekly_quota_hours, status, created_at, is_private, color"
+    )
     .eq("user_id", userId)
     .eq("status", "active")
     .order("created_at", { ascending: true });

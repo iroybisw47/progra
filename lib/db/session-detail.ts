@@ -3,7 +3,7 @@ import "server-only";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { hydrateUsers, type PublicUser } from "@/lib/db/friends";
-import { hydrateGoalTitles } from "@/lib/db/feed";
+import { hydrateGoals } from "@/lib/db/feed";
 import { getSessionPhotoUrl } from "@/lib/db/session-photos";
 import { SESSION_COLUMNS, rowToSession, type SessionRow } from "@/lib/db/sessions";
 import { sessionWorkedMs } from "@/lib/session";
@@ -45,16 +45,16 @@ export async function getSessionForViewer(
   const row = data as DetailRow;
   const session = rowToSession(row);
 
-  const [authors, goalTitleById, photoUrl] = await Promise.all([
+  const [authors, goalById, photoUrl] = await Promise.all([
     hydrateUsers([row.user_id]),
-    row.goal_id ? hydrateGoalTitles([row.goal_id]) : Promise.resolve(null),
+    row.goal_id ? hydrateGoals([row.goal_id]) : Promise.resolve(null),
     getSessionPhotoUrl(session),
   ]);
 
   const author = authors.get(row.user_id);
   if (!author) return null;
 
-  const goalTitle = goalTitleById?.get(row.goal_id as string);
+  const goalTitle = goalById?.get(row.goal_id as string)?.title;
   const label = goalTitle ?? (session.taskName.trim() || "Untitled session");
 
   return {

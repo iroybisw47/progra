@@ -9,6 +9,7 @@ import {
 } from "@/lib/db/sessions";
 import { hydrateSessionPhotoUrls } from "@/lib/db/session-photos";
 import { isOverSessionCap, sessionWorkedMs } from "@/lib/session";
+import { goalColorOf } from "@/lib/colors";
 
 // The goal or category a session is filed under. isGoal drives the goal star vs
 // category dot; color is the category's dot color (null for goals, which use the
@@ -149,8 +150,8 @@ export async function listFriendFeed(daysBack = 7): Promise<FeedItem[]> {
       rows.map((r) => r.photo_path).filter((p): p is string => p != null)
     ),
   ];
-  const [goalTitleById, categoryNameById, photoUrlByPath] = await Promise.all([
-    hydrateGoalTitles(goalIds),
+  const [goalById, categoryNameById, photoUrlByPath] = await Promise.all([
+    hydrateGoals(goalIds),
     hydrateCategoryNames(categoryIds),
     hydrateSessionPhotoUrls(photoPaths),
   ]);
@@ -169,7 +170,7 @@ export async function listFriendFeed(daysBack = 7): Promise<FeedItem[]> {
         title: session.taskName.trim() || "Untitled session",
         attribution: resolveFeedAttribution(
           row,
-          goalTitleById,
+          goalById,
           categoryNameById
         ),
         description: session.description?.trim() || null,
@@ -193,12 +194,18 @@ export async function listFriendFeed(daysBack = 7): Promise<FeedItem[]> {
 // is a privacy boundary, not formatting, and must not be reimplemented.
 export function resolveFeedAttribution(
   row: Pick<SessionRow, "goal_id" | "category_id">,
-  goalTitleById: Map<string, string>,
+  goalById: Map<string, HydratedGoal>,
   categoryById: Map<string, { name: string; color: string | null }>
 ): FeedAttribution | null {
   if (row.goal_id) {
-    const title = goalTitleById.get(row.goal_id);
-    return title ? { text: title, isGoal: true, color: null } : null;
+    const goal = goalById.get(row.goal_id);
+    return goal
+      ? {
+          text: goal.title,
+          isGoal: true,
+          color: goalColorOf({ id: row.goal_id, color: goal.color }),
+        }
+      : null;
   }
   if (row.category_id) {
     const cat = categoryById.get(row.category_id);
@@ -268,7 +275,7 @@ export async function listClockedInNow(): Promise<ClockedInItem[]> {
       rows.map((r) => r.goal_id).filter((g): g is string => g != null)
     ),
   ];
-  const goalTitleById = await hydrateGoalTitles(goalIds);
+  const goalById = await hydrateGoals(goalIds);
   const now = Date.now();
 
   return rows.flatMap((row) => {
@@ -279,7 +286,9 @@ export async function listClockedInNow(): Promise<ClockedInItem[]> {
     // paused below the cap has frozen worked time and stays, which is right:
     // it's paused, not abandoned.
     if (isOverSessionCap(session, now)) return [];
-    const goalTitle = row.goal_id ? goalTitleById.get(row.goal_id) : undefined;
+    const goalTitle = row.goal_id
+      ? goalById.get(row.goal_id)?.title
+      : undefined;
     const label = goalTitle ?? (session.taskName.trim() || "Untitled session");
     return [
       {
@@ -422,16 +431,25 @@ async function hydrateFirstGoalTitles(
 }
 
 // Batch-resolve goal id → title, RLS-gated (only goals visible to us return).
-export async function hydrateGoalTitles(
+export type HydratedGoal = { title: string; color: string | null };
+
+export async function hydrateGoals(
   ids: string[]
-): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
+): Promise<Map<string, HydratedGoal>> {
+  const map = new Map<string, HydratedGoal>();
   if (ids.length === 0) return map;
   const supabase = await createClient();
-  const { data } = await supabase.from("goals").select("id, title").in("id", ids);
+  const { data } = await supabase
+    .from("goals")
+    .select("id, title, color")
+    .in("id", ids);
   if (!data) return map;
-  for (const row of data as { id: string; title: string }[]) {
-    map.set(row.id, row.title);
+  for (const row of data as {
+    id: string;
+    title: string;
+    color: string | null;
+  }[]) {
+    map.set(row.id, { title: row.title, color: row.color });
   }
   return map;
 }

@@ -21,7 +21,7 @@ import { listProfileSessions } from "@/lib/db/profile-sessions";
 import { listReactionsForSessions } from "@/lib/db/reactions";
 import { LIKE_EMOJI } from "@/lib/social/reactions";
 import { aggregateWeekByGoal } from "@/lib/aggregate";
-import { entityColor, goalColor } from "@/lib/colors";
+import { entityColor, goalColorOf } from "@/lib/colors";
 import { formatDuration } from "@/lib/duration";
 import { todayInTimeZone, weekRangeInTimeZone } from "@/lib/dates";
 
@@ -146,6 +146,7 @@ async function ProfileContent({
     .map((g) => ({
       id: g.id,
       title: g.title,
+      color: g.color,
       quotaHours: g.weeklyQuotaHours,
       actualMs: goalWeekly.perGoal.get(g.id) ?? 0,
     }))
@@ -189,7 +190,7 @@ async function ProfileContent({
                       weekTotalMs > 0
                         ? `${(g.actualMs / weekTotalMs) * 100}%`
                         : "0%",
-                    backgroundColor: goalColor(g.id),
+                    backgroundColor: goalColorOf(g),
                   }}
                 />
               ))}

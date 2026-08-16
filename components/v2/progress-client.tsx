@@ -47,6 +47,7 @@ export type Seg = { name: string; color: string; ms: number };
 export type GoalRow = {
   id: string;
   title: string;
+  color: string | null;
   quotaHours: number;
   actualMs: number;
   status: "hit" | "close" | "under";

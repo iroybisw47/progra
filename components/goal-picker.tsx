@@ -1,7 +1,7 @@
 "use client";
 
 import { PickerPill } from "@/components/category-picker";
-import { goalColor } from "@/lib/colors";
+import { goalColorOf } from "@/lib/colors";
 import type { Goal } from "@/lib/db/goals";
 
 type GoalPickerProps = {
@@ -29,7 +29,7 @@ export function GoalPicker({
         <PickerPill
           key={goal.id}
           label={goal.title}
-          color={goalColor(goal.id)}
+          color={goalColorOf(goal)}
           selected={selectedId === goal.id}
           onSelect={() => onSelect(goal.id)}
         />

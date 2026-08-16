@@ -4,6 +4,7 @@ import { revalidateGoalSurfaces } from "@/lib/revalidate";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { capText } from "@/lib/validate";
+import { isCategoryColor } from "@/lib/category-colors";
 
 type Result = { ok: true } | { error: string };
 
@@ -15,6 +16,9 @@ type CreateGoalInput = {
   title: string;
   description?: string;
   weeklyQuotaHours: number;
+  // Must be one of the nine palette hues; anything else is rejected rather
+  // than stored, same rule categories and habits follow.
+  color?: string | null;
 };
 
 export async function createGoal(input: CreateGoalInput): Promise<Result> {
@@ -28,11 +32,18 @@ export async function createGoal(input: CreateGoalInput): Promise<Result> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
+  // null clears the color (back to the id-derived fallback); an unrecognised
+  // value is rejected outright so freehand hexes can't drift in.
+  if (input.color != null && !isCategoryColor(input.color)) {
+    return { error: "Unknown color" };
+  }
+
   const { error } = await supabase.from("goals").insert({
     user_id: user.id,
     title,
     description: capText(input.description, DESC_MAX),
     weekly_quota_hours: input.weeklyQuotaHours,
+    color: input.color ?? null,
   });
 
   if (error) return { error: error.message };
@@ -44,6 +55,7 @@ type UpdateGoalPatch = {
   title?: string;
   description?: string | null;
   weeklyQuotaHours?: number;
+  color?: string | null;
   // Social v2: true = owner-only, false = visible to accepted friends (Aspect 4).
   isPrivate?: boolean;
 };
@@ -69,6 +81,12 @@ export async function updateGoal(
       return { error: "Weekly quota must be a positive number" };
     }
     update.weekly_quota_hours = patch.weeklyQuotaHours;
+  }
+  if (patch.color !== undefined) {
+    if (patch.color != null && !isCategoryColor(patch.color)) {
+      return { error: "Unknown color" };
+    }
+    update.color = patch.color;
   }
   if (patch.isPrivate !== undefined) {
     update.is_private = patch.isPrivate;

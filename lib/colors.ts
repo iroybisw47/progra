@@ -35,11 +35,17 @@ export function entityColor(hex: string | null | undefined): string {
   return hex ?? FALLBACK;
 }
 
-// Goals have no stored color (categories and habits do), but the design gives
-// every goal its own hue — the same one on Progress, You, the leaderboard
-// expansion and a friend's profile. Derive it from the goal id so it's stable
-// across surfaces and devices without a schema change: same id, same color,
-// forever.
+// A goal's color: the one its owner picked, or — for goals created before the
+// column existed, and anywhere only an id is in hand — a hue derived from the
+// id. Deriving keeps it stable across surfaces and devices: same id, same
+// color, forever, so an uncolored goal still reads as one thing everywhere.
+export function goalColorOf(
+  goal: { id: string; color?: string | null } | string
+): string {
+  if (typeof goal === "string") return goalColor(goal);
+  return goal.color ?? goalColor(goal.id);
+}
+
 export function goalColor(goalId: string): string {
   return PALETTE[hashOf(goalId) % PALETTE.length];
 }

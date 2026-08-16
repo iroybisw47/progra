@@ -5,7 +5,7 @@ import { cache } from "react";
 import { getProfile } from "@/lib/auth/profile";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { hydrateUsers, type PublicUser } from "@/lib/db/friends";
-import { hydrateGoalTitles } from "@/lib/db/feed";
+import { hydrateGoals } from "@/lib/db/feed";
 import { createClient } from "@/lib/supabase/server";
 import { LIKE_EMOJI } from "@/lib/social/reactions";
 
@@ -170,13 +170,13 @@ export const listMyNotifications = cache(
         ...commentRows.map((r) => r.author_id),
       ]),
     ];
-    const [goalTitleById, usersById] = await Promise.all([
-      hydrateGoalTitles(goalIds),
+    const [goalById, usersById] = await Promise.all([
+      hydrateGoals(goalIds),
       hydrateUsers(actorIds),
     ]);
 
     const labelFor = (goalId: string | null, taskName: string): string => {
-      const goalTitle = goalId ? goalTitleById.get(goalId) : undefined;
+      const goalTitle = goalId ? goalById.get(goalId)?.title : undefined;
       return goalTitle ?? (taskName.trim() || "Untitled session");
     };
 

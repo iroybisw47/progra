@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { goalColor } from "@/lib/colors";
+import { goalColorOf } from "@/lib/colors";
 
 const HOUR_MS = 60 * 60 * 1000;
 const fmtH = (ms: number) => `${(ms / HOUR_MS).toFixed(1)}h`;
@@ -8,6 +8,8 @@ const fmtH = (ms: number) => `${(ms / HOUR_MS).toFixed(1)}h`;
 export type QuotaGoal = {
   id: string;
   title: string;
+  // The goal's own color; null falls back to the id-derived hue.
+  color?: string | null;
   quotaHours: number;
   actualMs: number;
 };
@@ -28,7 +30,7 @@ export function GoalQuotaRows({
   return (
     <div className="flex flex-col gap-[7px]">
       {goals.map((g) => {
-        const color = goalColor(g.id);
+        const color = goalColorOf(g);
         const quotaMs = g.quotaHours * HOUR_MS;
         const pct =
           quotaMs > 0 ? Math.min(100, (g.actualMs / quotaMs) * 100) : 0;

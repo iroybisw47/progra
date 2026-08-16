@@ -1,4 +1,4 @@
-import { goalColor } from "@/lib/colors";
+import { goalColorOf } from "@/lib/colors";
 import { dayIndexMonFirst, endOfWeek, startOfWeek } from "@/lib/dates";
 import type { DayEvent } from "@/lib/db/calendar-events";
 import type { Goal } from "@/lib/db/goals";
@@ -48,7 +48,7 @@ export function buildCategoryBreakdown(
         return {
           id,
           name: g ? `Goal: ${g.title}` : "Goal",
-          color: g ? goalColor(g.id) : GOAL_ACCENT,
+          color: g ? goalColorOf(g) : GOAL_ACCENT,
           isGoal: true,
           ms,
         };

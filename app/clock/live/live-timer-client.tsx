@@ -65,7 +65,7 @@ import { useTimerSoundMuted } from "@/lib/use-muted";
 import { useBreakSchedule } from "./use-break-schedule";
 import { usePlanFinish } from "./use-plan-finish";
 import { formatTime } from "@/lib/dates";
-import { entityColor, goalColor } from "@/lib/colors";
+import { entityColor, goalColorOf } from "@/lib/colors";
 import type { Attribution } from "@/lib/session-attribution";
 import type { Category } from "@/lib/storage";
 import type { Goal } from "@/lib/db/goals";
@@ -166,7 +166,10 @@ export function LiveTimerClient({
   // the dot and the target bar, so the running session looks like the same
   // entity it does on Progress.
   const runColor = goalId
-    ? goalColor(goalId)
+    ? goalColorOf({
+        id: goalId,
+        color: goals.find((g) => g.id === goalId)?.color ?? null,
+      })
     : entityColor(categories.find((c) => c.id === categoryId)?.color ?? null);
 
   // Starts breaks when an interval's work is done and ends them when they
