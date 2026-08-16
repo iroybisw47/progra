@@ -1,3 +1,5 @@
+import { LocalNotifications } from "@capacitor/local-notifications";
+
 import { allReminderIds, type ClockReminder } from "@/lib/clock-reminders";
 import { isNativeApp } from "@/lib/native";
 
@@ -13,18 +15,23 @@ import { isNativeApp } from "@/lib/native";
 // clocking out must behave identically whether or not a reminder gets
 // scheduled; a reminder is a nicety, and it may never break the clock.
 
-// Dynamic import for the same reason push-registration.tsx uses one: it keeps
-// the native-only plugin out of the web bundle and off the SSR path.
+// STATICALLY imported, deliberately. This was a dynamic import() to keep the
+// native plugin out of the web bundle — and on device that import never
+// settled, so syncClockReminders parked forever before it could schedule
+// anything. Proven from the Safari inspector: Capacitor.Plugins
+// .LocalNotifications schedules and delivers perfectly, while the bundled
+// import() of the same module hangs. Root cause of the stall is still unknown;
+// what's known is that nothing here needs a chunk to arrive over the network.
+//
+// Safe eagerly: the package's entry only calls registerPlugin(), with no
+// window/document at module scope, and its WEB implementation stays behind its
+// own import() — so the SSR path and the web bundle both stay clean anyway.
+//
+// Still async, and still returns null off-native, so every call site is
+// unchanged.
 async function plugin() {
   if (!isNativeApp()) return null;
-  try {
-    const { LocalNotifications } = await import(
-      "@capacitor/local-notifications"
-    );
-    return LocalNotifications;
-  } catch {
-    return null;
-  }
+  return LocalNotifications;
 }
 
 // Whether a reminder could actually be delivered right now.
@@ -100,7 +107,7 @@ export async function syncClockReminders(
   // says whether the device is running the JS we just shipped. Without it, "old
   // cached bundle" and "new code that hung before the first breadcrumb" produce
   // an identical string, which cost a round trip once already.
-  lastSync = `v4 n=${reminders.length}`;
+  lastSync = `v5 n=${reminders.length}`;
 
   // Three outcomes here, and `v3` could distinguish none of them — all three
   // left the report frozen at "→plugin":
@@ -198,13 +205,10 @@ export async function syncClockReminders(
 export async function reminderDiagnostics(): Promise<string> {
   if (!isNativeApp()) return "web (reminders are native-only)";
 
-  let ln;
-  try {
-    const mod = await import("@capacitor/local-notifications");
-    ln = mod.LocalNotifications;
-  } catch (e) {
-    return `PLUGIN MISSING — rebuild in Xcode (${(e as Error)?.message ?? "?"})`;
-  }
+  // Static now, like plugin(). This call site's dynamic import was the one that
+  // DID resolve, which is what made the failure so confusing to read: the
+  // report said "plugin ok" and "PLUGIN-TIMEOUT" in the same breath.
+  const ln = LocalNotifications;
   if (!ln) return "PLUGIN MISSING — rebuild in Xcode";
 
   let perm = "?";

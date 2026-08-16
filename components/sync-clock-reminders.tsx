@@ -1,5 +1,6 @@
 "use client";
 
+import { LocalNotifications } from "@capacitor/local-notifications";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -78,9 +79,6 @@ export function SyncClockReminders({
 
     void (async () => {
       try {
-        const { LocalNotifications } = await import(
-          "@capacitor/local-notifications"
-        );
         const h = await LocalNotifications.addListener(
           "localNotificationActionPerformed",
           () => router.push("/clock/live")
