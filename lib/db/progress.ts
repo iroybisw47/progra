@@ -28,11 +28,17 @@ import type {
   Seg,
   SessionToday,
 } from "@/components/v2/progress-client";
+import type { Goal } from "@/lib/db/goals";
+import type { Category } from "@/lib/storage";
 
 const CHART_FALLBACK = "var(--chart-5)";
 
 export type ProgressData = {
   dateLabel: string;
+  // Option lists for the manage-sessions sheet's picker. Both are already read
+  // for the breakdowns above — passing them through costs nothing extra.
+  categories: Category[];
+  pickableGoals: Goal[];
   todayTotalMs: number;
   todayTracked: number;
   todayImported: number;
@@ -154,6 +160,8 @@ export async function loadProgressData(): Promise<ProgressData> {
       label: s.taskName.trim() || "Untitled session",
       catName: cat?.name ?? null,
       catColor: cat?.color ?? null,
+      categoryId: s.categoryId,
+      goalId: s.goalId,
       isGoal: s.goalId !== null,
       goalName: s.goalId ? goalTitles.get(s.goalId)?.title ?? null : null,
       startedAt: s.startedAt,
@@ -171,6 +179,8 @@ export async function loadProgressData(): Promise<ProgressData> {
     label: e.title?.trim() || "(no title)",
     catName: e.category?.name ?? "Uncategorized",
     catColor: e.category?.color ?? null,
+    categoryId: e.category?.id ?? null,
+    goalId: null,
     isGoal: false,
     goalName: null,
     startedAt: e.startMs,
@@ -222,6 +232,8 @@ export async function loadProgressData(): Promise<ProgressData> {
 
   return {
     dateLabel,
+    categories,
+    pickableGoals: activeGoals,
     todayTotalMs,
     todayTracked: daySessions.length,
     todayImported: dayEvents.length,

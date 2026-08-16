@@ -27,8 +27,14 @@ const ManageGoals = dynamic(
   () => import("@/components/v2/manage-goals").then((m) => m.ManageGoals),
   { ssr: false }
 );
+const ManageSessions = dynamic(
+  () => import("@/components/v2/manage-sessions").then((m) => m.ManageSessions),
+  { ssr: false }
+);
 import { toggleHabitCompletion } from "@/app/actions/habits";
 import type { Habit, HabitCompletion } from "@/lib/db/habits";
+import type { Goal } from "@/lib/db/goals";
+import type { Category } from "@/lib/storage";
 import { entityColor, tint } from "@/lib/colors";
 import { formatDuration } from "@/lib/duration";
 import { formatTime12 } from "@/lib/dates";
@@ -60,6 +66,10 @@ export type SessionToday = {
   label: string;
   catName: string | null;
   catColor: string | null;
+  // The axis ids, so the manage sheet can seed its picker without a second
+  // read. Both null on imported events.
+  categoryId: string | null;
+  goalId: string | null;
   isGoal: boolean;
   // The goal's title when goal-tracked (drives the "Goal: {name}" label); null
   // for category sessions and imported events.
@@ -87,6 +97,8 @@ export function ProgressClient(props: {
   weekRangeLabel: string;
   weekTracked: number;
   weekImported: number;
+  categories: Category[];
+  pickableGoals: Goal[];
   habits: Habit[];
   completions: HabitCompletion[];
   weekStart: string;
@@ -102,6 +114,8 @@ export function ProgressClient(props: {
   const onManage = () => setManageOpen(true);
   const [goalsOpen, setGoalsOpen] = useState(false);
   const onManageGoals = () => setGoalsOpen(true);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
+  const onManageSessions = () => setSessionsOpen(true);
 
   const isToday = tab === "today";
   const totalMs = isToday ? props.todayTotalMs : props.weekTotalMs;
@@ -225,8 +239,9 @@ export function ProgressClient(props: {
                 ? `${props.sessionsToday.length} logged`
                 : `${props.weekTracked} tracked · ${props.weekImported} imported`
             }
-            href="/history"
-            ariaLabel="All sessions"
+            onClick={isToday ? onManageSessions : undefined}
+            href={isToday ? undefined : "/history"}
+            ariaLabel={isToday ? "Manage today's sessions" : "All sessions"}
             className="pb-2"
           />
           {isToday ? (
@@ -239,10 +254,11 @@ export function ProgressClient(props: {
               </Link>
             ) : (
               props.sessionsToday.slice(0, SESSIONS_SHOWN).map((s) => (
-                <Link
+                <button
                   key={s.id}
-                  href={s.kind === "session" ? `/session/${s.id}` : "/history"}
-                  className="border-divider flex items-center gap-2.5 border-t py-[7px] transition-transform active:scale-[.99]"
+                  type="button"
+                  onClick={onManageSessions}
+                  className="border-divider flex items-center gap-2.5 border-t py-[7px] text-left transition-transform active:scale-[.99]"
                 >
                   <span
                     aria-hidden
@@ -280,7 +296,7 @@ export function ProgressClient(props: {
                   <span className="text-body shrink-0 text-[13px] font-semibold tabular-nums">
                     {formatDuration(s.workedMs)}
                   </span>
-                </Link>
+                </button>
               ))
             )
           ) : (
@@ -430,6 +446,15 @@ export function ProgressClient(props: {
         open={goalsOpen}
         onOpenChange={setGoalsOpen}
         goals={props.goals}
+      />
+
+      <ManageSessions
+        open={sessionsOpen}
+        onOpenChange={setSessionsOpen}
+        sessions={props.sessionsToday}
+        categories={props.categories}
+        goals={props.pickableGoals}
+        dateLabel={props.dateLabel}
       />
     </div>
   );
