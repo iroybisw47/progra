@@ -11,7 +11,10 @@ import type { Session } from "@/lib/storage";
 // so three keeps rows scannable without hiding much from anyone.
 export const MAX_GOAL_LINES = 3;
 
-export type LeaderboardGoal = { title: string; ms: number };
+// `id` carries no new information — the row is already only built from goals
+// whose titles resolved — but it lets the UI paint each goal in its own
+// palette color (goalColor), the same one it has on its owner's Progress tab.
+export type LeaderboardGoal = { id: string; title: string; ms: number };
 
 export type FriendsLeaderboardRow = {
   user: PublicUser;
@@ -54,7 +57,7 @@ export function buildLeaderboardRow(
   const named: LeaderboardGoal[] = [];
   for (const [goalId, ms] of perGoal) {
     const title = goalTitleById.get(goalId);
-    if (title) named.push({ title, ms });
+    if (title) named.push({ id: goalId, title, ms });
   }
   named.sort((a, b) => b.ms - a.ms);
   const goals = named.slice(0, MAX_GOAL_LINES);

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { XIcon } from "lucide-react";
 
 import { track } from "@/lib/analytics";
 import { FeedLivePoll } from "@/components/feed-live-poll";
@@ -11,14 +12,6 @@ import type { FriendsLeaderboardRow } from "@/lib/leaderboard";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { NotificationsBell } from "@/components/notifications-bell";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   acceptFriendRequest,
   blockUser,
@@ -124,26 +117,28 @@ export function FriendsClient({
 
   // The right-hand action button for a user, by our relationship to them.
   // Shared by search results and the "People on Progra" section.
+  const chip =
+    "h-[30px] rounded-[10px] px-3 text-xs font-semibold transition-transform active:scale-95 disabled:opacity-50";
+  const chipOutline = `border-control-border text-caption border-[1.5px] ${chip}`;
+  const chipSolid = `bg-brand text-primary-foreground ${chip}`;
+
   function renderAction(userId: string) {
     if (friendIds.has(userId)) {
       return (
-        <Button size="sm" variant="ghost" disabled>
-          Friends
-        </Button>
+        <span className="text-disabled text-xs font-semibold">Friends</span>
       );
     }
     if (outgoingIds.has(userId)) {
       return (
-        <Button size="sm" variant="ghost" disabled>
-          Requested
-        </Button>
+        <span className="text-disabled text-xs font-semibold">Requested</span>
       );
     }
     const requestId = incomingByUser.get(userId);
     if (requestId) {
       return (
-        <Button
-          size="sm"
+        <button
+          type="button"
+          className={chipSolid}
           disabled={pending}
           onClick={() =>
             run(() => acceptFriendRequest(requestId), "Friend added", () =>
@@ -152,222 +147,208 @@ export function FriendsClient({
           }
         >
           Accept
-        </Button>
+        </button>
       );
     }
     return (
-      <Button
-        size="sm"
+      <button
+        type="button"
+        className={chipOutline}
         disabled={pending}
         onClick={() => run(() => sendFriendRequest(userId), "Request sent")}
       >
         Add
-      </Button>
+      </button>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-28">
-      <main className="flex w-full max-w-md flex-col gap-5">
-        <header className="flex items-start justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-[26px] font-bold tracking-tight">Friends</h1>
-            <p className="text-caption text-sm">
-              Find people, manage requests, and see who you&rsquo;re connected to.
-            </p>
-          </div>
+    <div className="flex flex-1 flex-col items-center pt-7 pb-28">
+      <main className="flex w-full max-w-md flex-col">
+        <header className="flex items-center justify-between gap-3 px-5">
+          <span className="section-label">Friends</span>
           <NotificationsBell initialUnseen={initialUnseen} />
         </header>
+
+        {/* Search */}
+        <div className="px-5 pt-3.5">
+          <input
+            aria-label="Search people"
+            className="border-control-border text-ink focus:border-brand h-[42px] w-full rounded-[13px] border-[1.5px] px-3.5 text-sm outline-none placeholder:text-[var(--disabled)]"
+            placeholder="Search people"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+          />
+        </div>
+
+        {/* Search results replace the board while a query is live. */}
+        {query.trim().length >= 2 && (
+          <section className="flex flex-col">
+            <div className="flex items-center gap-[7px] px-5 pt-[18px] pb-2">
+              <span className="section-label">Results</span>
+            </div>
+            {searching && (
+              <p className="text-caption border-divider border-t px-5 py-3 text-[13px]">
+                Searching…
+              </p>
+            )}
+            {!searching && results.length === 0 && (
+              <p className="text-disabled border-divider border-t px-5 py-3 text-xs">
+                No one matches &ldquo;{query.trim()}&rdquo;.
+              </p>
+            )}
+            {results.map((u) => (
+              <UserRow key={u.userId} user={u}>
+                {renderAction(u.userId)}
+              </UserRow>
+            ))}
+          </section>
+        )}
+
+        {/* Incoming requests — the one thing that needs answering. */}
+        {incoming.length > 0 && (
+          <section className="flex flex-col">
+            <div className="flex items-center gap-[7px] px-5 pt-5 pb-2">
+              <span className="text-brand text-[10px] font-semibold uppercase tracking-[0.14em]">
+                Requests
+              </span>
+              <span className="bg-brand text-primary-foreground flex h-4 min-w-4 items-center justify-center rounded-full px-[5px] text-[10px] font-semibold tabular-nums">
+                {incoming.length}
+              </span>
+            </div>
+            {incoming.map((r) => (
+              <UserRow key={r.requestId} user={r.user}>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() =>
+                    run(() => acceptFriendRequest(r.requestId), "Friend added", () =>
+                      track("friend_added", { from: "friends_tab" })
+                    )
+                  }
+                  className="bg-brand text-primary-foreground h-[30px] rounded-[10px] px-3.5 text-xs font-semibold transition-transform active:scale-95 disabled:opacity-50"
+                >
+                  Accept
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Decline ${r.user.displayName || r.user.username}`}
+                  disabled={pending}
+                  onClick={() => run(() => removeFriendship(r.requestId))}
+                  className="border-hairline text-caption hover:text-destructive flex size-[30px] items-center justify-center rounded-[10px] border-[1.5px] disabled:opacity-50"
+                >
+                  <XIcon className="size-3.5" strokeWidth={2.2} />
+                </button>
+              </UserRow>
+            ))}
+            <div className="bg-track border-hairline mt-3 h-1.5 border-t" />
+          </section>
+        )}
 
         {/* Keeps friends' totals climbing while you watch, and refreshes on
             refocus. Same component and cadence the feed uses. */}
         <FeedLivePoll />
-        <FriendsLeaderboard rows={leaderboard} />
+        {query.trim().length < 2 && <FriendsLeaderboard rows={leaderboard} />}
 
-        {/* Search */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Add a friend</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <Input
-              className="h-11"
-              placeholder="Search by username or name"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              value={query}
-              onChange={(e) => onQueryChange(e.target.value)}
-            />
-            {query.trim().length >= 2 && (
-              <div className="flex flex-col gap-2">
-                {searching && (
-                  <p className="text-caption text-sm">Searching…</p>
-                )}
-                {!searching && results.length === 0 && (
-                  <p className="text-caption text-sm">No users found.</p>
-                )}
-                {results.map((u) => (
-                  <UserRow key={u.userId} user={u}>
-                    {renderAction(u.userId)}
-                  </UserRow>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Friends */}
+        <section className="flex flex-col">
+          <div className="flex items-center gap-[7px] px-5 pt-[18px] pb-2">
+            <span className="section-label">Your friends</span>
+            <span className="flex-1" />
+            <span className="text-caption text-[10px] font-semibold tracking-[0.06em] tabular-nums">
+              {friends.length}
+            </span>
+          </div>
+          {friends.length === 0 ? (
+            <p className="text-caption border-divider border-t px-5 py-3 text-[13px]">
+              No friends yet — search above to add someone.
+            </p>
+          ) : (
+            friends.map((f) => (
+              <UserRow key={f.friendshipId} user={f.user}>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => run(() => removeFriendship(f.friendshipId))}
+                  className="border-control-border text-caption h-[30px] rounded-[10px] border-[1.5px] px-3 text-xs font-semibold transition-transform active:scale-95 disabled:opacity-50"
+                >
+                  Remove
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => run(() => blockUser(f.user.userId), "User blocked")}
+                  className="text-destructive h-[30px] rounded-[10px] px-2 text-xs font-semibold disabled:opacity-50"
+                >
+                  Block
+                </button>
+              </UserRow>
+            ))
+          )}
+        </section>
 
         {/* People on Progra — discovery. Excludes current friends (they're in
-            "Your friends" below); pending shows Requested/Accept. */}
+            "Your friends" above); pending shows Requested/Accept. */}
         {(() => {
           const people = suggested.filter((u) => !friendIds.has(u.userId));
+          if (people.length === 0) return null;
           return (
-            <Card>
-              <CardHeader>
-                <CardTitle>People on Progra</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3">
-                {people.length === 0 ? (
-                  <p className="text-caption text-sm">
-                    {suggested.length > 0
-                      ? "You've added everyone on Progra. 🎉"
-                      : "No one else on Progra yet."}
-                  </p>
-                ) : (
-                  people.map((u) => (
-                    <UserRow key={u.userId} user={u}>
-                      {renderAction(u.userId)}
-                    </UserRow>
-                  ))
-                )}
-              </CardContent>
-            </Card>
+            <section className="flex flex-col">
+              <div className="flex items-center gap-[7px] px-5 pt-[18px] pb-2">
+                <span className="section-label">People on Progra</span>
+              </div>
+              {people.map((u) => (
+                <UserRow key={u.userId} user={u}>
+                  {renderAction(u.userId)}
+                </UserRow>
+              ))}
+            </section>
           );
         })()}
 
-        {/* Incoming requests */}
-        {incoming.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                Requests
-                <span className="bg-brand text-primary-foreground inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold tabular-nums">
-                  {incoming.length}
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              {incoming.map((r) => (
-                <UserRow key={r.requestId} user={r.user}>
-                  <Button
-                    size="sm"
-                    disabled={pending}
-                    onClick={() =>
-                      run(
-                        () => acceptFriendRequest(r.requestId),
-                        "Friend added"
-                      )
-                    }
-                  >
-                    Accept
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={pending}
-                    onClick={() => run(() => removeFriendship(r.requestId))}
-                  >
-                    Decline
-                  </Button>
-                </UserRow>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
         {/* Outgoing requests */}
         {outgoing.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Sent</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              {outgoing.map((r) => (
-                <UserRow key={r.requestId} user={r.user}>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={pending}
-                    onClick={() => run(() => removeFriendship(r.requestId))}
-                  >
-                    Cancel
-                  </Button>
-                </UserRow>
-              ))}
-            </CardContent>
-          </Card>
+          <section className="flex flex-col">
+            <div className="flex items-center gap-[7px] px-5 pt-[18px] pb-2">
+              <span className="section-label">Sent</span>
+            </div>
+            {outgoing.map((r) => (
+              <UserRow key={r.requestId} user={r.user}>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => run(() => removeFriendship(r.requestId))}
+                  className="border-control-border text-caption h-[30px] rounded-[10px] border-[1.5px] px-3 text-xs font-semibold disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </UserRow>
+            ))}
+          </section>
         )}
-
-        {/* Friends */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Your friends</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {friends.length === 0 ? (
-              <p className="text-caption text-sm">
-                No friends yet — search above to add someone.
-              </p>
-            ) : (
-              friends.map((f) => (
-                <UserRow key={f.friendshipId} user={f.user}>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={pending}
-                    onClick={() => run(() => removeFriendship(f.friendshipId))}
-                  >
-                    Remove
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    disabled={pending}
-                    onClick={() =>
-                      run(() => blockUser(f.user.userId), "User blocked")
-                    }
-                  >
-                    Block
-                  </Button>
-                </UserRow>
-              ))
-            )}
-          </CardContent>
-        </Card>
 
         {/* Blocked */}
         {blocked.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Blocked</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              {blocked.map((b) => (
-                <UserRow key={b.user.userId} user={b.user}>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={pending}
-                    onClick={() =>
-                      run(() => unblockUser(b.user.userId), "User unblocked")
-                    }
-                  >
-                    Unblock
-                  </Button>
-                </UserRow>
-              ))}
-            </CardContent>
-          </Card>
+          <section className="flex flex-col">
+            <div className="flex items-center gap-[7px] px-5 pt-[18px] pb-2">
+              <span className="section-label">Blocked</span>
+            </div>
+            {blocked.map((b) => (
+              <UserRow key={b.user.userId} user={b.user}>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => run(() => unblockUser(b.user.userId), "User unblocked")}
+                  className="border-control-border text-caption h-[30px] rounded-[10px] border-[1.5px] px-3 text-xs font-semibold disabled:opacity-50"
+                >
+                  Unblock
+                </button>
+              </UserRow>
+            ))}
+          </section>
         )}
       </main>
     </div>
@@ -382,29 +363,29 @@ function UserRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <Link
-        href={`/profile/${user.username}`}
-        className="flex min-w-0 items-center gap-2.5"
-      >
+    <div className="border-divider flex items-center gap-[11px] border-t px-5 py-[9px]">
+      <Link href={`/profile/${user.username}`} className="shrink-0">
         <AvatarInitials
           name={user.displayName}
           username={user.username}
           avatarUrl={user.avatarUrl}
-          className="size-9 text-xs"
+          className="size-9 text-[13px]"
         />
-        <span className="flex min-w-0 flex-col">
-          <span className="truncate text-sm font-medium hover:underline">
-            {user.displayName || `@${user.username}`}
-          </span>
-          {user.displayName && (
-            <span className="text-caption truncate text-xs">
-              @{user.username}
-            </span>
-          )}
-        </span>
       </Link>
-      <div className="flex shrink-0 gap-2">{children}</div>
+      <Link
+        href={`/profile/${user.username}`}
+        className="flex min-w-0 flex-1 flex-col"
+      >
+        <span className="text-body truncate text-[13px] leading-[1.25] font-semibold">
+          {user.displayName || `@${user.username}`}
+        </span>
+        {user.displayName && (
+          <span className="text-faint truncate text-[11px] leading-[1.3]">
+            @{user.username}
+          </span>
+        )}
+      </Link>
+      <div className="flex shrink-0 items-center gap-1.5">{children}</div>
     </div>
   );
 }
