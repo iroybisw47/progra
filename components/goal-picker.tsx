@@ -1,6 +1,7 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
+import { PickerPill } from "@/components/category-picker";
+import { goalColor } from "@/lib/colors";
 import type { Goal } from "@/lib/db/goals";
 
 type GoalPickerProps = {
@@ -10,9 +11,9 @@ type GoalPickerProps = {
   emptyHint?: string;
 };
 
-// Single-select goal chips, mirroring CategoryPicker. Selecting a goal is
-// mutually exclusive with picking a category (enforced by the caller). All
-// goal chips share the one accent (the default badge), not per-goal colors.
+// Single-select goal pills, the same shape as CategoryPicker. Selecting a goal
+// is mutually exclusive with picking a category (enforced by the caller). Each
+// goal shows its own derived color, matching its quota bar on Progress.
 export function GoalPicker({
   goals,
   selectedId,
@@ -20,25 +21,18 @@ export function GoalPicker({
   emptyHint = "Add a goal on the Goals tab first.",
 }: GoalPickerProps) {
   if (goals.length === 0) {
-    return <p className="text-muted-foreground text-sm">{emptyHint}</p>;
+    return <p className="text-caption text-sm">{emptyHint}</p>;
   }
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1.5">
       {goals.map((goal) => (
-        <Badge
+        <PickerPill
           key={goal.id}
-          variant={selectedId === goal.id ? "default" : "outline"}
-          className="h-8 cursor-pointer px-3 text-sm"
-          render={
-            <button
-              type="button"
-              aria-pressed={selectedId === goal.id}
-              onClick={() => onSelect(goal.id)}
-            />
-          }
-        >
-          {goal.title}
-        </Badge>
+          label={goal.title}
+          color={goalColor(goal.id)}
+          selected={selectedId === goal.id}
+          onSelect={() => onSelect(goal.id)}
+        />
       ))}
     </div>
   );

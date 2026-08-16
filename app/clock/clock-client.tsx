@@ -8,14 +8,13 @@ import { toast } from "sonner";
 import { useOptimistic } from "react";
 import {
   CalendarIcon,
-  ChevronRightIcon,
+  ChevronDownIcon,
   ChevronUpIcon,
-  HistoryIcon,
+  ClockIcon,
   MoonIcon,
   PauseIcon,
   PencilIcon,
   PlayIcon,
-  PlusIcon,
   SunIcon,
   XIcon,
 } from "lucide-react";
@@ -26,7 +25,6 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -46,7 +44,6 @@ import { ColorSwatches } from "@/components/color-swatches";
 import { GoalPicker } from "@/components/goal-picker";
 import type { SessionDialogMode } from "@/components/session-dialog";
 import { Ticking } from "@/components/ticking";
-import { WeekBreakdown } from "@/components/week-breakdown";
 
 // Click-gated dialogs load as lazy chunks after hydration instead of shipping
 // in /clock's critical bundle (they render nothing while closed).
@@ -71,6 +68,7 @@ import { type Category, type Session } from "@/lib/storage";
 import type { DayEvent } from "@/lib/db/calendar-events";
 import type { Goal } from "@/lib/db/goals";
 import { aggregateWeek, buildCategoryBreakdown } from "@/lib/aggregate";
+import { entityColor, goalColor } from "@/lib/colors";
 import {
   isPaused,
   sessionAttributionEnd,
@@ -191,6 +189,12 @@ export function ClockClient({
 
   const [taskName, setTaskName] = useState("");
   const [description, setDescription] = useState("");
+  // The clock-in form is one compact block: the note field and the two picker
+  // panels stay folded away until asked for, so the default state is a name, a
+  // target and a button.
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [pickPanelOpen, setPickPanelOpen] = useState(false);
+  const [modePanelOpen, setModePanelOpen] = useState(false);
   // Timed sessions (behind TIMED_SESSIONS). "open" is the default, so with the
   // flag off — and for every user who never touches the control — this is the
   // open-ended clock-in the app has always had, writing no plan columns.
@@ -213,6 +217,7 @@ export function ClockClient({
     preselectGoal ? "goal" : "category"
   );
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [addCategoryOpen, setAddCategoryOpen] = useState(false);
   const [pendingCategoryDelete, setPendingCategoryDelete] = useState<Category | null>(null);
   // Category edit dialog: rename + palette color. Draft state is seeded when
   // the pencil opens the dialog.
@@ -310,10 +315,14 @@ export function ClockClient({
     return categoryName(s.categoryId);
   }
 
+  // The day strip always has a day selected — today until another is tapped,
+  // which is what the sessions list under it reads from.
+  const effectiveDayIndex =
+    selectedDayIndex ?? (hydrated && todayIndex >= 0 ? todayIndex : null);
   const inDayMode =
-    selectedDayIndex !== null && hydrated && weekStartDate !== null;
+    effectiveDayIndex !== null && hydrated && weekStartDate !== null;
   const selectedDate = inDayMode
-    ? addDays(weekStartDate, selectedDayIndex)
+    ? addDays(weekStartDate, effectiveDayIndex)
     : null;
   const isTodaySelected =
     selectedDate !== null &&
@@ -321,10 +330,13 @@ export function ClockClient({
   // Self-contained deps (re-derives the date from primitives) so the memo
   // survives selectedDate's per-render object identity.
   const day = useMemo(() => {
-    if (selectedDayIndex === null || !hydrated) {
+    if (!hydrated) {
       return { rows: [] as DayRow[], total: 0 };
     }
-    const date = addDays(startOfWeek(new Date(now)), selectedDayIndex);
+    // Same fallback as effectiveDayIndex, re-derived from primitives so the
+    // memo doesn't depend on a value computed above it.
+    const idx = selectedDayIndex ?? dayIndexMonFirst(new Date(now));
+    const date = addDays(startOfWeek(new Date(now)), idx);
     return dayBreakdown(sessions, optimisticEvents, now, date);
   }, [sessions, optimisticEvents, hydrated, now, selectedDayIndex]);
   const dayLabel =
@@ -501,33 +513,55 @@ export function ClockClient({
   const canClockIn =
     taskName.trim().length > 0 && activeSelection !== null && timedPlanReady;
 
+  // The two summary chips above the CTA: what this session counts towards, and
+  // whether it runs to a target.
+  const pickedLabel =
+    pickerMode === "goal"
+      ? selectedGoalId
+        ? goalById.get(selectedGoalId)?.title ?? "Goal"
+        : "Goal"
+      : selectedCategoryId
+        ? categoryName(selectedCategoryId)
+        : "Category";
+  const pickedColor =
+    pickerMode === "goal"
+      ? selectedGoalId
+        ? goalColor(selectedGoalId)
+        : "var(--disabled)"
+      : selectedCategoryId
+        ? entityColor(categoryById.get(selectedCategoryId)?.color ?? null)
+        : "var(--disabled)";
+  const modeSummary =
+    timerMode === "timed" && plannedMinutes !== null
+      ? formatDuration(plannedMinutes * 60_000)
+      : "Until I stop";
+
   return (
     <div
       suppressHydrationWarning
       className={cn(
-        "flex flex-1 flex-col items-center px-5 pt-8 pb-24 transition-colors sm:pt-12",
-        dark && "dark bg-[#22352f] text-[#ece6da]"
+        "flex flex-1 flex-col items-center px-5 pt-7 pb-28 transition-colors",
+        dark && "dark bg-[#14181f] text-[#eef1f5]"
       )}
     >
-      <main className="flex w-full max-w-md flex-col gap-5">
-        <header className="flex items-start justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-3xl font-semibold tracking-tight">Clock</h1>
-            <p className="text-muted-foreground text-sm">
-              Track deep work in real time.
-            </p>
-          </div>
-          <Button
+      <main className="flex w-full max-w-md flex-col">
+        <header className="flex items-center justify-between gap-3">
+          <span className="section-label">
+            {activeSession ? "Tracking" : "Clock in"}
+          </span>
+          <button
             type="button"
-            variant="ghost"
-            size="icon-sm"
             aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
             aria-pressed={dark}
             onClick={toggleTheme}
-            className="mt-1 shrink-0"
+            className="border-control-border text-caption flex size-8 shrink-0 items-center justify-center rounded-[11px] border-[1.5px] transition-transform active:scale-95"
           >
-            {dark ? <SunIcon /> : <MoonIcon />}
-          </Button>
+            {dark ? (
+              <SunIcon className="size-4" />
+            ) : (
+              <MoonIcon className="size-4" />
+            )}
+          </button>
         </header>
 
         {activeSession ? (
@@ -536,42 +570,57 @@ export function ClockClient({
             // here it's a compact strip (tap to reopen) so this page's tools —
             // categories, add-past-session, the week view — stay usable while
             // tracking. No pause/clock-out here; those are on the stopwatch.
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3 pt-5">
               <Link
                 href="/clock/live"
                 aria-label="Open the live timer"
-                className="border-hairline bg-brand/10 flex items-center gap-3 rounded-2xl border px-4 py-3.5 transition-transform active:scale-[.99]"
+                className="flex flex-col gap-3 transition-transform active:scale-[.99]"
               >
-                <span
-                  className={cn(
-                    "size-2 shrink-0 rounded-full",
-                    isPaused(activeSession)
-                      ? "bg-faint"
-                      : "bg-brand animate-pulse"
-                  )}
-                />
                 <Ticking>
                   {(tick) => (
-                    <span className="font-mono text-lg font-bold tabular-nums">
+                    <span className="stat-num text-[52px] leading-[0.9]">
                       {formatElapsed(
                         tick !== 0 ? sessionWorkedMs(activeSession, tick) : 0
                       )}
                     </span>
                   )}
                 </Ticking>
-                <span className="text-muted-foreground min-w-0 flex-1 truncate text-sm">
-                  {activeSession.taskName}
+                <span className="flex items-center gap-2">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "size-[9px] shrink-0 rounded-[2px]",
+                      !isPaused(activeSession) &&
+                        "animate-[pulse-dot_1.6s_infinite]"
+                    )}
+                    style={{
+                      backgroundColor: isPaused(activeSession)
+                        ? "var(--disabled)"
+                        : activeSession.goalId
+                          ? goalColor(activeSession.goalId)
+                          : entityColor(
+                              categoryById.get(activeSession.categoryId ?? "")
+                                ?.color ?? null
+                            ),
+                    }}
+                  />
+                  <span className="text-body text-sm font-semibold">
+                    {activeSession.taskName}
+                  </span>
+                  <span className="text-faint truncate text-[13px]">
+                    {sessionLabel(activeSession)}
+                  </span>
+                  <ChevronUpIcon className="text-disabled ml-auto size-4 shrink-0" />
                 </span>
-                <ChevronUpIcon className="text-muted-foreground size-4 shrink-0" />
               </Link>
-              <Button
-                variant="ghost"
-                className="h-10 w-full"
+              <button
+                type="button"
                 disabled={!hydrated || categories.length === 0}
                 onClick={() => setSessionDialog({ mode: "create" })}
+                className="text-caption self-center pt-1 text-xs font-medium disabled:opacity-40"
               >
-                <PlusIcon /> Add past session
-              </Button>
+                + Add past session
+              </button>
             </div>
           ) : (
           <Card>
@@ -697,66 +746,123 @@ export function ClockClient({
           </Card>
           )
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xs uppercase tracking-wider text-muted-foreground">
-                Clock in
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium" htmlFor="task-name">
-                  Task
-                </label>
-                <Input
+          <div className="flex flex-col gap-2.5 pt-3">
+            {/* Name, with the optional note folded in behind "+ note". */}
+            <div className="border-control-border bg-card rounded-[13px] border-[1.5px]">
+              <div className="flex items-center">
+                <input
                   id="task-name"
-                  className="h-10"
+                  aria-label="What are you working on?"
+                  className="text-ink h-[50px] min-w-0 flex-1 bg-transparent pl-3.5 text-base font-medium outline-none placeholder:text-[var(--disabled)]"
                   placeholder="What are you working on?"
                   value={taskName}
                   onChange={(e) => setTaskName(e.target.value)}
                 />
+                {!noteOpen && (
+                  <button
+                    type="button"
+                    onClick={() => setNoteOpen(true)}
+                    className="text-disabled hover:text-brand shrink-0 px-3.5 text-xs font-medium whitespace-nowrap"
+                  >
+                    + note
+                  </button>
+                )}
               </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium" htmlFor="task-desc">
-                  Description{" "}
-                  <span className="text-muted-foreground font-normal">(optional)</span>
-                </label>
-                <Input
-                  id="task-desc"
-                  className="h-10"
-                  placeholder="Notes for later you"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+              {noteOpen && (
+                <div>
+                  <div className="bg-hairline mx-3.5 h-px" />
+                  <input
+                    id="task-desc"
+                    aria-label="Description (optional)"
+                    className="text-ink h-9 w-full bg-transparent px-3.5 text-[13px] outline-none placeholder:text-[var(--disabled)]"
+                    placeholder="Description (optional)"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* What it counts towards · how long it runs. Both fold open. */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                aria-expanded={pickPanelOpen}
+                onClick={() => {
+                  setPickPanelOpen((o) => !o);
+                  setModePanelOpen(false);
+                }}
+                className={cn(
+                  "bg-card text-body flex h-[38px] min-w-0 flex-1 items-center justify-center gap-[7px] rounded-xl border-[1.5px] px-2.5 text-[12.5px] font-semibold transition-colors",
+                  pickPanelOpen ? "border-brand" : "border-control-border"
+                )}
+              >
+                <span
+                  aria-hidden
+                  className="size-2 shrink-0 rounded-[2px]"
+                  style={{ backgroundColor: pickedColor }}
                 />
-              </div>
-              {/* Clock into a category OR a goal — pick one. The two buttons
-                  switch which list shows; choosing from one clears the other. */}
-              <div className="flex flex-col gap-2">
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={pickerMode === "category" ? "secondary" : "outline"}
-                    className="h-9 flex-1"
-                    aria-pressed={pickerMode === "category"}
-                    onClick={() => setPickerMode("category")}
-                  >
-                    Category
-                    {selectedCategoryId
-                      ? `: ${categoryName(selectedCategoryId)}`
-                      : ""}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={pickerMode === "goal" ? "secondary" : "outline"}
-                    className="h-9 flex-1"
-                    aria-pressed={pickerMode === "goal"}
-                    onClick={() => setPickerMode("goal")}
-                  >
-                    Goal
-                    {selectedGoalId
-                      ? `: ${goalById.get(selectedGoalId)?.title ?? "goal"}`
-                      : ""}
-                  </Button>
+                <span className="truncate">{pickedLabel}</span>
+                <ChevronDownIcon
+                  className={cn(
+                    "text-disabled size-3 shrink-0 transition-transform",
+                    pickPanelOpen && "rotate-180"
+                  )}
+                  strokeWidth={2.4}
+                />
+              </button>
+              {TIMED_SESSIONS && (
+                <button
+                  type="button"
+                  aria-expanded={modePanelOpen}
+                  onClick={() => {
+                    setModePanelOpen((o) => !o);
+                    setPickPanelOpen(false);
+                  }}
+                  className={cn(
+                    "bg-card text-body flex h-[38px] min-w-0 flex-1 items-center justify-center gap-[7px] rounded-xl border-[1.5px] px-2.5 text-[12.5px] font-semibold transition-colors",
+                    modePanelOpen ? "border-brand" : "border-control-border"
+                  )}
+                >
+                  <ClockIcon className="text-caption size-[13px] shrink-0" />
+                  <span className="truncate">{modeSummary}</span>
+                  <ChevronDownIcon
+                    className={cn(
+                      "text-disabled size-3 shrink-0 transition-transform",
+                      modePanelOpen && "rotate-180"
+                    )}
+                    strokeWidth={2.4}
+                  />
+                </button>
+              )}
+            </div>
+
+            {/* Clock into a category OR a goal — pick one. The two tabs switch
+                which list shows; choosing from one clears the other. */}
+            {pickPanelOpen && (
+              <div className="border-control-border flex flex-col gap-3 rounded-[13px] border-[1.5px] p-3">
+                <div className="flex items-center gap-2">
+                  {(
+                    [
+                      ["category", "Category"],
+                      ["goal", "Goal"],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      aria-pressed={pickerMode === key}
+                      onClick={() => setPickerMode(key)}
+                      className={cn(
+                        "h-8 flex-1 rounded-[10px] border-[1.5px] text-xs font-semibold transition-colors",
+                        pickerMode === key
+                          ? "border-brand bg-brand text-primary-foreground"
+                          : "border-control-border text-caption bg-card"
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
                 {pickerMode === "category" ? (
                   <CategoryPicker
@@ -778,7 +884,10 @@ export function ClockClient({
                   />
                 )}
               </div>
-              {TIMED_SESSIONS && (
+            )}
+
+            {TIMED_SESSIONS && modePanelOpen && (
+              <div className="border-control-border rounded-[13px] border-[1.5px] p-3">
                 <SessionPlanPicker
                   mode={timerMode}
                   onModeChange={setTimerMode}
@@ -787,38 +896,281 @@ export function ClockClient({
                   breakPreset={breakPreset}
                   onBreakPresetChange={setBreakPreset}
                 />
-              )}
-              <Button
-                className="h-11 w-full text-base"
-                disabled={!canClockIn}
-                onClick={handleClockIn}
-              >
-                {/* The label is the real affordance for "which of the two am I
-                    starting?" — whatever else gets skimmed, this doesn't. */}
-                {TIMED_SESSIONS && timerMode === "timed" && plannedMinutes !== null
-                  ? `Clock in for ${formatDuration(plannedMinutes * 60_000)}`
-                  : "Clock In"}
-              </Button>
-              <Button
-                variant="ghost"
-                className="h-10 w-full"
-                disabled={!hydrated || categories.length === 0}
-                onClick={() => setSessionDialog({ mode: "create" })}
-              >
-                <PlusIcon /> Add past session
-              </Button>
-            </CardContent>
-          </Card>
+              </div>
+            )}
+
+            <button
+              type="button"
+              disabled={!canClockIn}
+              onClick={handleClockIn}
+              className="bg-brand text-primary-foreground mt-1 h-[52px] w-full rounded-[15px] text-base font-semibold shadow-[0_10px_22px_-10px_rgba(28,58,94,.55)] transition-transform active:scale-[.98] disabled:opacity-40 disabled:shadow-none"
+            >
+              {/* The label is the real affordance for "which of the two am I
+                  starting?" — whatever else gets skimmed, this doesn't. */}
+              {TIMED_SESSIONS && timerMode === "timed" && plannedMinutes !== null
+                ? `Clock in for ${formatDuration(plannedMinutes * 60_000)}`
+                : "Clock in"}
+            </button>
+            <button
+              type="button"
+              disabled={!hydrated || categories.length === 0}
+              onClick={() => setSessionDialog({ mode: "create" })}
+              className="text-caption hover:text-brand self-center pt-1.5 text-xs font-medium disabled:opacity-40"
+            >
+              + Add past session
+            </button>
+          </div>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Categories</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <div className="flex gap-2">
-              <Input
-                className="h-10"
+        {/* The quiet zone: everything that isn't starting a session sits on the
+            inset panel below the fold — this week, the day's sessions, and the
+            category list. */}
+        <div className="bg-inset border-hairline -mx-5 mt-6 border-t px-5 pb-3">
+          <div className="flex items-center gap-[7px] pt-5 pb-2.5">
+            <span className="section-label">This week</span>
+            <span className="flex-1" />
+            <span className="text-caption text-[10px] font-semibold tracking-[0.06em]">
+              {weekStartDate && weekEndDate
+                ? formatRange(weekStartDate, weekEndDate)
+                : " "}
+            </span>
+          </div>
+          <div className="stat-num pb-3 text-2xl leading-[0.9] text-[var(--secondary-ink)]">
+            {formatHours(weekly.total)}
+          </div>
+          {categoryBreakdown.length === 0 ? (
+            <p className="text-caption pb-2 text-[13px]">
+              No sessions logged yet this week.
+            </p>
+          ) : (
+            <>
+              <div className="bg-track mb-2.5 flex h-[9px] w-full gap-[3px] overflow-hidden rounded-full">
+                {categoryBreakdown.map((row) => (
+                  <span
+                    key={row.id ?? "uncategorized"}
+                    className="h-full"
+                    style={{
+                      width:
+                        weekly.total > 0
+                          ? `${(row.ms / weekly.total) * 100}%`
+                          : "0%",
+                      backgroundColor: row.color ?? "var(--faint)",
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="flex flex-col">
+                {categoryBreakdown.slice(0, 4).map((row) => (
+                  <div
+                    key={row.id ?? "uncategorized"}
+                    className="flex items-center gap-2.5 py-0.5"
+                  >
+                    <span
+                      aria-hidden
+                      className="size-[9px] shrink-0 rounded-[2px]"
+                      style={{ backgroundColor: row.color ?? "var(--faint)" }}
+                    />
+                    <span className="text-[var(--secondary-ink)] min-w-0 flex-1 truncate text-[12.5px] leading-[1.55]">
+                      {row.isGoal ? row.name.replace(/^Goal: /, "") : row.name}
+                    </span>
+                    <span className="text-[var(--secondary-ink)] shrink-0 text-[12.5px] font-semibold tabular-nums">
+                      {formatHours(row.ms)}
+                    </span>
+                    <span className="text-caption w-9 shrink-0 text-right text-xs tabular-nums">
+                      {weekly.total > 0
+                        ? `${Math.round((row.ms / weekly.total) * 100)}%`
+                        : "0%"}
+                    </span>
+                  </div>
+                ))}
+                {categoryBreakdown.length > 4 && (
+                  <div className="text-disabled pt-1.5 text-[11px]">
+                    +{categoryBreakdown.length - 4} more this week
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          <div className="bg-hairline mt-3.5 h-px" />
+          <div className="flex items-center gap-[7px] pt-3.5 pb-2">
+            <span className="section-label">Sessions</span>
+            <span className="flex-1" />
+            <Link
+              href="/sessions"
+              className="text-caption text-[10px] font-semibold tracking-[0.06em]"
+            >
+              {dayLabel || "All"}
+            </Link>
+          </div>
+
+          {/* Day strip — tap a day to list what was logged on it. */}
+          <div className="flex gap-1 pb-1">
+            {DAY_LABELS.map((label, i) => {
+              const ms = weekly.perDay[i];
+              const isToday = i === todayIndex;
+              const isSelected = effectiveDayIndex === i;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  disabled={!hydrated}
+                  aria-pressed={isSelected}
+                  onClick={() => setSelectedDayIndex(i)}
+                  className={cn(
+                    "flex flex-1 flex-col items-center rounded-[10px] border-[1.5px] pt-1 pb-[3px] transition-[background-color,border-color,transform] active:scale-90 disabled:pointer-events-none disabled:opacity-50",
+                    isSelected
+                      ? "border-brand bg-brand"
+                      : isToday
+                        ? "border-[#b7c4d3] bg-[var(--inset-2)]"
+                        : "border-control-border bg-[var(--inset-2)]"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "text-[9px] font-semibold",
+                      isSelected
+                        ? "text-white/70"
+                        : isToday
+                          ? "text-brand"
+                          : "text-faint"
+                    )}
+                  >
+                    {label}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-[10px] font-semibold tabular-nums",
+                      isSelected
+                        ? "text-white"
+                        : ms > 0
+                          ? "text-ink"
+                          : "text-disabled"
+                    )}
+                  >
+                    {ms > 0 ? formatHours(ms) : "—"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {day.rows.length === 0 ? (
+            <div className="border-hairline text-disabled border-t pt-2.5 text-xs">
+              No sessions logged.
+            </div>
+          ) : (
+            day.rows.map((row) => {
+              if (row.kind === "session") {
+                const s = row.session;
+                const isActive = s.endedAt === null;
+                return (
+                  <button
+                    key={`s-${s.id}`}
+                    type="button"
+                    onClick={() =>
+                      setSessionDialog({
+                        mode: isActive ? "edit-active" : "edit-completed",
+                        session: s,
+                      })
+                    }
+                    className="border-hairline flex w-full items-center gap-2.5 border-t py-[7px] text-left transition-transform active:scale-[.99]"
+                  >
+                    <span
+                      aria-hidden
+                      className="h-5 w-[3px] shrink-0 rounded-[2px]"
+                      style={{
+                        backgroundColor: s.goalId
+                          ? goalColor(s.goalId)
+                          : entityColor(
+                              categoryById.get(s.categoryId ?? "")?.color ?? null
+                            ),
+                      }}
+                    />
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-[13px] leading-[1.25] font-semibold text-[var(--secondary-ink)]">
+                        {s.taskName}
+                      </span>
+                      <span className="text-faint truncate text-[11px] leading-[1.3]">
+                        {sessionLabel(s)}
+                        {isActive && " · in progress"}
+                      </span>
+                    </div>
+                    <span className="shrink-0 text-[13px] font-semibold tabular-nums text-[var(--secondary-ink)]">
+                      {formatDuration(row.ms)}
+                    </span>
+                    <PencilIcon className="text-disabled size-3 shrink-0" />
+                  </button>
+                );
+              }
+
+              const e = row.event;
+              return (
+                <button
+                  key={`e-${e.id}`}
+                  type="button"
+                  onClick={() => setEventDialog(e)}
+                  className="border-hairline flex w-full items-center gap-2.5 border-t py-[7px] text-left transition-transform active:scale-[.99]"
+                >
+                  <span
+                    aria-hidden
+                    className="h-5 w-[3px] shrink-0 rounded-[2px]"
+                    style={{
+                      backgroundColor: entityColor(e.category?.color ?? null),
+                    }}
+                  />
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-[13px] leading-[1.25] font-semibold text-[var(--secondary-ink)]">
+                      {e.title ?? "(no title)"}
+                    </span>
+                    <span className="text-faint truncate text-[11px] leading-[1.3]">
+                      <CalendarIcon
+                        aria-label="From Google Calendar"
+                        className="mr-1 inline size-3 align-[-2px]"
+                      />
+                      {e.category?.name ?? "Uncategorized"}
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-[13px] font-semibold tabular-nums text-[var(--secondary-ink)]">
+                    {formatDuration(row.ms)}
+                  </span>
+                  <PencilIcon className="text-disabled size-3 shrink-0" />
+                </button>
+              );
+            })
+          )}
+          <button
+            type="button"
+            disabled={!hydrated || categories.length === 0}
+            onClick={() => setSessionDialog({ mode: "create" })}
+            className="border-hairline flex w-full items-center gap-2.5 border-t pt-2 text-left disabled:opacity-40"
+          >
+            <span
+              aria-hidden
+              className="h-4 w-[3px] shrink-0 border-l-[1.5px] border-dashed border-[#d5d9df]"
+            />
+            <span className="text-caption text-xs font-medium">
+              + Add a session to {dayLabel.toLowerCase() || "this day"}
+            </span>
+          </button>
+
+          <div className="bg-hairline mt-3.5 h-px" />
+          <div className="flex items-center gap-[7px] pt-3.5 pb-2">
+            <span className="section-label">Categories</span>
+            <span className="flex-1" />
+            <button
+              type="button"
+              onClick={() => setAddCategoryOpen((o) => !o)}
+              className="text-brand text-xs font-semibold"
+            >
+              {addCategoryOpen ? "Close" : "+ Add"}
+            </button>
+          </div>
+          {addCategoryOpen && (
+            <div className="flex gap-2 pt-0.5 pb-2.5">
+              <input
+                aria-label="New category"
+                className="text-ink min-w-0 flex-1 border-b-2 border-[var(--hairline)] bg-transparent pb-2 text-sm font-medium outline-none placeholder:text-[var(--disabled)]"
                 placeholder="New category"
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
@@ -829,244 +1181,53 @@ export function ClockClient({
                   }
                 }}
               />
-              <Button
-                className="h-10"
-                variant="secondary"
+              <button
+                type="button"
                 onClick={handleAddCategory}
                 disabled={!newCategoryName.trim()}
+                className="bg-brand text-primary-foreground h-8 shrink-0 rounded-[10px] px-3.5 text-xs font-semibold disabled:opacity-40"
               >
                 Add
-              </Button>
+              </button>
             </div>
-            {categories.length > 0 && (
-              <ul className="flex flex-col divide-y divide-border">
-                {categories.map((cat) => (
-                  <li
-                    key={cat.id}
-                    className="flex items-center justify-between gap-2 py-2"
-                  >
-                    <span className="flex min-w-0 items-center gap-2 text-sm">
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "size-2.5 shrink-0 rounded-full",
-                          !cat.color && "bg-muted ring-border ring-1"
-                        )}
-                        style={
-                          cat.color ? { backgroundColor: cat.color } : undefined
-                        }
-                      />
-                      <span className="truncate">{cat.name}</span>
-                    </span>
-                    <span className="flex shrink-0 items-center">
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        aria-label={`Edit ${cat.name}`}
-                        onClick={() => openCategoryEdit(cat)}
-                      >
-                        <PencilIcon />
-                      </Button>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        aria-label={`Delete ${cat.name}`}
-                        onClick={() => setPendingCategoryDelete(cat)}
-                      >
-                        <XIcon />
-                      </Button>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          {inDayMode ? (
-            <CardHeader>
-              <CardTitle>{dayLabel}</CardTitle>
-              <CardAction>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSelectedDayIndex(null)}
-                >
-                  Week Overview
-                </Button>
-              </CardAction>
-            </CardHeader>
-          ) : (
-            <CardHeader>
-              <CardTitle>This week</CardTitle>
-              <CardDescription>
-                {weekStartDate && weekEndDate
-                  ? formatRange(weekStartDate, weekEndDate)
-                  : " "}
-              </CardDescription>
-            </CardHeader>
           )}
-          <CardContent className="flex flex-col gap-5">
-            {inDayMode ? (
-              <>
-                <div className="font-mono text-3xl tabular-nums">
-                  {formatHours(day.total)}
-                </div>
-
-                {day.rows.length === 0 ? (
-                  <p className="text-muted-foreground py-6 text-center text-sm">
-                    No sessions logged
-                  </p>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {day.rows.map((row) => {
-                      const widthPct =
-                        day.total > 0
-                          ? `${Math.max(2, (row.ms / day.total) * 100)}%`
-                          : "0%";
-
-                      if (row.kind === "session") {
-                        const s = row.session;
-                        const isActive = s.endedAt === null;
-                        return (
-                          <button
-                            key={`s-${s.id}`}
-                            type="button"
-                            onClick={() =>
-                              setSessionDialog({
-                                mode: isActive
-                                  ? "edit-active"
-                                  : "edit-completed",
-                                session: s,
-                              })
-                            }
-                            className="-mx-1 flex flex-col gap-1 rounded-md px-1 py-1 text-left transition-colors hover:bg-muted/50"
-                          >
-                            <div className="flex items-baseline justify-between gap-2 text-sm">
-                              <span className="truncate">
-                                {sessionLabel(s)} - {s.taskName}
-                                {isActive && (
-                                  <span className="text-muted-foreground">
-                                    {" "}
-                                    · in progress
-                                  </span>
-                                )}
-                              </span>
-                              <span className="font-mono tabular-nums text-muted-foreground shrink-0">
-                                {formatDuration(row.ms)}
-                              </span>
-                            </div>
-                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                              <div
-                                className="h-full bg-primary/60"
-                                style={{ width: widthPct }}
-                              />
-                            </div>
-                          </button>
-                        );
-                      }
-
-                      const e = row.event;
-                      const catName = e.category?.name ?? "Uncategorized";
-                      return (
-                        <button
-                          key={`e-${e.id}`}
-                          type="button"
-                          onClick={() => setEventDialog(e)}
-                          className="-mx-1 flex flex-col gap-1 rounded-md px-1 py-1 text-left transition-colors hover:bg-muted/50"
-                        >
-                          <div className="flex items-baseline justify-between gap-2 text-sm">
-                            <span className="flex min-w-0 items-center gap-1.5 truncate">
-                              <CalendarIcon
-                                aria-label="From Google Calendar"
-                                className="size-3 shrink-0 text-muted-foreground"
-                              />
-                              <span className="truncate">
-                                {catName} - {e.title ?? "(no title)"}
-                              </span>
-                            </span>
-                            <span className="font-mono tabular-nums text-muted-foreground shrink-0">
-                              {formatDuration(row.ms)}
-                            </span>
-                          </div>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
-                            <div
-                              className="h-full bg-primary/30"
-                              style={{ width: widthPct }}
-                            />
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="font-mono text-3xl tabular-nums">
-                  {formatHours(weekly.total)}
-                </div>
-
-                {categoryBreakdown.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">
-                    No sessions logged yet this week.
-                  </p>
-                ) : (
-                  <WeekBreakdown rows={categoryBreakdown} />
-                )}
-              </>
-            )}
-
-            <div className="grid grid-cols-7 gap-1">
-              {DAY_LABELS.map((label, i) => {
-                const ms = weekly.perDay[i];
-                const isToday = i === todayIndex;
-                const isSelected = selectedDayIndex === i;
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    disabled={!hydrated}
-                    aria-pressed={isSelected}
-                    onClick={() => setSelectedDayIndex(i)}
-                    className={
-                      "flex flex-col items-center gap-0.5 rounded-md py-1.5 text-xs transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-50 " +
-                      (isSelected
-                        ? "bg-primary/15 text-foreground ring-1 ring-primary"
-                        : isToday
-                          ? "bg-primary/10 ring-1 ring-primary/30"
-                          : "")
-                    }
-                  >
-                    <span className="text-muted-foreground">{label}</span>
-                    <span className="font-mono tabular-nums">
-                      {ms > 0 ? formatHours(ms) : "—"}
-                    </span>
-                  </button>
-                );
-              })}
+          {categories.map((cat) => (
+            <div
+              key={cat.id}
+              className="border-hairline flex items-center gap-2.5 border-t py-2"
+            >
+              <span
+                aria-hidden
+                className="size-[9px] shrink-0 rounded-[2px]"
+                style={{ backgroundColor: entityColor(cat.color) }}
+              />
+              <button
+                type="button"
+                aria-label={`Edit ${cat.name}`}
+                onClick={() => openCategoryEdit(cat)}
+                className="min-w-0 flex-1 truncate text-left text-[13px] text-[var(--secondary-ink)]"
+              >
+                {cat.name}
+              </button>
+              <button
+                type="button"
+                aria-label={`Edit ${cat.name}`}
+                onClick={() => openCategoryEdit(cat)}
+                className="text-disabled shrink-0"
+              >
+                <PencilIcon className="size-3" />
+              </button>
+              <button
+                type="button"
+                aria-label={`Delete ${cat.name}`}
+                onClick={() => setPendingCategoryDelete(cat)}
+                className="text-disabled shrink-0"
+              >
+                <XIcon className="size-3.5" />
+              </button>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Session history — opens the full past-session browser. */}
-        <Link href="/sessions" className="block">
-          <Card className="hover:bg-muted/30 transition-colors">
-            <CardContent className="flex items-center justify-between gap-3 px-5 py-4">
-              <div className="flex items-center gap-3">
-                <HistoryIcon className="text-muted-foreground size-5 shrink-0" />
-                <div className="flex flex-col gap-0.5">
-                  <p className="text-sm font-medium">Session history</p>
-                  <p className="text-muted-foreground text-xs">
-                    Browse past sessions by day or category.
-                  </p>
-                </div>
-              </div>
-              <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" />
-            </CardContent>
-          </Card>
-        </Link>
+          ))}
+        </div>
       </main>
 
       {/* Category edit — rename + palette color */}

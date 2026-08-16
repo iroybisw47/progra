@@ -65,6 +65,7 @@ import { useTimerSoundMuted } from "@/lib/use-muted";
 import { useBreakSchedule } from "./use-break-schedule";
 import { usePlanFinish } from "./use-plan-finish";
 import { formatTime } from "@/lib/dates";
+import { entityColor, goalColor } from "@/lib/colors";
 import type { Attribution } from "@/lib/session-attribution";
 import type { Category } from "@/lib/storage";
 import type { Goal } from "@/lib/db/goals";
@@ -160,6 +161,13 @@ export function LiveTimerClient({
   const onBreak = plan.onBreak;
   const paused = pausedSince != null && !onBreak;
   const timed = plan.plannedWorkMs !== null;
+
+  // The session's own color — its goal's or its category's — paints the ring,
+  // the dot and the target bar, so the running session looks like the same
+  // entity it does on Progress.
+  const runColor = goalId
+    ? goalColor(goalId)
+    : entityColor(categories.find((c) => c.id === categoryId)?.color ?? null);
 
   // Starts breaks when an interval's work is done and ends them when they
   // elapse. Does nothing for open-ended sessions, and nothing at all while the
@@ -451,15 +459,15 @@ export function LiveTimerClient({
         >
           <ChevronDownIcon className="size-4" strokeWidth={2.2} />
         </button>
-        <div className="text-caption flex items-center gap-2 text-[11.5px] font-bold uppercase tracking-[.08em]">
+        <div className="text-brand flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[.14em]">
           <span
             className={cn(
-              "size-2 rounded-full",
+              "size-[7px] rounded-full",
               onBreak
                 ? "bg-done"
                 : paused
-                  ? "bg-faint"
-                  : "bg-brand animate-pulse"
+                  ? "bg-disabled"
+                  : "bg-brand animate-[pulse-dot_1.6s_infinite]"
             )}
           />
           {onBreak ? "On a break" : paused ? "Paused" : "Tracking"}
@@ -496,54 +504,92 @@ export function LiveTimerClient({
         </button>
       </div>
 
-      {/* Center: task + timer */}
+      {/* Center: the ring, the elapsed time, and what it counts towards */}
       <div className="flex flex-1 flex-col items-center justify-center gap-[18px] px-7">
-        <div className="flex flex-col items-center gap-2.5 text-center">
-          <div className="text-[17px] font-bold tracking-[-0.01em]">{label}</div>
-          <span
-            className={cn(
-              "rounded-full px-3 py-[5px] text-[11.5px] font-bold",
-              attribution.isGoal
-                ? "bg-brand/10 text-brand"
-                : "bg-track text-body"
-            )}
+        <div className="relative size-[224px]">
+          <svg
+            width="224"
+            height="224"
+            viewBox="0 0 224 224"
+            className="-rotate-90"
           >
+            <circle
+              cx="112"
+              cy="112"
+              r="100"
+              fill="none"
+              stroke="var(--track)"
+              strokeWidth="10"
+            />
+            {/* Timed sessions sweep the ring in the session's own color as the
+                target fills. Open-ended ones have nothing to fill towards, so
+                the ring stays a plain track. */}
+            {timed && plan.plannedWorkMs !== null && (
+              <Ticking>
+                {(tick) => {
+                  const now = tick === 0 ? seedNow : tick;
+                  const target = plan.plannedWorkMs ?? 0;
+                  const worked = sessionWorkedMs(timing, now);
+                  const c = 2 * Math.PI * 100;
+                  const len =
+                    target > 0 ? Math.min(1, worked / target) * c : 0;
+                  return (
+                    <circle
+                      cx="112"
+                      cy="112"
+                      r="100"
+                      fill="none"
+                      stroke={runColor}
+                      strokeWidth="10"
+                      strokeLinecap="round"
+                      strokeDasharray={`${len} ${c}`}
+                      className="transition-[stroke-dasharray] duration-1000 ease-linear"
+                    />
+                  );
+                }}
+              </Ticking>
+            )}
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+            <span
+              className={cn(
+                "stat-num text-[40px] leading-none",
+                paused && "text-faint"
+              )}
+            >
+              <Ticking>
+                {(tick) =>
+                  formatElapsed(
+                    sessionWorkedMs(timing, tick === 0 ? seedNow : tick)
+                  )
+                }
+              </Ticking>
+            </span>
+            <span className="text-disabled text-[10px] font-semibold uppercase tracking-[0.12em]">
+              {timed && plan.plannedWorkMs !== null
+                ? `of ${formatHM(plan.plannedWorkMs)}`
+                : "Elapsed"}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center gap-[3px] pt-1 text-center">
+          <div className="flex items-center gap-2">
+            <span
+              aria-hidden
+              className="size-[9px] shrink-0 rounded-[2px]"
+              style={{ backgroundColor: runColor }}
+            />
+            <span className="text-body text-[15px] font-semibold">{label}</span>
+          </div>
+          <span className="text-faint text-[13px]">
             {attribution.isGoal ? `Goal · ${attribution.text}` : attribution.text}
           </span>
           {description && (
-            <p className="text-faint max-w-[280px] text-xs leading-relaxed">
+            <p className="text-faint max-w-[280px] pt-1 text-xs leading-relaxed">
               {description}
             </p>
           )}
-        </div>
-
-        <div className="relative flex items-center justify-center py-2.5">
-          {/* Breathing glow — faithful to the design; freezes/hides when paused. */}
-          <span
-            aria-hidden
-            className="pointer-events-none absolute left-1/2 top-1/2 size-[250px] rounded-full transition-opacity duration-500"
-            style={{
-              background:
-                "radial-gradient(circle, var(--sand) 0%, transparent 68%)",
-              transform: "translate(-50%, -50%)",
-              opacity: paused ? 0 : 1,
-              animation: paused ? undefined : "breathe 2.6s ease infinite",
-            }}
-          />
-          <span
-            className={cn(
-              "relative font-mono text-[62px] font-bold tabular-nums tracking-[-0.03em] transition-colors",
-              paused ? "text-faint" : "text-ink"
-            )}
-          >
-            <Ticking>
-              {(tick) =>
-                formatElapsed(
-                  sessionWorkedMs(timing, tick === 0 ? seedNow : tick)
-                )
-              }
-            </Ticking>
-          </span>
         </div>
 
         {/* Timed sessions only: how much of the target is done, and — during a
@@ -559,13 +605,15 @@ export function LiveTimerClient({
                 const pct = Math.min(100, (worked / target) * 100);
                 return (
                   <>
-                    <div className="bg-track h-1.5 w-full overflow-hidden rounded-full">
+                    <div className="bg-track h-[5px] w-full overflow-hidden rounded-full">
                       <div
-                        className={cn(
-                          "h-full rounded-full transition-[width] duration-1000 ease-linear",
-                          onBreak ? "bg-done" : "bg-brand"
-                        )}
-                        style={{ width: `${pct}%` }}
+                        className="h-full rounded-full transition-[width] duration-1000 ease-linear"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: onBreak
+                            ? "var(--done)"
+                            : runColor,
+                        }}
                       />
                     </div>
                     <span className="text-faint text-xs tabular-nums">
@@ -677,7 +725,7 @@ export function LiveTimerClient({
             type="button"
             onClick={handleEndBreak}
             disabled={pending}
-            className="bg-done/15 text-done flex-1 rounded-[18px] py-4 text-[15px] font-bold active:scale-[.97] disabled:opacity-60"
+            className="text-done border-[1.5px] border-[color:var(--done)]/30 bg-[color:var(--done)]/10 h-[52px] flex-1 rounded-2xl text-[15px] font-semibold active:scale-[.97] disabled:opacity-60"
           >
             End break
           </button>
@@ -686,7 +734,7 @@ export function LiveTimerClient({
             type="button"
             onClick={togglePause}
             disabled={pending}
-            className="bg-brand/10 text-brand flex-1 rounded-[18px] py-4 text-[15px] font-bold active:scale-[.97] disabled:opacity-60"
+            className="border-hairline bg-card text-body h-[52px] flex-1 rounded-2xl border-[1.5px] text-[15px] font-semibold active:scale-[.97] disabled:opacity-60"
           >
             {paused ? "Resume" : "Pause"}
           </button>
@@ -695,10 +743,9 @@ export function LiveTimerClient({
           type="button"
           onClick={handleStop}
           disabled={pending}
-          className="flex flex-[1.4] items-center justify-center gap-2.5 rounded-[18px] bg-ink py-4 text-[15px] font-bold text-[color:var(--card)] shadow-[0_10px_22px_rgba(25,30,38,.25)] active:scale-[.97] disabled:opacity-60"
+          className="bg-brand text-primary-foreground h-[52px] flex-1 rounded-2xl text-[15px] font-semibold shadow-[0_10px_22px_-10px_rgba(28,58,94,.55)] active:scale-[.97] disabled:opacity-60"
         >
-          <span className="size-2.5 rounded-[3px] bg-[color:var(--card)]" />
-          Stop
+          Clock out
         </button>
       </div>
 
