@@ -65,6 +65,10 @@ function BottomSheetContent({
       />
       <DialogPrimitive.Popup
         ref={popupRef}
+        // Focus the panel itself, not the first control inside it — otherwise
+        // opening the sheet lands a focus ring on whatever row happens to be
+        // first, which reads as a selection.
+        initialFocus={popupRef}
         data-slot="bottom-sheet-content"
         className={cn(
           "bg-card text-ink fixed inset-x-2 bottom-0 z-50 flex max-h-[86dvh] flex-col rounded-t-[26px] px-5 pb-[max(env(safe-area-inset-bottom),20px)] shadow-[0_-12px_32px_-18px_rgba(18,23,29,.35)] duration-200 outline-none data-open:animate-in data-open:slide-in-from-bottom data-closed:animate-out data-closed:slide-out-to-bottom sm:inset-x-auto sm:left-1/2 sm:w-full sm:max-w-md sm:-translate-x-1/2",

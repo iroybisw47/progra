@@ -21,6 +21,12 @@ const ManageHabits = dynamic(
   () => import("@/components/v2/manage-habits").then((m) => m.ManageHabits),
   { ssr: false }
 );
+// Same treatment for the goals manager — it only matters after tapping the
+// Goals header, so it isn't in the tab's critical bundle either.
+const ManageGoals = dynamic(
+  () => import("@/components/v2/manage-goals").then((m) => m.ManageGoals),
+  { ssr: false }
+);
 import { toggleHabitCompletion } from "@/app/actions/habits";
 import type { Habit, HabitCompletion } from "@/lib/db/habits";
 import { entityColor, tint } from "@/lib/colors";
@@ -93,6 +99,8 @@ export function ProgressClient(props: {
   const [tab, setTab] = useState<Tab>(props.initialTab ?? "today");
   const [manageOpen, setManageOpen] = useState(false);
   const onManage = () => setManageOpen(true);
+  const [goalsOpen, setGoalsOpen] = useState(false);
+  const onManageGoals = () => setGoalsOpen(true);
 
   const isToday = tab === "today";
   const totalMs = isToday ? props.todayTotalMs : props.weekTotalMs;
@@ -389,17 +397,18 @@ export function ProgressClient(props: {
           <SectionHeader
             label="Goals"
             meta={`${props.goals.length} active`}
-            href="/goals?from=progress"
+            onClick={onManageGoals}
             ariaLabel="Manage goals"
             className="pb-2.5"
           />
           {props.goals.length === 0 ? (
-            <Link
-              href="/goals?from=progress"
-              className="text-caption text-[13px]"
+            <button
+              type="button"
+              onClick={onManageGoals}
+              className="text-caption text-left text-[13px]"
             >
               No goals yet — tap to add one.
-            </Link>
+            </button>
           ) : (
             <GoalQuotaRows goals={props.goals} href="/clock?goal=" />
           )}
@@ -414,6 +423,12 @@ export function ProgressClient(props: {
         weekStart={props.weekStart}
         today={props.today}
         minWeekStart={props.minWeekStart}
+      />
+
+      <ManageGoals
+        open={goalsOpen}
+        onOpenChange={setGoalsOpen}
+        goals={props.goals}
       />
     </div>
   );
