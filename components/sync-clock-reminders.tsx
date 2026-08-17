@@ -12,6 +12,7 @@ import {
 } from "@/lib/flags";
 import { localNotificationsPlugin } from "@/lib/native-plugins";
 import { useNotificationPermission } from "@/lib/use-notification-permission";
+import { useRemindersEnabled } from "@/lib/use-reminders-enabled";
 
 // Keeps the device's scheduled clock reminders in step with the active session.
 //
@@ -45,13 +46,27 @@ export function SyncClockReminders({
   // nothing until the next revalidate — the sync bails on a non-granted read,
   // and no session field has changed to retrigger it.
   const permission = useNotificationPermission();
+  const enabled = useRemindersEnabled(sessionId);
 
   useEffect(() => {
     if (!CLOCK_REMINDERS) return;
 
-    // No active session → empty list → cancel everything.
+    // The per-session toggle applies ONLY to open-ended sessions, matching the
+    // band that sets it — a timed session's "Time's up" alert is the reason you
+    // set a duration, and isn't optional.
+    //
+    // The guard is not just cosmetic symmetry. "Keep going" at the target calls
+    // clearSessionPlan() on the SAME session id, so a session can go timed →
+    // open-ended and back within one id; without this check an "off" flag set
+    // while it was open-ended could ride back onto a timed session and suppress
+    // the completion alert.
+    const silenced = !enabled && plannedWorkMs === null;
+
+    // No active session, or reminders off for this one → empty list → cancel
+    // everything. syncClockReminders clears the whole reserved range before it
+    // schedules, so "off" needs no unscheduling code of its own.
     const reminders =
-      sessionId === null || startedAt === null
+      sessionId === null || startedAt === null || silenced
         ? []
         : clockReminders(
             {
@@ -76,7 +91,15 @@ export function SyncClockReminders({
           );
 
     void syncClockReminders(reminders);
-  }, [sessionId, startedAt, pausedMs, pausedSince, plannedWorkMs, permission]);
+  }, [
+    sessionId,
+    startedAt,
+    pausedMs,
+    pausedSince,
+    plannedWorkMs,
+    permission,
+    enabled,
+  ]);
 
   // Tapping either reminder opens the live timer — both are about the running
   // session, and that's where you act on it. Separate effect so it stays

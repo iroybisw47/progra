@@ -54,8 +54,7 @@ import {
   type SessionPlan,
 } from "@/lib/session";
 import { track } from "@/lib/analytics";
-import { CLOCK_REMINDERS } from "@/lib/flags";
-import { useNotificationPermission } from "@/lib/use-notification-permission";
+import { RemindersBand } from "@/app/clock/live/reminders-band";
 import { primeTimerSound, setTimerSoundMuted } from "@/lib/timer-sound";
 import { useTimerSoundMuted } from "@/lib/use-muted";
 import { useBreakSchedule } from "./use-break-schedule";
@@ -179,17 +178,8 @@ export function LiveTimerClient({
   // Once, passively, and idempotent.
   const muted = useTimerSoundMuted();
 
-  // Reminders need notification permission, and on iOS that's ONE
-  // authorization shared with push, asked once ever — so `denied` is terminal
-  // and Settings is the only cure. Say so rather than let them wonder why
-  // nothing arrives.
-  //
-  // Only `denied` gets a message here. `prompt` deliberately says nothing yet:
-  // pointing someone at Settings before the app has ever asked is bad advice
-  // (an app that hasn't asked usually isn't listed there at all). Phase 4
-  // replaces this whole band with one that can offer to ask.
-  const permission = useNotificationPermission();
-  const remindersBlocked = CLOCK_REMINDERS && permission === "denied";
+  // Everything about reminders now lives in <RemindersBand>, a leaf — no state
+  // here, so the timer doesn't re-render when the toggle flips.
 
   useEffect(() => {
     if (!timed) return;
@@ -661,14 +651,10 @@ export function LiveTimerClient({
         </div>
       </div>
 
-      {/* Quiet, and only when it's actually true. iOS shares one notification
-          authorization with push, so this is usually already granted. */}
-      {remindersBlocked && (
-        <p className="text-faint mx-6 mb-2 text-center text-xs text-pretty">
-          Reminders are off — turn on notifications for Progra in Settings to
-          get them.
-        </p>
-      )}
+      {/* Reminders: the toggle when they're on and this session is open-ended,
+          an offer to enable when they've never been asked, a route to Settings
+          when they're blocked, and nothing at all on the web. */}
+      <RemindersBand sessionId={sessionId} timed={timed} />
 
       {/* Target reached: a few seconds to bail before this finishes itself. */}
       {finishingIn !== null && (
