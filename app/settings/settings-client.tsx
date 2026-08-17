@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
+  BellIcon,
   CalendarIcon,
   CheckSquareIcon,
   ChevronRightIcon,
@@ -37,6 +38,13 @@ import {
   setUsername,
 } from "@/app/actions/profile";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
+import { track } from "@/lib/analytics";
+import { CLOCK_REMINDERS } from "@/lib/flags";
+import {
+  openNotificationSettings,
+  requestNotificationPermission,
+} from "@/lib/notification-permission";
+import { useNotificationPermission } from "@/lib/use-notification-permission";
 import { cn } from "@/lib/utils";
 
 // Flipped to "0" once Google's app verification clears (build-time inlined).
@@ -262,6 +270,12 @@ export function SettingsClient({
           </Card>
         </section>
 
+        {/* Notifications — native app only, so it simply doesn't exist on the
+            website. `null` (not read yet) and "unavailable" (no plugin) both
+            land here, which is also what keeps SSR and the first client render
+            in agreement. */}
+        <NotificationsSection />
+
         {/* Sharing */}
         <section className="flex flex-col gap-2">
           <p className={SECTION}>Sharing</p>
@@ -400,6 +414,100 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-sm font-medium">{label}</span>
       {children}
     </div>
+  );
+}
+
+// Notifications — the only place in the app where permission can be inspected
+// and, if it has never been asked, granted.
+//
+// Exists because iOS asks ONCE, EVER. Two consequences that shape every branch
+// below: a `denied` user cannot be re-asked and needs a route to iOS Settings,
+// which is otherwise unreachable from anywhere in the app; and the onboarding
+// step promises "you can always turn them off later", which has to be true.
+//
+// Renders nothing off-native. `null` means "not read yet" and is also the
+// server snapshot, so SSR and the first client render agree — the section
+// simply does not exist on progra.world.
+function NotificationsSection() {
+  const permission = useNotificationPermission();
+
+  if (!CLOCK_REMINDERS) return null;
+  if (permission === null || permission === "unavailable") return null;
+
+  const value =
+    permission === "granted"
+      ? "On"
+      : permission === "denied"
+        ? "Blocked"
+        : "Turn on";
+
+  // Legal caller #2 of requestNotificationPermission() — a real tap, on a row
+  // that says what it does. See lib/notification-permission.ts.
+  const onClick =
+    permission === "granted"
+      ? undefined
+      : permission === "denied"
+        ? () => {
+            track("notification_settings_opened", {
+              source: "settings",
+              state: permission,
+            });
+            openNotificationSettings();
+          }
+        : () => {
+            void requestNotificationPermission().then((result) => {
+              track("notification_permission_asked", {
+                source: "settings",
+                result,
+              });
+            });
+          };
+
+  return (
+    <section className="flex flex-col gap-2">
+      <p className={SECTION}>Notifications</p>
+      <Card>
+        <CardContent className="flex flex-col gap-2 py-4">
+          {onClick ? (
+            <button
+              type="button"
+              onClick={onClick}
+              className="flex items-center gap-2.5 text-left"
+            >
+              <BellIcon className="text-caption size-4 shrink-0" />
+              <span className="text-sm font-medium">Clock reminders</span>
+              <span className="text-caption ml-auto truncate text-sm">
+                {value}
+              </span>
+              <ChevronRightIcon className="text-faint size-4 shrink-0" />
+            </button>
+          ) : (
+            <div className="flex items-center gap-2.5">
+              <BellIcon className="text-caption size-4 shrink-0" />
+              <span className="text-sm font-medium">Clock reminders</span>
+              <span className="text-caption ml-auto truncate text-sm">
+                {value}
+              </span>
+            </div>
+          )}
+
+          {/* Same pl-[26px] inset the Google Calendar rows use, so the
+              explanation lines up under the label rather than the icon. */}
+          {permission === "granted" && (
+            <p className="text-caption pl-[26px] text-xs leading-relaxed text-pretty">
+              A nudge each hour you&rsquo;re still clocked in, and an alert when
+              a timed session reaches its target.
+            </p>
+          )}
+          {permission === "denied" && (
+            <p className="text-caption pl-[26px] text-xs leading-relaxed text-pretty">
+              iOS only asks once. Turn notifications on for Progra in Settings
+              to get them back.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </section>
   );
 }
 

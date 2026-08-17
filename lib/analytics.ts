@@ -19,7 +19,15 @@ export type AnalyticsEvent =
   | "habit_checked"
   | "friend_added"
   | "invite_sent"
-  | "onboarding_completed";
+  | "onboarding_completed"
+  // Notification permission. iOS grants it once, ever, so the grant rate at
+  // each surface is the only signal available on whether the copy works —
+  // there is no second attempt to learn from. `source` distinguishes them:
+  // "onboarding" | "settings" | "live_timer".
+  | "notification_permission_asked" // { source, result }
+  | "notification_permission_skipped" // { source, state }
+  | "notification_settings_opened" // { source, state }
+  | "clock_reminders_toggled"; // { enabled }
 
 type Props = Record<string, string | number | boolean | null>;
 
