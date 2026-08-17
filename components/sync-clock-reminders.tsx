@@ -5,7 +5,11 @@ import { useEffect } from "react";
 
 import { clockReminders } from "@/lib/clock-reminders";
 import { syncClockReminders } from "@/lib/clock-notifications";
-import { CLOCK_REMINDERS, REMINDER_HOUR_MS } from "@/lib/flags";
+import {
+  CLOCK_REMINDERS,
+  REMINDER_CAP_MS,
+  REMINDER_HOUR_MS,
+} from "@/lib/flags";
 import { localNotificationsPlugin } from "@/lib/native-plugins";
 import { useNotificationPermission } from "@/lib/use-notification-permission";
 
@@ -67,7 +71,8 @@ export function SyncClockReminders({
               breaksTaken: 0,
             },
             Date.now(),
-            REMINDER_HOUR_MS
+            REMINDER_HOUR_MS,
+            REMINDER_CAP_MS
           );
 
     void syncClockReminders(reminders);

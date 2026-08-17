@@ -36,6 +36,10 @@ export type ClockReminder = {
 // can't collide, and cancellation is simply "clear our whole range" — no need
 // to remember which ids a previous session used.
 export const DURATION_END_ID = 9001;
+// The 10-hour cap. Its own id beside DURATION_END_ID rather than inside the
+// hourly range, because it fires for BOTH kinds of session and its copy is a
+// different kind of message — an announcement, not a nudge.
+export const SESSION_CAP_ID = 9002;
 export const HOURLY_ID_BASE = 9101;
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -55,7 +59,7 @@ export function hourlyReminderId(hour: number): number {
 // Every reminder id this module can ever issue — what pass 3 cancels wholesale
 // before scheduling a fresh set, and on clock-out.
 export function allReminderIds(): number[] {
-  const ids = [DURATION_END_ID];
+  const ids = [DURATION_END_ID, SESSION_CAP_ID];
   for (let h = 1; h <= MAX_HOURLY_REMINDERS; h++) ids.push(hourlyReminderId(h));
   return ids;
 }
@@ -67,7 +71,12 @@ export function clockReminders(
   // How long an "hour" is. Only ever overridden by the `fast` test mode, which
   // shortens it to two minutes — passed IN rather than read from a flag here,
   // so this module stays pure and its tests stay independent of the env.
-  hourMs: number = HOUR_MS
+  hourMs: number = HOUR_MS,
+  // The cap, injected for the same reason as hourMs: `fast` mode shortens an
+  // hour to 2 minutes but cannot shorten a 10-hour constant, so without this
+  // the cap reminder would take a real working day to verify once — exactly the
+  // wait fast mode exists to remove.
+  capMs: number = SESSION_CAP_MS
 ): ClockReminder[] {
   // An ended session has nothing pending.
   if (timing.endedAt !== null) return [];
@@ -81,12 +90,41 @@ export function clockReminders(
   // and it's why "pausing doesn't touch notifications" was never viable.
   if (timing.pausedSince !== null) return [];
 
+  // THE CAP, for both kinds of session.
+  //
+  // autoClockOut ends a session at exactly capMs of worked time and the hours
+  // stop counting — sessionWorkedMs returns 0 once autoEndedAt is set. Before
+  // this, that happened in silence: the hourly nudges stop an hour short, the
+  // session dies unannounced, and the user's weekly total drops by up to ten
+  // hours with nothing to explain it.
+  //
+  // Timed sessions need it too. EnsurePlanComplete only finishes a timed
+  // session while a client is open, so one left running overnight sails past
+  // its target and hits the cap exactly like an open-ended one.
+  //
+  // Same conversion as everything else here, so it lands on the identical
+  // instant autoClockOut stamps: plannedEndMs(timing, capMs) === sessionCapEndMs.
+  const capAt = plannedEndMs(timing, capMs);
+  const capReminder: ClockReminder[] =
+    capAt > now
+      ? [
+          {
+            id: SESSION_CAP_ID,
+            at: capAt,
+            title: "Session ended",
+            body: `We ended your session at ${formatDuration(capMs)} — it won't count towards your goals.`,
+          },
+        ]
+      : [];
+
   // TIMED: exactly one alert, at the target. No hourly — a nudge partway
   // through a session you've already given an end to is noise, and it would
   // land mid-break.
   if (plan.plannedWorkMs !== null) {
     const at = plannedEndMs(timing, plan.plannedWorkMs);
-    if (at <= now) return []; // already passed; the app ends it on next open
+    // Target already passed: the app ends it on next open, so the alert itself
+    // is useless — but the cap is still ahead and still worth announcing.
+    if (at <= now) return capReminder;
     return [
       {
         id: DURATION_END_ID,
@@ -94,6 +132,7 @@ export function clockReminders(
         title: "Time's up",
         body: `Your ${formatDuration(plan.plannedWorkMs)} session is done.`,
       },
+      ...capReminder,
     ];
   }
 
@@ -116,5 +155,5 @@ export function clockReminders(
           : `You're ${hour} hours in — keep going!`,
     });
   }
-  return out;
+  return [...out, ...capReminder];
 }

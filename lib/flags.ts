@@ -1,3 +1,5 @@
+import { SESSION_CAP_MS } from "@/lib/session";
+
 // Feature flags for Progra. Flags let unfinished work ship to production "dark"
 // — present in the bundle but unreachable — so small fixes keep deploying off
 // main while a large feature (the social v2 build) lands piece by piece.
@@ -66,3 +68,14 @@ export const CLOCK_REMINDERS =
 // mode; lib/clock-reminders.ts stays pure and takes this as an argument rather
 // than reading the flag itself.
 export const REMINDER_HOUR_MS = CLOCK_REMINDERS_FAST ? 2 * 60_000 : 60 * 60_000;
+
+// The session cap, shortened alongside the hour in `fast` mode.
+//
+// Without this the cap would stay 10 real hours while an "hour" became 2
+// minutes, so the auto-clock-out reminder could only be verified by leaving a
+// session running for a working day — the exact wait fast mode exists to
+// remove. 20 minutes is (MAX_HOURLY_REMINDERS + 1) × 2 min, which preserves the
+// real relationship: the cap sits exactly one interval past the last nudge.
+export const REMINDER_CAP_MS = CLOCK_REMINDERS_FAST
+  ? 20 * 60_000
+  : SESSION_CAP_MS;
