@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   // C:\Users\iroyb\package-lock.json makes Next infer the wrong workspace
   // root, which was wedging the dev server; this nails it down.
   turbopack: { root: import.meta.dirname },
+  // Emit `crossorigin="anonymous"` on Next's own script tags. Without it, a
+  // failing cross-origin chunk surfaces as an opaque "Script error." with no
+  // message or stack; with it, the browser hands us the real error.
+  crossOrigin: "anonymous",
   experimental: {
     // Client Cache for dynamic pages: tab switches within 30s reuse the cached
     // RSC payload instead of re-running the full server pipeline. Safe because
