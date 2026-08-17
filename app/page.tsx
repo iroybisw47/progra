@@ -23,8 +23,27 @@ export const dynamic = "force-dynamic";
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{
+    tab?: string;
+    code?: string;
+    next?: string;
+    ref?: string;
+  }>;
 }) {
+  const params = await searchParams;
+
+  // A misrouted OAuth return can land the authorization code on Home instead
+  // of /auth/callback (e.g. the deployment host is missing from Supabase's
+  // redirect allow list, so it falls back to the Site URL). Hand the code to
+  // the callback so sign-in still completes, rather than rendering the
+  // signed-out landing over it and dead-ending the user.
+  if (params.code) {
+    const forward = new URLSearchParams({ code: params.code });
+    if (params.next) forward.set("next", params.next);
+    if (params.ref) forward.set("ref", params.ref);
+    redirect(`/auth/callback?${forward}`);
+  }
+
   const user = await getCurrentUser();
   if (!user) return <SignedOutLanding />;
 
@@ -37,8 +56,7 @@ export default async function Page({
     // `?tab=week` opens the Week sub-tab directly. History is no longer a
     // sub-tab (the Sessions header links straight to /history), so an old
     // `?tab=history` link just lands on Today.
-    const { tab } = await searchParams;
-    const initialTab = tab === "week" ? "week" : undefined;
+    const initialTab = params.tab === "week" ? "week" : undefined;
     // The week start is derivable from the profile alone, so both loaders run
     // in parallel instead of habits waiting on the full progress read.
     const weekStart = currentWeekStart(profile.timezone ?? "UTC");
