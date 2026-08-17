@@ -14,6 +14,12 @@ import {
 } from "lucide-react";
 
 import { track } from "@/lib/analytics";
+import {
+  openNotificationSettings,
+  requestNotificationPermission,
+} from "@/lib/notification-permission";
+import { useIsNativeApp } from "@/lib/use-is-native-app";
+import { useNotificationPermission } from "@/lib/use-notification-permission";
 import { AvatarPicker } from "@/components/avatar-picker";
 import { ColorSwatches } from "@/components/color-swatches";
 import { CATEGORY_COLORS } from "@/lib/category-colors";
@@ -30,9 +36,12 @@ import {
 } from "@/app/actions/profile";
 import { checkUsername } from "@/lib/social/username";
 
-// First-run wizard. Eight steps, in the order the design lays them out:
-// welcome (who you are) → first goal → a practice clock-in → a practice post →
-// habits → what Sunday looks like → invite → go.
+// First-run wizard, in the order the design lays it out: welcome (who you are)
+// → first goal → a practice clock-in → turn on notifications → a practice post
+// → habits → what Sunday looks like → invite → go.
+//
+// Nine steps in the shell, eight on the website — `notify` doesn't exist where
+// notifications don't.
 //
 // Two of those steps are deliberately fake: the practice clock-in runs a
 // fast-forwarded 25-minute simulation on the wall clock and writes nothing, and
@@ -43,6 +52,7 @@ const STEPS = [
   "welcome",
   "goal",
   "clock",
+  "notify",
   "post",
   "habit",
   "recap",
@@ -51,8 +61,18 @@ const STEPS = [
 ] as const;
 type Step = (typeof STEPS)[number];
 
+// `notify` is native-only — there are no notifications on the website — so the
+// live list is computed per render and is what everything reads. Never index
+// STEPS directly: on web the arrays differ in length, and the dots, the "step N
+// of M" eyebrow and the bounds clamp would all disagree with each other.
+function activeSteps(native: boolean): readonly Step[] {
+  return native ? STEPS : STEPS.filter((s) => s !== "notify");
+}
+
 // Numbered steps for the eyebrow — welcome and go aren't counted.
-const NUMBERED: Step[] = ["goal", "clock", "post", "habit", "recap", "invite"];
+function numberedSteps(steps: readonly Step[]): readonly Step[] {
+  return steps.filter((s) => s !== "welcome" && s !== "go");
+}
 
 // Preset habits, each with the reason it's worth doing (shown on the "?").
 const PRESETS = [
@@ -97,7 +117,17 @@ export function OnboardingClientV2({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [stepIndex, setStepIndex] = useState(0);
-  const step = STEPS[stepIndex];
+
+  // The notify step exists only in the shell. `native` flips at most once,
+  // immediately after hydration, while the user is still on `welcome` at index
+  // 0 — which is the load-bearing reason the list changing length underneath
+  // stepIndex is safe. It can never shift a step the user is partway through.
+  const native = useIsNativeApp();
+  const steps = activeSteps(native);
+  const numbered = numberedSteps(steps);
+  const step = steps[stepIndex];
+
+  const notifyPermission = useNotificationPermission();
 
   // Identity (welcome).
   const [displayName, setDisplayName] = useState(initialDisplayName ?? "");
@@ -142,7 +172,7 @@ export function OnboardingClientV2({
   const [hint, setHint] = useState<string | null>(null);
 
   const go = (i: number) =>
-    setStepIndex(Math.max(0, Math.min(STEPS.length - 1, i)));
+    setStepIndex(Math.max(0, Math.min(steps.length - 1, i)));
 
   function claimUsername() {
     const check = checkUsername(username);
@@ -208,7 +238,11 @@ export function OnboardingClientV2({
         setSim(SIM_TARGET_MS);
         setRunning(false);
         setFast(false);
-        setStepIndex(STEPS.indexOf("post"));
+        // "Next", not a named step: what follows the practice clock-in is
+        // `notify` in the shell and `post` on the web. Functional update
+        // because this runs inside the interval closure, where a captured
+        // stepIndex would be stale.
+        setStepIndex((i) => Math.min(steps.length - 1, i + 1));
         toast.success("25 minutes logged — practice, so it wasn't saved");
       } else {
         setSim(value);
@@ -314,6 +348,33 @@ export function OnboardingClientV2({
           ),
         dim: true,
       },
+      // Legal caller #1 of the gesture-only ask, and the one that matters most:
+      // iOS shows its dialog once ever, so this is the single best chance the
+      // app gets, taken right after the practice clock-in that just made the
+      // point. Advances on ANY outcome — a refusal must never trap someone in
+      // onboarding — and only asks when the state is `prompt`, so a replay on
+      // an already-answered device shows no dialog.
+      notify: {
+        label:
+          notifyPermission === "prompt" ? "Enable notifications" : "Continue",
+        onClick: () => {
+          if (notifyPermission !== "prompt") {
+            track("notification_permission_skipped", {
+              source: "onboarding",
+              state: notifyPermission ?? "unknown",
+            });
+            go(stepIndex + 1);
+            return;
+          }
+          void requestNotificationPermission().then((result) => {
+            track("notification_permission_asked", {
+              source: "onboarding",
+              result,
+            });
+            go(stepIndex + 1);
+          });
+        },
+      },
       post: {
         label: posted ? "Continue" : "Post above to continue",
         onClick: () =>
@@ -332,7 +393,8 @@ export function OnboardingClientV2({
       go: { label: "Start my week", onClick: finish },
     };
 
-  const skippable = step === "habit" || step === "invite";
+  const skippable =
+    step === "habit" || step === "invite" || step === "notify";
 
   return (
     <div data-onboarding className="relative flex flex-1 flex-col">
@@ -351,7 +413,7 @@ export function OnboardingClientV2({
           <span className="size-8 shrink-0" />
         )}
         <span className="flex flex-1 justify-center gap-[5px]">
-          {STEPS.map((s, i) => (
+          {steps.map((s, i) => (
             <span
               key={s}
               className={cn(
@@ -478,6 +540,7 @@ export function OnboardingClientV2({
         {step === "goal" && (
           <StepBody
             step="goal"
+            numbered={numbered}
             title="Set your first goal."
             body='Make it a specific, actionable thing you can put hours into every week — not "get fit", but "run 3x a week". You commit to a number of hours; Progra keeps score.'
           >
@@ -526,6 +589,7 @@ export function OnboardingClientV2({
         {step === "clock" && (
           <StepBody
             step="clock"
+            numbered={numbered}
             title="Try clocking in."
             body="Every hour starts with a clock-in: name the session, pick the goal, go. This practice one is set to 25 minutes — we'll fast-forward it for you."
           >
@@ -612,9 +676,71 @@ export function OnboardingClientV2({
           </StepBody>
         )}
 
+        {/* Straight after the practice clock-in, which is what makes the point:
+            they have just seen a session run away from them on fast-forward. */}
+        {step === "notify" && (
+          <StepBody
+            step="notify"
+            numbered={numbered}
+            title="Don't lose track of time."
+            body="Work for long enough and it's easy to forget you're still clocked in. We can nudge you each hour so a session never runs away with your evening."
+          >
+            {notifyPermission === "granted" ? (
+              <div className="flex items-center gap-2 pt-0.5">
+                <CheckIcon
+                  className="size-4 text-[var(--success)]"
+                  strokeWidth={2.4}
+                />
+                <span className="text-[13px] font-semibold text-[var(--success)]">
+                  Notifications are on — we&rsquo;ll remind you.
+                </span>
+              </div>
+            ) : notifyPermission === "denied" ? (
+              // Terminal. iOS asks once and never again, so the only way back
+              // is Settings — and saying so is better than an Enable button
+              // that would silently do nothing.
+              <div className="border-control-border flex flex-col gap-3 rounded-2xl border-[1.5px] p-4">
+                <p className="text-caption text-[13px] leading-[1.55] text-pretty">
+                  Notifications are turned off for Progra, and iOS only asks
+                  once. You can switch them back on in Settings.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    track("notification_settings_opened", {
+                      source: "onboarding",
+                      state: notifyPermission,
+                    });
+                    openNotificationSettings();
+                  }}
+                  className="border-control-border h-[46px] w-full rounded-[13px] border-[1.5px] text-sm font-semibold transition-transform active:scale-[.98]"
+                >
+                  Open Settings
+                </button>
+              </div>
+            ) : (
+              // `prompt`, and also null/unavailable — which on this step can
+              // only be a brief pre-read flicker, since it doesn't render at
+              // all off-native. No button in the card: the pinned CTA asks.
+              <div className="border-control-border flex flex-col gap-3 rounded-2xl border-[1.5px] p-4">
+                <NotifyLine>
+                  A nudge each hour you&rsquo;re still clocked in
+                </NotifyLine>
+                <NotifyLine>
+                  An alert when a timed session reaches its target
+                </NotifyLine>
+                <NotifyLine>
+                  Nothing else — no streaks, no marketing
+                </NotifyLine>
+              </div>
+            )}
+          </StepBody>
+        )}
+
         {step === "post" && (
           <StepBody
             step="post"
+            numbered={numbered}
             title="Nice — now share it."
             body={
               <>
@@ -697,6 +823,7 @@ export function OnboardingClientV2({
         {step === "habit" && (
           <StepBody
             step="habit"
+            numbered={numbered}
             title="Quick habits, too."
             body="Not everything needs a timer. Habits are one-tap daily check-offs on your Progress tab, right under your week."
           >
@@ -858,6 +985,7 @@ export function OnboardingClientV2({
         {step === "recap" && (
           <StepBody
             step="recap"
+            numbered={numbered}
             title="Sunday settles it."
             body={`At the end of the week you get a recap: did you hit your ${hours}h, or not. Your friends get one too — and everyone can see who showed up.`}
           >
@@ -921,6 +1049,7 @@ export function OnboardingClientV2({
         {step === "invite" && (
           <StepBody
             step="invite"
+            numbered={numbered}
             title="Want to take your goals seriously?"
             body="Invite friends to hold you accountable. Progra works because someone is watching."
           >
@@ -1023,6 +1152,15 @@ export function OnboardingClientV2({
                 setPicked([]);
                 setHabitDraft("");
               }
+              // Nothing to reset for `notify` — skipping is precisely NOT
+              // asking, which leaves the one-shot dialog unspent for Settings
+              // or the live timer to offer later.
+              if (step === "notify") {
+                track("notification_permission_skipped", {
+                  source: "onboarding",
+                  state: notifyPermission ?? "unknown",
+                });
+              }
               go(stepIndex + 1);
             }}
             className="text-caption hover:text-brand self-center text-xs font-medium"
@@ -1041,21 +1179,26 @@ export function OnboardingClientV2({
 // then whatever that step's controls are — each entering on the rise stagger.
 function StepBody({
   step,
+  // Passed in rather than read from module scope: the list is one shorter on
+  // the web, where the notify step doesn't exist, so "step N of M" has to come
+  // from the same array the dots are drawn from.
+  numbered,
   title,
   body,
   children,
 }: {
   step: Step;
+  numbered: readonly Step[];
   title: string;
   body: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const n = NUMBERED.indexOf(step) + 1;
+  const n = numbered.indexOf(step) + 1;
   const practice = step === "clock" || step === "post";
   return (
     <div className="flex flex-col gap-[18px] pt-[18px] pb-6">
       <span className="section-label rise">
-        Step {n} of {NUMBERED.length}
+        Step {n} of {numbered.length}
         {practice && " · Practice"}
       </span>
       <h1
@@ -1076,6 +1219,21 @@ function StepBody({
       >
         {children}
       </div>
+    </div>
+  );
+}
+
+// One promise the notification step makes, ticked. Listing them is the whole
+// argument for granting — the ask is unrepeatable, so it has to be specific
+// about what arrives and, just as importantly, what doesn't.
+function NotifyLine({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <CheckIcon
+        className="mt-[3px] size-[15px] shrink-0 text-[var(--success)]"
+        strokeWidth={2.4}
+      />
+      <span className="text-body text-[13.5px] leading-[1.45]">{children}</span>
     </div>
   );
 }

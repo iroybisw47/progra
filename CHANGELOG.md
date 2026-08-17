@@ -6,6 +6,60 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-16
 
+### · Notifications: ask once, ask well — and let people turn them off
+Clock reminders started working earlier today. This is the work that makes them
+reachable.
+
+**The bug underneath.** iOS grants notification permission ONCE, EVER, shared
+between local notifications and push, and `denied` is terminal. The app was
+spending that one-shot dialog from code the user never triggered:
+`canScheduleReminders()` called `requestPermissions()` itself whenever the state
+was `prompt`, and it ran from the root-layout sync leaf (any app open with an
+active session) and from the live timer's mount effect. Anyone who declined that
+context-free prompt had permanently lost the reminders — with no screen anywhere
+in the app that explained it or offered a way back.
+
+Now the read and the ask are separate. `checkNotificationPermission()` is pure
+and gates scheduling; `requestNotificationPermission()` prompts and has exactly
+three legal callers, all real gestures: the onboarding step, the Settings row,
+and the live-timer band. No lint rule can enforce that — the mechanism is a
+comment at the definition and a grep at review time.
+
+**Where it asks now.** A new onboarding step straight after the practice
+clock-in, which is what makes the point — they have just watched a session run
+away on fast-forward. It lists what arrives (an hourly nudge, a timed-session
+alert) and what doesn't (nothing else), advances on any answer, and is skippable;
+skipping leaves the dialog unspent for later. Three states, because a replayed
+onboarding or an already-answered device must not hit a button that silently
+does nothing: `prompt` asks, `granted` confirms, `denied` routes to iOS Settings.
+
+**Settings → Notifications** is the same three states as a row, and the only
+place `denied` can be recovered from. Opening iOS Settings navigates the webview
+to `app-settings:` — NOT `App.openUrl()`, which does not exist in
+`@capacitor/app` v8.
+
+**Reminders every 1h** — a switch on the live timer for the session you don't
+want nudged through. Per-device localStorage, matching the mute control beside
+it, since notifications are scheduled on the device. The stored value is *the
+session id reminders are off for*, not a boolean, which makes the reset free: a
+new session has a new id, and the default is back to on with no expiry logic and
+no clock-out hook to forget. Open-ended sessions only — a timed session's
+"Time's up" alert is the reason you set a duration.
+
+**The 10-hour cap now says something.** Hourly nudges stop an hour short, so a
+session that auto-ended did it in silence while up to ten hours vanished from the
+weekly total. New reminder on its own id, for timed sessions too — `EnsurePlanComplete`
+only finishes those while a client is open, so one left running overnight reaches
+the cap exactly like an open-ended one.
+
+Also: `push-registration.tsx` no longer prompts, and no longer uses the
+`await import()` that never settles on device — which is the leading explanation
+for why push registration has never once succeeded. It registers only when
+permission is already granted.
+
+11 new tests (148 total). `NEXT_PUBLIC_CLOCK_REMINDERS` must be `1`, not `fast`,
+in production.
+
 ### · Clock reminders actually fire — read the plugin off the Capacitor global
 Hourly nudges on an open-ended session and the "Time's up" alert on a timed one
 were written on 2026-08-08 and had never once worked. `syncClockReminders`

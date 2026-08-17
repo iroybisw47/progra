@@ -1,34 +1,16 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { signInWithAppleIdToken } from "@/app/actions/native-auth";
 import { Button } from "@/components/ui/button";
 import { buildNonce } from "@/lib/auth/nonce";
-import { isNativeApp } from "@/lib/native";
+import { useIsNativeApp } from "@/lib/use-is-native-app";
 
 // MODULE scope, not component state: at most one native sign-in at a time. A
 // remount would reset component state while the native sheet is still up.
 let nativeFlowInFlight = false;
-
-// Never changes: whether we're in the shell is fixed for the document's life.
-const subscribeNever = () => () => {};
-
-// Reading isNativeApp() straight in render would be a HYDRATION MISMATCH. Pages
-// are server-rendered (the shell loads progra.world), where isNativeApp() is
-// false, so the server emits no button while the native client wants one —
-// React 19 errors on that and re-renders the subtree.
-//
-// useSyncExternalStore is the fix React provides for exactly this: it uses the
-// server snapshot during SSR *and* hydration, then swaps to the client snapshot
-// immediately after. The alternative — useState(false) + useEffect(setTrue),
-// the shape AddToHomeHint uses — works too but trips
-// react-hooks/set-state-in-effect, and this repo's lint baseline of 10 must not
-// grow.
-function useIsNativeApp(): boolean {
-  return useSyncExternalStore(subscribeNever, isNativeApp, () => false);
-}
 
 // Apple's mark. Their guidelines require the logo plus "Sign in with Apple" on
 // a black or white button — a plain text button is a known 4.8 review nitpick.
