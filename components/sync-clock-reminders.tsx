@@ -4,11 +4,10 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { clockReminders } from "@/lib/clock-reminders";
-import {
-  notificationsPlugin,
-  syncClockReminders,
-} from "@/lib/clock-notifications";
+import { syncClockReminders } from "@/lib/clock-notifications";
 import { CLOCK_REMINDERS, REMINDER_HOUR_MS } from "@/lib/flags";
+import { localNotificationsPlugin } from "@/lib/native-plugins";
+import { useNotificationPermission } from "@/lib/use-notification-permission";
 
 // Keeps the device's scheduled clock reminders in step with the active session.
 //
@@ -37,6 +36,11 @@ export function SyncClockReminders({
   plannedWorkMs: number | null;
 }) {
   const router = useRouter();
+  // In the deps below, so granting permission mid-session schedules straight
+  // away. Without it a user who enables notifications while clocked in gets
+  // nothing until the next revalidate — the sync bails on a non-granted read,
+  // and no session field has changed to retrigger it.
+  const permission = useNotificationPermission();
 
   useEffect(() => {
     if (!CLOCK_REMINDERS) return;
@@ -67,7 +71,7 @@ export function SyncClockReminders({
           );
 
     void syncClockReminders(reminders);
-  }, [sessionId, startedAt, pausedMs, pausedSince, plannedWorkMs]);
+  }, [sessionId, startedAt, pausedMs, pausedSince, plannedWorkMs, permission]);
 
   // Tapping either reminder opens the live timer — both are about the running
   // session, and that's where you act on it. Separate effect so it stays
@@ -81,10 +85,9 @@ export function SyncClockReminders({
 
     void (async () => {
       try {
-        // Off the Capacitor global, same as lib/clock-notifications.ts — see
-        // the long note on plugin() there for why neither import form works on
-        // device. Null on web, where there is no listener to attach.
-        const ln = notificationsPlugin();
+        // Off the Capacitor global — see lib/native-plugins.ts for why neither
+        // import form works on device. Null on web, nothing to attach.
+        const ln = localNotificationsPlugin();
         if (!ln) return;
         const h = await ln.addListener(
           "localNotificationActionPerformed",

@@ -54,9 +54,8 @@ import {
   type SessionPlan,
 } from "@/lib/session";
 import { track } from "@/lib/analytics";
-import { canScheduleReminders } from "@/lib/clock-notifications";
 import { CLOCK_REMINDERS } from "@/lib/flags";
-import { isNativeApp } from "@/lib/native";
+import { useNotificationPermission } from "@/lib/use-notification-permission";
 import { primeTimerSound, setTimerSoundMuted } from "@/lib/timer-sound";
 import { useTimerSoundMuted } from "@/lib/use-muted";
 import { useBreakSchedule } from "./use-break-schedule";
@@ -180,18 +179,17 @@ export function LiveTimerClient({
   // Once, passively, and idempotent.
   const muted = useTimerSoundMuted();
 
-  // Reminders need notification permission, and on iOS that's the SAME
-  // authorization push already asked for — so anyone who dismissed that prompt
-  // has silently blocked these, with Settings the only cure. Say so rather
-  // than let them wonder why nothing arrives.
+  // Reminders need notification permission, and on iOS that's ONE
+  // authorization shared with push, asked once ever — so `denied` is terminal
+  // and Settings is the only cure. Say so rather than let them wonder why
+  // nothing arrives.
   //
-  // Set from an async .then(), never synchronously in the effect body: that
-  // distinction is what the lint baseline turns on.
-  const [remindersBlocked, setRemindersBlocked] = useState(false);
-  useEffect(() => {
-    if (!CLOCK_REMINDERS || !isNativeApp()) return;
-    void canScheduleReminders().then((ok) => setRemindersBlocked(!ok));
-  }, []);
+  // Only `denied` gets a message here. `prompt` deliberately says nothing yet:
+  // pointing someone at Settings before the app has ever asked is bad advice
+  // (an app that hasn't asked usually isn't listed there at all). Phase 4
+  // replaces this whole band with one that can offer to ask.
+  const permission = useNotificationPermission();
+  const remindersBlocked = CLOCK_REMINDERS && permission === "denied";
 
   useEffect(() => {
     if (!timed) return;

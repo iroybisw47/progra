@@ -1,6 +1,6 @@
-import type { LocalNotificationsPlugin } from "@capacitor/local-notifications";
-
 import { allReminderIds, type ClockReminder } from "@/lib/clock-reminders";
+import { localNotificationsPlugin } from "@/lib/native-plugins";
+import { checkNotificationPermission } from "@/lib/notification-permission";
 
 // The ONLY file that talks to @capacitor/local-notifications.
 //
@@ -14,66 +14,9 @@ import { allReminderIds, type ClockReminder } from "@/lib/clock-reminders";
 // clocking out must behave identically whether or not a reminder gets
 // scheduled; a reminder is a nicety, and it may never break the clock.
 
-// Read straight off the Capacitor global. DO NOT import this plugin.
-//
-// Both import forms fail on device: `await import(...)` never settles, and a
-// static import stalled too — impossible for a synchronous body in an async
-// wrapper, which is how we know the bundler is doing something unexplained.
-// Root cause was never established. What IS proven, from the Safari inspector
-// on the device, is that window.Capacitor.Plugins.LocalNotifications reports
-// display=granted, accepts a schedule and delivers the banner. Capacitor
-// registers plugins on that global at bridge startup, so there's no module
-// resolution and no chunk fetch that can be left pending.
-//
-// SYNCHRONOUS on purpose: a promise-returning accessor is what let the stall
-// hide as a pending await through three rounds of debugging. Off-native the
-// global is absent and this returns null, so the website and SSR are
-// unaffected.
-function plugin(): LocalNotificationsPlugin | null {
-  if (typeof window === "undefined") return null;
-  const cap = (
-    window as unknown as {
-      Capacitor?: {
-        isNativePlatform?: () => boolean;
-        Plugins?: { LocalNotifications?: LocalNotificationsPlugin };
-      };
-    }
-  ).Capacitor;
-  if (!cap?.isNativePlatform?.()) return null;
-  return cap.Plugins?.LocalNotifications ?? null;
-}
-
-// Exported for the tap listener in components/sync-clock-reminders.tsx, which
-// needs the same global read. Sharing it is what stops that file quietly
-// reintroducing an import() of its own.
-export { plugin as notificationsPlugin };
-
-// Whether a reminder could actually be delivered right now.
-//
-// On iOS local and remote notifications share ONE UNUserNotificationCenter
-// authorization, and components/push-registration.tsx already requests it for
-// every signed-in user — so this is usually already granted and no second
-// prompt appears.
-//
-// The case worth surfacing: someone who dismissed that push prompt cannot be
-// re-asked. iOS prompts once, ever, so `denied` is terminal until they change
-// it in Settings. Callers use this to explain rather than fail silently.
-export async function canScheduleReminders(): Promise<boolean> {
-  const ln = plugin();
-  if (!ln) return false;
-  try {
-    const { display } = await ln.checkPermissions();
-    if (display === "granted") return true;
-    // 'denied' is terminal — asking again shows nothing and returns denied.
-    if (display === "denied") return false;
-    // 'prompt' means it hasn't been asked on this device yet. Harmless to ask;
-    // it's the same authorization push already wanted.
-    const asked = await ln.requestPermissions();
-    return asked.display === "granted";
-  } catch {
-    return false;
-  }
-}
+// The plugin accessor lives in lib/native-plugins.ts now — see the long comment
+// there for why a Capacitor plugin must never be imported in this app.
+const plugin = localNotificationsPlugin;
 
 // Replace the scheduled set with exactly `reminders`.
 //
@@ -113,7 +56,12 @@ export async function syncClockReminders(
       lastFingerprint = fingerprint;
       return;
     }
-    if (!(await canScheduleReminders())) return;
+    // A pure read — this must NEVER prompt. It sits after the cancel on
+    // purpose: a user who has denied still needs stale reminders cleared, and
+    // returning here leaves lastFingerprint untouched, so granting permission
+    // mid-session re-syncs on the next call instead of being skipped as
+    // "unchanged".
+    if ((await checkNotificationPermission()) !== "granted") return;
 
     await ln.schedule({
       notifications: reminders.map((r) => ({
