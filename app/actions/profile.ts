@@ -11,6 +11,27 @@ import { checkUsername } from "@/lib/social/username";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 
+// Account-level, unlike the per-device reminder prefs: the push is sent by the
+// server, which knows accounts, not phones. Null = on, so the column's default
+// state and a never-touched profile are the same thing.
+export async function setSocialPushesEnabled(
+  enabled: boolean
+): Promise<{ ok: true } | { error: string }> {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ social_pushes_enabled: enabled })
+    .eq("id", user.id);
+
+  if (error) return { error: error.message };
+  // Settings re-reads the profile for the row's initial state on next visit.
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
 export async function setProfileTimezone(
   timezone: string
 ): Promise<{ ok: true } | { error: string }> {

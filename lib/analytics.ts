@@ -29,7 +29,8 @@ export type AnalyticsEvent =
   | "notification_settings_opened" // { source, state }
   | "clock_reminders_toggled" // { enabled }
   | "habit_reminder_toggled" // { enabled }
-  | "habit_reminder_time_changed"; // { time }
+  | "habit_reminder_time_changed" // { time }
+  | "social_pushes_toggled"; // { enabled }
 
 type Props = Record<string, string | number | boolean | null>;
 

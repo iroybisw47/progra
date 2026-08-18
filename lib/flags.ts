@@ -74,6 +74,13 @@ export const CLOCK_REMINDERS =
 // it's tested by picking a time two minutes out.
 export const HABIT_REMINDERS = envFlag(process.env.NEXT_PUBLIC_HABIT_REMINDERS);
 
+// Master switch for server-sent social pushes ("X liked your session") AND
+// the Settings row that opts out of them. NEXT_PUBLIC_ per this file's
+// convention — the toggle row is client-gated, and the server-side sender
+// reads the same inlined constant. Ships dark; delivery additionally requires
+// the APNS_* server env vars, so flipping this without them is a logged no-op.
+export const SOCIAL_PUSH = envFlag(process.env.NEXT_PUBLIC_SOCIAL_PUSH);
+
 // How long an "hour" is for the hourly nudge. Only ever anything else in test
 // mode; lib/clock-reminders.ts stays pure and takes this as an argument rather
 // than reading the flag itself.

@@ -21,9 +21,8 @@ import { useNotificationPermission } from "@/lib/use-notification-permission";
 // push registration has never once succeeded. The plugin now comes off the
 // Capacitor global; see lib/native-plugins.ts.
 //
-// Registering is still worth doing with no sender in existence: it stores a
-// token so a future sender has an audience. It just must never be the thing
-// that asks.
+// The sender is lib/push/send-social-push.ts (likes/comments). Registration
+// must still never be the thing that asks for permission.
 //
 // Mounted only for signed-in users — saveDeviceToken stores the token against
 // the current user, so registering while signed out would just fail auth.
@@ -72,9 +71,10 @@ export function PushRegistration() {
       });
       handles.push(onError);
 
-      // No `pushNotificationReceived` / `pushNotificationActionPerformed`
-      // listeners yet — nothing sends a push, so there is nothing to receive or
-      // route. Tap-to-route is its own feature, to be built with the sender.
+      // Tap-to-route lives in components/notification-tap-router.tsx (one
+      // routing component for every notification family); foreground display
+      // is native via capacitor.config presentationOptions. Nothing to attach
+      // here — this component only registers.
 
       if (cancelled) {
         handles.forEach((h) => h.remove());

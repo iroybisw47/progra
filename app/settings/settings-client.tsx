@@ -7,6 +7,7 @@ import {
   CalendarIcon,
   CheckSquareIcon,
   ChevronRightIcon,
+  HeartIcon,
   ClockIcon,
   FlagIcon,
   ListIcon,
@@ -36,11 +37,12 @@ import {
   disconnectGoogleCalendar,
   setProfileIdentity,
   setProfileTimezone,
+  setSocialPushesEnabled,
   setUsername,
 } from "@/app/actions/profile";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { track } from "@/lib/analytics";
-import { CLOCK_REMINDERS, HABIT_REMINDERS } from "@/lib/flags";
+import { CLOCK_REMINDERS, HABIT_REMINDERS, SOCIAL_PUSH } from "@/lib/flags";
 import {
   habitReminderPref,
   setHabitReminderPref,
@@ -95,6 +97,7 @@ export function SettingsClient({
   avatarPath,
   calendarConnected,
   calendarStatus,
+  socialPushesEnabled,
   isAdmin,
   openReports,
 }: {
@@ -107,6 +110,8 @@ export function SettingsClient({
   calendarConnected: boolean;
   // One-shot return status from the connect flow (?calendar=connected|error).
   calendarStatus: "connected" | "error" | null;
+  // Account-level social-push opt-out; null = on (column default).
+  socialPushesEnabled: boolean | null;
   isAdmin: boolean;
   openReports: number;
 }) {
@@ -280,7 +285,7 @@ export function SettingsClient({
             website. `null` (not read yet) and "unavailable" (no plugin) both
             land here, which is also what keeps SSR and the first client render
             in agreement. */}
-        <NotificationsSection />
+        <NotificationsSection socialPushesEnabled={socialPushesEnabled} />
 
         {/* Sharing */}
         <section className="flex flex-col gap-2">
@@ -434,10 +439,14 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // Renders nothing off-native. `null` means "not read yet" and is also the
 // server snapshot, so SSR and the first client render agree — the section
 // simply does not exist on progra.world.
-function NotificationsSection() {
+function NotificationsSection({
+  socialPushesEnabled,
+}: {
+  socialPushesEnabled: boolean | null;
+}) {
   const permission = useNotificationPermission();
 
-  if (!CLOCK_REMINDERS && !HABIT_REMINDERS) return null;
+  if (!CLOCK_REMINDERS && !HABIT_REMINDERS && !SOCIAL_PUSH) return null;
   if (permission === null || permission === "unavailable") return null;
 
   const value =
@@ -501,6 +510,12 @@ function NotificationsSection() {
               granted: until then the ask/denied rows above govern everything,
               and a time picker for notifications that can't arrive is noise. */}
           {HABIT_REMINDERS && permission === "granted" && <HabitReminderRow />}
+          {/* Account-level (the server sends these, and servers know accounts,
+              not phones) — but only shown once granted, like the rows above: a
+              toggle for notifications that can't arrive here is noise. */}
+          {SOCIAL_PUSH && permission === "granted" && (
+            <SocialPushRow initialEnabled={socialPushesEnabled !== false} />
+          )}
 
           {/* Same pl-[26px] inset the Google Calendar rows use, so the
               explanation lines up under the label rather than the icon. */}
@@ -569,6 +584,42 @@ function HabitReminderRow() {
           />
         </div>
       )}
+    </>
+  );
+}
+
+// Server-sent likes/comments pushes, account-level. Optimistic: flip locally,
+// revert on a failed save — the pattern the identity dialog uses, minus the
+// dialog.
+function SocialPushRow({ initialEnabled }: { initialEnabled: boolean }) {
+  const [enabled, setEnabled] = useState(initialEnabled);
+
+  return (
+    <>
+      <div className="flex items-center gap-2.5">
+        <HeartIcon className="text-caption size-4 shrink-0" />
+        <span className="text-sm font-medium">Likes &amp; comments</span>
+        <span className="ml-auto">
+          <ToggleSwitch
+            ariaLabel="Like and comment notifications"
+            checked={enabled}
+            onCheckedChange={(next) => {
+              setEnabled(next);
+              track("social_pushes_toggled", { enabled: next });
+              void setSocialPushesEnabled(next).then((r) => {
+                if ("error" in r) {
+                  setEnabled(!next);
+                  toast.error("Couldn't save — try again.");
+                }
+              });
+            }}
+          />
+        </span>
+      </div>
+      <p className="text-caption pl-[26px] text-xs leading-relaxed text-pretty">
+        When a friend likes or comments on your session. Applies to all your
+        devices.
+      </p>
     </>
   );
 }

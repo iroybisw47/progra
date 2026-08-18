@@ -37,6 +37,7 @@ export default async function SettingsPage({
       timezone={profile?.timezone ?? null}
       avatarPath={profile?.avatar_path ?? null}
       calendarConnected={isCalendarConnected(profile)}
+      socialPushesEnabled={profile?.social_pushes_enabled ?? null}
       calendarStatus={
         params.calendar === "connected" || params.calendar === "error"
           ? params.calendar

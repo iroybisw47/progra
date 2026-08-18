@@ -3,9 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { CLOCK_REMINDERS, HABIT_REMINDERS } from "@/lib/flags";
+import { CLOCK_REMINDERS, HABIT_REMINDERS, SOCIAL_PUSH } from "@/lib/flags";
 import { isHabitReminderId } from "@/lib/habit-reminders";
-import { localNotificationsPlugin } from "@/lib/native-plugins";
+import {
+  localNotificationsPlugin,
+  pushNotificationsPlugin,
+} from "@/lib/native-plugins";
 
 // Where a tapped notification lands. ONE listener for every family, routing by
 // the notification's reserved id — two leaves each attaching their own
@@ -39,6 +42,46 @@ export function NotificationTapRouter() {
             router.push(
               isHabitReminderId(event.notification?.id) ? "/" : "/clock/live"
             )
+        );
+        if (cancelled) h.remove();
+        else handle = h;
+      } catch {
+        // Web, or the plugin is unavailable. Nothing to attach.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      handle?.remove();
+    };
+  }, [router]);
+
+  // Remote pushes (likes/comments), in their OWN effect so the local-flags
+  // early-return above can never take this listener down with it. The payload
+  // carries the in-app path as a custom `url` key; only a same-origin path is
+  // followed — anything else (missing, absolute, protocol-relative) lands on
+  // Home, because the tap must go SOMEWHERE.
+  useEffect(() => {
+    if (!SOCIAL_PUSH) return;
+    let handle: { remove: () => void } | null = null;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const pn = pushNotificationsPlugin();
+        if (!pn) return;
+        const h = await pn.addListener(
+          "pushNotificationActionPerformed",
+          (event) => {
+            const url = event.notification?.data?.url as unknown;
+            router.push(
+              typeof url === "string" &&
+                url.startsWith("/") &&
+                !url.startsWith("//")
+                ? url
+                : "/"
+            );
+          }
         );
         if (cancelled) h.remove();
         else handle = h;

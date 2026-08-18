@@ -6,6 +6,74 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-18
 
+### · Like/comment pushes — the first notifications Progra SENDS — **requires SQL (run by hand, before deploy)**
+```sql
+alter table public.profiles add column social_pushes_enabled boolean;
+
+create table public.push_log (
+  key text primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  sent_at timestamptz not null default now()
+);
+alter table public.push_log enable row level security;
+revoke all on table public.push_log from anon, authenticated;
+```
+`push_log` gets NO policies on purpose — RLS-enabled-with-none makes it
+invisible to every client; only the service role touches it. After running,
+verify `public_profiles` doesn't expose the new column (it's column-explicit
+today): `select pg_get_viewdef('public.public_profiles', true);`
+
+**What it does.** A friend likes or comments on your session → your iPhone
+says so ("Maya P. — liked your session \"Math revision\"", "commented on …: …").
+Behind `NEXT_PUBLIC_SOCIAL_PUSH`; delivery additionally needs `APNS_TEAM_ID`,
+`APNS_KEY_ID`, `APNS_PRIVATE_KEY_B64` (base64 of the .p8 — hosting env UIs
+mangle PEM newlines) in the server env, plus optional `APNS_HOST` to point a
+dev-signed build at the sandbox host.
+
+**The sender is hand-rolled, zero deps.** APNs requires HTTP/2 (Node's fetch
+is HTTP/1.1-only) and an ES256 provider JWT — both are a handful of lines on
+node:http2 and node:crypto (`dsaEncoding: "ieee-p1363"`, the raw r||s form;
+Apple rejects DER). The JWT mint is pure and signature-verified in tests with
+a throwaway P-256 keypair. Sends carry `apns-expiration` +1 day and a 10s
+socket timeout so a hung connection can't pin the serverless invocation.
+
+**Fire-and-forget by construction.** The actions call `after()` (next/server →
+Vercel waitUntil) — the like/comment response is already sent before the push
+work starts, and the orchestrator never throws. It resolves the recipient
+itself (the action adds zero pre-response work) via the service-role client:
+the recipient's tokens and opt-out are owner-only rows, and the recipient is
+precisely not the caller. The authorization proof is that the like/comment
+write already succeeded under RLS — checked before any admin read, the
+uploadSessionPhoto discipline. This is the SECOND sanctioned service-role use;
+lib/supabase/admin.ts's comment now lists both.
+
+**Dedupe = the push_log primary key, claimed before sending.** Likes:
+`like:{actor}:{session}` — heart off/on (or 👍 then 🔥) never re-pings, and
+since toggle-off deletes the reaction row, the log is the only memory.
+Comments: `comment:{commentId}` — a genuine second comment IS news and pushes.
+The claim is an ignoreDuplicates upsert, so concurrent toggles race on the
+key, not on read-then-write. At-most-once: a failed send burns its slot.
+
+**Dead tokens self-clean.** 410 Unregistered — or the 400/BadDeviceToken a
+sandbox token earns at the production host — deletes that device_tokens row;
+a live device re-registers on next open. Beta runs App Store builds, so the
+production host is the default. Note for dev: an Xcode-signed build's token
+will be deleted on its first prod-host push and reappear on next app open —
+tokens "disappearing" in dev is this, working.
+
+**Settings → Notifications** gains an account-level "Likes & comments" toggle
+(null = on, so all existing rows default on) — account-level because the
+server sends these, and servers know accounts, not phones. Tap routing: the
+push payload carries `url`, and NotificationTapRouter follows it only if it's
+a same-origin path; anything else lands on Home.
+
+Also the first real delivery doubles as the first proof that push
+registration ever stored a token — `select * from device_tokens` before
+testing; an empty table means the registration path needs on-device debugging
+first.
+
+10 new tests (180 total).
+
 ### · Daily habit reminder — "You haven't checked off Reading, Meditation today"
 The second notification family, behind `NEXT_PUBLIC_HABIT_REMINDERS`. A local
 notification at a user-chosen time (default 18:00) on days with unchecked

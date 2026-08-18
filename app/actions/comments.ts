@@ -1,6 +1,9 @@
 "use server";
 
+import { after } from "next/server";
+
 import { revalidateSocialSurfaces } from "@/lib/revalidate";
+import { sendSocialPush } from "@/lib/push/send-social-push";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { COMMENT_MAX_LENGTH } from "@/lib/social/comments";
@@ -27,17 +30,37 @@ export async function addComment(
   }
   if (!sessionId) return { error: "Couldn't post comment." };
 
-  const { error } = await supabase.from("session_comments").insert({
-    session_id: sessionId,
-    author_id: user.id,
-    body: trimmed,
-  });
+  // `.select("id")` so the push dedupe can key on the comment — every comment
+  // is news, unlike a re-toggled like. The author can select their own comment
+  // on a visible session under the existing RLS.
+  const { data: inserted, error } = await supabase
+    .from("session_comments")
+    .insert({
+      session_id: sessionId,
+      author_id: user.id,
+      body: trimmed,
+    })
+    .select("id")
+    .single();
 
   if (error) {
     // Kept generic: a policy denial here means the session isn't visible to the
     // author, and we don't confirm whether it exists / is private / is blocked.
     return { error: "Couldn't post comment." };
   }
+
+  // Push AFTER the response — see toggleReaction for the shape and the
+  // authorization argument. The insert succeeding is the proof.
+  after(() =>
+    sendSocialPush({
+      kind: "comment",
+      sessionId,
+      actorId: user.id,
+      commentId: (inserted as { id: string } | null)?.id ?? null,
+      body: trimmed,
+    })
+  );
+
   revalidateSocialSurfaces();
   return { ok: true };
 }

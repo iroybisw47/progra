@@ -413,19 +413,25 @@ durably.
   `createSession` is deliberately uncapped. **`week_leaderboard` re-implements
   the cap in SQL** — the `36000000` literal there and `SESSION_CAP_MS` must move
   together.
-- **Service-role key: one narrow, server-only use.** All privileged/admin power
+- **Service-role key: two narrow, server-only uses.** All privileged/admin power
   is otherwise `SECURITY DEFINER` RPCs gated by a single `is_admin()` helper
   (holds one UUID). `/admin` checks `is_admin()` to render *and* every `admin_*`
   RPC re-checks it (defense in depth), so a direct RPC call from a non-admin fails
-  even if the endpoint leaks. The **one** exception is the session-photo storage
-  *write* (`lib/supabase/admin.ts`, used only by `uploadSessionPhoto`): this
-  project's Storage service does not authorize uploads from a valid user JWT (it
-  treats authenticated tokens as anon at the storage layer, independent of the
-  JWT signing algorithm — reads via signed URLs are unaffected). The action
-  authenticates the user and verifies session ownership *before* the admin write,
-  so the authorization the bucket's INSERT RLS would enforce is done in code. The
-  key lives in `SUPABASE_SERVICE_ROLE_KEY` (server env only, never `NEXT_PUBLIC_`,
-  never in a client bundle).
+  even if the endpoint leaks. Both sanctioned uses share one discipline — the
+  caller authenticates and authorizes *before* the admin client touches anything,
+  so the check RLS would have made is done explicitly in code:
+  **(1)** the session-photo storage *write* (`lib/supabase/admin.ts`, used by
+  `uploadSessionPhoto`): this project's Storage service does not authorize
+  uploads from a valid user JWT (it treats authenticated tokens as anon at the
+  storage layer, independent of the JWT signing algorithm — reads via signed
+  URLs are unaffected); the action verifies session ownership first.
+  **(2)** the social-push sender (`lib/push/send-social-push.ts`): it reads the
+  *recipient's* `device_tokens` and `profiles.social_pushes_enabled` — owner-only
+  rows, and the recipient is precisely not the caller — plus writes `push_log`
+  and deletes dead tokens; it runs only inside `after()` from an action whose
+  like/comment write already succeeded under RLS, which is the proof the actor
+  may see that session. The key lives in `SUPABASE_SERVICE_ROLE_KEY` (server env
+  only, never `NEXT_PUBLIC_`, never in a client bundle).
 - **Take-down = hide.** `admin_take_down_story` nulls `sessions.photo_path`, so
   `can_see_session_photo` no longer matches the object and stops serving the blob;
   `admin_delete_comment` deletes the row. Blob purge from Storage is deferred
@@ -504,6 +510,32 @@ durably.
 > Append one entry per work session / feature set. Keep it terse: what changed
 > architecturally, why, and any new invariant or migration. Seeded from git
 > history; entries before this file existed are reconstructed.
+
+### 2026-08-18 — Like/comment pushes (first SERVER-SENT notifications) **(requires SQL, run by hand)**
+- `alter table profiles add column social_pushes_enabled boolean` (null = on) and
+  a `push_log` table (`key text primary key, user_id, sent_at`) — RLS enabled
+  with **no policies**, service-role only. SQL to be run by hand; not yet
+  confirmed run at time of writing.
+- The sender is hand-rolled, zero deps: APNs requires HTTP/2 (Node fetch is
+  HTTP/1.1-only) and an ES256 provider JWT — `lib/push/apns-jwt.ts` (pure,
+  signature-verified in tests) + `lib/push/apns.ts` (node:http2, 10s timeout,
+  `apns-expiration` +1d, JWT cached ~50min). Env: `APNS_TEAM_ID`, `APNS_KEY_ID`,
+  `APNS_PRIVATE_KEY_B64`, optional `APNS_HOST` (sandbox for dev builds).
+- Fire-and-forget via next/server `after()` (first use in the repo): the
+  like/comment response is sent before push work starts; the orchestrator
+  (`lib/push/send-social-push.ts`) never throws and resolves the recipient
+  itself, so the actions add zero pre-response work.
+- New invariant: the service-role bullet in §9 is now **two** sanctioned uses —
+  the push sender reads the recipient's owner-only rows under the same
+  authorize-before-admin discipline (supersedes "one narrow use", 2026-07-30 era).
+- Dedupe = push_log's primary key, claimed by ignoreDuplicates-upsert BEFORE
+  sending (at-most-once): likes once per (actor, session) — the reaction row is
+  gone after toggle-off, so the log is the only memory; comments per commentId
+  (a real second comment pushes). Dead tokens (410 / BadDeviceToken) delete
+  their `device_tokens` row; devices re-register on next open.
+- Account-level opt-out row in Settings (null = on); tap routing follows the
+  payload's `url` only when it's a same-origin path.
+- Behind `NEXT_PUBLIC_SOCIAL_PUSH`.
 
 ### 2026-08-18 — Daily habit reminder (second notification family)
 - A local notification at a user-chosen time (default 18:00) on days with
