@@ -3,6 +3,8 @@ import "server-only";
 import { cache } from "react";
 
 import { getCurrentUser } from "@/lib/auth/require-user";
+import { getProfile } from "@/lib/auth/profile";
+import { todayInTimeZone } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/server";
 
 export type Habit = {
@@ -128,6 +130,42 @@ export const getHabitsWithTodayStatus = cache(async (
     completedToday: doneIds.has(h.id),
   }));
 });
+
+// What the root layout's habit-reminder sync leaf needs: today's date (in the
+// profile timezone — the same "today" every habit surface uses), all active
+// habit names, and the unchecked subset. Null when signed out.
+//
+// getProfile() is awaited HERE rather than in the layout so this can sit in
+// the layout's existing Promise.all without serializing the other reads —
+// both it and the habit reads are cache()'d, so everything dedupes with the
+// Home page render anyway.
+//
+// Private habits are included on purpose: is_private governs what FRIENDS
+// see, not the owner's own lock screen — these notifications are scheduled on
+// and delivered to the owner's device only.
+export type HabitReminderData = {
+  statusDate: string;
+  activeNames: string[];
+  uncheckedNames: string[];
+};
+
+export const getHabitReminderData = cache(
+  async (): Promise<HabitReminderData | null> => {
+    const me = await getCurrentUser();
+    if (!me) return null;
+    const profile = await getProfile();
+    const tz = profile?.timezone ?? "UTC";
+    const statusDate = todayInTimeZone(tz);
+    const withStatus = await getHabitsWithTodayStatus(statusDate);
+    return {
+      statusDate,
+      activeNames: withStatus.map((h) => h.habit.name),
+      uncheckedNames: withStatus
+        .filter((h) => !h.completedToday)
+        .map((h) => h.habit.name),
+    };
+  }
+);
 
 // Returns all habit completions for a given local date. Currently unused —
 // kept for the future day-overview integration outside the dashboard.

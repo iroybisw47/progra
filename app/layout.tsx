@@ -9,13 +9,17 @@ import { PushRegistration } from "@/components/push-registration";
 import { Toaster } from "@/components/ui/sonner";
 import { EnsurePlanComplete } from "@/components/ensure-plan-complete";
 import { PostHogInit } from "@/components/posthog-init";
+import { NotificationTapRouter } from "@/components/notification-tap-router";
 import { SyncClockReminders } from "@/components/sync-clock-reminders";
+import { SyncHabitReminders } from "@/components/sync-habit-reminders";
 import { PlanCompleteModal } from "@/components/v2/plan-complete-modal";
 import {
   getActiveSession,
   getUnreviewedPlanComplete,
 } from "@/lib/db/sessions";
+import { getHabitReminderData } from "@/lib/db/habits";
 import { getNavBadges } from "@/lib/db/notifications";
+import { HABIT_REMINDERS } from "@/lib/flags";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 
@@ -75,7 +79,7 @@ export default async function RootLayout({
   // page; the auth read inside each is shared via cache(). The profile feeds
   // EnsureProfileSync's stored-timezone comparison (and is free on routes that
   // fetch it anyway).
-  const [user, activeSession, profile, navBadges, planComplete] =
+  const [user, activeSession, profile, navBadges, planComplete, habitData] =
     await Promise.all([
       getOptionalUser(),
       getActiveSession(),
@@ -83,6 +87,10 @@ export default async function RootLayout({
       getNavBadges(),
       // Null on the common path — the partial index makes it a cheap miss.
       getUnreviewedPlanComplete(),
+      // Feeds the habit-reminder sync leaf. It awaits getProfile internally
+      // (cache()'d, shared with the read above), so it can sit here without
+      // serializing the others. Skipped entirely while the flag is dark.
+      HABIT_REMINDERS ? getHabitReminderData() : Promise.resolve(null),
     ]);
   return (
     <html
@@ -160,6 +168,21 @@ export default async function RootLayout({
             plannedWorkMs={activeSession?.plannedWorkMs ?? null}
           />
         )}
+        {/* Same flat-primitives rule as the clock leaf: the name lists ride
+            in as "\n"-joined strings, so the effect re-runs only when the
+            habit data actually changes. Habit toggles reach it because
+            revalidateHabitSurfaces revalidates the layout. */}
+        {user && (
+          <SyncHabitReminders
+            uncheckedNames={habitData?.uncheckedNames.join("\n") ?? ""}
+            activeNames={habitData?.activeNames.join("\n") ?? ""}
+            statusDate={habitData?.statusDate ?? null}
+          />
+        )}
+        {/* One listener for every notification family — routes a tap by its
+            reserved id. Lives outside the sync leaves so it survives either
+            flag being off. */}
+        {user && <NotificationTapRouter />}
         {/* Gated on `user`: the push token is stored against the current
             user, so there's nothing to save until someone is signed in.
             No-op on web. */}

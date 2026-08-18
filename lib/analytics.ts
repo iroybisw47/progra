@@ -27,7 +27,9 @@ export type AnalyticsEvent =
   | "notification_permission_asked" // { source, result }
   | "notification_permission_skipped" // { source, state }
   | "notification_settings_opened" // { source, state }
-  | "clock_reminders_toggled"; // { enabled }
+  | "clock_reminders_toggled" // { enabled }
+  | "habit_reminder_toggled" // { enabled }
+  | "habit_reminder_time_changed"; // { time }
 
 type Props = Record<string, string | number | boolean | null>;
 

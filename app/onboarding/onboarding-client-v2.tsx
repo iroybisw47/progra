@@ -29,6 +29,11 @@ import { cn } from "@/lib/utils";
 
 import { createGoal } from "@/app/actions/goals";
 import { createHabit } from "@/app/actions/habits";
+import { HABIT_REMINDERS } from "@/lib/flags";
+import {
+  DEFAULT_HABIT_REMINDER_TIME,
+  setHabitReminderPref,
+} from "@/lib/habit-reminder-prefs";
 import {
   completeOnboarding,
   setProfileIdentity,
@@ -169,6 +174,10 @@ export function OnboardingClientV2({
   // Habits.
   const [picked, setPicked] = useState<{ name: string; color: string }[]>([]);
   const [habitDraft, setHabitDraft] = useState("");
+  // The habit step's reminder time (shell + granted only). Saved with the
+  // habits; leaving the step untouched keeps the device default (on at 18:00,
+  // inert until habits exist).
+  const [reminderTime, setReminderTime] = useState(DEFAULT_HABIT_REMINDER_TIME);
   const [hint, setHint] = useState<string | null>(null);
 
   const go = (i: number) =>
@@ -295,6 +304,12 @@ export function OnboardingClientV2({
         }
       }
       setHabitDraft("");
+      // The reminder choice rides along with the habits it's about. Written
+      // even when it equals the default: choosing 18:00 IS a choice, and the
+      // write is what a replayed onboarding uses to overwrite an old pick.
+      if (HABIT_REMINDERS && native && notifyPermission === "granted") {
+        setHabitReminderPref({ enabled: true, time: reminderTime });
+      }
       go(next);
     });
   }
@@ -729,6 +744,11 @@ export function OnboardingClientV2({
                 <NotifyLine>
                   An alert when a timed session reaches its target
                 </NotifyLine>
+                {HABIT_REMINDERS && (
+                  <NotifyLine>
+                    A daily reminder for habits you haven&rsquo;t checked off
+                  </NotifyLine>
+                )}
                 <NotifyLine>
                   Nothing else — no streaks, no marketing
                 </NotifyLine>
@@ -978,6 +998,32 @@ export function OnboardingClientV2({
                   + Add
                 </button>
               </div>
+              {/* An inline row rather than its own step: the steps array
+                  changing length mid-flow is exactly what the `native` gate
+                  was designed to avoid, and this is one input. Shell + granted
+                  only — a time picker for notifications that can't arrive is
+                  noise; Settings has the full control either way. Saved by
+                  saveHabits, so skipping the step keeps the default. */}
+              {HABIT_REMINDERS &&
+                native &&
+                notifyPermission === "granted" &&
+                (picked.length > 0 || habitDraft.trim() !== "") && (
+                  <div className="border-control-border flex items-center gap-2.5 rounded-2xl border-[1.5px] px-4 py-3">
+                    <span className="text-caption flex-1 text-[13px] leading-[1.5]">
+                      Remind me at
+                      <span className="text-faint"> (6pm works well)</span>
+                    </span>
+                    <input
+                      type="time"
+                      value={reminderTime}
+                      onChange={(e) => {
+                        if (!e.target.value) return;
+                        setReminderTime(e.target.value);
+                      }}
+                      className="border-hairline text-ink rounded-lg border px-2 py-1 text-sm font-medium tabular-nums"
+                    />
+                  </div>
+                )}
             </div>
           </StepBody>
         )}

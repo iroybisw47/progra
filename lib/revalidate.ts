@@ -74,12 +74,14 @@ export function revalidateGoalSurfaces() {
   revalidateDynamicSessionPages();
 }
 
+// Habits render on /habits, Home, /me, onboarding and profiles — but the
+// layout revalidation below is a strict superset of that page list, and it's
+// load-bearing: the root layout feeds SyncHabitReminders, so every habit
+// mutation (toggle, create, archive, rename) must re-render the layout for
+// the device's scheduled reminders to follow. Page-type revalidation would
+// not re-render the layout.
 export function revalidateHabitSurfaces() {
-  revalidatePath("/habits");
-  revalidatePath("/");
-  revalidatePath("/me");
-  revalidatePath("/onboarding");
-  revalidatePath("/profile/[username]", "page");
+  revalidatePath("/", "layout");
 }
 
 // Calendar events + their categorizations/exclusions.

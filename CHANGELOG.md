@@ -4,6 +4,64 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-08-18
+
+### · Daily habit reminder — "You haven't checked off Reading, Meditation today"
+The second notification family, behind `NEXT_PUBLIC_HABIT_REMINDERS`. A local
+notification at a user-chosen time (default 18:00) on days with unchecked
+habits, naming them ("Reading, Meditation and 2 more"), singular/plural aware.
+
+**The scheduling idea.** A local notification must be scheduled before the
+moment it describes, but "did they check their habits?" is only knowable while
+the app runs. So every sync writes a week: TODAY fires only if something is
+unchecked right now (checking the last habit re-syncs and cancels it); days
+1–6 are scheduled unconditionally, because a new day starts all-unchecked —
+which is also the retention property: someone who stops opening the app keeps
+being nudged for seven days, not one. Ids 9201–9207, beside the clock's
+9001/9002/9101–9110.
+
+**One engine, two families.** The cancel-then-schedule mechanics moved from
+`lib/clock-notifications.ts` into `createReminderSync` (lib/notification-sync.ts),
+because the invariants are exactly what must not drift between copies. Two of
+them tightened in the move: the fingerprint now covers title+body, not just
+`id@at` — checking one of three habits changes only today's body, which the old
+fingerprint would have skipped as "unchanged" — and it starts as `null`, not
+`""`, so the FIRST sync after a relaunch always cancels (an empty list also
+fingerprints to `""`; with notifications deliberately outliving launches, a
+session that ended while the app was killed would otherwise keep its stale
+nudges — a latent clock bug this fixes too).
+
+**Tap routing** moved to its own leaf (`NotificationTapRouter`), discriminating
+by reserved id: habit taps open the dashboard checklist, clock taps (and
+anything unrecognised) still open /clock/live. Inside SyncClockReminders it
+would have routed habit taps to the live timer — and died entirely with
+CLOCK_REMINDERS off.
+
+**The pref is per-device** (`progra.habit-reminder` in localStorage), like the
+clock's, but standing rather than session-scoped: `{off?, time?}`, absent keys
+meaning the default — ON at 18:00. That default is the product decision: beta
+users who granted permission before this feature existed start getting it with
+no trip to Settings, and Settings → Notifications (a toggle plus a time input,
+shown once granted) is the way out. Onboarding asks on the habit step itself —
+an inline "Remind me at [18:00]" row, shell + granted only — rather than a new
+step, because the steps array changing length mid-flow is what the `native`
+gate exists to avoid. The notify step's promise list gained the daily reminder
+line, above a still-true "Nothing else".
+
+**"Unchecked today" is computed server-side** in the profile timezone and rides
+into the root layout leaf as flat "\n"-joined strings; fire instants are built
+from device-local Date parts (DST-safe, month rollover via the Date
+constructor). A `statusDate` guard covers the seam: if the server's list
+describes some other day than the device's today — a stale payload straddling
+midnight — day 0 falls back to all-active, the truth a new day starts with.
+`revalidateHabitSurfaces()` now revalidates the layout (a strict superset of
+its old page list), because page-type revalidation never re-renders the root
+layout — so every toggle/create/archive/rename path re-syncs the device through
+the one leaf, wired or not.
+
+22 new tests (170 total). Enable with `NEXT_PUBLIC_HABIT_REMINDERS=1` in
+production.
+
 ## 2026-08-16
 
 ### · Notifications: ask once, ask well — and let people turn them off

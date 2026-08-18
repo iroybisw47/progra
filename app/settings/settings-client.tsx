@@ -19,6 +19,7 @@ import { AvatarInitials } from "@/components/avatar-initials";
 import { AvatarPicker } from "@/components/avatar-picker";
 import { HoldToDelete } from "@/components/v2/hold-to-delete";
 import { ReplayOnboardingButton } from "@/components/replay-onboarding-button";
+import { ToggleSwitch } from "@/components/v2/toggle-switch";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -39,7 +40,12 @@ import {
 } from "@/app/actions/profile";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { track } from "@/lib/analytics";
-import { CLOCK_REMINDERS } from "@/lib/flags";
+import { CLOCK_REMINDERS, HABIT_REMINDERS } from "@/lib/flags";
+import {
+  habitReminderPref,
+  setHabitReminderPref,
+} from "@/lib/habit-reminder-prefs";
+import { useHabitReminderPref } from "@/lib/use-habit-reminder-pref";
 import {
   openNotificationSettings,
   requestNotificationPermission,
@@ -431,7 +437,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function NotificationsSection() {
   const permission = useNotificationPermission();
 
-  if (!CLOCK_REMINDERS) return null;
+  if (!CLOCK_REMINDERS && !HABIT_REMINDERS) return null;
   if (permission === null || permission === "unavailable") return null;
 
   const value =
@@ -468,7 +474,7 @@ function NotificationsSection() {
       <p className={SECTION}>Notifications</p>
       <Card>
         <CardContent className="flex flex-col gap-2 py-4">
-          {onClick ? (
+          {CLOCK_REMINDERS && (onClick ? (
             <button
               type="button"
               onClick={onClick}
@@ -489,11 +495,16 @@ function NotificationsSection() {
                 {value}
               </span>
             </div>
-          )}
+          ))}
+          {/* Not gated on CLOCK_REMINDERS — the permission plumbing above is
+              shared, but the habit reminder is its own feature. Only shown once
+              granted: until then the ask/denied rows above govern everything,
+              and a time picker for notifications that can't arrive is noise. */}
+          {HABIT_REMINDERS && permission === "granted" && <HabitReminderRow />}
 
           {/* Same pl-[26px] inset the Google Calendar rows use, so the
               explanation lines up under the label rather than the icon. */}
-          {permission === "granted" && (
+          {CLOCK_REMINDERS && permission === "granted" && (
             <p className="text-caption pl-[26px] text-xs leading-relaxed text-pretty">
               A nudge each hour you&rsquo;re still clocked in, and an alert when
               a timed session reaches its target.
@@ -508,6 +519,57 @@ function NotificationsSection() {
         </CardContent>
       </Card>
     </section>
+  );
+}
+
+// The daily habit reminder: on/off and the fire time, both per-device
+// (lib/habit-reminder-prefs.ts — scheduled on the device, so the preference is
+// a statement about this phone). Defaults to on at 18:00, which makes this row
+// the way out for anyone who never chose in onboarding.
+function HabitReminderRow() {
+  const pref = useHabitReminderPref();
+
+  return (
+    <>
+      <div className="flex items-center gap-2.5">
+        <CheckSquareIcon className="text-caption size-4 shrink-0" />
+        <span className="text-sm font-medium">Daily habit reminder</span>
+        <span className="ml-auto">
+          <ToggleSwitch
+            ariaLabel="Daily habit reminder"
+            checked={pref.enabled}
+            onCheckedChange={(next) => {
+              // habitReminderPref() re-read rather than closing over `pref`, so
+              // a toggle right after a time change can't resurrect a stale time.
+              setHabitReminderPref({ ...habitReminderPref(), enabled: next });
+              track("habit_reminder_toggled", { enabled: next });
+            }}
+          />
+        </span>
+      </div>
+      {pref.enabled && (
+        <div className="flex items-center gap-2.5 pl-[26px]">
+          <span className="text-caption text-xs leading-relaxed">
+            On days you haven&rsquo;t checked off all your habits, at
+          </span>
+          <input
+            type="time"
+            value={pref.time}
+            onChange={(e) => {
+              // <input type="time"> can emit "" mid-edit (a cleared field);
+              // keep the previous time rather than storing garbage.
+              if (!e.target.value) return;
+              setHabitReminderPref({
+                ...habitReminderPref(),
+                time: e.target.value,
+              });
+              track("habit_reminder_time_changed", { time: e.target.value });
+            }}
+            className="border-hairline text-ink ml-auto rounded-lg border px-2 py-1 text-sm tabular-nums"
+          />
+        </div>
+      )}
+    </>
   );
 }
 
