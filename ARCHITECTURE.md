@@ -11,7 +11,7 @@
 > first. When code and this doc disagree, the code wins — and the doc should be
 > fixed in the same session.
 >
-> _Last updated: 2026-07-31_
+> _Last updated: 2026-08-18_
 
 ---
 
@@ -244,6 +244,32 @@ numbers reconcile across every surface.
   **wall-clock** in the user's tz — resolved with the same two-pass DST offset as
   `zonedDayStartMs`, so it's correct even on a spring-forward Sunday).
 
+- **`lib/clock-reminders.ts` + `lib/habit-reminders.ts` — on-device
+  notification decisions.** Both answer "which local notifications should be
+  scheduled, at which wall-clock instants" as pure functions; nothing about
+  Capacitor or `window` leaks in. Clock: hourly nudges on open-ended sessions
+  (worked-time marks converted via `plannedEndMs`, the same arithmetic as the
+  on-screen countdown so they can't disagree), a "Time's up" for timed
+  sessions, a cap announcement. Habits: one reminder per day up to a week out —
+  today only if something is unchecked and the chosen time is still ahead, days
+  1–6 unconditionally because a new day starts all-unchecked (the retention
+  property: a user who stops opening the app keeps being nudged for a week). A
+  `statusDate` guard covers the midnight seam: if the server's unchecked list
+  describes a different day than the device's today, day 0 falls back to
+  all-active. Fire instants are built from device-local `Date` parts (DST-safe).
+  **Reserved id ranges** — clock 9001/9002 + 9101–9110, habits 9201–9207 — are
+  what make wholesale cancel safe per family.
+
+- **`lib/reminder-prefs.ts` + `lib/habit-reminder-prefs.ts` — per-device
+  notification prefs**, localStorage not DB (the notification is scheduled on
+  the device, so the preference is a statement about this phone; no column, no
+  action, no prop threading). Clock's is *session-scoped* — the stored value is
+  the session id reminders are off for, so a new session resets to on for free.
+  Habit's is *standing* — `{off?, time?}` with absent keys meaning the default,
+  **on at 18:00** (product decision: users who granted permission before the
+  feature existed start getting it; Settings is the way out). Both expose a
+  pure `…For(stored)` decision fn plus an event/`useSyncExternalStore` pair.
+
 ---
 
 ## 7. Auth & session
@@ -416,6 +442,40 @@ durably.
   the server `sharp.rotate().resize(1600).jpeg(80)` re-encode in
   `uploadSessionPhoto`, which drops all metadata. Ownership is checked explicitly
   there (friend-read RLS means a non-empty session read no longer implies owner).
+- **Never import a Capacitor plugin.** Both `await import()` and static imports
+  of `@capacitor/*` plugins stall forever in the built app on device (root cause
+  never established). Plugins are read **synchronously** off
+  `window.Capacitor.Plugins` via the accessors in `lib/native-plugins.ts` (its
+  only imports are `import type`, erased at build); off-native they return null,
+  so web/SSR share the "no plugin, do nothing" contract.
+- **The iOS notification ask is a one-shot resource.** Local + push share one
+  authorization, the dialog shows once ever, and `denied` is terminal. So the
+  read and the ask are separate functions (`lib/notification-permission.ts`):
+  `checkNotificationPermission()` is a pure read, safe anywhere;
+  `requestNotificationPermission()` may only be called from the three
+  gesture-driven surfaces enumerated in its comment (onboarding, Settings row,
+  live-timer band) — kept honest by grep, no lint rule exists. The only cure
+  for `denied` is navigating the webview to `app-settings:` (not
+  `App.openUrl()`, which doesn't exist in @capacitor/app v8).
+- **On-device notifications: pure list → shared engine → one layout leaf per
+  family.** A pure module decides the reminders; `createReminderSync`
+  (`lib/notification-sync.ts`, the only file that talks to the plugin) cancels
+  the family's whole reserved id range then schedules, gated on a permission
+  *read* placed after the cancel; a sync leaf in the root layout
+  (`SyncClockReminders`, `SyncHabitReminders`) recomputes on every layout
+  render. Two load-bearing details: the fingerprint that makes repeat calls
+  no-ops covers **title+body, not just id@at** (a habit check-off changes only
+  the body), and it starts **null, not ""** so the first sync after a relaunch
+  always cancels (notifications outlive launches). The leaves take **flat
+  primitive props only** — an object/array literal re-runs the effect every
+  layout render, and each run rewrites the device schedule. Consequently
+  **every mutation the leaf must react to has to end in a layout revalidation**
+  (`revalidatePath("/", "layout")`) — page-type revalidation does not re-render
+  the root layout (confirmed in the bundled Next 16 docs), which is why
+  `revalidateSessionSurfaces` and `revalidateHabitSurfaces` both revalidate the
+  layout. Tap routing is a single listener (`NotificationTapRouter`)
+  discriminating families by reserved id — two listeners would race their
+  `router.push`es.
 - **`SPEC.md` is historical**, not current scope.
 - **Sentinel** (`.sentinel.yaml`): the agent runtime is monitored. Notably it
   **denies tool-writes to `.claude/settings*.json` and `.sentinel.yaml`** (reads
@@ -427,6 +487,12 @@ durably.
 ## 10. Open questions / things to verify when touched
 
 - Authoritative Supabase DDL is not in-repo — §5 is reconstructed from queries.
+- **The doc lags the 2026-08-01 → 08-15 sprint.** Undocumented as sections:
+  the Capacitor iOS shell + native Google/Apple sign-in + push registration
+  (APNs token via `save_device_token` RPC), timed sessions (plan columns +
+  `EnsurePlanComplete`), the V2 editorial redesign behind `REDESIGN`, and the
+  goals/sessions manager sheets. §§3–4 and 7 predate all of it. Backfill next
+  time those areas are touched.
 - `lib/hooks.ts`, `lib/duration.ts`, `lib/storage.ts` (now types-only),
   `lib/aggregate.ts` goal/category reconciliation, and the recap/rollups read
   helpers are summarized but not exhaustively documented.
@@ -438,6 +504,47 @@ durably.
 > Append one entry per work session / feature set. Keep it terse: what changed
 > architecturally, why, and any new invariant or migration. Seeded from git
 > history; entries before this file existed are reconstructed.
+
+### 2026-08-18 — Daily habit reminder (second notification family)
+- A local notification at a user-chosen time (default 18:00) on days with
+  unchecked habits, naming them. Pure decisions in `lib/habit-reminders.ts`
+  (ids 9201–9207): today's fires only if something is unchecked *now*; days
+  1–6 are scheduled unconditionally since a new day starts all-unchecked — the
+  week-out window is the retention property, and each app open re-syncs it.
+- The scheduling mechanics were extracted from `lib/clock-notifications.ts`
+  into a shared engine (`createReminderSync`, `lib/notification-sync.ts`) with
+  two invariant fixes: the no-op fingerprint now covers title+body (a habit
+  check-off changes only the body at the same id@instant) and starts null so
+  the first sync after a relaunch always cancels — the latter was a latent
+  clock bug (stale nudges surviving a force-quit-ended session).
+- New invariant: **habit mutations must revalidate the layout** —
+  `revalidateHabitSurfaces()` is now `revalidatePath("/", "layout")`, because
+  the sync leaf lives there and page-type revalidation never re-renders it.
+- Tap routing moved to a single `NotificationTapRouter` leaf discriminating
+  families by reserved id (habit → `/`, clock → `/clock/live`).
+- Pref is per-device localStorage, default ON at 18:00; Settings gets
+  toggle + time, onboarding's habit step an inline time row (no new step — the
+  steps array changing length mid-flow is what the `native` gate avoids).
+- Behind `NEXT_PUBLIC_HABIT_REMINDERS`. No SQL.
+
+### 2026-08-16 — Notification permission + clock reminders (backfill)
+- (Landed 2026-08-08 → 08-16; recorded here with the habit work it enabled.)
+  On-device local notifications for the clock: hourly nudges, timed-session
+  "Time's up", a cap announcement — pure list (`lib/clock-reminders.ts`) →
+  bridge → `SyncClockReminders` leaf in the root layout, re-rendered by
+  `revalidateSessionSurfaces()`'s layout revalidation.
+- Two rules were established the hard way and are now §9 invariants: **never
+  import a Capacitor plugin** (both import forms stall forever on device; read
+  `window.Capacitor.Plugins` via sync accessors in `lib/native-plugins.ts`),
+  and **the iOS permission dialog is one-shot** — pure read
+  (`checkNotificationPermission`) split from the gesture-only ask
+  (`requestNotificationPermission`, three legal callers), `denied` recoverable
+  only via `app-settings:` navigation.
+- Per-session, per-device off switch (`lib/reminder-prefs.ts` — stores the
+  session id reminders are off for, so reset is free). Settings → Notifications
+  section; onboarding `notify` step right after the practice clock-in.
+- Behind `NEXT_PUBLIC_CLOCK_REMINDERS` (`1` in prod; `fast` shrinks an hour to
+  2 minutes for testing). No SQL.
 
 ### 2026-07-30 — 10-hour session cap + auto-clock-out **(requires SQL, run by hand)**
 - Nothing bounded a session's length: `sessionWorkedMs` had a `Math.max(0, …)`
