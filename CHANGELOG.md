@@ -6,6 +6,42 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-19
 
+### · Fix 2: the black space was the webview's own background — **needs an Xcode build**
+Fix 1 (the web half) didn't clear it, which points at the native side, as the
+audit predicted. `CAPBridgeViewController.swift:308-314`:
+
+```swift
+if let backgroundColor = configuration.backgroundColor {
+    aWebView.backgroundColor = backgroundColor
+    aWebView.scrollView.backgroundColor = backgroundColor
+} else {
+    aWebView.backgroundColor = UIColor.systemBackground
+    aWebView.scrollView.backgroundColor = UIColor.systemBackground
+}
+```
+
+`capacitor.config.ts` set no `backgroundColor`, so both the webview and — the
+part that matters — **its scroll view** took `UIColor.systemBackground`. With no
+`UIUserInterfaceStyle` in `Info.plist` the app follows the system appearance, so
+on a phone in dark mode that resolves to black. The scroll view's background is
+precisely what is exposed while rubber-banding past the end of a list, which is
+why the black appeared on over-scroll specifically and why no amount of CSS
+fixed it: the page never paints that region.
+
+`ios.backgroundColor: '#ffffff'` (a supported key since Capacitor 1.1.0). One
+line, no layout change.
+
+**This one does not ship through Vercel.** `capacitor.config.ts` is compiled into
+the native project by `npx cap copy ios` (already run — the generated
+`ios/App/App/capacitor.config.json` is gitignored), so it takes effect on the
+next Xcode build, and reaches beta users on the next TestFlight/App Store build.
+
+Deliberately NOT changed in this commit: `contentInset` stays `'automatic'`. It
+is a deviation from Capacitor's `never` default and it zeroes the `env(safe-area-inset-*)`
+values the CSS relies on — but the layout currently works *because* the native
+inset is doing that job, so flipping it is its own change with its own test, not
+a rider on a colour fix.
+
 ### · Fix 1/N: black space when over-scrolling in the iOS app (web half)
 The webview shows black at the ends of a scroll. Root cause is a configuration
 contradiction between the two halves of the app, found by auditing both:

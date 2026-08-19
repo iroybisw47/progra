@@ -10,6 +10,14 @@ const config: CapacitorConfig = {
   },
   ios: {
     contentInset: 'automatic',
+    // Without this, CAPBridgeViewController assigns UIColor.systemBackground to
+    // BOTH the webview and its scroll view (CAPBridgeViewController.swift:308-314),
+    // and since Info.plist declares no UIUserInterfaceStyle the app follows the
+    // system appearance — so on a phone in dark mode that colour is black. The
+    // scroll view's background is what shows while rubber-banding past the end of
+    // a list, which is the black space users reported. The page itself is always
+    // light (Progra has no dark mode), so the webview backdrop should be too.
+    backgroundColor: '#ffffff',
   },
   plugins: {
     PushNotifications: {
