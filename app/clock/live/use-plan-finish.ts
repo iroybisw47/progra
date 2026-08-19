@@ -8,6 +8,7 @@ import {
   clearSessionPlan,
   completePlannedSession,
 } from "@/app/actions/sessions";
+import { runAction } from "@/lib/run-action";
 import {
   isPlanComplete,
   plannedEndMs,
@@ -68,7 +69,7 @@ export function usePlanFinish({
 
   const keepGoing = useCallback(() => {
     setFinishingIn(null);
-    void clearSessionPlan().then((r) => {
+    void runAction(clearSessionPlan()).then((r) => {
       if ("error" in r) {
         toast.error(r.error);
         return;
@@ -118,7 +119,7 @@ export function usePlanFinish({
     if (finishingIn === null) return;
 
     if (finishingIn <= 0) {
-      void completePlannedSession().then((r) => {
+      void runAction(completePlannedSession()).then((r) => {
         if ("error" in r) {
           toast.error(r.error);
           setFinishingIn(null);

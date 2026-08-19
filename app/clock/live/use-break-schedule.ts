@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { endBreak, startBreak } from "@/app/actions/sessions";
+import { runAction } from "@/lib/run-action";
 import {
   breakRemainingMs,
   isBreakDue,
@@ -74,7 +75,10 @@ export function useBreakSchedule({
 
       inFlight = true;
       try {
-        const r = onBreak ? await endBreak() : await startBreak();
+        // runAction turns a rejected POST (e.g. a stale action id after a
+        // deploy) into an `{ error }` result, so a background transition can
+        // never escape as an uncaught error and crash the timer.
+        const r = await runAction(onBreak ? endBreak() : startBreak());
         if (!cancelled && !("error" in r)) {
           // Only after the write lands, so a failed transition is silent — a
           // chime for a break that didn't start would be worse than nothing.
