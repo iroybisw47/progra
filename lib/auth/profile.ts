@@ -58,11 +58,19 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
   if (!user) return null;
 
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", user.id)
     .maybeSingle<Profile>();
+
+  // A failed read must NOT look like "no profile row". Both once returned
+  // `null`, so a transient backend hiccup made an established user read as
+  // never-onboarded — Home's `!profile?.onboarded_at` gate then bounced them
+  // into the first-run wizard, which crashed. Throw instead: the onboarding
+  // gate fires only on a genuine `null` (no row), and a read failure surfaces
+  // to the error boundary and to `onRequestError` (see instrumentation.ts).
+  if (error) throw error;
 
   return data;
 });
