@@ -6,6 +6,27 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-19
 
+### · The auto-end nudge speaks the app's language now
+`components/v2/auto-end-nudge.tsx` was the last file in `components/v2/` still
+drawn entirely in shadcn tokens — `border-border`, `bg-card`, `bg-muted`,
+`text-muted-foreground` — and it sits on the Progress tab, sometimes stacked
+directly against `recap-nudge.tsx`, its structural twin in the new language. Two
+banners, same shape, two design systems.
+
+Converted to `border-hairline` / `bg-track` / `text-caption`, and to the app's
+canonical `border-[1.5px]` instead of a 1px border. What did **not** change is
+the muted treatment: the file's comment explains it's a correction to deal with,
+not a reward to celebrate, so it stays quiet next to RecapNudge's navy fill —
+muted in Progra's own greys rather than in shadcn's.
+
+Both nudges keep their `size-5` chevrons, which are larger than the
+`size-[13px]` row chevrons elsewhere: they're banners, and the two need to match
+each other more than they need to match a list row.
+
+Still open in this file (behaviour, not polish, so not in this commit): it's one
+of three surfaces — with `recap-nudge` and `plan-complete-modal` — whose action
+result is discarded, so a failed `markAutoEndReviewed` is silent.
+
 ### · The finish screen has a way out
 `/clock/finish` is `fixed inset-0 z-50`, so it covers the bottom nav, and it had
 no header, no back control and no minimize — the only two exits were **Post** and
