@@ -52,7 +52,19 @@ function providerJwt(nowMs: number): string | null {
   // Base64-encoded .p8 PEM: pasting multi-line PEM into hosting env UIs
   // mangles the newlines, and base64 side-steps that whole class of bug.
   const keyB64 = process.env.APNS_PRIVATE_KEY_B64;
-  if (!keyId || !teamId || !keyB64) return null;
+  if (!keyId || !teamId || !keyB64) {
+    console.error(
+      "[push] APNS env missing:",
+      [
+        keyId ? null : "APNS_KEY_ID",
+        teamId ? null : "APNS_TEAM_ID",
+        keyB64 ? null : "APNS_PRIVATE_KEY_B64",
+      ]
+        .filter(Boolean)
+        .join(", ")
+    );
+    return null;
+  }
   try {
     const pem = Buffer.from(keyB64, "base64").toString("utf8");
     const token = mintApnsJwt(pem, keyId, teamId, nowMs);

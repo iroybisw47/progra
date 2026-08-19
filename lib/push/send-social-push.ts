@@ -41,26 +41,43 @@ export async function sendSocialPush(event: SocialPushEvent): Promise<void> {
 
     // Recipient + label from the session row, resolved HERE rather than in the
     // action, so the action adds zero pre-response work.
-    const { data: session } = await admin
+    const { data: session, error: sessionErr } = await admin
       .from("sessions")
       .select("user_id, task_name")
       .eq("id", event.sessionId)
       .maybeSingle();
+    if (sessionErr) {
+      console.error("[push] session read failed:", sessionErr.message);
+      return;
+    }
     const recipient = (session as { user_id: string; task_name: string } | null)
       ?.user_id;
-    if (!recipient || recipient === event.actorId) return;
+    if (!recipient) {
+      console.error(`[push] session ${event.sessionId} not found`);
+      return;
+    }
+    if (recipient === event.actorId) {
+      console.log("[push] self-event, skipping");
+      return;
+    }
 
     // Opt-out before the dedupe claim, so an opted-out user's slots aren't
     // burned — turning pushes on later still delivers a first-time like.
-    const { data: prefRow } = await admin
+    const { data: prefRow, error: prefErr } = await admin
       .from("profiles")
       .select("social_pushes_enabled")
       .eq("id", recipient)
       .maybeSingle();
+    if (prefErr) {
+      // Most likely the column SQL hasn't been run — say so, loudly.
+      console.error("[push] opt-out read failed (SQL run?):", prefErr.message);
+      return;
+    }
     if (
       (prefRow as { social_pushes_enabled: boolean | null } | null)
         ?.social_pushes_enabled === false
     ) {
+      console.log("[push] recipient opted out, skipping");
       return;
     }
 
@@ -75,14 +92,22 @@ export async function sendSocialPush(event: SocialPushEvent): Promise<void> {
           ? commentDedupeKey(event.commentId)
           : // Degraded: no comment id, fall back to once-per-session.
             `comment:${event.actorId}:${event.sessionId}`;
-    const { data: claimed } = await admin
+    const { data: claimed, error: claimErr } = await admin
       .from("push_log")
       .upsert(
         { key, user_id: recipient },
         { onConflict: "key", ignoreDuplicates: true }
       )
       .select("key");
-    if (!claimed || claimed.length === 0) return;
+    if (claimErr) {
+      // A missing push_log table must not masquerade as "already sent".
+      console.error("[push] dedupe claim failed (SQL run?):", claimErr.message);
+      return;
+    }
+    if (!claimed || claimed.length === 0) {
+      console.log(`[push] already sent (${key}), skipping`);
+      return;
+    }
 
     const { data: tokenRows } = await admin
       .from("device_tokens")
@@ -116,8 +141,12 @@ export async function sendSocialPush(event: SocialPushEvent): Promise<void> {
       commentBody: event.kind === "comment" ? event.body : undefined,
     });
 
+    console.log(
+      `[push] sending ${event.kind} to ${tokens.length} device(s) for ${recipient}`
+    );
     for (const token of tokens) {
       const result = await sendApnsAlert(token, content);
+      console.log(`[push] APNs result: ${result}`);
       if (result === "gone") {
         // Dead token (unregistered, or a sandbox token against the production
         // host) — delete so we stop paying for it. A live device re-registers
