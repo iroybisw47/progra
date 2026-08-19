@@ -1,38 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
-import {
-  BellIcon,
-  CalendarIcon,
-  CheckSquareIcon,
-  ChevronRightIcon,
-  HeartIcon,
-  ClockIcon,
-  FlagIcon,
-  ListIcon,
-  ShieldIcon,
-  TagIcon,
-} from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { CheckIcon, ChevronRightIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { AvatarPicker } from "@/components/avatar-picker";
+import { BackButton } from "@/components/v2/back-button";
+import {
+  BottomSheet,
+  BottomSheetContent,
+} from "@/components/v2/bottom-sheet";
 import { HoldToDelete } from "@/components/v2/hold-to-delete";
 import { ReplayOnboardingButton } from "@/components/replay-onboarding-button";
 import { ToggleSwitch } from "@/components/v2/toggle-switch";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   disconnectGoogleCalendar,
   setProfileIdentity,
@@ -86,8 +68,14 @@ function getTimezones(): string[] {
   return FALLBACK_ZONES;
 }
 
-const SECTION = "text-caption text-[11px] font-bold uppercase tracking-[0.08em]";
-
+// Settings, in the editorial language: hairline rows on white, 10px uppercase
+// eyebrows, track bands between groups, bottom sheets instead of centre-screen
+// dialogs. It opens from the You tab's header, which is why the two now share a
+// shell — same pt-7/pb-28 frame, same max-w-md column, padding applied per
+// section so the dividers run full-bleed.
+//
+// Nothing about what this screen DOES changed in the rebuild: same actions,
+// same flag gates, same permission branches, same analytics.
 export function SettingsClient({
   email,
   username,
@@ -149,6 +137,13 @@ export function SettingsClient({
     });
   }
 
+  function openIdentity() {
+    setDnDraft(displayName ?? "");
+    setUnDraft(username ?? "");
+    setBioDraft(bio ?? "");
+    setEditing(true);
+  }
+
   function saveIdentity() {
     startTransition(async () => {
       // Username first (has its own availability check); only if it changed.
@@ -170,116 +165,106 @@ export function SettingsClient({
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-28">
-      <main className="flex w-full max-w-md flex-col gap-6">
-        <h1 className="text-[26px] font-bold tracking-tight">Settings</h1>
+    <div className="flex flex-1 flex-col items-center pt-7 pb-28">
+      <main className="flex w-full max-w-md flex-col">
+        <header className="flex items-center gap-2.5 px-5">
+          <BackButton />
+          <span className="section-label">Settings</span>
+        </header>
+
+        {/* Identity — the whole block is the affordance, like the You tab's. */}
+        <button
+          type="button"
+          onClick={openIdentity}
+          className="flex items-center gap-3.5 px-5 pt-4 text-left"
+        >
+          <AvatarInitials
+            name={displayName}
+            username={username ?? "?"}
+            avatarUrl={avatarPublicUrl(avatarPath)}
+            className="size-[58px] text-xl"
+          />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="text-ink truncate font-serif text-[22px] font-medium tracking-[-0.015em]">
+              {displayName || (username ? `@${username}` : "You")}
+            </span>
+            <span className="text-faint truncate text-[13px]">
+              {username ? `@${username}` : email}
+            </span>
+            <span className="text-brand pt-1 text-[12px] font-semibold">
+              Edit profile
+            </span>
+          </div>
+          <ChevronRightIcon
+            aria-hidden
+            className="text-disabled size-[15px] shrink-0"
+            strokeWidth={2.4}
+          />
+        </button>
+
+        <Band className="mt-5" />
 
         {/* Account */}
-        <section className="flex flex-col gap-2">
-          <p className={SECTION}>Account</p>
-          <Card>
-            <CardContent className="flex flex-col gap-3 py-4">
-              <div className="flex items-center gap-3">
-                <AvatarInitials
-                  name={displayName}
-                  username={username ?? "?"}
-                  avatarUrl={avatarPublicUrl(avatarPath)}
-                  className="size-12 text-base"
-                />
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-sm font-bold">
-                    {displayName || (username ? `@${username}` : "You")}
-                  </span>
-                  <span className="text-caption truncate text-xs">
-                    {username ? `@${username}` : email}
-                  </span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="ml-auto"
-                  onClick={() => {
-                    setDnDraft(displayName ?? "");
-                    setUnDraft(username ?? "");
-                    setBioDraft(bio ?? "");
-                    setEditing(true);
-                  }}
-                >
-                  Edit
-                </Button>
-              </div>
+        <SectionLabel>Account</SectionLabel>
+        <Row
+          label="Time zone"
+          value={timezone ?? "Not set"}
+          onClick={() => {
+            setTzDraft(timezone ?? "UTC");
+            setTzOpen(true);
+          }}
+        />
+        <Row label="Signed in as" value={email} />
+        <Row
+          label="Google Calendar"
+          value={calendarConnected ? "Connected" : "Not connected"}
+        />
+        {calendarConnected ? (
+          <Inset>
+            <p className="text-caption text-xs leading-relaxed">
+              Synced events count toward your time.
+            </p>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() =>
+                run(() => disconnectGoogleCalendar(), {
+                  okMsg: "Google Calendar disconnected",
+                })
+              }
+              className={cn(CHIP, "self-start")}
+            >
+              Disconnect
+            </button>
+          </Inset>
+        ) : (
+          <Inset>
+            {SHOW_UNVERIFIED_WARNING && (
+              <p className="text-caption text-xs leading-relaxed text-pretty">
+                Google&rsquo;s verification of Progra is still in review —
+                you&rsquo;ll see a &ldquo;Google hasn&rsquo;t verified this
+                app&rdquo; screen. Tap <strong>Advanced</strong>, then{" "}
+                <strong>Go to progra.world (unsafe)</strong> to continue. Access
+                is read-only.
+              </p>
+            )}
+            <a
+              href="/auth/google-calendar?from=settings"
+              className={cn(CHIP, "self-start")}
+            >
+              Connect
+            </a>
+          </Inset>
+        )}
 
-              <SettingsRow
-                icon={ClockIcon}
-                label="Time zone"
-                value={timezone ?? "Not set"}
-                onClick={() => {
-                  setTzDraft(timezone ?? "UTC");
-                  setTzOpen(true);
-                }}
-              />
-              <SettingsRow
-                icon={CalendarIcon}
-                label="Google Calendar"
-                value={calendarConnected ? "Connected" : "Not connected"}
-              />
-              {calendarConnected ? (
-                <div className="flex items-center justify-between gap-3 pl-[26px]">
-                  <span className="text-caption text-xs">
-                    Synced events count toward your time.
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={pending}
-                    onClick={() =>
-                      run(() => disconnectGoogleCalendar(), {
-                        okMsg: "Google Calendar disconnected",
-                      })
-                    }
-                  >
-                    Disconnect
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2 pl-[26px]">
-                  {SHOW_UNVERIFIED_WARNING && (
-                    <p className="text-caption text-xs leading-relaxed text-pretty">
-                      Google&rsquo;s verification of Progra is still in review —
-                      you&rsquo;ll see a &ldquo;Google hasn&rsquo;t verified this
-                      app&rdquo; screen. Tap <strong>Advanced</strong>, then{" "}
-                      <strong>Go to progra.world (unsafe)</strong> to continue.
-                      Access is read-only.
-                    </p>
-                  )}
-                  <a
-                    href="/auth/google-calendar?from=settings"
-                    className={buttonVariants({
-                      variant: "outline",
-                      size: "sm",
-                      className: "self-start",
-                    })}
-                  >
-                    Connect
-                  </a>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </section>
+        <Band />
 
         {/* Your data */}
-        <section className="flex flex-col gap-2">
-          <p className={SECTION}>Your data</p>
-          <Card>
-            <CardContent className="flex flex-col py-1">
-              <LinkRow href="/goals" icon={FlagIcon} label="Goals" />
-              <LinkRow href="/categories" icon={TagIcon} label="Categories & rules" />
-              <LinkRow href="/habits" icon={CheckSquareIcon} label="Habits" />
-              <LinkRow href="/sessions" icon={ListIcon} label="Past sessions" />
-            </CardContent>
-          </Card>
-        </section>
+        <SectionLabel>Your data</SectionLabel>
+        <Row href="/goals" label="Goals" />
+        <Row href="/categories" label="Categories & rules" />
+        <Row href="/habits" label="Habits" />
+        <Row href="/sessions" label="Past sessions" />
 
         {/* Notifications — native app only, so it simply doesn't exist on the
             website. `null` (not read yet) and "unavailable" (no plugin) both
@@ -287,57 +272,51 @@ export function SettingsClient({
             in agreement. */}
         <NotificationsSection socialPushesEnabled={socialPushesEnabled} />
 
+        <Band />
+
         {/* Sharing */}
-        <section className="flex flex-col gap-2">
-          <p className={SECTION}>Sharing</p>
-          <Card>
-            <CardContent className="flex flex-col gap-3 py-4">
-              <p className="text-body text-sm">
-                New goals, habits, and sessions are shareable with friends by
-                default. Mark any item private to keep it off your profile and the
-                feed. Photos only ever appear as complete before/after pairs.
-              </p>
-              <ReplayOnboardingButton />
-            </CardContent>
-          </Card>
-        </section>
+        <SectionLabel>Sharing</SectionLabel>
+        <div className="border-divider flex flex-col gap-3 border-t px-5 py-3.5">
+          <p className="text-caption text-[13px] leading-[1.55] text-pretty">
+            New goals, habits, and sessions are shareable with friends by
+            default. Mark any item private to keep it off your profile and the
+            feed. Photos only ever appear as complete before/after pairs.
+          </p>
+          <ReplayOnboardingButton />
+        </div>
 
         {/* Moderator */}
         {isAdmin && (
-          <section className="flex flex-col gap-2">
-            <p className={SECTION}>Moderation</p>
-            <Card>
-              <CardContent className="flex flex-col py-1">
-                <LinkRow
-                  href="/admin"
-                  icon={ShieldIcon}
-                  label="Report queue"
-                  badge={openReports > 0 ? String(openReports) : undefined}
-                />
-              </CardContent>
-            </Card>
-          </section>
+          <>
+            <Band />
+            <SectionLabel>Moderation</SectionLabel>
+            <Row
+              href="/admin"
+              label="Report queue"
+              badge={openReports > 0 ? String(openReports) : undefined}
+            />
+          </>
         )}
 
         {/* Account actions */}
-        <section className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2.5 px-5 pt-7">
           <form action="/auth/signout" method="post" className="w-full">
-            <Button type="submit" variant="outline" className="h-11 w-full">
+            <button
+              type="submit"
+              className="border-control-border text-body h-12 w-full rounded-[15px] border-[1.5px] text-sm font-semibold transition-transform active:scale-[.98]"
+            >
               Sign out
-            </Button>
+            </button>
           </form>
           <HoldToDelete />
-        </section>
+        </div>
       </main>
 
-      {/* Edit identity */}
-      <Dialog open={editing} onOpenChange={setEditing}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit profile</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col gap-4">
-            {/* Uploads apply immediately, independent of the dialog's Save. */}
+      {/* Edit profile */}
+      <BottomSheet open={editing} onOpenChange={setEditing}>
+        <BottomSheetContent title="Edit profile" meta="Visible to friends">
+          <div className="flex flex-col gap-5 pb-1">
+            {/* Uploads apply immediately, independent of the sheet's Save. */}
             <AvatarPicker
               name={displayName}
               username={username ?? "?"}
@@ -345,8 +324,7 @@ export function SettingsClient({
               sizeClassName="size-16 text-lg"
             />
             <Field label="Display name">
-              <Input
-                className="h-10"
+              <SheetInput
                 placeholder="Your name"
                 maxLength={50}
                 value={dnDraft}
@@ -354,17 +332,18 @@ export function SettingsClient({
               />
             </Field>
             <Field label="Username">
-              <Input
-                className="h-10"
+              <SheetInput
                 placeholder="username"
                 autoCapitalize="none"
                 autoCorrect="off"
+                spellCheck={false}
                 value={unDraft}
                 onChange={(e) => setUnDraft(e.target.value)}
               />
             </Field>
             <Field label="Bio">
-              <Textarea
+              <textarea
+                className="text-ink border-control-border w-full rounded-[13px] border-[1.5px] px-3.5 py-2.5 text-[15px] leading-[1.5] outline-none placeholder:text-[var(--disabled)]"
                 placeholder="A line about you"
                 maxLength={300}
                 rows={3}
@@ -372,58 +351,239 @@ export function SettingsClient({
                 onChange={(e) => setBioDraft(e.target.value)}
               />
             </Field>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={saveIdentity}
+              className={SHEET_CTA}
+            >
+              {pending ? "Saving…" : "Save"}
+            </button>
           </div>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-            <Button disabled={pending} onClick={saveIdentity}>
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </BottomSheetContent>
+      </BottomSheet>
 
       {/* Time zone */}
-      <Dialog open={tzOpen} onOpenChange={setTzOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Time zone</DialogTitle>
-          </DialogHeader>
-          <select
+      <BottomSheet open={tzOpen} onOpenChange={setTzOpen}>
+        <BottomSheetContent title="Time zone" meta="Sets your day and week">
+          <TimezonePicker
             value={tzDraft}
-            onChange={(e) => setTzDraft(e.target.value)}
-            className="border-input bg-background h-10 w-full rounded-[14px] border px-3 text-sm"
-          >
-            {getTimezones().map((z) => (
-              <option key={z} value={z}>
-                {z}
-              </option>
-            ))}
-          </select>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-            <Button
-              disabled={pending}
-              onClick={() =>
-                run(() => setProfileTimezone(tzDraft), {
-                  okMsg: "Time zone saved",
-                  then: () => setTzOpen(false),
-                })
-              }
-            >
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            onChange={setTzDraft}
+            pending={pending}
+            onSave={() =>
+              run(() => setProfileTimezone(tzDraft), {
+                okMsg: "Time zone saved",
+                then: () => setTzOpen(false),
+              })
+            }
+          />
+        </BottomSheetContent>
+      </BottomSheet>
     </div>
   );
 }
 
+// ── Pieces ─────────────────────────────────────────────────────────────────
+
+// The outline chip the Friends screen uses for its per-row actions.
+const CHIP =
+  "border-control-border text-caption inline-flex h-8 items-center rounded-[11px] border-[1.5px] px-3.5 text-xs font-semibold transition-transform active:scale-[.97] disabled:opacity-50";
+
+const SHEET_CTA =
+  "bg-brand text-primary-foreground h-[46px] w-full rounded-[15px] text-sm font-semibold transition-transform active:scale-[.98] disabled:opacity-50";
+
+// The 1.5px track band that separates one group of rows from the next — the
+// same rhythm /me uses between its stats, quotas and sessions.
+function Band({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn("bg-track border-hairline h-1.5 border-t", className)}
+      aria-hidden
+    />
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-5 pt-[18px] pb-2">
+      <span className="section-label">{children}</span>
+    </div>
+  );
+}
+
+// The indented continuation of the row above it: an explanation, an action
+// chip, or both. Sits inside the same divider run, so it reads as belonging to
+// the row rather than as its own entry.
+function Inset({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="border-divider flex flex-col gap-2 border-t px-5 py-3">
+      {children}
+    </div>
+  );
+}
+
+// One settings line. Navigates (href), acts (onClick), or just states a value —
+// the three shapes the old SettingsRow/LinkRow pair covered between them.
+function Row({
+  label,
+  value,
+  href,
+  onClick,
+  badge,
+}: {
+  label: string;
+  value?: string;
+  href?: string;
+  onClick?: () => void;
+  badge?: string;
+}) {
+  const inner = (
+    <>
+      <span className="text-body min-w-0 flex-1 text-[13.5px] font-medium">
+        {label}
+      </span>
+      {value && (
+        <span className="text-caption max-w-[52%] truncate text-[13px]">
+          {value}
+        </span>
+      )}
+      {badge && (
+        <span className="bg-brand text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums">
+          {badge}
+        </span>
+      )}
+      {(href || onClick) && (
+        <ChevronRightIcon
+          aria-hidden
+          className="text-disabled size-[13px] shrink-0"
+          strokeWidth={2.4}
+        />
+      )}
+    </>
+  );
+
+  const shared = "border-divider flex items-center gap-3 border-t px-5 py-3";
+
+  if (href) {
+    return (
+      <Link href={href} className={shared}>
+        {inner}
+      </Link>
+    );
+  }
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cn(shared, "text-left")}>
+        {inner}
+      </button>
+    );
+  }
+  return <div className={shared}>{inner}</div>;
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-sm font-medium">{label}</span>
+    <div className="flex flex-col gap-[7px]">
+      <span className="section-label">{label}</span>
       {children}
+    </div>
+  );
+}
+
+function SheetInput(props: React.ComponentProps<"input">) {
+  return (
+    <input
+      {...props}
+      className="text-ink border-control-border h-[46px] w-full rounded-[13px] border-[1.5px] px-3.5 text-[15px] font-medium outline-none placeholder:text-[var(--disabled)]"
+    />
+  );
+}
+
+// Search + list, rather than the 400-option <select> this replaces: picking
+// Asia/Kolkata meant scrolling a native wheel past everything before it.
+function TimezonePicker({
+  value,
+  onChange,
+  pending,
+  onSave,
+}: {
+  value: string;
+  onChange: (zone: string) => void;
+  pending: boolean;
+  onSave: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const zones = useMemo(() => getTimezones(), []);
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return zones;
+    return zones.filter((z) => z.toLowerCase().includes(q));
+  }, [zones, query]);
+
+  // The zone you're already in sits first, then everything else in the order
+  // Intl gives it. Ordering beats scrolling here: the sheet is still sliding up
+  // when a mount effect would fire, so measuring the list to scroll it lands
+  // nowhere — and a picker that opens on Africa/Abidjan makes people hunt for
+  // a setting they never changed. While searching, results stand alone.
+  const ordered = useMemo(
+    () => (query.trim() ? shown : [value, ...shown.filter((z) => z !== value)]),
+    [shown, query, value]
+  );
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3 pb-1">
+      <input
+        aria-label="Search time zones"
+        className="border-control-border text-ink focus:border-brand h-[42px] w-full shrink-0 rounded-[13px] border-[1.5px] px-3.5 text-sm outline-none placeholder:text-[var(--disabled)]"
+        placeholder="Search time zones"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+
+      {/* The one scrolling region in the sheet, so the Save button stays put. */}
+      <div className="-mx-5 min-h-0 flex-1 overflow-y-auto">
+        {shown.length === 0 && (
+          <p className="text-caption px-5 py-3 text-[13px]">
+            No time zone matches &ldquo;{query.trim()}&rdquo;.
+          </p>
+        )}
+        {ordered.map((z) => (
+          <button
+            key={z}
+            type="button"
+            onClick={() => onChange(z)}
+            className="border-divider flex w-full items-center gap-3 border-t px-5 py-2.5 text-left"
+          >
+            <span
+              className={cn(
+                "min-w-0 flex-1 truncate text-[13.5px]",
+                z === value ? "text-ink font-semibold" : "text-body"
+              )}
+            >
+              {z}
+            </span>
+            {z === value && (
+              <CheckIcon
+                aria-hidden
+                className="text-brand size-4 shrink-0"
+                strokeWidth={2.4}
+              />
+            )}
+          </button>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        disabled={pending}
+        onClick={onSave}
+        className={cn(SHEET_CTA, "shrink-0")}
+      >
+        {pending ? "Saving…" : "Save"}
+      </button>
     </div>
   );
 }
@@ -479,61 +639,67 @@ function NotificationsSection({
           };
 
   return (
-    <section className="flex flex-col gap-2">
-      <p className={SECTION}>Notifications</p>
-      <Card>
-        <CardContent className="flex flex-col gap-2 py-4">
-          {CLOCK_REMINDERS && (onClick ? (
-            <button
-              type="button"
-              onClick={onClick}
-              className="flex items-center gap-2.5 text-left"
-            >
-              <BellIcon className="text-caption size-4 shrink-0" />
-              <span className="text-sm font-medium">Clock reminders</span>
-              <span className="text-caption ml-auto truncate text-sm">
-                {value}
-              </span>
-              <ChevronRightIcon className="text-faint size-4 shrink-0" />
-            </button>
-          ) : (
-            <div className="flex items-center gap-2.5">
-              <BellIcon className="text-caption size-4 shrink-0" />
-              <span className="text-sm font-medium">Clock reminders</span>
-              <span className="text-caption ml-auto truncate text-sm">
-                {value}
-              </span>
-            </div>
-          ))}
-          {/* Not gated on CLOCK_REMINDERS — the permission plumbing above is
-              shared, but the habit reminder is its own feature. Only shown once
-              granted: until then the ask/denied rows above govern everything,
-              and a time picker for notifications that can't arrive is noise. */}
-          {HABIT_REMINDERS && permission === "granted" && <HabitReminderRow />}
-          {/* Account-level (the server sends these, and servers know accounts,
-              not phones) — but only shown once granted, like the rows above: a
-              toggle for notifications that can't arrive here is noise. */}
-          {SOCIAL_PUSH && permission === "granted" && (
-            <SocialPushRow initialEnabled={socialPushesEnabled !== false} />
-          )}
+    <>
+      <Band />
+      <SectionLabel>Notifications</SectionLabel>
+      {CLOCK_REMINDERS && (
+        <Row label="Clock reminders" value={value} onClick={onClick} />
+      )}
+      {/* Not gated on CLOCK_REMINDERS — the permission plumbing above is
+          shared, but the habit reminder is its own feature. Only shown once
+          granted: until then the ask/denied rows above govern everything,
+          and a time picker for notifications that can't arrive is noise. */}
+      {HABIT_REMINDERS && permission === "granted" && <HabitReminderRow />}
+      {/* Account-level (the server sends these, and servers know accounts,
+          not phones) — but only shown once granted, like the rows above: a
+          toggle for notifications that can't arrive here is noise. */}
+      {SOCIAL_PUSH && permission === "granted" && (
+        <SocialPushRow initialEnabled={socialPushesEnabled !== false} />
+      )}
 
-          {/* Same pl-[26px] inset the Google Calendar rows use, so the
-              explanation lines up under the label rather than the icon. */}
-          {CLOCK_REMINDERS && permission === "granted" && (
-            <p className="text-caption pl-[26px] text-xs leading-relaxed text-pretty">
-              A nudge each hour you&rsquo;re still clocked in, and an alert when
-              a timed session reaches its target.
-            </p>
-          )}
-          {permission === "denied" && (
-            <p className="text-caption pl-[26px] text-xs leading-relaxed text-pretty">
-              iOS only asks once. Turn notifications on for Progra in Settings
-              to get them back.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-    </section>
+      {CLOCK_REMINDERS && permission === "granted" && (
+        <Inset>
+          <p className="text-caption text-xs leading-relaxed text-pretty">
+            A nudge each hour you&rsquo;re still clocked in, and an alert when a
+            timed session reaches its target.
+          </p>
+        </Inset>
+      )}
+      {permission === "denied" && (
+        <Inset>
+          <p className="text-caption text-xs leading-relaxed text-pretty">
+            iOS only asks once. Turn notifications on for Progra in Settings to
+            get them back.
+          </p>
+        </Inset>
+      )}
+    </>
+  );
+}
+
+// A row whose right-hand control is a switch rather than a value + chevron.
+function ToggleRow({
+  label,
+  ariaLabel,
+  checked,
+  onCheckedChange,
+}: {
+  label: string;
+  ariaLabel: string;
+  checked: boolean;
+  onCheckedChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="border-divider flex items-center gap-3 border-t px-5 py-2.5">
+      <span className="text-body min-w-0 flex-1 text-[13.5px] font-medium">
+        {label}
+      </span>
+      <ToggleSwitch
+        ariaLabel={ariaLabel}
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+      />
+    </div>
   );
 }
 
@@ -546,145 +712,75 @@ function HabitReminderRow() {
 
   return (
     <>
-      <div className="flex items-center gap-2.5">
-        <CheckSquareIcon className="text-caption size-4 shrink-0" />
-        <span className="text-sm font-medium">Daily habit reminder</span>
-        <span className="ml-auto">
-          <ToggleSwitch
-            ariaLabel="Daily habit reminder"
-            checked={pref.enabled}
-            onCheckedChange={(next) => {
-              // habitReminderPref() re-read rather than closing over `pref`, so
-              // a toggle right after a time change can't resurrect a stale time.
-              setHabitReminderPref({ ...habitReminderPref(), enabled: next });
-              track("habit_reminder_toggled", { enabled: next });
-            }}
-          />
-        </span>
-      </div>
+      <ToggleRow
+        label="Daily habit reminder"
+        ariaLabel="Daily habit reminder"
+        checked={pref.enabled}
+        onCheckedChange={(next) => {
+          // habitReminderPref() re-read rather than closing over `pref`, so
+          // a toggle right after a time change can't resurrect a stale time.
+          setHabitReminderPref({ ...habitReminderPref(), enabled: next });
+          track("habit_reminder_toggled", { enabled: next });
+        }}
+      />
       {pref.enabled && (
-        <div className="flex items-center gap-2.5 pl-[26px]">
-          <span className="text-caption text-xs leading-relaxed">
-            On days you haven&rsquo;t checked off all your habits, at
-          </span>
-          <input
-            type="time"
-            value={pref.time}
-            onChange={(e) => {
-              // <input type="time"> can emit "" mid-edit (a cleared field);
-              // keep the previous time rather than storing garbage.
-              if (!e.target.value) return;
-              setHabitReminderPref({
-                ...habitReminderPref(),
-                time: e.target.value,
-              });
-              track("habit_reminder_time_changed", { time: e.target.value });
-            }}
-            className="border-hairline text-ink ml-auto rounded-lg border px-2 py-1 text-sm tabular-nums"
-          />
-        </div>
+        <Inset>
+          <div className="flex items-center gap-3">
+            <span className="text-caption flex-1 text-xs leading-relaxed text-pretty">
+              On days you haven&rsquo;t checked off all your habits, at
+            </span>
+            <input
+              type="time"
+              aria-label="Habit reminder time"
+              value={pref.time}
+              onChange={(e) => {
+                // <input type="time"> can emit "" mid-edit (a cleared field);
+                // keep the previous time rather than storing garbage.
+                if (!e.target.value) return;
+                setHabitReminderPref({
+                  ...habitReminderPref(),
+                  time: e.target.value,
+                });
+                track("habit_reminder_time_changed", { time: e.target.value });
+              }}
+              className="border-control-border text-ink shrink-0 rounded-[11px] border-[1.5px] px-2.5 py-1.5 text-[13px] font-medium tabular-nums"
+            />
+          </div>
+        </Inset>
       )}
     </>
   );
 }
 
 // Server-sent likes/comments pushes, account-level. Optimistic: flip locally,
-// revert on a failed save — the pattern the identity dialog uses, minus the
-// dialog.
+// revert on a failed save — the pattern the identity sheet uses, minus the
+// sheet.
 function SocialPushRow({ initialEnabled }: { initialEnabled: boolean }) {
   const [enabled, setEnabled] = useState(initialEnabled);
 
   return (
     <>
-      <div className="flex items-center gap-2.5">
-        <HeartIcon className="text-caption size-4 shrink-0" />
-        <span className="text-sm font-medium">Likes &amp; comments</span>
-        <span className="ml-auto">
-          <ToggleSwitch
-            ariaLabel="Like and comment notifications"
-            checked={enabled}
-            onCheckedChange={(next) => {
-              setEnabled(next);
-              track("social_pushes_toggled", { enabled: next });
-              void setSocialPushesEnabled(next).then((r) => {
-                if ("error" in r) {
-                  setEnabled(!next);
-                  toast.error("Couldn't save — try again.");
-                }
-              });
-            }}
-          />
-        </span>
-      </div>
-      <p className="text-caption pl-[26px] text-xs leading-relaxed text-pretty">
-        When a friend likes or comments on your session. Applies to all your
-        devices.
-      </p>
-    </>
-  );
-}
-
-function SettingsRow({
-  icon: Icon,
-  label,
-  value,
-  onClick,
-}: {
-  icon: typeof ClockIcon;
-  label: string;
-  value: string;
-  onClick?: () => void;
-}) {
-  const inner = (
-    <>
-      <Icon className="text-caption size-4 shrink-0" />
-      <span className="text-sm font-medium">{label}</span>
-      <span className="text-caption ml-auto truncate text-sm">{value}</span>
-      {onClick && <ChevronRightIcon className="text-faint size-4 shrink-0" />}
-    </>
-  );
-  return onClick ? (
-    <button
-      type="button"
-      onClick={onClick}
-      className="border-divider flex items-center gap-2.5 border-t pt-3 text-left"
-    >
-      {inner}
-    </button>
-  ) : (
-    <div className="border-divider flex items-center gap-2.5 border-t pt-3">{inner}</div>
-  );
-}
-
-function LinkRow({
-  href,
-  icon: Icon,
-  label,
-  badge,
-}: {
-  href: string;
-  icon: typeof ClockIcon;
-  label: string;
-  badge?: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "flex items-center gap-2.5 py-3",
-        "[&:not(:first-child)]:border-divider [&:not(:first-child)]:border-t"
-      )}
-    >
-      <Icon className="text-caption size-4 shrink-0" />
-      <span className="text-sm font-medium">{label}</span>
-      {badge && (
-        <span className="bg-brand text-primary-foreground ml-auto rounded-full px-2 py-0.5 text-xs font-bold">
-          {badge}
-        </span>
-      )}
-      <ChevronRightIcon
-        className={cn("text-faint size-4 shrink-0", !badge && "ml-auto")}
+      <ToggleRow
+        label="Likes & comments"
+        ariaLabel="Like and comment notifications"
+        checked={enabled}
+        onCheckedChange={(next) => {
+          setEnabled(next);
+          track("social_pushes_toggled", { enabled: next });
+          void setSocialPushesEnabled(next).then((r) => {
+            if ("error" in r) {
+              setEnabled(!next);
+              toast.error("Couldn't save — try again.");
+            }
+          });
+        }}
       />
-    </Link>
+      <Inset>
+        <p className="text-caption text-xs leading-relaxed text-pretty">
+          When a friend likes or comments on your session. Applies to all your
+          devices.
+        </p>
+      </Inset>
+    </>
   );
 }

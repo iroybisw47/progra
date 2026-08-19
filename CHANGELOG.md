@@ -6,6 +6,46 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-19
 
+### · Settings rebuilt in the editorial language
+The last screen the 2026-08-15 redesign never touched — deferred at the time,
+and increasingly odd about it, since Settings opens from the You tab's header
+and You is the most editorial screen in the app. It was stacked shadcn cards,
+a bold 26px title, icon rows and two centre-screen dialogs.
+
+Now it's the same shell as `/me`: `pt-7`/`pb-28`, a `max-w-md` column with the
+padding applied per section so hairlines run full-bleed, a `BackButton` beside a
+`section-label`, an identity block with the serif name (tap it to edit), and
+`bg-track` bands between groups. Rows are label · value · chevron with no icons,
+which is what You and Friends do — one local `Row` covers the link, button and
+inert-value shapes the old `SettingsRow`/`LinkRow` pair covered between them.
+
+**Both dialogs are bottom sheets now** (`components/v2/bottom-sheet.tsx`, the
+manage-goals field idiom). Edit profile keeps AvatarPicker, name, username, bio
+and `saveIdentity`'s username-first ordering. The time zone `<select>` — 400
+options on a native wheel — became a search field over hairline rows with the
+current zone pinned first and checked. Pinned rather than scrolled-to: the sheet
+is still sliding up when a mount effect fires, so measuring the list to scroll it
+lands nowhere (tried scrollIntoView, then scrollTop in a rAF; ordering is both
+simpler and correct).
+
+`HoldToDelete` and `ReplayOnboardingButton` picked up the same shapes as the
+sheet CTAs — the hold gesture and its `HOLD_MS` are untouched.
+
+**Behaviour is unchanged, deliberately.** Same actions, same flag gates, the
+same three notification-permission branches and analytics; `NotificationsSection`,
+`HabitReminderRow` and `SocialPushRow` kept their logic line for line and only
+changed wrappers. The email now has its own "Signed in as" row instead of
+appearing only when a handle was missing.
+
+Verified against a feature checklist and screenshotted at phone width (main
+screen + both sheets). Two things a web screenshot can't show and which need a
+device pass: the Notifications section renders nothing off-native, and the
+calendar connect round-trip (`?calendar=connected`).
+
+The four screens Settings links to — Goals, Categories, Habits, Past sessions —
+are still the old card layouts, so Settings is now newer than its own
+destinations. They're the next chunk.
+
 ### · Onboarding: a How-Progra-works screen, and copy that says what to do
 The wizard explained the mechanics nowhere and asked for a goal immediately, so
 "goal" had to be guessed from context — and goals vs categories, the one

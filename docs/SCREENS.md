@@ -83,8 +83,8 @@ falls through to the Next.js default.
 | D04 | Archive goal confirm | dialog | goals-client | /goals | app/goals/goals-client.tsx:440 |
 | D05 | Edit habit | dialog | habits-client | /habits | app/habits/habits-client.tsx:264 |
 | D06 | Delete session / remove event confirm | dialog | history-client | /history | app/history/history-client.tsx:433 |
-| D07 | Edit profile (identity) | dialog | settings-client | /settings | app/settings/settings-client.tsx:309 |
-| D08 | Time-zone picker | dialog | settings-client | /settings | app/settings/settings-client.tsx:361 |
+| D07 | Edit profile (identity) | sheet | settings-client | /settings (identity block) | app/settings/settings-client.tsx (BottomSheet) |
+| D08 | Time-zone picker | sheet | settings-client | /settings → Time zone row | app/settings/settings-client.tsx (BottomSheet; search + list, current zone pinned first) |
 | D09 | Edit profile | dialog | profile-actions | /profile/[username] (self) | app/profile/[username]/profile-actions.tsx:148 |
 | D10 | Edit category | dialog | clock-client | /clock | app/clock/clock-client.tsx:1026 |
 | D11 | Delete category confirm | dialog | clock-client | /clock | app/clock/clock-client.tsx:1079 |

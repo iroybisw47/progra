@@ -53,7 +53,10 @@ export function HoldToDelete() {
       onPointerLeave={cancel}
       onPointerCancel={cancel}
       className={cn(
-        "relative h-11 w-full touch-none overflow-hidden rounded-full border border-destructive/40 text-sm font-bold text-destructive select-none",
+        // Same 12/15 shape as the sheet CTAs and the Sign out button it sits
+        // under — the hold gesture is what marks it as dangerous, not a
+        // different silhouette.
+        "text-destructive relative h-12 w-full touch-none overflow-hidden rounded-[15px] border-[1.5px] border-[#f0e3e0] text-sm font-semibold select-none",
         "disabled:opacity-60"
       )}
       aria-label="Hold to delete account"
