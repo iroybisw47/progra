@@ -6,6 +6,62 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-19
 
+### · Fix: onboarding died on screen 1 — sharp's native library never shipped
+Pressing "Set your first goal" returned Next's server-error page (digest
+`1800497011`). The Vercel log for that digest:
+
+```
+POST /onboarding
+Failed to load external module sharp-20c6a5da84e2135f:
+Could not load the "sharp" module using the linux-x64 runtime
+ERR_DLOPEN_FAILED: libvips-cpp.so.8.18.3: cannot open shared object file
+```
+
+**Cause 1 — the deployed function had sharp's addon but not its library.** The
+file tracer follows JS requires, so `@img/sharp-linux-x64/…/*.node` made the
+bundle, but the addon then `dlopen`s `libvips-cpp.so.8.18.3` from a sibling
+package — a path no JS ever names — and that 17MB file was left out. Provable
+locally: `.next/server/app/onboarding/page.js.nft.json` listed
+`@img/sharp-libvips-*/{index.js,package.json,versions.json}` and no binary.
+Never an install problem (the lockfile has `@img/sharp-linux-x64` 0.35.3 and
+`@img/sharp-libvips-linux-x64` 1.3.2), and a *dlopen* failure is itself proof
+the addon loaded. Note Next's own nested sharp copy traces its dylib fine — the
+gap is specific to the app's top-level dependency.
+
+**Cause 2 — one bad import took the whole route down.** Next bundles every
+server action for a route into ONE module (`server-reference-manifest.json`:
+`setUsername`, `setProfileIdentity`, `createGoal`, `completeOnboarding` and
+`uploadAvatar` all share moduleId 35424 on `app/onboarding/page`). A top-level
+`import sharp` in `app/actions/avatar.ts` therefore threw while that module was
+being evaluated — before any action body ran. Reproduced by moving the dylib
+out of node_modules: `setUsername` 500, `clockIn` on /clock 500,
+`setProfileTimezone` on /settings 500, `toggleReaction` on /feed 200 (no image
+action in its module). So onboarding was unfinishable including **Skip**, and
+clock-in was broken on the same terms.
+
+**Fix 1: `outputFileTracingIncludes`** in `next.config.ts` force-includes
+`node_modules/@img/**` for the five routes that mount AvatarPicker or
+SessionPhotoStep (`/onboarding`, `/settings`, `/clock`, `/clock/live`,
+`/clock/finish`). Scoped rather than global because it's ~18MB per function;
+verified after a build that those five traces now carry the binary and /feed
+still doesn't. **A new route that takes photo uploads must be added to that
+list** — the symptom is the graceful message below, not a broken route.
+
+**Fix 2: `lib/images/sharp.ts`,** a `loadSharp()` that imports sharp *inside a
+function* and returns `{error}` instead of throwing. This is the part that
+matters beyond today: with it, an unloadable image library costs one upload
+("Photo uploads are temporarily unavailable" — deliberately not the actions'
+"Couldn't process that image.", which means a bad *file*) instead of every
+action on the route. Both `uploadAvatar` and `uploadSessionPhoto` now load it
+per call; their existing try/catch around the re-encode is untouched.
+
+Not a regression — sharp 0.35.3 has been in the lockfile since the social-v2
+commit, so every sharp-linked action has been failing in production the whole
+time. Onboarding is simply where a new beta user meets it head-on.
+
+6 new tests (186 total), including a guard that reads both action files and
+fails if a module-scope `from "sharp"` import ever comes back.
+
 ### · Loading skeletons rebuilt in the editorial language
 The last screen still drawing shadcn cards onto the redesigned tabs. The nine
 `loading.tsx` files that don't use `PrograLoader` (the root route, `/history`,

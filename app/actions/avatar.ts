@@ -1,9 +1,8 @@
 "use server";
 
-import sharp from "sharp";
-
 import { getProfile } from "@/lib/auth/profile";
 import { getCurrentUser } from "@/lib/auth/require-user";
+import { loadSharp } from "@/lib/images/sharp";
 import { revalidateIdentitySurfaces } from "@/lib/revalidate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -40,10 +39,16 @@ export async function uploadAvatar(formData: FormData): Promise<Result> {
     return { error: "Photo is too large (max 8 MB)." };
   }
 
+  // Loaded per call rather than imported at module scope — see lib/images/sharp.ts
+  // for why (a load failure must cost this upload, not the whole route).
+  const loaded = await loadSharp();
+  if ("error" in loaded) return { error: loaded.error };
+
   let output: Buffer;
   try {
     const input = Buffer.from(await file.arrayBuffer());
-    output = await sharp(input)
+    output = await loaded
+      .sharp(input)
       .rotate()
       .resize(EDGE_PX, EDGE_PX, { fit: "cover" })
       .jpeg({ quality: JPEG_QUALITY })

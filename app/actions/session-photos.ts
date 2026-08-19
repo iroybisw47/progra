@@ -1,10 +1,9 @@
 "use server";
 
-import sharp from "sharp";
-
 import { revalidateSessionSurfaces } from "@/lib/revalidate";
 
 import { getCurrentUser } from "@/lib/auth/require-user";
+import { loadSharp } from "@/lib/images/sharp";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -66,10 +65,16 @@ export async function uploadSessionPhoto(
   // Re-encode: rotate() bakes EXIF orientation into pixels, resize caps the
   // longest edge (never enlarges), jpeg() drops all remaining metadata. We never
   // upload the original bytes.
+  // Loaded per call rather than imported at module scope — see lib/images/sharp.ts
+  // for why (a load failure must cost this upload, not the whole route).
+  const loaded = await loadSharp();
+  if ("error" in loaded) return { error: loaded.error };
+
   let output: Buffer;
   try {
     const input = Buffer.from(await file.arrayBuffer());
-    output = await sharp(input)
+    output = await loaded
+      .sharp(input)
       .rotate()
       .resize(MAX_EDGE_PX, MAX_EDGE_PX, {
         fit: "inside",

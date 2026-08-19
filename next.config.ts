@@ -1,6 +1,32 @@
 import type { NextConfig } from "next";
 
+// sharp's native pieces, force-included in the trace of every route that
+// processes an image.
+//
+// The file tracer follows JS requires. `@img/sharp-{platform}/…/*.node` is
+// require()d so it lands in the bundle, but the addon then dlopen()s
+// `@img/sharp-libvips-{platform}/lib/libvips-cpp.so.*` — a path no JS ever
+// mentions — so that 17MB library was silently left out of every deployed
+// function. First use threw `ERR_DLOPEN_FAILED: libvips-cpp.so.8.18.3: cannot
+// open shared object file`, and because Next bundles all of a route's server
+// actions into ONE module, that killed every action on the route, not just the
+// upload (see CHANGELOG 2026-08-19).
+//
+// Scoped to the five routes that mount AvatarPicker / SessionPhotoStep rather
+// than "/**": it's ~18MB per function. A route that starts taking photo
+// uploads must be added here — the symptom would be an upload that fails with
+// "Photo uploads are temporarily unavailable" (lib/images/sharp.ts) while the
+// rest of the route keeps working.
+const SHARP_NATIVE = ["node_modules/@img/**/*", "node_modules/sharp/**/*"];
+
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    "/onboarding": SHARP_NATIVE,
+    "/settings": SHARP_NATIVE,
+    "/clock": SHARP_NATIVE,
+    "/clock/live": SHARP_NATIVE,
+    "/clock/finish": SHARP_NATIVE,
+  },
   // Pin the Turbopack root to this project. A stray lockfile at
   // C:\Users\iroyb\package-lock.json makes Next infer the wrong workspace
   // root, which was wedging the dev server; this nails it down.
