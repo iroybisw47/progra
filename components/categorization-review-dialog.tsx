@@ -125,7 +125,7 @@ export function CategorizationReviewDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex max-h-[60vh] flex-col gap-5 overflow-y-auto py-2">
+        <div className="flex max-h-[60vh] flex-col gap-5 overflow-y-auto overscroll-contain py-2">
           {groups.map(({ cat, items }) => (
             <div key={cat.id} className="flex flex-col gap-2">
               <div className="flex items-center gap-1.5 text-sm font-medium">

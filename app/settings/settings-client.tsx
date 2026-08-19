@@ -544,7 +544,7 @@ function TimezonePicker({
       />
 
       {/* The one scrolling region in the sheet, so the Save button stays put. */}
-      <div className="-mx-5 min-h-0 flex-1 overflow-y-auto">
+      <div className="-mx-5 min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {shown.length === 0 && (
           <p className="text-caption px-5 py-3 text-[13px]">
             No time zone matches &ldquo;{query.trim()}&rdquo;.

@@ -184,7 +184,7 @@ export function RecapStory({
             transition={
               reduce ? { duration: 0 } : { duration: 0.28, ease: "easeOut" }
             }
-            className="absolute inset-0 overflow-y-auto"
+            className="absolute inset-0 overflow-y-auto overscroll-contain"
           >
             <Panel
               index={index}

@@ -249,6 +249,22 @@
     /* Always reserve scrollbar space so tall (/clock) pages don't shift
        content horizontally as the scrollbar appears between navigations. */
     scrollbar-gutter: stable;
+
+    /* Paint the canvas explicitly instead of relying on background
+       propagation from `body`. In the iOS shell the WKWebView and its scroll
+       view fall back to UIColor.systemBackground when the app sets no
+       background — black on a phone in dark mode — and that is what shows
+       through at the ends of a scroll. An explicit canvas colour is the web
+       layer's half of the fix; the native half is the webview's own
+       backgroundColor (capacitor.config.ts). */
+    background-color: var(--screen);
+
+    /* Progra has no dark mode: the .dark token block exists but nothing ever
+       puts .dark on <html> (the one exception is the /clock screen's opt-in
+       theme, which scopes it to its own subtree). Saying so explicitly stops
+       WebKit rendering form controls, <select> popovers and scrollbars in the
+       system's dark appearance inside the webview. */
+    color-scheme: light;
   }
   /* Newsreader serif for true heading elements (screen titles). Card/goal
      titles opt in via `font-serif` since shadcn CardTitle isn't an h-tag. */

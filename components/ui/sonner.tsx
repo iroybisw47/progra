@@ -1,15 +1,16 @@
 "use client"
 
-import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
-
+  // Pinned light rather than read from next-themes. Progra has no dark mode —
+  // nothing ever mounts a ThemeProvider — so useTheme() fell through to
+  // "system" and sonner resolved that via prefers-color-scheme: on a dark-mode
+  // phone every toast rendered dark against an all-light app.
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme="light"
       className="toaster group"
       icons={{
         success: (

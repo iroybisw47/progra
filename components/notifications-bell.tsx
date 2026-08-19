@@ -72,7 +72,7 @@ export function NotificationsBell({ initialUnseen }: { initialUnseen: boolean })
             <SheetTitle>Notifications</SheetTitle>
           </SheetHeader>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overscroll-contain">
             {items === null || loading ? (
               <ul className="flex flex-col">
                 {[0, 1, 2, 3].map((i) => (

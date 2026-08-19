@@ -460,7 +460,7 @@ export function OnboardingClientV2({
 
       <main
         key={step}
-        className="mx-auto flex w-full max-w-[420px] flex-1 flex-col overflow-y-auto px-6"
+        className="mx-auto flex w-full max-w-[420px] flex-1 flex-col overflow-y-auto overscroll-contain px-6"
       >
         {step === "welcome" && (
           <div className="flex flex-1 flex-col justify-center gap-[22px] pb-10">

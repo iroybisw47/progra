@@ -100,7 +100,7 @@ export function FinishClient({
   }
 
   return (
-    <div className="bg-card fixed inset-0 z-50 flex flex-col overflow-y-auto animate-[fade-up_.35s_cubic-bezier(.2,.8,.2,1)_both]">
+    <div className="bg-card fixed inset-0 z-50 flex flex-col overflow-y-auto overscroll-contain animate-[fade-up_.35s_cubic-bezier(.2,.8,.2,1)_both]">
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-[18px] px-6 pb-[max(env(safe-area-inset-bottom),28px)] pt-[max(env(safe-area-inset-top),40px)]">
         {/* Confirmation */}
         <div className="flex flex-col items-center gap-3 text-center">

@@ -6,6 +6,46 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-19
 
+### · Fix 1/N: black space when over-scrolling in the iOS app (web half)
+The webview shows black at the ends of a scroll. Root cause is a configuration
+contradiction between the two halves of the app, found by auditing both:
+
+- `capacitor.config.ts` sets `contentInset: 'automatic'` (Capacitor's default is
+  `never`), so UIKit insets the WKWebView scroll view by the safe areas and the
+  exposed strips are painted by the **scroll view**, not the page.
+- No `ios.backgroundColor` is set, so `CAPBridgeViewController` falls back to
+  `UIColor.systemBackground` for the webview AND its scroll view, and
+  `Info.plist` has no `UIUserInterfaceStyle` — so on a dark-mode phone that
+  colour is **black**. That's what makes the strip black rather than white.
+- The web layer is written for the opposite shell (`viewport-fit=cover`,
+  `black-translucent`, `env(safe-area-inset-*)` padding on `body`), and under
+  `.automatic` those `env()` values report 0 — so several bare-`env()` rules are
+  currently dead.
+- The document can't bounce (`scrollView.bounces = false` natively), so the
+  rubber-banding is coming from **inner** scrollers, of which there are eight,
+  none of which set `overscroll-behavior` (zero hits repo-wide).
+
+**This commit is the web half**, which ships through Vercel with no Xcode build:
+
+- `html` now paints its own canvas (`background-color: var(--screen)`) instead of
+  relying on background propagation from `body`, and declares
+  `color-scheme: light` — Progra has no dark mode, and without the declaration
+  WebKit renders form controls, `<select>` popovers and scrollbars in the
+  system's dark appearance inside the webview.
+- `overscroll-contain` on all eight inner scrollers (bottom sheet, finish
+  overlay, recap story, the settings timezone list, the onboarding step body,
+  the notifications panel, the category donut list, the categorization review),
+  so a flick past the end stops there instead of chaining to the document.
+- Toasts are pinned `theme="light"`. Nothing mounts a `ThemeProvider`, so
+  `useTheme()` fell through to `"system"` and sonner resolved it from
+  `prefers-color-scheme` — every toast rendered dark on a dark-mode phone.
+
+The native half (`contentInset: 'never'`, `ios.backgroundColor`,
+`UIUserInterfaceStyle`) is deliberately NOT in this commit: it needs
+`npx cap sync ios` plus an Xcode build, so it only reaches beta users on the next
+TestFlight build. Test this one first — if the black is gone, the native change
+is belt and braces.
+
 ### · The post screen, rebuilt — and no emoji palette
 `/session/[id]` is what opens when you tap a post: from the feed, from a session
 row on You or a friend's profile, from the notifications sheet, or from a

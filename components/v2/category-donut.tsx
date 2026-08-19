@@ -126,7 +126,7 @@ export function CategoryDonut({
                   />
                 </div>
                 {isOpen && canExpand && (
-                  <ul className="mt-1 flex max-h-64 flex-col gap-1.5 overflow-y-auto py-1 pl-3.5">
+                  <ul className="mt-1 flex max-h-64 flex-col gap-1.5 overflow-y-auto overscroll-contain py-1 pl-3.5">
                     {rowItems.map((it) => (
                       <li
                         key={it.id}
