@@ -118,7 +118,7 @@ export function FriendsLeaderboard({
                           <span className="text-body min-w-0 flex-1 truncate text-xs font-semibold">
                             {g.title}
                           </span>
-                          <span className="shrink-0 text-[11.5px] font-semibold tabular-nums text-[var(--secondary-ink)]">
+                          <span className="shrink-0 text-[11.5px] font-semibold tabular-nums text-secondary-ink">
                             {formatDuration(g.ms)}
                           </span>
                         </div>

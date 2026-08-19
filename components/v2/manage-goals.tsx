@@ -184,7 +184,7 @@ export function ManageGoals({
           <div className="flex flex-col gap-5 pb-1">
             <input
               aria-label="Goal name"
-              className="text-ink w-full border-b-2 border-[var(--hairline)] bg-transparent pb-2 text-[19px] font-medium tracking-[-0.01em] outline-none placeholder:text-[var(--disabled)]"
+              className="text-ink w-full border-b-2 border-hairline bg-transparent pb-2 text-[19px] font-medium tracking-[-0.01em] outline-none placeholder:text-disabled"
               placeholder="Goal name"
               maxLength={120}
               value={editing?.title ?? ""}

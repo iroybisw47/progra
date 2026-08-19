@@ -106,7 +106,7 @@ export function SessionDetailView({
           {detail.title}
         </h1>
         {detail.description && (
-          <p className="px-5 pt-2.5 text-[14.5px] leading-[1.6] text-pretty text-[var(--secondary-ink)]">
+          <p className="px-5 pt-2.5 text-[14.5px] leading-[1.6] text-pretty text-secondary-ink">
             {detail.description}
           </p>
         )}
@@ -205,7 +205,7 @@ export function SessionDetailView({
                   {formatRelativeTime(c.createdAt, now)}
                 </span>
               </div>
-              <span className="text-[13.5px] leading-[1.5] break-words text-[var(--secondary-ink)]">
+              <span className="text-[13.5px] leading-[1.5] break-words text-secondary-ink">
                 {c.body}
               </span>
             </div>

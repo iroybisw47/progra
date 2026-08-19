@@ -238,7 +238,7 @@ export default async function MePage() {
                           {like.count}
                         </span>
                       )}
-                      <span className="shrink-0 text-[13px] font-semibold tabular-nums text-[var(--secondary-ink)]">
+                      <span className="shrink-0 text-[13px] font-semibold tabular-nums text-secondary-ink">
                         {formatDuration(s.workedMs)}
                       </span>
                     </Link>

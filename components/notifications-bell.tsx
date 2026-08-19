@@ -61,7 +61,7 @@ export function NotificationsBell({ initialUnseen }: { initialUnseen: boolean })
         {unseen && (
           <span
             aria-hidden
-            className="bg-brand absolute right-1.5 top-1.5 size-2 rounded-full ring-2 ring-[var(--screen)]"
+            className="bg-brand absolute right-1.5 top-1.5 size-2 rounded-full ring-2 ring-screen"
           />
         )}
       </Button>

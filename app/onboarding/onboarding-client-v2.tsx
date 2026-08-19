@@ -476,7 +476,7 @@ export function OnboardingClientV2({
               <br />
               Progra.
             </h1>
-            <p className="rise text-[16px] leading-[1.6] text-pretty text-[var(--secondary-ink)] [--rise-delay:.15s]">
+            <p className="rise text-[16px] leading-[1.6] text-pretty text-secondary-ink [--rise-delay:.15s]">
               Progra helps you stop procrastinating on your goals by letting
               your friends see your progress and hold you accountable.
             </p>
@@ -498,7 +498,7 @@ export function OnboardingClientV2({
                     className="size-[9px] shrink-0 rounded-[2px]"
                     style={{ backgroundColor: color }}
                   />
-                  <span className="text-[13.5px] font-medium text-[var(--secondary-ink)]">
+                  <span className="text-[13.5px] font-medium text-secondary-ink">
                     {label}
                   </span>
                 </div>
@@ -513,7 +513,7 @@ export function OnboardingClientV2({
             >
               <Field label="Your name" hint="Optional">
                 <input
-                  className="text-ink w-full border-b-2 border-[var(--hairline)] bg-transparent pb-2 text-[19px] font-medium tracking-[-0.01em] outline-none placeholder:text-[var(--disabled)]"
+                  className="text-ink w-full border-b-2 border-hairline bg-transparent pb-2 text-[19px] font-medium tracking-[-0.01em] outline-none placeholder:text-disabled"
                   placeholder="Your name"
                   maxLength={50}
                   value={displayName}
@@ -524,7 +524,7 @@ export function OnboardingClientV2({
                 <div className="relative flex items-center">
                   <span className="text-caption pr-1 text-[19px]">@</span>
                   <input
-                    className="text-ink min-w-0 flex-1 border-b-2 border-[var(--hairline)] bg-transparent pb-2 text-[19px] font-medium tracking-[-0.01em] outline-none placeholder:text-[var(--disabled)]"
+                    className="text-ink min-w-0 flex-1 border-b-2 border-hairline bg-transparent pb-2 text-[19px] font-medium tracking-[-0.01em] outline-none placeholder:text-disabled"
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
@@ -613,7 +613,7 @@ export function OnboardingClientV2({
                       {row.meta}
                     </span>
                   </div>
-                  <p className="text-[12.5px] leading-[1.55] text-pretty text-[var(--secondary-ink)]">
+                  <p className="text-[12.5px] leading-[1.55] text-pretty text-secondary-ink">
                     {row.copy}
                   </p>
                 </div>
@@ -631,7 +631,7 @@ export function OnboardingClientV2({
           >
             <Field label="Your goal">
               <input
-                className="text-ink w-full border-b-2 border-[var(--hairline)] bg-transparent pb-2 text-[19px] font-medium tracking-[-0.01em] outline-none placeholder:text-[var(--disabled)]"
+                className="text-ink w-full border-b-2 border-hairline bg-transparent pb-2 text-[19px] font-medium tracking-[-0.01em] outline-none placeholder:text-disabled"
                 placeholder="e.g. Write thesis chapter 3"
                 maxLength={120}
                 value={goalTitle}
@@ -684,7 +684,7 @@ export function OnboardingClientV2({
                   <Field label="Name this session">
                     <div className="border-control-border flex items-center rounded-[13px] border-[1.5px]">
                       <input
-                        className="text-ink h-12 min-w-0 flex-1 bg-transparent pl-3.5 text-[15px] font-medium outline-none placeholder:text-[var(--disabled)]"
+                        className="text-ink h-12 min-w-0 flex-1 bg-transparent pl-3.5 text-[15px] font-medium outline-none placeholder:text-disabled"
                         placeholder="e.g. Quick run around neighborhood"
                         value={practiceTask}
                         onChange={(e) => setPracticeTask(e.target.value)}
@@ -773,10 +773,10 @@ export function OnboardingClientV2({
             {notifyPermission === "granted" ? (
               <div className="flex items-center gap-2 pt-0.5">
                 <CheckIcon
-                  className="size-4 text-[var(--success)]"
+                  className="size-4 text-success"
                   strokeWidth={2.4}
                 />
-                <span className="text-[13px] font-semibold text-[var(--success)]">
+                <span className="text-[13px] font-semibold text-success">
                   Notifications are on — we&rsquo;ll remind you.
                 </span>
               </div>
@@ -863,8 +863,8 @@ export function OnboardingClientV2({
               </div>
               {photo ? (
                 <div className="flex h-[76px] items-center justify-center gap-2 rounded-xl bg-[linear-gradient(135deg,#dfe5ec,#eef0f3)]">
-                  <ImageIcon className="size-4 text-[var(--secondary-ink)]" />
-                  <span className="text-xs font-semibold whitespace-nowrap text-[var(--secondary-ink)]">
+                  <ImageIcon className="size-4 text-secondary-ink" />
+                  <span className="text-xs font-semibold whitespace-nowrap text-secondary-ink">
                     desk-photo.jpg attached
                   </span>
                 </div>
@@ -872,14 +872,14 @@ export function OnboardingClientV2({
                 <button
                   type="button"
                   onClick={() => setPhoto(true)}
-                  className="text-caption hover:border-brand flex h-[76px] w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-dashed border-[#d5d9df] bg-[var(--inset-2)] text-[12.5px] font-semibold"
+                  className="text-caption hover:border-brand flex h-[76px] w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-dashed border-[#d5d9df] bg-inset-2 text-[12.5px] font-semibold"
                 >
                   <ImageIcon className="size-4" />
                   Add a photo
                 </button>
               )}
               <input
-                className="text-ink w-full border-b-2 border-[var(--hairline)] bg-transparent pb-2 text-sm outline-none placeholder:text-[var(--disabled)]"
+                className="text-ink w-full border-b-2 border-hairline bg-transparent pb-2 text-sm outline-none placeholder:text-disabled"
                 placeholder="Say something about it…"
                 value={postText}
                 onChange={(e) => setPostText(e.target.value)}
@@ -887,10 +887,10 @@ export function OnboardingClientV2({
               {posted ? (
                 <div className="flex items-center gap-2 pt-0.5">
                   <CheckIcon
-                    className="size-4 text-[var(--success)]"
+                    className="size-4 text-success"
                     strokeWidth={2.4}
                   />
-                  <span className="text-[13px] font-semibold text-[var(--success)]">
+                  <span className="text-[13px] font-semibold text-success">
                     Got it - that&rsquo;s the whole flow. Nothing was posted.
                   </span>
                 </div>
@@ -1049,7 +1049,7 @@ export function OnboardingClientV2({
               </div>
               <div className="flex items-end gap-2 pt-0.5">
                 <input
-                  className="text-ink min-w-0 flex-1 border-b-2 border-[var(--hairline)] bg-transparent pb-2 text-[15px] font-medium outline-none placeholder:text-[var(--disabled)]"
+                  className="text-ink min-w-0 flex-1 border-b-2 border-hairline bg-transparent pb-2 text-[15px] font-medium outline-none placeholder:text-disabled"
                   placeholder="Or add your own…"
                   value={habitDraft}
                   onChange={(e) => setHabitDraft(e.target.value)}
@@ -1140,13 +1140,13 @@ export function OnboardingClientV2({
                       {sub as string}
                     </span>
                   </div>
-                  <span className="shrink-0 text-[12.5px] font-semibold tabular-nums text-[var(--secondary-ink)]">
+                  <span className="shrink-0 text-[12.5px] font-semibold tabular-nums text-secondary-ink">
                     {hoursLabel as string}
                   </span>
                   <span
                     className={cn(
                       "w-[60px] shrink-0 text-right text-[11px] font-semibold whitespace-nowrap",
-                      hit ? "text-[var(--success)]" : "text-cat-burnt",
+                      hit ? "text-success" : "text-cat-burnt",
                       name === "You" && "text-brand"
                     )}
                   >
@@ -1202,7 +1202,7 @@ export function OnboardingClientV2({
               </span>
             </h1>
             <p
-              className="rise text-[15px] leading-[1.6] text-pretty text-[var(--secondary-ink)]"
+              className="rise text-[15px] leading-[1.6] text-pretty text-secondary-ink"
               style={{ "--rise-delay": "1.5s" } as React.CSSProperties}
             >
               Your week starts now: {hours} hours on “{goalDisplay}”
@@ -1224,7 +1224,7 @@ export function OnboardingClientV2({
                 <span className="text-body min-w-0 flex-1 truncate text-[13.5px] font-semibold">
                   {goalDisplay}
                 </span>
-                <span className="shrink-0 text-[13px] font-semibold tabular-nums text-[var(--secondary-ink)]">
+                <span className="shrink-0 text-[13px] font-semibold tabular-nums text-secondary-ink">
                   {hours}h/wk
                 </span>
               </div>
@@ -1324,7 +1324,7 @@ function StepBody({
         {title}
       </h1>
       <p
-        className="rise text-sm leading-[1.6] text-pretty text-[var(--secondary-ink)]"
+        className="rise text-sm leading-[1.6] text-pretty text-secondary-ink"
         style={{ "--rise-delay": ".25s" } as React.CSSProperties}
       >
         {body}
@@ -1346,7 +1346,7 @@ function NotifyLine({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2.5">
       <CheckIcon
-        className="mt-[3px] size-[15px] shrink-0 text-[var(--success)]"
+        className="mt-[3px] size-[15px] shrink-0 text-success"
         strokeWidth={2.4}
       />
       <span className="text-body text-[13.5px] leading-[1.45]">{children}</span>

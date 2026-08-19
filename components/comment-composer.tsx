@@ -35,7 +35,7 @@ export function CommentComposer({ sessionId }: { sessionId: string }) {
       }}
     >
       <input
-        className="border-control-border text-ink focus:border-brand h-11 min-w-0 flex-1 rounded-[13px] border-[1.5px] px-3.5 text-sm outline-none placeholder:text-[var(--disabled)] disabled:opacity-50"
+        className="border-control-border text-ink focus:border-brand h-11 min-w-0 flex-1 rounded-[13px] border-[1.5px] px-3.5 text-sm outline-none placeholder:text-disabled disabled:opacity-50"
         placeholder="Add a comment…"
         maxLength={COMMENT_MAX_LENGTH}
         value={value}

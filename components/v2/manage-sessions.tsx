@@ -202,7 +202,7 @@ export function ManageSessions({
                     {s.active && " · running"}
                   </span>
                 </div>
-                <span className="shrink-0 text-[13px] font-semibold tabular-nums text-[var(--secondary-ink)]">
+                <span className="shrink-0 text-[13px] font-semibold tabular-nums text-secondary-ink">
                   {formatDuration(s.workedMs)}
                 </span>
               </button>
@@ -236,7 +236,7 @@ export function ManageSessions({
           <div className="flex flex-col gap-5 pb-1">
             <input
               aria-label="What was it?"
-              className="text-ink w-full border-b-2 border-[var(--hairline)] bg-transparent pb-2 text-[19px] font-medium tracking-[-0.01em] outline-none placeholder:text-[var(--disabled)]"
+              className="text-ink w-full border-b-2 border-hairline bg-transparent pb-2 text-[19px] font-medium tracking-[-0.01em] outline-none placeholder:text-disabled"
               placeholder="What was it?"
               maxLength={200}
               value={draft?.title ?? ""}
@@ -289,7 +289,7 @@ export function ManageSessions({
                 <input
                   type="time"
                   aria-label="Start time"
-                  className="text-ink w-full border-b-2 border-[var(--hairline)] bg-transparent pb-2 text-base font-semibold tabular-nums outline-none"
+                  className="text-ink w-full border-b-2 border-hairline bg-transparent pb-2 text-base font-semibold tabular-nums outline-none"
                   value={draft?.start ?? ""}
                   onChange={(e) =>
                     setDraft((d) => (d ? { ...d, start: e.target.value } : d))

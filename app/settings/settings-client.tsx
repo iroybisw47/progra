@@ -343,7 +343,7 @@ export function SettingsClient({
             </Field>
             <Field label="Bio">
               <textarea
-                className="text-ink border-control-border w-full rounded-[13px] border-[1.5px] px-3.5 py-2.5 text-[15px] leading-[1.5] outline-none placeholder:text-[var(--disabled)]"
+                className="text-ink border-control-border w-full rounded-[13px] border-[1.5px] px-3.5 py-2.5 text-[15px] leading-[1.5] outline-none placeholder:text-disabled"
                 placeholder="A line about you"
                 maxLength={300}
                 rows={3}
@@ -494,7 +494,7 @@ function SheetInput(props: React.ComponentProps<"input">) {
   return (
     <input
       {...props}
-      className="text-ink border-control-border h-[46px] w-full rounded-[13px] border-[1.5px] px-3.5 text-[15px] font-medium outline-none placeholder:text-[var(--disabled)]"
+      className="text-ink border-control-border h-[46px] w-full rounded-[13px] border-[1.5px] px-3.5 text-[15px] font-medium outline-none placeholder:text-disabled"
     />
   );
 }
@@ -534,7 +534,7 @@ function TimezonePicker({
     <div className="flex min-h-0 flex-1 flex-col gap-3 pb-1">
       <input
         aria-label="Search time zones"
-        className="border-control-border text-ink focus:border-brand h-[42px] w-full shrink-0 rounded-[13px] border-[1.5px] px-3.5 text-sm outline-none placeholder:text-[var(--disabled)]"
+        className="border-control-border text-ink focus:border-brand h-[42px] w-full shrink-0 rounded-[13px] border-[1.5px] px-3.5 text-sm outline-none placeholder:text-disabled"
         placeholder="Search time zones"
         autoCapitalize="none"
         autoCorrect="off"

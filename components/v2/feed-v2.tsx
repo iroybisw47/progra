@@ -147,7 +147,7 @@ export async function FeedV2() {
                     </span>
                   </div>
                   {entry.firstGoalTitle ? (
-                    <p className="text-[13px] leading-[1.5] text-[var(--secondary-ink)]">
+                    <p className="text-[13px] leading-[1.5] text-secondary-ink">
                       Their first goal is{" "}
                       <span className="text-body font-semibold">
                         {entry.firstGoalTitle}

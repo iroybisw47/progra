@@ -130,7 +130,7 @@ export function SessionCard({
           {item.title}
         </span>
         {item.description ? (
-          <p className="line-clamp-3 text-[13px] leading-[1.5] text-[var(--secondary-ink)]">
+          <p className="line-clamp-3 text-[13px] leading-[1.5] text-secondary-ink">
             {item.description}
           </p>
         ) : null}
@@ -209,7 +209,7 @@ export function SessionCard({
             <span className="text-body font-semibold">
               {preview.author.displayName || `@${preview.author.username}`}
             </span>{" "}
-            <span className="break-words text-[var(--secondary-ink)]">
+            <span className="break-words text-secondary-ink">
               {preview.body}
             </span>
           </span>

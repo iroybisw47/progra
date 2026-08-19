@@ -267,7 +267,7 @@ export function BottomNav({
                   {showDot && (
                     <span
                       aria-hidden
-                      className="bg-cat-burnt absolute -right-[3px] -top-0.5 size-2 rounded-full ring-2 ring-[var(--screen)]"
+                      className="bg-cat-burnt absolute -right-[3px] -top-0.5 size-2 rounded-full ring-2 ring-screen"
                     />
                   )}
                 </span>

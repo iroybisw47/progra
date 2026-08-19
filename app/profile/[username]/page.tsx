@@ -260,7 +260,7 @@ async function ProfileContent({
                     {s.attribution?.text ?? "Uncategorized"}
                   </span>
                 </Link>
-                <span className="shrink-0 text-[13px] font-semibold tabular-nums text-[var(--secondary-ink)]">
+                <span className="shrink-0 text-[13px] font-semibold tabular-nums text-secondary-ink">
                   {formatDuration(s.workedMs)}
                 </span>
                 <KudosButton

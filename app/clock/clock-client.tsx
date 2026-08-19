@@ -761,7 +761,7 @@ export function ClockClient({
                 <input
                   id="task-name"
                   aria-label="What are you working on?"
-                  className="text-ink h-[50px] min-w-0 flex-1 bg-transparent pl-3.5 text-base font-medium outline-none placeholder:text-[var(--disabled)]"
+                  className="text-ink h-[50px] min-w-0 flex-1 bg-transparent pl-3.5 text-base font-medium outline-none placeholder:text-disabled"
                   placeholder="What are you working on?"
                   value={taskName}
                   onChange={(e) => setTaskName(e.target.value)}
@@ -782,7 +782,7 @@ export function ClockClient({
                   <input
                     id="task-desc"
                     aria-label="Description (optional)"
-                    className="text-ink h-9 w-full bg-transparent px-3.5 text-[13px] outline-none placeholder:text-[var(--disabled)]"
+                    className="text-ink h-9 w-full bg-transparent px-3.5 text-[13px] outline-none placeholder:text-disabled"
                     placeholder="Description (optional)"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
@@ -943,7 +943,7 @@ export function ClockClient({
                 : " "}
             </span>
           </div>
-          <div className="stat-num pb-3 text-2xl leading-[0.9] text-[var(--secondary-ink)]">
+          <div className="stat-num pb-3 text-2xl leading-[0.9] text-secondary-ink">
             {formatHours(weekly.total)}
           </div>
           {categoryBreakdown.length === 0 ? (
@@ -978,10 +978,10 @@ export function ClockClient({
                       className="size-[9px] shrink-0 rounded-[2px]"
                       style={{ backgroundColor: row.color ?? "var(--faint)" }}
                     />
-                    <span className="text-[var(--secondary-ink)] min-w-0 flex-1 truncate text-[12.5px] leading-[1.55]">
+                    <span className="text-secondary-ink min-w-0 flex-1 truncate text-[12.5px] leading-[1.55]">
                       {row.isGoal ? row.name.replace(/^Goal: /, "") : row.name}
                     </span>
-                    <span className="text-[var(--secondary-ink)] shrink-0 text-[12.5px] font-semibold tabular-nums">
+                    <span className="text-secondary-ink shrink-0 text-[12.5px] font-semibold tabular-nums">
                       {formatHours(row.ms)}
                     </span>
                     <span className="text-caption w-9 shrink-0 text-right text-xs tabular-nums">
@@ -1030,8 +1030,8 @@ export function ClockClient({
                     isSelected
                       ? "border-brand bg-brand"
                       : isToday
-                        ? "border-[#b7c4d3] bg-[var(--inset-2)]"
-                        : "border-control-border bg-[var(--inset-2)]"
+                        ? "border-[#b7c4d3] bg-inset-2"
+                        : "border-control-border bg-inset-2"
                   )}
                 >
                   <span
@@ -1099,7 +1099,7 @@ export function ClockClient({
                       }}
                     />
                     <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-[13px] leading-[1.25] font-semibold text-[var(--secondary-ink)]">
+                      <span className="truncate text-[13px] leading-[1.25] font-semibold text-secondary-ink">
                         {s.taskName}
                       </span>
                       <span className="text-faint truncate text-[11px] leading-[1.3]">
@@ -1107,7 +1107,7 @@ export function ClockClient({
                         {isActive && " · in progress"}
                       </span>
                     </div>
-                    <span className="shrink-0 text-[13px] font-semibold tabular-nums text-[var(--secondary-ink)]">
+                    <span className="shrink-0 text-[13px] font-semibold tabular-nums text-secondary-ink">
                       {formatDuration(row.ms)}
                     </span>
                     <PencilIcon className="text-disabled size-3 shrink-0" />
@@ -1131,7 +1131,7 @@ export function ClockClient({
                     }}
                   />
                   <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-[13px] leading-[1.25] font-semibold text-[var(--secondary-ink)]">
+                    <span className="truncate text-[13px] leading-[1.25] font-semibold text-secondary-ink">
                       {e.title ?? "(no title)"}
                     </span>
                     <span className="text-faint truncate text-[11px] leading-[1.3]">
@@ -1142,7 +1142,7 @@ export function ClockClient({
                       {e.category?.name ?? "Uncategorized"}
                     </span>
                   </div>
-                  <span className="shrink-0 text-[13px] font-semibold tabular-nums text-[var(--secondary-ink)]">
+                  <span className="shrink-0 text-[13px] font-semibold tabular-nums text-secondary-ink">
                     {formatDuration(row.ms)}
                   </span>
                   <PencilIcon className="text-disabled size-3 shrink-0" />
@@ -1181,7 +1181,7 @@ export function ClockClient({
             <div className="flex gap-2 pt-0.5 pb-2.5">
               <input
                 aria-label="New category"
-                className="text-ink min-w-0 flex-1 border-b-2 border-[var(--hairline)] bg-transparent pb-2 text-sm font-medium outline-none placeholder:text-[var(--disabled)]"
+                className="text-ink min-w-0 flex-1 border-b-2 border-hairline bg-transparent pb-2 text-sm font-medium outline-none placeholder:text-disabled"
                 placeholder="New category"
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
@@ -1216,7 +1216,7 @@ export function ClockClient({
                 type="button"
                 aria-label={`Edit ${cat.name}`}
                 onClick={() => openCategoryEdit(cat)}
-                className="min-w-0 flex-1 truncate text-left text-[13px] text-[var(--secondary-ink)]"
+                className="min-w-0 flex-1 truncate text-left text-[13px] text-secondary-ink"
               >
                 {cat.name}
               </button>

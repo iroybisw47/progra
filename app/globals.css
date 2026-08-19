@@ -28,6 +28,10 @@
   --color-divider: var(--divider);
   --color-ink: var(--ink);
   --color-body: var(--body);
+  /* Was defined below but never registered here, so there was no
+     `text-secondary-ink` utility and 27 call sites spelled it
+     `text-[var(--secondary-ink)]` by hand. */
+  --color-secondary-ink: var(--secondary-ink);
   --color-faint: var(--faint);
   --color-caption: var(--caption);
   --color-done: var(--done);

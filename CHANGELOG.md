@@ -6,6 +6,32 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-19
 
+### · Register `--secondary-ink`, and stop hand-spelling tokens that have utilities
+`--secondary-ink` is defined in both the light and dark blocks but was never
+added to the `@theme inline` map, so no `text-secondary-ink` utility existed and
+**27 call sites wrote `text-[var(--secondary-ink)]` by hand**. Registering it
+fixed that, and the same audit turned up five more spellings whose utilities
+already existed and were being used elsewhere in the very same files:
+
+| Was | Now | Count |
+|---|---|---|
+| `text-[var(--secondary-ink)]` | `text-secondary-ink` | 27 |
+| `placeholder:text-[var(--disabled)]` | `placeholder:text-disabled` | 16 |
+| `border-[var(--hairline)]` | `border-hairline` | 9 |
+| `text-[var(--success)]` | `text-success` | 6 |
+| `bg-[var(--inset-2)]` | `bg-inset-2` | 3 |
+| `ring-[var(--screen)]` | `ring-screen` | 2 |
+
+63 replacements across 17 files, and **zero visual change** — verified at the
+compiled-CSS level rather than by eye: `.text-secondary-ink{color:var(--secondary-ink)}`,
+`.border-hairline{border-color:var(--hairline)}`,
+`.placeholder\:text-disabled::placeholder{color:var(--disabled)}` and the rest
+emit byte-identical declarations to the arbitrary values they replace.
+
+Why it matters beyond tidiness: an arbitrary value is invisible to a search for
+the utility, so "which screens use the hairline?" gave the wrong answer, and the
+next person copying a line copies the long form.
+
 ### · The auto-end nudge speaks the app's language now
 `components/v2/auto-end-nudge.tsx` was the last file in `components/v2/` still
 drawn entirely in shadcn tokens — `border-border`, `bg-card`, `bg-muted`,

@@ -174,7 +174,7 @@ export function FriendsClient({
         <div className="px-5 pt-3.5">
           <input
             aria-label="Search people"
-            className="border-control-border text-ink focus:border-brand h-[42px] w-full rounded-[13px] border-[1.5px] px-3.5 text-sm outline-none placeholder:text-[var(--disabled)]"
+            className="border-control-border text-ink focus:border-brand h-[42px] w-full rounded-[13px] border-[1.5px] px-3.5 text-sm outline-none placeholder:text-disabled"
             placeholder="Search people"
             autoCapitalize="none"
             autoCorrect="off"

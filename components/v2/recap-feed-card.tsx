@@ -113,7 +113,7 @@ export function RecapFeedCard({
       </div>
 
       {entry.caption && (
-        <p className="text-[13px] leading-[1.5] text-pretty text-[var(--secondary-ink)]">
+        <p className="text-[13px] leading-[1.5] text-pretty text-secondary-ink">
           {entry.caption}
         </p>
       )}
