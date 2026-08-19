@@ -54,6 +54,7 @@ import {
   type SessionPlan,
 } from "@/lib/session";
 import { track } from "@/lib/analytics";
+import { runAction } from "@/lib/run-action";
 import { RemindersBand } from "@/app/clock/live/reminders-band";
 import { primeTimerSound, setTimerSoundMuted } from "@/lib/timer-sound";
 import { useTimerSoundMuted } from "@/lib/use-muted";
@@ -201,7 +202,7 @@ export function LiveTimerClient({
 
   function handleEndBreak() {
     startTransition(async () => {
-      const r = await endBreak();
+      const r = await runAction(endBreak());
       if ("error" in r) {
         toast.error(r.error);
         return;
@@ -302,7 +303,9 @@ export function LiveTimerClient({
 
   function handleSaveNotes() {
     startTransition(async () => {
-      const r = await updateSession(sessionId, { description: notesDraft });
+      const r = await runAction(
+        updateSession(sessionId, { description: notesDraft })
+      );
       if ("error" in r) {
         toast.error(r.error);
         return;
@@ -314,7 +317,7 @@ export function LiveTimerClient({
 
   function togglePause() {
     startTransition(async () => {
-      const r = paused ? await resumeSession() : await pauseSession();
+      const r = await runAction(paused ? resumeSession() : pauseSession());
       if ("error" in r) {
         toast.error(r.error);
         return;
@@ -325,7 +328,7 @@ export function LiveTimerClient({
   function handleStop() {
     startTransition(async () => {
       // draft: the session stays private until the finish screen's Post.
-      const r = await clockOut({ draft: true });
+      const r = await runAction(clockOut({ draft: true }));
       if ("error" in r) {
         toast.error(r.error);
         return;
@@ -386,11 +389,13 @@ export function LiveTimerClient({
       // Title + category/goal first. This never ends the session, so the time
       // edit below still finds the active row. Exactly one axis is non-null
       // (validated above), satisfying updateSession's resolveAxis.
-      const u = await updateSession(sessionId, {
-        taskName: trimmedTitle,
-        categoryId: selectedCategoryId,
-        goalId: selectedGoalId,
-      });
+      const u = await runAction(
+        updateSession(sessionId, {
+          taskName: trimmedTitle,
+          categoryId: selectedCategoryId,
+          goalId: selectedGoalId,
+        })
+      );
       if ("error" in u) {
         toast.error(u.error);
         return;
@@ -398,11 +403,13 @@ export function LiveTimerClient({
       // Time (and, if ending, pause settlement + finish routing) stays with the
       // existing action. draft: an edit that ends the session lands on the
       // finish screen too, so it must be held private until Post.
-      const r = await editActiveSessionTime({
-        startedAtMs,
-        endedAtMs,
-        draft: endedAtMs !== null,
-      });
+      const r = await runAction(
+        editActiveSessionTime({
+          startedAtMs,
+          endedAtMs,
+          draft: endedAtMs !== null,
+        })
+      );
       if ("error" in r) {
         toast.error(r.error);
         return;
