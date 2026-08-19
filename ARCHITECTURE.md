@@ -120,7 +120,7 @@ additionally 404s anyone who isn't the admin (`rpc('is_admin')`).
 | `/login` | `app/login/page.tsx` | `google-sign-in-button.tsx` | Google OAuth entry. |
 | `/auth/callback` | `route.ts` | — | OAuth code exchange → session. |
 | `/auth/signout` | `route.ts` | — | Sign out. |
-| `/onboarding` | `onboarding/page.tsx` | `onboarding-client-v2.tsx` (redesign) / `onboarding-client.tsx` (legacy) | First-run wizard. Redesign: 6-step conversational flow (welcome→about→goal→categories→habits→invite) — no calendar step; connect lives in History/Settings. Home redirects here while `profiles.onboarded_at` is null; "Replay onboarding" re-enters it. |
+| `/onboarding` | `onboarding/page.tsx` | `onboarding-client-v2.tsx` (redesign) / `onboarding-client.tsx` (legacy) | First-run wizard. Redesign: 10-step flow, 9 on web (welcome→how→goal→clock→notify→post→habit→friends→invite→go; `notify` is native-only) — no calendar step; connect lives in History/Settings. Home redirects here while `profiles.onboarded_at` is null; "Replay onboarding" re-enters it. |
 | `/search` | `search/page.tsx` | — | Placeholder ("Coming soon") for a future search surface. |
 | `/clock` | `clock/page.tsx` | `clock-client.tsx` | Clock in/out/pause; live timer; week strip. |
 | `/goals` | `goals/page.tsx` | `goals-client.tsx` | Weekly quotas and progress. |

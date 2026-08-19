@@ -121,7 +121,7 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S09 | live-timer-client | status | "Paused" vs "Tracking" (timer color, Resume/Pause, glow) | `paused = pausedSince != null` | app/clock/live/live-timer-client.tsx:282-288,401 |
 | S10 | live-timer-client | other | "Photo attached" chip vs "Add photo" | `hasPhoto ?` | app/clock/live/live-timer-client.tsx:375 |
 | S11 | live-timer-client | edit sub-state | edit sheet: "Ended at" + "Finish session" vs "Save" | `!stillRunning &&` | app/clock/live/live-timer-client.tsx:504,520 |
-| S12 | onboarding-client-v2 (REDESIGN) | step | 6-step machine: welcome→about→goal→categories→habits→**invite** (invite = final, hosts InviteShare + "Enter Progra" finish; calendar connect lives in History/Settings) | `useState<Step>` | app/onboarding/onboarding-client-v2.tsx |
+| S12 | onboarding-client-v2 (REDESIGN) | step | 10-step machine (9 on web): welcome→**how**→goal→clock→*notify*→post→habit→friends→invite→go. `notify` is native-only; `clock` and `post` are deliberate simulations, the goal and habits are created for real; calendar connect lives in History/Settings | `useState<Step>` | app/onboarding/onboarding-client-v2.tsx |
 | S13 | onboarding-client-v2 | phase (per step) | conversational typing→streaming→ready reveal | `Conversation` engine | app/onboarding/onboarding-client-v2.tsx:19-23 |
 | S14 | conversation.tsx | phase | typing indicator vs. streamed text vs. controls | `state.phase` typing/streaming/ready | components/onboarding/conversation.tsx:90,164,215 |
 | S15 | conversation.tsx | other | reduced-motion mounts straight to "ready" | `instant` | components/onboarding/conversation.tsx:89,93 |
@@ -175,7 +175,7 @@ flowchart TD
   login -->|Google OAuth| root["/"]
   login -->|already authed| root
   root -->|"onboarded_at null (REDESIGN/SOCIAL)"| onb["/onboarding"]
-  onb -->|REDESIGN| v2["OnboardingClientV2: welcome→about→goal→categories→habits→invite"]
+  onb -->|REDESIGN| v2["OnboardingClientV2: welcome→how→goal→clock→notify→post→habit→friends→invite→go"]
   onb -->|legacy| lg["OnboardingClient: 9-step + practice + tours"]
   v2 -->|complete| root
   lg -->|complete| root

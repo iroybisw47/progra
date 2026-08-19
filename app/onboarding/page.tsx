@@ -35,9 +35,9 @@ export default async function OnboardingPage() {
   const profile = await getProfile();
   const tz = profile?.timezone ?? "UTC";
 
-  // The redesign uses a lean conversational wizard (welcome → about → goal →
-  // categories → habits → invite) with no practice session. Calendar connect
-  // lives in History/Settings, not here.
+  // The redesign wizard runs welcome → how Progra works → goal → practice
+  // clock-in → notifications (shell only) → practice post → habits → friends →
+  // invite → go. Calendar connect lives in History/Settings, not here.
   if (REDESIGN) {
     return (
       <OnboardingClientV2

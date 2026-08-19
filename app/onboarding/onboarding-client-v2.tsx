@@ -42,11 +42,15 @@ import {
 import { checkUsername } from "@/lib/social/username";
 
 // First-run wizard, in the order the design lays it out: welcome (who you are)
-// → first goal → a practice clock-in → turn on notifications → a practice post
-// → habits → what Sunday looks like → invite → go.
+// → how Progra works → first goal → a practice clock-in → turn on notifications
+// → a practice post → habits → your friends → invite → go.
 //
-// Nine steps in the shell, eight on the website — `notify` doesn't exist where
+// Ten steps in the shell, nine on the website — `notify` doesn't exist where
 // notifications don't.
+//
+// `how` earns its place before `goal`: the next screen asks for a goal, and a
+// goal only means something once you know it's the tracked-against-a-target
+// kind of thing, as opposed to a category or a habit.
 //
 // Two of those steps are deliberately fake: the practice clock-in runs a
 // fast-forwarded 25-minute simulation on the wall clock and writes nothing, and
@@ -55,6 +59,7 @@ import { checkUsername } from "@/lib/social/username";
 // finishes onboarding with a week already set up.
 const STEPS = [
   "welcome",
+  "how",
   "goal",
   "clock",
   "notify",
@@ -347,13 +352,14 @@ export function OnboardingClientV2({
   const cta: Record<Step, { label: string; onClick: () => void; dim?: boolean }> =
     {
       welcome: {
-        label: "Set your first goal",
+        label: "Get started",
         onClick: () =>
           usernameValid
             ? claimUsername()
             : toast.error("Pick a username to continue"),
         dim: !usernameValid,
       },
+      how: { label: "Continue", onClick: () => go(stepIndex + 1) },
       goal: { label: "Save goal", onClick: saveGoal, dim: !goalTitle.trim() },
       clock: {
         label: running ? "Clocking in…" : "Clock in above to continue",
@@ -403,7 +409,7 @@ export function OnboardingClientV2({
         onClick: () => saveHabits(stepIndex + 1),
         dim: picked.length === 0 && !habitDraft.trim(),
       },
-      recap: { label: "Invite friends", onClick: () => go(stepIndex + 1) },
+      recap: { label: "Continue", onClick: () => go(stepIndex + 1) },
       invite: { label: "Continue", onClick: () => go(stepIndex + 1) },
       go: { label: "Start my week", onClick: finish },
     };
@@ -552,12 +558,76 @@ export function OnboardingClientV2({
           </div>
         )}
 
+        {/* What the next few screens are actually asking for. Goals and
+            categories are the same clock with and without a target, and that
+            distinction is invisible in the app until someone explains it. */}
+        {step === "how" && (
+          <StepBody
+            step="how"
+            numbered={numbered}
+            title="How Progra works."
+            body="Your time goes into a goal or a category - the same clock either way, the difference is whether you're aiming at a number. Habits sit beside them for the small daily things."
+          >
+            <div className="border-control-border overflow-hidden rounded-2xl border-[1.5px]">
+              {[
+                {
+                  color: "#4A6FA5",
+                  name: "Goals",
+                  meta: "Weekly target",
+                  copy: "Something you want to put a set number of hours into every week. Progra counts them and tells you where you stand - and so do your friends.",
+                },
+                {
+                  color: "#46808A",
+                  name: "Categories",
+                  meta: "No target",
+                  copy: "Something you just want to see the time on - reading, admin, the gym. Logged the same way; there is simply nothing to hit.",
+                },
+                {
+                  color: "#6B639C",
+                  name: "Habits",
+                  meta: "One tap",
+                  copy: "The small daily things, with no clock at all. You check them off on your Progress tab.",
+                },
+              ].map((row, i) => (
+                <div
+                  key={row.name}
+                  className={cn(
+                    "rise flex flex-col gap-1.5 px-3.5 py-3",
+                    i > 0 && "border-divider border-t"
+                  )}
+                  style={
+                    { "--rise-delay": `${0.1 + i * 0.12}s` } as React.CSSProperties
+                  }
+                >
+                  <div className="flex items-center gap-[9px]">
+                    <span
+                      aria-hidden
+                      className="size-[9px] shrink-0 rounded-[2px]"
+                      style={{ backgroundColor: row.color }}
+                    />
+                    <span className="text-ink text-[13.5px] font-semibold">
+                      {row.name}
+                    </span>
+                    <span className="flex-1" />
+                    <span className="text-faint text-[10px] font-semibold tracking-[0.06em] uppercase">
+                      {row.meta}
+                    </span>
+                  </div>
+                  <p className="text-[12.5px] leading-[1.55] text-pretty text-[var(--secondary-ink)]">
+                    {row.copy}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </StepBody>
+        )}
+
         {step === "goal" && (
           <StepBody
             step="goal"
             numbered={numbered}
             title="Set your first goal."
-            body='Make it a specific, actionable thing you can put hours into every week — not "get fit", but "run 3x a week". You commit to a number of hours; Progra keeps score.'
+            body='Make it a specific, actionable thing you can put hours into every week - be intention-focused instead of outcome-focused. For example, instead of your goal being “Run a marathon”, make your goal “Run 5 hours a week”.'
           >
             <Field label="Your goal">
               <input
@@ -606,7 +676,7 @@ export function OnboardingClientV2({
             step="clock"
             numbered={numbered}
             title="Try clocking in."
-            body="Every hour starts with a clock-in: name the session, pick the goal, go. This practice one is set to 25 minutes — we'll fast-forward it for you."
+            body="To track time towards your goal, go to the clock tab. Then, name the session, pick whatever goal you want to work towards, and start. When you are done working towards your goal, you can clock out, and Progra will store your time. The practice one is set to 25 minutes - we will fast forward it for you."
           >
             <div className="border-control-border flex flex-col gap-3.5 rounded-2xl border-[1.5px] p-4">
               {!running ? (
@@ -761,11 +831,11 @@ export function OnboardingClientV2({
           <StepBody
             step="post"
             numbered={numbered}
-            title="Nice — now share it."
+            title="Nice - now share it."
             body={
               <>
-                When you clock out, you can post the session to your feed —
-                usually with a photo of what you got done. Try it —{" "}
+                When you clock out, you can post the session to your feed -
+                usually with a photo of what you got done. Try it -{" "}
                 <strong className="text-body font-semibold">
                   this is practice, nothing will actually be posted.
                 </strong>
@@ -821,7 +891,7 @@ export function OnboardingClientV2({
                     strokeWidth={2.4}
                   />
                   <span className="text-[13px] font-semibold text-[var(--success)]">
-                    Got it — that&rsquo;s the whole flow. Nothing was posted.
+                    Got it - that&rsquo;s the whole flow. Nothing was posted.
                   </span>
                 </div>
               ) : (
@@ -1032,8 +1102,8 @@ export function OnboardingClientV2({
           <StepBody
             step="recap"
             numbered={numbered}
-            title="Sunday settles it."
-            body={`At the end of the week you get a recap: did you hit your ${hours}h, or not. Your friends get one too — and everyone can see who showed up.`}
+            title="Friends are the point."
+            body={`Add the people whose opinion you would rather not disappoint. They see your hours all week and you see theirs - and every Sunday everyone's week lands in the same list: who hit their goal, who missed. Yours is ${hours}h.`}
           >
             <div className="border-control-border overflow-hidden rounded-2xl border-[1.5px]">
               <div className="flex items-center gap-[7px] px-3.5 pt-3 pb-2">
@@ -1087,7 +1157,7 @@ export function OnboardingClientV2({
             </div>
             <span className="text-faint text-xs">
               That little &ldquo;missed&rdquo; is the whole trick. Nobody wants
-              the little &ldquo;missed&rdquo;.
+              their friends to see it.
             </span>
           </StepBody>
         )}

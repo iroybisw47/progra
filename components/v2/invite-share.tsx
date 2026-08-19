@@ -37,10 +37,13 @@ export function InviteShare({
     typeof window !== "undefined"
       ? `${window.location.origin}/i/${username}`
       : `https://${SITE_HOST}/i/${username}`;
+  // Message AND link, as one block. Both buttons send exactly this, so what
+  // gets pasted into a chat can't depend on which one was tapped.
+  const shareBody = () => `${text}\n${linkFor()}`;
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(`${text}\n${linkFor()}`);
+      await navigator.clipboard.writeText(shareBody());
       toast.success("Invite link copied");
     } catch {
       toast.error("Couldn't copy — long-press the link to copy it.");
@@ -51,7 +54,12 @@ export function InviteShare({
     const nav = navigator as ShareCapableNavigator;
     if (typeof nav.share === "function") {
       try {
-        await nav.share({ title: "Progra", text, url: linkFor() });
+        // The link rides inside `text` rather than in `url`. Share targets
+        // pick and choose between the two fields — several of the ones people
+        // actually invite through take the text and drop the url, which sent
+        // an invite with no way to accept it. Passing both instead would
+        // print the link twice wherever a target honours both.
+        await nav.share({ title: "Progra", text: shareBody() });
         // Only after the sheet resolves — an AbortError below means the user
         // dismissed it, which isn't an invite.
         track("invite_sent", { method: "share_sheet" });

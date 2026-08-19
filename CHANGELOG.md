@@ -6,6 +6,45 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-19
 
+### · Onboarding: a How-Progra-works screen, and copy that says what to do
+The wizard explained the mechanics nowhere and asked for a goal immediately, so
+"goal" had to be guessed from context — and goals vs categories, the one
+distinction the whole clock rests on, was never mentioned at all.
+
+**New second step, `how`** (before `goal`, because the next screen asks for
+one): time goes into a **goal** — a weekly hour target — or a **category** —
+the same clock with nothing to hit — and **habits** sit beside both as one-tap
+daily check-offs with no timer. Ten steps in the shell now, nine on the web;
+everything still derives from `activeSteps()`, so the dots and the "step N of M"
+eyebrow follow on their own. Welcome's CTA is "Get started" rather than "Set
+your first goal", which now belongs to the screen after next.
+
+**Goal step** is explicit about intention over outcome: not "Run a marathon"
+but "Run 5 hours a week" — the failure mode being a goal you can't clock into.
+
+**Practice clock-in** says where this lives in the real app (the Clock tab) and
+walks the three moves — name it, pick the goal, start; clock out and Progra
+keeps the time — before the mock asks anyone to do it.
+
+**The Sunday step is now about the friends**, not the artefact: they see your
+hours all week, you see theirs, and the recap is where that lands. It keeps the
+leaderboard mock, since that IS the friends. Its CTA reads "Continue" instead of
+"Invite friends" (the invite screen follows it and makes its own ask).
+
+**Sharing an invite now carries the link.** `navigator.share` was given the
+message as `text` and the link as `url`, and share targets pick between those
+fields — the ones people actually invite through take the text and drop the
+url, which sent an invite nobody could accept. Both buttons now send one block,
+message + link, so copy and share can't disagree.
+
+Em dashes are single hyphens in the practice-post and friends steps, per the
+house voice here.
+
+Also refreshed the flow description in `ARCHITECTURE.md`, `docs/SCREENS.md`
+(S12) and `app/onboarding/page.tsx` — all three still described a six-step
+welcome→about→goal→categories→habits→invite wizard that hasn't existed for a
+while.
+
 ### · Fix: onboarding died on screen 1 — sharp's native library never shipped
 Pressing "Set your first goal" returned Next's server-error page (digest
 `1800497011`). The Vercel log for that digest:
