@@ -25,7 +25,7 @@ export function DeleteCommentButton({ commentId }: { commentId: string }) {
           }
         })
       }
-      className="text-muted-foreground hover:text-foreground shrink-0 transition-colors disabled:opacity-50"
+      className="text-disabled hover:text-ink shrink-0 transition-colors disabled:opacity-50"
     >
       <XIcon className="size-3.5" />
     </button>

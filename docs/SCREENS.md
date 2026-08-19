@@ -44,7 +44,7 @@ Sheet / AlertDialog overlay).
 | R14 | `/clock` | route | BottomNav center "Clock"; Progress goal cards; live-timer back | ungated in page; RLS in loaders | app/clock/page.tsx:10-17 |
 | R15 | `/clock/finish` | route | live-timer clock-out redirect | `!REDESIGN`→`notFound`; `requireUser`; own-row + ended checks | app/clock/finish/page.tsx:25-46 |
 | R16 | `/clock/live` | route | clock strip; nav center while tracking | `!REDESIGN`→`notFound`; `requireUser`; `!active`→`/clock` | app/clock/live/page.tsx:15-20 |
-| R17 | `/session/[id]` | route | feed cards; notifications panel | `!REDESIGN`→`notFound`; `requireUser`; `!detail`→`notFound` (RLS) | app/session/[id]/page.tsx:22-32 |
+| R17 | `/session/[id]` | route | feed cards; You + profile session rows; notifications panel; like/comment push taps | `!REDESIGN`→`notFound`; `requireUser`; `!detail`→`notFound` (RLS) | app/session/[id]/page.tsx (loader) · session-view.tsx (screen) |
 | R18 | `/profile/[username]` | route | author links in feed/friends/session/clocked-in/admin | `!SOCIAL_ENABLED`→`notFound`; `requireUser`; `!target`/blocked→`notFound` | app/profile/[username]/page.tsx:35-52 |
 | R19 | `/settings` | route | `/me` settings icon | `!REDESIGN`→`notFound`; `requireUser` | app/settings/page.tsx:13-24 |
 | R20 | `/admin` | route | Settings "Moderation" (admins); Dashboard | `!SOCIAL_ENABLED`→`notFound`; `requireUser`; `is_admin!==true`→`notFound` | app/admin/page.tsx:43-49 |

@@ -3,8 +3,6 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { addComment } from "@/app/actions/comments";
 import { COMMENT_MAX_LENGTH } from "@/lib/social/comments";
 
@@ -36,21 +34,21 @@ export function CommentComposer({ sessionId }: { sessionId: string }) {
         submit();
       }}
     >
-      <Input
-        className="h-9"
+      <input
+        className="border-control-border text-ink focus:border-brand h-11 min-w-0 flex-1 rounded-[13px] border-[1.5px] px-3.5 text-sm outline-none placeholder:text-[var(--disabled)] disabled:opacity-50"
         placeholder="Add a comment…"
         maxLength={COMMENT_MAX_LENGTH}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         disabled={pending}
       />
-      <Button
+      <button
         type="submit"
-        size="sm"
         disabled={pending || value.trim().length === 0}
+        className="bg-brand text-primary-foreground h-11 shrink-0 rounded-[13px] px-4 text-sm font-semibold transition-transform active:scale-[.97] disabled:opacity-40"
       >
         Post
-      </Button>
+      </button>
     </form>
   );
 }

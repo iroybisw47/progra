@@ -6,6 +6,47 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-19
 
+### · The post screen, rebuilt — and no emoji palette
+`/session/[id]` is what opens when you tap a post: from the feed, from a session
+row on You or a friend's profile, from the notifications sheet, or from a
+like/comment push. It was the last screen reachable in two taps that still
+looked pre-revamp — the recolor pass had given it the new text tokens, but the
+title and duration still sat in a shadcn card, with no eyebrow, no serif, and a
+row of emoji reaction buttons under the photo.
+
+Now it's the feed card opened up, in the same vocabulary: author row with the
+relative time, the "clocked into ◈ {target} for 2h 12m" sub-line, the title in
+serif at 26px (the card uses 17), the description unclamped, the photo whole,
+and the duration pill in the session's own colour. **The emoji palette is
+gone**; the post carries one like — the same kudos heart the feed leaves — and
+a private post shows the Private chip instead, since nobody else can see it to
+like it. Comments keep their thread and composer, rebuilt as hairline rows
+under a track band.
+
+**The back arrow now goes back.** It was a `<Link href="/feed">`, which sent
+anyone arriving from a profile, the You tab or a push notification to a screen
+they hadn't come from. It's `BackButton` (`router.back()`), like the friend
+profile.
+
+**Split in two:** `page.tsx` keeps the gate and the three loads, and hands plain
+props to `session-view.tsx`. That's what let the four states — with photo,
+without, no comments, own private post — be rendered from fixtures and
+screenshotted before deploying.
+
+`getSessionForViewer` now returns `title` + `attribution` + `isPrivate` instead
+of a `label`/`isGoal` pair, and resolves attribution through the SHARED
+`resolveFeedAttribution` rather than its own "goal title else task name" rule.
+That local rule had no category branch at all, so a category-tracked session
+showed nothing about what it was filed under — and the shared resolver is a
+privacy boundary (a private goal yields null rather than falling through to a
+category), which is exactly the kind of rule that shouldn't have had a second
+implementation.
+
+`components/reaction-bar.tsx` stays in the repo — the legacy `feed.tsx` still
+mounts it on the flag-off path — and reaction data is untouched, since kudos IS
+a `LIKE_EMOJI` reaction. The comment composer and delete control were restyled
+in place.
+
 ### · Settings rebuilt in the editorial language
 The last screen the 2026-08-15 redesign never touched — deferred at the time,
 and increasingly odd about it, since Settings opens from the You tab's header

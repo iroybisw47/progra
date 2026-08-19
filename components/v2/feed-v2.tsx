@@ -23,7 +23,7 @@ import { formatRelativeTime } from "@/lib/dates";
 // The Feed tab (redesign). A live "clocked in now" strip plus friends' recent
 // finished sessions. Unlike the pre-redesign Home feed, comment threads are
 // collapsed to a count + one preview that link out to the session detail page —
-// the whole card taps through to `/session/[id]` where reactions and the full
+// the whole card taps through to `/session/[id]` where the post and the full
 // thread live. RLS gates every read, so only shareable sessions arrive here.
 export async function FeedV2() {
   // Reactions/comments are session-keyed, so they chain off listFriendFeed
