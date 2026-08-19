@@ -6,6 +6,29 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-19
 
+### · Fix 3: the page was inset twice — `contentInset` back to Capacitor's default
+With fix 2 the over-scroll area went from black to white, which said the colour
+was solved and the *space itself* was the remaining bug: you could scroll up into
+a blank strip above the header instead of the screen starting at the top.
+
+That strip is not a rubber-band. `CAPBridgeViewController.swift:301` sets
+`scrollView.bounces = false`, so the document cannot bounce — the space was real
+scrollable area, added by `contentInset: 'automatic'`, which makes UIKit apply
+the safe areas to the web view's scroll view as a **content inset**. The CSS
+already insets the app for the same safe areas
+(`body { padding-top: env(safe-area-inset-top) }`, globals.css), so every screen
+was inset twice and the extra height was scrollable.
+
+`contentInset` is now `'never'` — Capacitor's documented default, which the repo
+had overridden. The insetting goes back to the CSS, which is what
+`viewport-fit=cover` and the black-translucent status bar were written for, and
+it also revives every `env(safe-area-inset-*)` rule in the app: under
+`'automatic'` those values report 0, so the bottom nav's
+`pb-[env(safe-area-inset-bottom)]` and the sheet/overlay insets were quietly
+doing nothing.
+
+Needs an Xcode build, like fix 2.
+
 ### · Fix 2: the black space was the webview's own background — **needs an Xcode build**
 Fix 1 (the web half) didn't clear it, which points at the native side, as the
 audit predicted. `CAPBridgeViewController.swift:308-314`:

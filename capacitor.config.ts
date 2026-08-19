@@ -9,7 +9,16 @@ const config: CapacitorConfig = {
     cleartext: false,
   },
   ios: {
-    contentInset: 'automatic',
+    // Capacitor's own default, restored. With 'automatic', UIKit adds the safe
+    // areas to the web view's scroll view as a CONTENT INSET — real scrollable
+    // space, not a bounce (CAPBridgeViewController.swift:301 sets
+    // `scrollView.bounces = false`, so the document never rubber-bands). On top
+    // of that the CSS already insets the app itself
+    // (`body { padding-top: env(safe-area-inset-top) }` in globals.css), so the
+    // screen was inset twice and you could scroll up into the gap above the
+    // header. 'never' hands the job back to the CSS, which is what
+    // `viewport-fit=cover` + the black-translucent status bar were written for.
+    contentInset: 'never',
     // Without this, CAPBridgeViewController assigns UIColor.systemBackground to
     // BOTH the webview and its scroll view (CAPBridgeViewController.swift:308-314),
     // and since Info.plist declares no UIUserInterfaceStyle the app follows the
