@@ -4,6 +4,46 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-08-19
+
+### · Loading skeletons rebuilt in the editorial language
+The last screen still drawing shadcn cards onto the redesigned tabs. The nine
+`loading.tsx` files that don't use `PrograLoader` (the root route, `/history`,
+`/i/{username}` and `/recap/{weekStart}` do) all went through one
+`PageSkeleton` that rendered a 3xl title over a stack of grey boxes — so Clock, Feed, Friends and You each flashed a card layout and then
+re-laid out into flat hairline-split rows. The first paint contradicted the
+screen it was announcing.
+
+`PageSkeleton` now takes a **variant** and mirrors the real screen: same
+`pt-7`/`pb-28` frame, same `max-w-md` column, same 20px gutter, same row
+heights, so the swap reads as content filling in rather than a second screen.
+Five shapes — `feed` (SessionCard's avatar/sub-line/serif title/photo/pill
+footer), `friends` (search field + UserRow list), `profile` (identity, three
+stats, the track-band splits), `clock` (the clock-in form, then the inset quiet
+zone with the week bar and day strip), and `rows`, the generic
+divider-split list the remaining screens use.
+
+**Known chrome is drawn, not shimmered.** The search field and the clock-in
+inputs render as empty outlines (`Frame`) because they're there before the data
+is; only unknown content pulses. The clock CTA's placeholder is a navy tint —
+it's the one coloured element on that screen, so the eye lands where the button
+will be. The screen title stays real text, which is Next's own guidance for
+`loading.js`: prerender the meaningful part rather than blurring everything.
+
+Shimmer fill is `bg-track` — the grey the progress tracks already use, so a
+loading screen introduces no colour the design doesn't have — with
+`motion-reduce:animate-none`, and `role="status"` + an `sr-only` "Loading {X}…"
+on the container.
+
+The `subtitle` and `showDayStrip` props are gone (no caller used the latter);
+`rows` replaces `blocks`. Titles now match their destination exactly
+("Clock in", "Session history"), so the header doesn't change text on swap.
+
+Note the five list screens this precedes — Goals, Habits, Categories, Sessions,
+Recap — have **not** been redesigned yet, so their skeleton is now ahead of the
+screen rather than behind it. Deliberate: the mismatch points at the work
+that's left instead of preserving the look being removed.
+
 ## 2026-08-18
 
 ### · Like/comment pushes — the first notifications Progra SENDS — **requires SQL (run by hand, before deploy)**
