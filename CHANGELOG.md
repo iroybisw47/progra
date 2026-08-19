@@ -6,6 +6,29 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-19
 
+### · One navy button: `PrimaryButton`, and the sheets converted to it
+The app's most-repeated element existed in **nine hand-rolled copies**: five radii
+(13/14/15/18/2xl), five heights (44/46/50/52/`py-4`), two shadow recipes, two
+active scales and three disabled opacities. None of that was chosen; it
+accumulated over the weeks the screens were built.
+
+`components/v2/primary-button.tsx` takes whichever variant was already the
+majority — `rounded-[15px]` (8 sites), `active:scale-[.98]` (beats `.97` 8-to-4),
+`disabled:opacity-50` — in two sizes, because two contexts genuinely differ:
+`sheet` (h-12, `text-sm`) and `screen` (h-[52px], `text-base`, the navy glow).
+Width defaults to full; a button in a row beside Delete passes `className="flex-1"`.
+
+Converted in this commit — the eight sheet CTAs, where the change is a 2px height
+shift at most: `manage-goals` (add + save), `manage-sessions` (add + save),
+`manage-habits` (add + save, which also **drops its shadcn `Button` import** — its
+two sibling sheets hand-rolled the same geometry, so it was the odd one out), and
+Settings' two sheets, whose `SHEET_CTA` class constant is now gone.
+
+Screen-level CTAs (Clock in, onboarding's Continue, the live timer, the finish
+screen) are deliberately NOT in this commit: those have real geometry differences
+— `rounded-2xl`, `h-[50px]`, a `py-4` button with no height at all — so converting
+them is a visible change that deserves its own test.
+
 ### · Register `--secondary-ink`, and stop hand-spelling tokens that have utilities
 `--secondary-ink` is defined in both the light and dark blocks but was never
 added to the `@theme inline` map, so no `text-secondary-ink` utility existed and

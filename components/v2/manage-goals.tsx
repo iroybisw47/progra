@@ -16,6 +16,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { BottomSheet, BottomSheetContent } from "@/components/v2/bottom-sheet";
+import { PrimaryButton } from "@/components/v2/primary-button";
 import { ColorSwatches } from "@/components/color-swatches";
 import { archiveGoal, createGoal, updateGoal } from "@/app/actions/goals";
 import { goalColorOf } from "@/lib/colors";
@@ -160,13 +161,9 @@ export function ManageGoals({
             );
           })}
 
-          <button
-            type="button"
-            onClick={openNew}
-            className="bg-brand text-primary-foreground mt-0.5 h-[46px] w-full rounded-[15px] text-sm font-semibold transition-transform active:scale-[.98]"
-          >
+          <PrimaryButton onClick={openNew} className="mt-0.5">
             + Add a goal
-          </button>
+          </PrimaryButton>
         </div>
       </BottomSheetContent>
 
@@ -273,14 +270,13 @@ export function ManageGoals({
                   </AlertDialogContent>
                 </AlertDialog>
               )}
-              <button
-                type="button"
+              <PrimaryButton
                 onClick={save}
                 disabled={pending || !editing?.title.trim()}
-                className="bg-brand text-primary-foreground h-12 flex-1 rounded-[15px] text-sm font-semibold transition-transform active:scale-[.98] disabled:opacity-40"
+                className="flex-1"
               >
                 Save goal
-              </button>
+              </PrimaryButton>
             </div>
           </div>
         </BottomSheetContent>

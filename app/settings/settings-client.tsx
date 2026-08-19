@@ -12,6 +12,7 @@ import {
   BottomSheet,
   BottomSheetContent,
 } from "@/components/v2/bottom-sheet";
+import { PrimaryButton } from "@/components/v2/primary-button";
 import { HoldToDelete } from "@/components/v2/hold-to-delete";
 import { ReplayOnboardingButton } from "@/components/replay-onboarding-button";
 import { ToggleSwitch } from "@/components/v2/toggle-switch";
@@ -351,14 +352,9 @@ export function SettingsClient({
                 onChange={(e) => setBioDraft(e.target.value)}
               />
             </Field>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={saveIdentity}
-              className={SHEET_CTA}
-            >
+            <PrimaryButton disabled={pending} onClick={saveIdentity}>
               {pending ? "Saving…" : "Save"}
-            </button>
+            </PrimaryButton>
           </div>
         </BottomSheetContent>
       </BottomSheet>
@@ -388,9 +384,6 @@ export function SettingsClient({
 // The outline chip the Friends screen uses for its per-row actions.
 const CHIP =
   "border-control-border text-caption inline-flex h-8 items-center rounded-[11px] border-[1.5px] px-3.5 text-xs font-semibold transition-transform active:scale-[.97] disabled:opacity-50";
-
-const SHEET_CTA =
-  "bg-brand text-primary-foreground h-[46px] w-full rounded-[15px] text-sm font-semibold transition-transform active:scale-[.98] disabled:opacity-50";
 
 // The 1.5px track band that separates one group of rows from the next — the
 // same rhythm /me uses between its stats, quotas and sessions.
@@ -576,14 +569,9 @@ function TimezonePicker({
         ))}
       </div>
 
-      <button
-        type="button"
-        disabled={pending}
-        onClick={onSave}
-        className={cn(SHEET_CTA, "shrink-0")}
-      >
+      <PrimaryButton disabled={pending} onClick={onSave} className="shrink-0">
         {pending ? "Saving…" : "Save"}
-      </button>
+      </PrimaryButton>
     </div>
   );
 }

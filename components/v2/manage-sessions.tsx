@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { PrimaryButton } from "@/components/v2/primary-button";
 import { BottomSheet, BottomSheetContent } from "@/components/v2/bottom-sheet";
 import { PickerPill } from "@/components/category-picker";
 import {
@@ -209,13 +210,9 @@ export function ManageSessions({
             );
           })}
 
-          <button
-            type="button"
-            onClick={openNew}
-            className="bg-brand text-primary-foreground mt-3 h-[46px] w-full rounded-[15px] text-sm font-semibold transition-transform active:scale-[.98]"
-          >
+          <PrimaryButton onClick={openNew} className="mt-3">
             + Add a session
-          </button>
+          </PrimaryButton>
           <p className="text-disabled pt-2.5 text-[11px]">
             Calendar events and a running session can&rsquo;t be edited here.
           </p>
@@ -368,14 +365,13 @@ export function ManageSessions({
                   </AlertDialogContent>
                 </AlertDialog>
               )}
-              <button
-                type="button"
+              <PrimaryButton
                 onClick={save}
                 disabled={pending || !draft?.title.trim()}
-                className="bg-brand text-primary-foreground h-12 flex-1 rounded-[15px] text-sm font-semibold transition-transform active:scale-[.98] disabled:opacity-40"
+                className="flex-1"
               >
                 Save session
-              </button>
+              </PrimaryButton>
             </div>
           </div>
         </BottomSheetContent>

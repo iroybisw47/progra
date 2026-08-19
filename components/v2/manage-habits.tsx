@@ -26,7 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
+import { PrimaryButton } from "@/components/v2/primary-button";
 import {
   BottomSheet,
   BottomSheetContent,
@@ -394,14 +394,10 @@ export function ManageHabits({
               }}
             />
             <ColorSwatches value={newColor} onChange={setNewColor} />
-            <Button
-              className="h-[46px] w-full gap-1.5 rounded-[15px]"
-              onClick={handleAdd}
-              disabled={!newName.trim()}
-            >
+            <PrimaryButton onClick={handleAdd} disabled={!newName.trim()}>
               <PlusIcon className="size-4" />
               Add habit
-            </Button>
+            </PrimaryButton>
           </section>
         </div>
       </BottomSheetContent>
@@ -428,13 +424,9 @@ export function ManageHabits({
               }}
             />
             <ColorSwatches value={editColor} onChange={setEditColor} />
-            <Button
-              className="h-12 w-full rounded-[15px]"
-              disabled={!editName.trim()}
-              onClick={handleSaveEdit}
-            >
+            <PrimaryButton disabled={!editName.trim()} onClick={handleSaveEdit}>
               Save habit
-            </Button>
+            </PrimaryButton>
           </div>
         </BottomSheetContent>
       </BottomSheet>
