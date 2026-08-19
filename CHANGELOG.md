@@ -6,6 +6,20 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-19
 
+### · Fix 4: the bottom nav sits on the home indicator, not above it
+A consequence of fix 3, not a new bug: with `contentInset: 'never'`,
+`env(safe-area-inset-bottom)` started reporting its real ~34pt for the first
+time, and the nav's `pb-[env(safe-area-inset-bottom)]` lifted the whole bar off
+the bottom of the phone, so the tabs read as floating.
+
+The bar now pads by `max(env(safe-area-inset-bottom) - 12px, 0px)`: still clear
+of the home indicator, 12px lower than iOS's full inset. The `max(…, 0px)` keeps
+it a no-op on the web and on devices with no inset, where the subtraction would
+otherwise go negative.
+
+Ships through Vercel — no Xcode build for this one. 12px is a knob; say the word
+and it moves.
+
 ### · Fix 3: the page was inset twice — `contentInset` back to Capacitor's default
 With fix 2 the over-scroll area went from black to white, which said the colour
 was solved and the *space itself* was the remaining bug: you could scroll up into
