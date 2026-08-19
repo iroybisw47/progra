@@ -139,6 +139,11 @@ export function sendApnsAlert(
         return;
       }
       if (status === 410 || body.includes("BadDeviceToken")) {
+        // 400/BadDeviceToken = wrong environment (a sandbox token at the
+        // production host, or vice versa); 410/Unregistered = the token died
+        // (app deleted, or reinstalled since it registered). Both mean "stop
+        // sending to this token", but they debug very differently.
+        console.error(`[push] token gone (${status}):`, body);
         done("gone");
         return;
       }
