@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { CameraIcon, CheckIcon, TimerOffIcon } from "lucide-react";
+import { CameraIcon, CheckIcon, ChevronDownIcon, TimerOffIcon } from "lucide-react";
 
 import {
   AlertDialog,
@@ -87,6 +87,21 @@ export function FinishClient({
     });
   }
 
+  // Leaving without posting is a real outcome, not an escape hatch: the
+  // session is already saved, just private (see the comment in page.tsx). Until
+  // now there was no way to take it — this screen is `fixed inset-0` over the
+  // nav, so Post and Delete were the only exits, and someone who didn't want to
+  // share had to delete work they'd actually done.
+  //
+  // Deliberately does NOT markAutoEndReviewed: an auto-ended session that was
+  // dismissed rather than reviewed should keep its nudge on Progress.
+  function handleDismiss() {
+    toast.success(
+      `Saved ${formatDuration(workedMs)} privately — post it later by editing the session`
+    );
+    router.push("/");
+  }
+
   function handleDelete() {
     startTransition(async () => {
       const r = await deleteSession(sessionId);
@@ -102,6 +117,21 @@ export function FinishClient({
   return (
     <div className="bg-card fixed inset-0 z-50 flex flex-col overflow-y-auto overscroll-contain animate-[fade-up_.35s_cubic-bezier(.2,.8,.2,1)_both]">
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-[18px] px-6 pb-[max(env(safe-area-inset-bottom),28px)] pt-[max(env(safe-area-inset-top),40px)]">
+        {/* Dismiss. Chevron-down rather than a back chevron: this is a sheet
+            presented over the app, and it's the same gesture the live timer's
+            minimize uses. */}
+        <header className="flex items-center">
+          <button
+            type="button"
+            aria-label="Close without posting"
+            disabled={pending}
+            onClick={handleDismiss}
+            className="border-hairline text-caption hover:border-brand flex size-8 shrink-0 items-center justify-center rounded-[11px] border-[1.5px] disabled:opacity-50"
+          >
+            <ChevronDownIcon className="size-[15px]" strokeWidth={2} />
+          </button>
+        </header>
+
         {/* Confirmation */}
         <div className="flex flex-col items-center gap-3 text-center">
           <span className="bg-brand/10 flex size-13 items-center justify-center rounded-full">

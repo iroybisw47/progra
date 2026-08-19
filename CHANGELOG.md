@@ -6,6 +6,23 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-19
 
+### · The finish screen has a way out
+`/clock/finish` is `fixed inset-0 z-50`, so it covers the bottom nav, and it had
+no header, no back control and no minimize — the only two exits were **Post** and
+**Delete session**. Someone who'd just worked two hours and didn't want to share
+it had to delete the work to leave the screen.
+
+Leaving is a legitimate outcome and always was: `page.tsx` documents it —
+"abandoning the screen leaves the session saved but private". There was simply no
+way to do the abandoning. A chevron-down dismiss now sits top-left (the gesture
+the live timer's minimize already uses, in the app's standard
+`size-8 rounded-[11px] border-[1.5px]` icon-button geometry), routes to Progress,
+and toasts what happened: saved privately, and postable later by editing the
+session — which the edit-session dialog on /clock can do, so the copy is honest.
+
+It deliberately does NOT call `markAutoEndReviewed`: an auto-ended session that
+was dismissed rather than reviewed should keep its nudge on the Progress tab.
+
 ### · Fix 4: the bottom nav sits on the home indicator, not above it
 A consequence of fix 3, not a new bug: with `contentInset: 'never'`,
 `env(safe-area-inset-bottom)` started reporting its real ~34pt for the first
