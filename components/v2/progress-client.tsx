@@ -230,18 +230,28 @@ export function ProgressClient(props: {
         )}
         <Hairline className="mt-4" />
 
-        {/* Sessions — today's rows; the chevron opens the full history. */}
+        {/* Sessions — today's rows open the manage sheet; the week's header
+            opens /history already scoped to THIS week. It used to link to a
+            bare /history, which defaults to the month view — so tapping
+            "Sessions" from the Week tab jumped you to a different period than
+            the one you were looking at. */}
         <section className="flex flex-col pt-3">
           <SectionHeader
             label="Sessions"
             meta={
               isToday
                 ? `${props.sessionsToday.length} logged`
-                : `${props.weekTracked} tracked · ${props.weekImported} imported`
+                : `${props.weekTracked} logged`
             }
             onClick={isToday ? onManageSessions : undefined}
-            href={isToday ? undefined : "/history"}
-            ariaLabel={isToday ? "Manage today's sessions" : "All sessions"}
+            href={
+              isToday
+                ? undefined
+                : `/history?view=week&w=${props.weekStart}`
+            }
+            ariaLabel={
+              isToday ? "Manage today's sessions" : "This week's sessions"
+            }
             className="pb-2"
           />
           {isToday ? (
