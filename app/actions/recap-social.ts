@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { LIKE_EMOJI } from "@/lib/social/reactions";
 import { COMMENT_MAX_LENGTH } from "@/lib/social/comments";
+import { requireSeat } from "@/lib/auth/require-seat";
 
 type Result = { ok: true } | { error: string };
 type ToggleResult = { ok: true; reacted: boolean } | { error: string };
@@ -17,6 +18,8 @@ export async function toggleRecapKudos(recapId: string): Promise<ToggleResult> {
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
   if (!recapId) return { error: "Couldn't react." };
 
   const { data, error } = await supabase.rpc("toggle_recap_reaction", {
@@ -40,6 +43,8 @@ export async function addRecapComment(
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
 
   const trimmed = body.trim();
   if (!trimmed) return { error: "Comment can't be empty." };

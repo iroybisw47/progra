@@ -5,6 +5,7 @@ import { revalidateHabitSurfaces } from "@/lib/revalidate";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { todayInTimeZone } from "@/lib/dates";
+import { requireSeat } from "@/lib/auth/require-seat";
 
 type Result = { ok: true } | { error: string };
 
@@ -18,6 +19,8 @@ export async function createHabit(
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
 
   // Auto-assign from the shared 12-swatch palette (same one categories use),
   // cycling by existing habit count. Editable afterwards via updateHabit.
@@ -106,6 +109,8 @@ export async function toggleHabitCompletion(
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
 
   const { data: profile } = await supabase
     .from("profiles")

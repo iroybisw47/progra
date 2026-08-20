@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth/require-user";
 import { loadSharp } from "@/lib/images/sharp";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireSeat } from "@/lib/auth/require-seat";
 
 type Result = { ok: true } | { error: string };
 
@@ -29,6 +30,8 @@ export async function uploadSessionPhoto(
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
 
   // Validate the incoming file cheaply before touching storage.
   const file = formData.get("photo");

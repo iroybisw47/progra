@@ -6,6 +6,7 @@ import { loadSharp } from "@/lib/images/sharp";
 import { revalidateIdentitySurfaces } from "@/lib/revalidate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { requireSeat } from "@/lib/auth/require-seat";
 
 type Result = { ok: true } | { error: string };
 
@@ -27,6 +28,8 @@ const JPEG_QUALITY = 80;
 export async function uploadAvatar(formData: FormData): Promise<Result> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
 
   const file = formData.get("photo");
   if (!(file instanceof File) || file.size === 0) {

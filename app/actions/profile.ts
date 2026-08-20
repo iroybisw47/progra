@@ -10,6 +10,7 @@ import {
 import { checkUsername } from "@/lib/social/username";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
+import { requireSeat } from "@/lib/auth/require-seat";
 
 // Account-level, unlike the per-device reminder prefs: the push is sent by the
 // server, which knows accounts, not phones. Null = on, so the column's default
@@ -112,6 +113,8 @@ export async function setUsername(
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
 
   const { error } = await supabase
     .from("profiles")
@@ -137,6 +140,8 @@ export async function setProfileIdentity(input: {
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
 
   const update: Record<string, unknown> = {};
   if (input.displayName !== undefined) {
@@ -175,6 +180,8 @@ export async function completeOnboarding(): Promise<
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
 
   const { error } = await supabase
     .from("profiles")

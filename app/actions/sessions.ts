@@ -18,6 +18,7 @@ import {
   type SessionTiming,
 } from "@/lib/session";
 import { capText } from "@/lib/validate";
+import { requireSeat } from "@/lib/auth/require-seat";
 
 type Result = { ok: true } | { error: string };
 
@@ -123,6 +124,8 @@ export async function clockIn(
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
 
   const axis = resolveAxis(input.categoryId, input.goalId);
   if ("error" in axis) return axis;
@@ -701,6 +704,8 @@ export async function createSession(input: CreateSessionInput): Promise<Result> 
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
 
   const axis = resolveAxis(input.categoryId, input.goalId);
   if ("error" in axis) return axis;

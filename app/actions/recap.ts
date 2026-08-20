@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { weekWindow } from "@/lib/dates";
 import { computeWeekRecap } from "@/lib/db/recap";
 import { getWeekLeaderboard } from "@/lib/db/leaderboard";
+import { requireSeat } from "@/lib/auth/require-seat";
 
 type Result = { ok: true } | { error: string };
 
@@ -53,6 +54,8 @@ export async function postRecap(
 ): Promise<Result> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) return { error: "Invalid week" };
 
   const profile = await getProfile();

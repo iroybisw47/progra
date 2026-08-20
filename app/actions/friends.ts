@@ -6,6 +6,7 @@ import { normalizeUsername } from "@/lib/social/username";
 import { isUuid } from "@/lib/validate";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
+import { requireSeat } from "@/lib/auth/require-seat";
 
 type Result = { ok: true } | { error: string };
 
@@ -25,6 +26,8 @@ export async function sendFriendRequest(targetUserId: string): Promise<Result> {
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
   if (!targetUserId || targetUserId === user.id) {
     return { error: "Couldn't send request." };
   }
@@ -50,6 +53,8 @@ export async function acceptFriendRequest(requestId: string): Promise<Result> {
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
 
   const { error } = await supabase.rpc("accept_friend_request", {
     request_id: requestId,

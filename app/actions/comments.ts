@@ -7,6 +7,7 @@ import { sendSocialPush } from "@/lib/push/send-social-push";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { COMMENT_MAX_LENGTH } from "@/lib/social/comments";
+import { requireSeat } from "@/lib/auth/require-seat";
 
 type Result = { ok: true } | { error: string };
 
@@ -22,6 +23,8 @@ export async function addComment(
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
 
   const trimmed = body.trim();
   if (!trimmed) return { error: "Comment can't be empty." };

@@ -7,6 +7,7 @@ import { sendSocialPush } from "@/lib/push/send-social-push";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { isReactionEmoji } from "@/lib/social/reactions";
+import { requireSeat } from "@/lib/auth/require-seat";
 
 type Result = { ok: true; reacted: boolean } | { error: string };
 
@@ -22,6 +23,8 @@ export async function toggleReaction(
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
   if (!sessionId || !isReactionEmoji(emoji)) {
     return { error: "Couldn't react." };
   }

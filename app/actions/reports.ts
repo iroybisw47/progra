@@ -7,6 +7,7 @@ import {
   isReportReason,
   type ReportTargetType,
 } from "@/lib/social/reports";
+import { requireSeat } from "@/lib/auth/require-seat";
 
 type Result = { ok: true } | { error: string };
 
@@ -30,6 +31,8 @@ export async function reportContent(
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
 
   if (!TARGET_TYPES.includes(targetType) || !targetId) {
     return { error: "Couldn't submit report." };

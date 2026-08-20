@@ -4,6 +4,7 @@ import { isCategoryColor } from "@/lib/category-colors";
 import { revalidateCategorySurfaces } from "@/lib/revalidate";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
+import { requireSeat } from "@/lib/auth/require-seat";
 
 type Result = { ok: true } | { error: string; code?: "duplicate" };
 
@@ -51,6 +52,8 @@ export async function createCategory(
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
 
   const { error } = await supabase
     .from("categories")

@@ -47,6 +47,15 @@ export type Profile = {
   // omitted from ClientProfile (no reason to expose the referrer to the client).
   // (May be absent until the column SQL is run — treated as null.)
   referred_by: string | null;
+  // Beta seat number, 1..beta_config.seat_cap. Non-null = a member; null =
+  // waitlisted. Claimed by the zz_claim_beta_seat trigger on signup and
+  // healed/promoted by claim_beta_seat_self(); never user-writable (a guard
+  // trigger on profiles rejects the column from `authenticated`).
+  // OPTIONAL on purpose: before the column SQL is run PostgREST omits the key
+  // entirely, so it reads back `undefined` — and isWaitlisted() tests strict
+  // `=== null`, so the app shipping ahead of the SQL fails OPEN rather than
+  // locking every user out of their own account.
+  seat_no?: number | null;
   created_at: string;
   updated_at: string;
 };

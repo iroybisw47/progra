@@ -22,6 +22,9 @@ import { getNavBadges } from "@/lib/db/notifications";
 import { HABIT_REMINDERS } from "@/lib/flags";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
+import { isWaitlisted } from "@/lib/auth/seat";
+import { createClient } from "@/lib/supabase/server";
+import { BetaFull } from "@/components/beta-full";
 
 // Two families, as the redesign specifies: Hanken Grotesk for all UI text,
 // Newsreader (serif) for headings and the big display numbers. Both are
@@ -92,103 +95,148 @@ export default async function RootLayout({
       // serializing the others. Skipped entirely while the flag is dark.
       HABIT_REMINDERS ? getHabitReminderData() : Promise.resolve(null),
     ]);
-  return (
-    <html
-      lang="en"
-      className={`${hanken.variable} ${newsreader.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">
-        {children}
-        {/* Analytics. Deliberately NOT gated on `user`: the signed-out landing
-            and the invite pages are exactly where drop-off matters most. */}
+
+  // The 250-seat beta cap. Only the seat-less path costs anything: getProfile()
+  // is already fetched above, so members pay nothing here.
+  let waitlistPosition: number | null = null;
+  let betaFull = false;
+  if (isWaitlisted(profile)) {
+    const supabase = await createClient();
+    // Lazy promotion: retry the claim in case the cap was raised. There is no
+    // cron in this repo, so admission is enforced on load — the same
+    // shape as EnsureSessionCap.
+    const { data: seat } = await supabase.rpc("claim_beta_seat_self");
+    if (seat == null) {
+      betaFull = true;
+      const { data: position } = await supabase.rpc("beta_waitlist_position");
+      waitlistPosition = typeof position === "number" ? position : null;
+    }
+    // Seat just granted — fall through and render the app normally. The
+    // profile read above is now stale, but nothing downstream reads seat_no.
+  }
+
+  if (betaFull) {
+    // No children, no BottomNav, no session/push leaves — a waitlisted user
+    // gets no app shell at all. PostHogInit stays: hitting the wall is exactly
+    // the drop-off worth measuring.
+    return (
+      <Shell>
+        <BetaFull position={waitlistPosition} />
         <PostHogInit
           userId={user?.id ?? null}
           username={profile?.username ?? null}
           signupDate={profile?.created_at ?? null}
         />
-        {user && (
-          <BottomNav
-            activeSession={
-              activeSession
-                ? {
-                    startedAt: activeSession.startedAt,
-                    endedAt: activeSession.endedAt,
-                    pausedMs: activeSession.pausedMs,
-                    pausedSince: activeSession.pausedSince,
-                  }
-                : null
-            }
-            initialFeedBadge={navBadges.feed}
-            initialFriendsBadge={navBadges.friends}
-          />
-        )}
-        {user && <EnsureProfileSync timezone={profile?.timezone ?? null} />}
-        {/* Flat primitives, not a SessionTiming object: an object literal would
-            be a fresh reference every render and re-run the effect (re-scheduling
-            the cap timer) on every layout re-render. */}
-        {user && (
-          <EnsureSessionCap
-            sessionId={activeSession?.id ?? null}
-            startedAt={activeSession?.startedAt ?? null}
-            pausedMs={activeSession?.pausedMs ?? null}
-            pausedSince={activeSession?.pausedSince ?? null}
-          />
-        )}
-        {/* Flat primitives here too, and for the same reason as the cap leaf:
-            an object literal is a fresh reference every render and would
-            re-schedule the completion timer on every layout re-render. */}
-        {user && (
-          <EnsurePlanComplete
-            sessionId={activeSession?.id ?? null}
-            startedAt={activeSession?.startedAt ?? null}
-            pausedMs={activeSession?.pausedMs ?? null}
-            pausedSince={activeSession?.pausedSince ?? null}
-            plannedWorkMs={activeSession?.plannedWorkMs ?? null}
-          />
-        )}
-        {/* Shown once, on the first load after a timed session finished while
-            nobody was watching. Both of its buttons stamp plan_reviewed_at. */}
-        {user && planComplete && (
-          <PlanCompleteModal
-            sessionId={planComplete.id}
-            taskName={planComplete.taskName}
-            workedMs={planComplete.workedMs}
-          />
-        )}
-        {/* Flat primitives again: an object literal is a fresh reference every
-            render and would re-sync the device's notification schedule on every
-            layout render. Only these five are needed — clockReminders reads
-            nothing else, and breaks arrive via pausedSince. */}
-        {user && (
-          <SyncClockReminders
-            sessionId={activeSession?.id ?? null}
-            startedAt={activeSession?.startedAt ?? null}
-            pausedMs={activeSession?.pausedMs ?? null}
-            pausedSince={activeSession?.pausedSince ?? null}
-            plannedWorkMs={activeSession?.plannedWorkMs ?? null}
-          />
-        )}
-        {/* Same flat-primitives rule as the clock leaf: the name lists ride
-            in as "\n"-joined strings, so the effect re-runs only when the
-            habit data actually changes. Habit toggles reach it because
-            revalidateHabitSurfaces revalidates the layout. */}
-        {user && (
-          <SyncHabitReminders
-            uncheckedNames={habitData?.uncheckedNames.join("\n") ?? ""}
-            activeNames={habitData?.activeNames.join("\n") ?? ""}
-            statusDate={habitData?.statusDate ?? null}
-          />
-        )}
-        {/* One listener for every notification family — routes a tap by its
-            reserved id. Lives outside the sync leaves so it survives either
-            flag being off. */}
-        {user && <NotificationTapRouter />}
-        {/* Gated on `user`: the push token is stored against the current
-            user, so there's nothing to save until someone is signed in.
-            No-op on web. */}
-        {user && <PushRegistration />}
         <Toaster />
-      </body>
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell>
+      {children}
+      {/* Analytics. Deliberately NOT gated on `user`: the signed-out landing
+          and the invite pages are exactly where drop-off matters most. */}
+      <PostHogInit
+        userId={user?.id ?? null}
+        username={profile?.username ?? null}
+        signupDate={profile?.created_at ?? null}
+      />
+      {user && (
+        <BottomNav
+          activeSession={
+            activeSession
+              ? {
+                  startedAt: activeSession.startedAt,
+                  endedAt: activeSession.endedAt,
+                  pausedMs: activeSession.pausedMs,
+                  pausedSince: activeSession.pausedSince,
+                }
+              : null
+          }
+          initialFeedBadge={navBadges.feed}
+          initialFriendsBadge={navBadges.friends}
+        />
+      )}
+      {user && <EnsureProfileSync timezone={profile?.timezone ?? null} />}
+      {/* Flat primitives, not a SessionTiming object: an object literal would
+          be a fresh reference every render and re-run the effect (re-scheduling
+          the cap timer) on every layout re-render. */}
+      {user && (
+        <EnsureSessionCap
+          sessionId={activeSession?.id ?? null}
+          startedAt={activeSession?.startedAt ?? null}
+          pausedMs={activeSession?.pausedMs ?? null}
+          pausedSince={activeSession?.pausedSince ?? null}
+        />
+      )}
+      {/* Flat primitives here too, and for the same reason as the cap leaf:
+          an object literal is a fresh reference every render and would
+          re-schedule the completion timer on every layout re-render. */}
+      {user && (
+        <EnsurePlanComplete
+          sessionId={activeSession?.id ?? null}
+          startedAt={activeSession?.startedAt ?? null}
+          pausedMs={activeSession?.pausedMs ?? null}
+          pausedSince={activeSession?.pausedSince ?? null}
+          plannedWorkMs={activeSession?.plannedWorkMs ?? null}
+        />
+      )}
+      {/* Shown once, on the first load after a timed session finished while
+          nobody was watching. Both of its buttons stamp plan_reviewed_at. */}
+      {user && planComplete && (
+        <PlanCompleteModal
+          sessionId={planComplete.id}
+          taskName={planComplete.taskName}
+          workedMs={planComplete.workedMs}
+        />
+      )}
+      {/* Flat primitives again: an object literal is a fresh reference every
+          render and would re-sync the device's notification schedule on every
+          layout render. Only these five are needed — clockReminders reads
+          nothing else, and breaks arrive via pausedSince. */}
+      {user && (
+        <SyncClockReminders
+          sessionId={activeSession?.id ?? null}
+          startedAt={activeSession?.startedAt ?? null}
+          pausedMs={activeSession?.pausedMs ?? null}
+          pausedSince={activeSession?.pausedSince ?? null}
+          plannedWorkMs={activeSession?.plannedWorkMs ?? null}
+        />
+      )}
+      {/* Same flat-primitives rule as the clock leaf: the name lists ride
+          in as "\n"-joined strings, so the effect re-runs only when the
+          habit data actually changes. Habit toggles reach it because
+          revalidateHabitSurfaces revalidates the layout. */}
+      {user && (
+        <SyncHabitReminders
+          uncheckedNames={habitData?.uncheckedNames.join("\n") ?? ""}
+          activeNames={habitData?.activeNames.join("\n") ?? ""}
+          statusDate={habitData?.statusDate ?? null}
+        />
+      )}
+      {/* One listener for every notification family — routes a tap by its
+          reserved id. Lives outside the sync leaves so it survives either
+          flag being off. */}
+      {user && <NotificationTapRouter />}
+      {/* Gated on `user`: the push token is stored against the current
+          user, so there's nothing to save until someone is signed in.
+          No-op on web. */}
+      {user && <PushRegistration />}
+      <Toaster />
+    </Shell>
+  );
+}
+
+// One definition of the html/body chrome, shared by the app tree and the
+// beta-full wall so the two can never drift on fonts or layout.
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <html
+      lang="en"
+      className={`${hanken.variable} ${newsreader.variable} h-full antialiased`}
+    >
+      <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }

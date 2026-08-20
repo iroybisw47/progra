@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { capText } from "@/lib/validate";
 import { isCategoryColor } from "@/lib/category-colors";
+import { requireSeat } from "@/lib/auth/require-seat";
 
 type Result = { ok: true } | { error: string };
 
@@ -31,6 +32,8 @@ export async function createGoal(input: CreateGoalInput): Promise<Result> {
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
 
   // null clears the color (back to the id-derived fallback); an unrecognised
   // value is rejected outright so freehand hexes can't drift in.
