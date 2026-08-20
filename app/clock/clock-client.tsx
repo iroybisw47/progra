@@ -11,11 +11,9 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   ClockIcon,
-  MoonIcon,
   PauseIcon,
   PencilIcon,
   PlayIcon,
-  SunIcon,
   XIcon,
 } from "lucide-react";
 
@@ -233,31 +231,6 @@ export function ClockClient({
   );
   // null = week mode; 0..6 (Mon-first) = day mode for that weekday of this week.
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
-
-  // Clock-only theme. Scoped to this screen via a `dark` class on the wrapper
-  // (activates the warm-charcoal dark tokens for this subtree only — the rest
-  // of the app and the tab bar stay light). Persisted in localStorage; read
-  // lazily (SSR-guarded) so there's no setState-in-effect. The wrapper is
-  // suppressHydrationWarning since its class can differ from the server's.
-  const [dark, setDark] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return localStorage.getItem("clock-theme") === "dark";
-    } catch {
-      return false;
-    }
-  });
-  function toggleTheme() {
-    setDark((d) => {
-      const next = !d;
-      try {
-        localStorage.setItem("clock-theme", next ? "dark" : "light");
-      } catch {
-        // ignore storage failures (private mode etc.)
-      }
-      return next;
-    });
-  }
 
   const activeSession = sessions.find((s) => s.endedAt === null) ?? null;
 
@@ -540,31 +513,12 @@ export function ClockClient({
       : "Until I stop";
 
   return (
-    <div
-      suppressHydrationWarning
-      className={cn(
-        "flex flex-1 flex-col items-center px-5 pt-7 pb-28 transition-colors",
-        dark && "dark bg-[#14181f] text-[#eef1f5]"
-      )}
-    >
+    <div className="flex flex-1 flex-col items-center px-5 pt-7 pb-28">
       <main className="flex w-full max-w-md flex-col">
-        <header className="flex items-center justify-between gap-3">
+        <header className="flex items-center gap-3">
           <span className="section-label">
             {activeSession ? "Tracking" : "Clock in"}
           </span>
-          <button
-            type="button"
-            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-            aria-pressed={dark}
-            onClick={toggleTheme}
-            className="border-control-border text-caption flex size-8 shrink-0 items-center justify-center rounded-[11px] border-[1.5px] transition-transform active:scale-95"
-          >
-            {dark ? (
-              <SunIcon className="size-4" />
-            ) : (
-              <MoonIcon className="size-4" />
-            )}
-          </button>
         </header>
 
         {activeSession ? (

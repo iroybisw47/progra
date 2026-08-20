@@ -64,10 +64,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#14181f" },
-  ],
+  // One colour, unconditionally: Progra has no dark mode, so advertising a dark
+  // theme-color made iOS tint the status bar for a palette the app never renders.
+  themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",

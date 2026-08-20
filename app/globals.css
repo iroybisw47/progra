@@ -170,68 +170,14 @@
   --sidebar-ring: #1c3a5e;
 }
 
-.dark {
-  /* V2 dark — navy-tinted cool charcoal (design_handoff_progra_v2 dark tokens). */
-  --background: #14181f;
-  --foreground: #eef1f5;
-  --card: #1b212b;
-  --card-foreground: #eef1f5;
-  --popover: #1b212b;
-  --popover-foreground: #eef1f5;
-  --primary: #7fa3cc; /* lifted navy for contrast on dark */
-  --primary-foreground: #101722;
-  --secondary: #242c38;
-  --secondary-foreground: #eef1f5;
-  --muted: #242c38;
-  --muted-foreground: #a8b0bc;
-  --accent: #1f2630;
-  --accent-foreground: #eef1f5;
-  --destructive: #c77b63;
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: #7fa3cc;
-  /* Same nine hues, lifted for contrast on the dark ground. */
-  --chart-1: #7f9fd0;
-  --chart-2: #6ba6b0;
-  --chart-3: #74a086;
-  --chart-4: #b587a4;
-  --chart-5: #c7a85a;
+/* Progra has no dark mode. The .dark token block that used to live here was
+   dead the moment the /clock screen's opt-in toggle was removed — nothing puts
+   .dark on any element now. `color-scheme: light` below is what keeps WebKit
+   from rendering form controls and scrollbars dark inside the webview.
 
-  --brand: #7fa3cc;
-  --brand-deep: #142c49;
-  --sand: #2e3b4d;
-  --sand-ink: #cfe0f2;
-  --screen: #14181f;
-  --screen-recap: #14181f;
-  --card-warm: #1b212b;
-  --app-bg: #0e1218;
-  --inset: #1f2630;
-  --inset-2: #1b212b;
-  --track: #242c38;
-  --hairline: oklch(1 0 0 / 10%);
-  --divider: oklch(1 0 0 / 7%);
-  --control-border: oklch(1 0 0 / 11%);
-  --warm-border: oklch(1 0 0 / 11%);
-  --ink: #eef1f5;
-  --body: #dfe4ea;
-  --secondary-ink: #a8b0bc;
-  --caption: #8b929c;
-  --faint: #737b88;
-  --disabled: #5b636e;
-  --success: #6f9077;
-  --done: #6f9077;
-  --busy: #242c38;
-  --tint-you: rgba(127, 163, 204, 0.09);
-
-  --sidebar: #1b212b;
-  --sidebar-foreground: #eef1f5;
-  --sidebar-primary: #7fa3cc;
-  --sidebar-primary-foreground: #101722;
-  --sidebar-accent: #1f2630;
-  --sidebar-accent-foreground: #eef1f5;
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: #7fa3cc;
-}
+   The `dark` custom-variant at the top of this file stays: shadcn's vendored
+   components still carry `dark:` utilities, and the variant is what lets them
+   compile. They never match. */
 
 @layer base {
   * {
@@ -263,11 +209,9 @@
        backgroundColor (capacitor.config.ts). */
     background-color: var(--screen);
 
-    /* Progra has no dark mode: the .dark token block exists but nothing ever
-       puts .dark on <html> (the one exception is the /clock screen's opt-in
-       theme, which scopes it to its own subtree). Saying so explicitly stops
-       WebKit rendering form controls, <select> popovers and scrollbars in the
-       system's dark appearance inside the webview. */
+    /* Progra has no dark mode, and nothing puts .dark on any element. Saying so
+       explicitly stops WebKit rendering form controls, <select> popovers and
+       scrollbars in the system's dark appearance inside the webview. */
     color-scheme: light;
   }
   /* Newsreader serif for true heading elements (screen titles). Card/goal
