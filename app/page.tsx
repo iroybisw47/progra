@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarIcon, TimerIcon, UsersIcon } from "lucide-react";
 
 import { AddToHomeHint } from "@/components/add-to-home-hint";
 import { SignInButtons } from "@/app/login/sign-in-buttons";
@@ -9,7 +8,7 @@ import { Feed } from "@/components/feed";
 import { ProgressClient } from "@/components/v2/progress-client";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
-import { CALENDAR_CONNECT, REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
+import { REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
 import {
   currentWeekStart,
   loadProgressData,
@@ -78,39 +77,11 @@ function SignedOutLanding() {
         <header className="flex flex-col gap-2">
           <h1 className="text-4xl font-semibold tracking-tight">Progra</h1>
           <p className="text-muted-foreground text-sm">
-            The first community-based productivity app.
+            The world&rsquo;s first community-based productivity app.
           </p>
         </header>
         {/* Starts the OAuth flow directly — no intermediate /login stop. */}
         <SignInButtons googleLabel="Sign in with Google" />
-
-        {/* Feature blurb — also makes the optional Google Calendar connection
-            visible to signed-out visitors (and OAuth reviewers). */}
-        <ul className="text-muted-foreground flex w-full flex-col gap-3 text-left text-sm">
-          <li className="flex items-start gap-2.5">
-            <TimerIcon className="mt-0.5 size-4 shrink-0" strokeWidth={1.9} />
-            <span>Set goals and clock in to log your study sessions.</span>
-          </li>
-          {/* Only while the connection is actually offered. This bullet is
-              also what Google's own OAuth reviewers look for, so it returns
-              with the feature rather than being deleted. */}
-          {CALENDAR_CONNECT && (
-            <li className="flex items-start gap-2.5">
-              <CalendarIcon
-                className="mt-0.5 size-4 shrink-0"
-                strokeWidth={1.9}
-              />
-              <span>
-                Optionally connect Google Calendar (read-only) to log your
-                calendar events alongside your tracked time.
-              </span>
-            </li>
-          )}
-          <li className="flex items-start gap-2.5">
-            <UsersIcon className="mt-0.5 size-4 shrink-0" strokeWidth={1.9} />
-            <span>Share sessions and track progress with friends.</span>
-          </li>
-        </ul>
 
         <AddToHomeHint />
       </main>
