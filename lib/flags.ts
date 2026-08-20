@@ -35,6 +35,26 @@ export const SOCIAL_ENABLED =
 // otherwise.
 export const REFER_ENABLED = envFlag(process.env.NEXT_PUBLIC_REFER_ENABLED);
 
+// Master switch for OFFERING the Google Calendar connection.
+//
+// Dark for the first App Store submission. `calendar.events.readonly` is a
+// SENSITIVE Google scope, so until the OAuth app clears verification two things
+// are true: every consent screen shows "Google hasn't verified this app" with
+// "Go to progra.world (unsafe)" as the way forward, and Google caps the app at
+// 100 users who have granted the scope — which contradicts a 250-seat beta the
+// moment it fills.
+//
+// This gates the ability to CONNECT, not the feature. Anyone already connected
+// keeps their synced events, keeps the sync button, and keeps Disconnect —
+// withdrawing access is promised in the privacy policy and must never depend on
+// a flag.
+//
+// Flip to "1" (and NEXT_PUBLIC_SHOW_UNVERIFIED_WARNING to "0") once Google's
+// verification clears.
+export const CALENDAR_CONNECT = envFlag(
+  process.env.NEXT_PUBLIC_CALENDAR_CONNECT
+);
+
 // Master switch for timed clock-in: a work target plus optional breaks, as an
 // alternative to the open-ended "stop when you stop" session.
 //

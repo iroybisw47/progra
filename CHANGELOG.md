@@ -6,6 +6,35 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-20
 
+### 18:30 · Google Calendar connect goes dark for the first submission
+`calendar.events.readonly` is a **sensitive** Google scope, and the OAuth app
+hasn't cleared verification (`NEXT_PUBLIC_SHOW_UNVERIFIED_WARNING` is still 1).
+Two consequences, one cosmetic and one arithmetic:
+
+- Every consent screen shows "Google hasn't verified this app", where the way
+  forward is labelled *"Go to progra.world (unsafe)"*. That is a security
+  warning on a feature advertised on the signed-out landing page, shown to an
+  App Review reviewer who has no obligation to read our explanation first.
+- Google caps an unverified app at **100 users** who have granted a sensitive
+  scope. The beta sells 250 seats. The two numbers disagree the moment it fills.
+
+New `CALENDAR_CONNECT` flag, dark by default. It gates the ability to
+**connect**, not the feature: anyone already connected keeps their synced
+events, the sync button, and Disconnect. Revocation is promised in the privacy
+policy and must never depend on a flag.
+
+Gated in four places, because hiding a button is not the same as closing a door:
+Settings (the row itself disappears rather than reading "Not connected" with no
+way to act on it), History, the landing-page bullet, and `/auth/google-calendar`
+— which now redirects before it even checks auth, since it starts a real consent
+flow.
+
+The landing bullet is gated rather than deleted: it exists partly for Google's
+own OAuth reviewers, so it should return with the feature.
+
+Flip `NEXT_PUBLIC_CALENDAR_CONNECT=1` and `NEXT_PUBLIC_SHOW_UNVERIFIED_WARNING=0`
+together when verification clears.
+
 ### 17:55 · Pre-submission regression pass: notifications outliving their account, and a wall you could walk around
 First pass looking at the features together rather than one at a time. Three
 real defects, all at the seams.

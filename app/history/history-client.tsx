@@ -9,6 +9,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CategorizePeriodButton } from "@/components/categorize-period-button";
 import { SyncCalendarButton } from "@/components/sync-calendar-button";
+import { CALENDAR_CONNECT } from "@/lib/flags";
 import { CategoryDonut } from "@/components/v2/category-donut";
 import {
   WeekSummary,
@@ -245,7 +246,7 @@ function RollupBody({
           )}
         {calendarConnected ? (
           <SyncCalendarButton />
-        ) : (
+        ) : !CALENDAR_CONNECT ? null : (
           <div className="flex flex-col gap-2">
             {SHOW_UNVERIFIED_WARNING && (
               <p className="text-muted-foreground text-xs leading-relaxed text-pretty">

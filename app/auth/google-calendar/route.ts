@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { CALENDAR_SCOPE } from "@/lib/auth/profile";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { requireSeat } from "@/lib/auth/require-seat";
+import { CALENDAR_CONNECT } from "@/lib/flags";
 import {
   GCAL_STATE_COOKIE,
   callbackUri,
@@ -16,6 +17,13 @@ import {
 // Sign-in never asks for it — this flow is the sole way calendar access is
 // granted, from History or Settings.
 export async function GET(request: NextRequest) {
+  // Dark until Google's OAuth verification clears. Gated here as well as in the
+  // UI: hiding a button is not the same as closing a route, and this one starts
+  // a real consent flow.
+  if (!CALENDAR_CONNECT) {
+    return NextResponse.redirect(publicOrigin(request));
+  }
+
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.redirect(`${publicOrigin(request)}/login`);

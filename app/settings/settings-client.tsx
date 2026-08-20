@@ -27,7 +27,12 @@ import {
 } from "@/app/actions/profile";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { track } from "@/lib/analytics";
-import { CLOCK_REMINDERS, HABIT_REMINDERS, SOCIAL_PUSH } from "@/lib/flags";
+import {
+  CALENDAR_CONNECT,
+  CLOCK_REMINDERS,
+  HABIT_REMINDERS,
+  SOCIAL_PUSH,
+} from "@/lib/flags";
 import {
   habitReminderPref,
   setHabitReminderPref,
@@ -231,10 +236,17 @@ export function SettingsClient({
           }}
         />
         <Row label="Signed in as" value={email} />
-        <Row
-          label="Google Calendar"
-          value={calendarConnected ? "Connected" : "Not connected"}
-        />
+        {/* While CALENDAR_CONNECT is dark the row appears only for people who
+            are ALREADY connected — showing "Not connected" with no way to
+            connect is worse than not mentioning it. Disconnect stays reachable
+            either way: the privacy policy promises revocation, and that can't
+            depend on a flag. */}
+        {(CALENDAR_CONNECT || calendarConnected) && (
+          <Row
+            label="Google Calendar"
+            value={calendarConnected ? "Connected" : "Not connected"}
+          />
+        )}
         {calendarConnected ? (
           <Inset>
             <p className="text-caption text-xs leading-relaxed">
@@ -253,7 +265,7 @@ export function SettingsClient({
               Disconnect
             </button>
           </Inset>
-        ) : (
+        ) : CALENDAR_CONNECT ? (
           <Inset>
             {SHOW_UNVERIFIED_WARNING && (
               <p className="text-caption text-xs leading-relaxed text-pretty">
@@ -271,7 +283,7 @@ export function SettingsClient({
               Connect
             </a>
           </Inset>
-        )}
+        ) : null}
 
         <Band />
 

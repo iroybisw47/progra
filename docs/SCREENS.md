@@ -8,6 +8,10 @@ every row cites `file:line`. Not derived from ARCHITECTURE.md.
 - `REDESIGN` (`lib/flags.ts:18`) is the master switch for the V2 information
   architecture. `SOCIAL_ENABLED` (`lib/flags.ts:26-27`) is `env || REDESIGN`, so
   **REDESIGN implies SOCIAL_ENABLED**.
+- `CALENDAR_CONNECT` (`lib/flags.ts`) is **dark**: the Google Calendar connect
+  affordance is hidden in Settings and History, the landing-page bullet is gone,
+  and `/auth/google-calendar` redirects. Already-connected users keep sync and
+  Disconnect.
 - **The 250-seat beta cap gates every row in this document.** A signed-in user whose
   `profiles.seat_no` is null gets S53 instead of the route they asked for, on every
   path — it is a layout-level swap, not a route. Signed-out surfaces are unaffected.
@@ -148,7 +152,7 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S32 | sessions-client | empty | "No past sessions[ in this category] yet." | `groups.length === 0` | app/sessions/sessions-client.tsx:158 |
 | S33 | sessions-client | paging | "Load older" / "Loading…" | `hasMore`; `loading` | app/sessions/sessions-client.tsx:258,265 |
 | S34 | recap-client | nav | scrubber "Next" vs "This week" (RecapCard always renders) | `isCurrentWeek || isFutureWeek` | app/recap/recap-client.tsx:110 |
-| S35 | settings-client | connection | calendar "Disconnect" vs "Connect" (+ unverified warning) | `calendarConnected ?`; `SHOW_UNVERIFIED_WARNING` | app/settings/settings-client.tsx:207,227 |
+| S35 | settings-client | connection | calendar "Disconnect" vs "Connect" (+ unverified warning) vs. **absent entirely** while `CALENDAR_CONNECT` is dark and the user isn't already connected | `calendarConnected ?`; `CALENDAR_CONNECT`; `SHOW_UNVERIFIED_WARNING` | app/settings/settings-client.tsx:239,250,267 |
 | S36 | settings-client | role | Moderation section only for admins | `isAdmin &&` | app/settings/settings-client.tsx:281 |
 | S37 | progress-client (home) | tabs | Today / Week / History views | `useState<Tab>("today")` | components/v2/progress-client.tsx:82,112-114 |
 | S50 | progress-client (home) | nudge | "Your week is ready" recap banner (above the tabs) → opens `/recap/{weekStart}` | `props.recapNudge` (set in `loadProgressData` when the week unlocked Sun 6pm local & is unopened) | components/v2/recap-nudge.tsx · components/v2/progress-client.tsx |

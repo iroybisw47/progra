@@ -9,7 +9,7 @@ import { Feed } from "@/components/feed";
 import { ProgressClient } from "@/components/v2/progress-client";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
-import { REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
+import { CALENDAR_CONNECT, REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
 import {
   currentWeekStart,
   loadProgressData,
@@ -91,13 +91,21 @@ function SignedOutLanding() {
             <TimerIcon className="mt-0.5 size-4 shrink-0" strokeWidth={1.9} />
             <span>Set goals and clock in to log your study sessions.</span>
           </li>
-          <li className="flex items-start gap-2.5">
-            <CalendarIcon className="mt-0.5 size-4 shrink-0" strokeWidth={1.9} />
-            <span>
-              Optionally connect Google Calendar (read-only) to log your
-              calendar events alongside your tracked time.
-            </span>
-          </li>
+          {/* Only while the connection is actually offered. This bullet is
+              also what Google's own OAuth reviewers look for, so it returns
+              with the feature rather than being deleted. */}
+          {CALENDAR_CONNECT && (
+            <li className="flex items-start gap-2.5">
+              <CalendarIcon
+                className="mt-0.5 size-4 shrink-0"
+                strokeWidth={1.9}
+              />
+              <span>
+                Optionally connect Google Calendar (read-only) to log your
+                calendar events alongside your tracked time.
+              </span>
+            </li>
+          )}
           <li className="flex items-start gap-2.5">
             <UsersIcon className="mt-0.5 size-4 shrink-0" strokeWidth={1.9} />
             <span>Share sessions and track progress with friends.</span>
