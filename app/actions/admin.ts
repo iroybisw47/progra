@@ -70,3 +70,34 @@ export async function takeDownRecap(recapId: string): Promise<Result> {
   revalidatePath("/admin");
   return { ok: true };
 }
+
+// ── Beta capacity ──────────────────────────────────────────────────────────
+// The 250-seat cap's admin controls. admin_grant_seat refuses when the beta is
+// full rather than growing it silently, so admitting past the ceiling is two
+// deliberate steps: raise the cap, then grant.
+
+export async function grantBetaSeat(
+  userId: string
+): Promise<{ ok: true; seat: number } | { error: string }> {
+  const supabase = await createClient();
+  const gate = await requireAdmin(supabase);
+  if ("error" in gate) return gate;
+  const { data, error } = await supabase.rpc("admin_grant_seat", {
+    p_user: userId,
+  });
+  // The RPC raises when there's no room; don't leak the exception text.
+  if (error) return { error: "Beta is full — raise the cap first." };
+  revalidatePath("/admin");
+  return { ok: true, seat: data as number };
+}
+
+export async function setBetaSeatCap(cap: number): Promise<Result> {
+  if (!Number.isInteger(cap) || cap < 0) return { error: "Invalid cap." };
+  const supabase = await createClient();
+  const gate = await requireAdmin(supabase);
+  if ("error" in gate) return gate;
+  const { error } = await supabase.rpc("admin_set_seat_cap", { p_cap: cap });
+  if (error) return { error: "Couldn't update the cap." };
+  revalidatePath("/admin");
+  return { ok: true };
+}

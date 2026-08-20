@@ -8,6 +8,9 @@ every row cites `file:line`. Not derived from ARCHITECTURE.md.
 - `REDESIGN` (`lib/flags.ts:18`) is the master switch for the V2 information
   architecture. `SOCIAL_ENABLED` (`lib/flags.ts:26-27`) is `env || REDESIGN`, so
   **REDESIGN implies SOCIAL_ENABLED**.
+- **The 250-seat beta cap gates every row in this document.** A signed-in user whose
+  `profiles.seat_no` is null gets S53 instead of the route they asked for, on every
+  path — it is a layout-level swap, not a route. Signed-out surfaces are unaffected.
 - The bottom-nav has three layouts (`components/bottom-nav.tsx:41-63`): **V2
   (REDESIGN)** = Progress · Feed · [Clock] · Friends · You; **social** = Home ·
   You · [Clock] · Goals · Habits; **beta** = Home · Search · [Clock] · Goals ·
@@ -162,6 +165,8 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S47 | profile/[username] | relationship | full content vs. "Add @X as a friend…" private card | `canSeeContent` (self/friends) | app/profile/[username]/page.tsx:78,83 |
 | S48 | profile/[username] | empty | "No shared sessions yet." | `pastSessions.length === 0` | app/profile/[username]/page.tsx:180 |
 | S49 | profile-actions | relationship | none→Add / outgoing→Cancel / incoming→Accept+Decline / friends→Remove+Block / self→Edit | `relationship.kind` | app/profile/[username]/profile-actions.tsx:59,63,74,84,106,132 |
+| S53 | RootLayout (every route) | capacity | **beta-full wall** in place of the entire app tree — no children, no BottomNav, no session/push leaves — vs. the normal app shell | `isWaitlisted(profile)` AND `claim_beta_seat_self()` returns null | app/layout.tsx:99-132, components/beta-full.tsx:7 |
+| S54 | /admin (Beta capacity) | capacity | seated-of-cap + waiting counts, editable seat cap, one Grant-a-seat card per waitlisted user; "RPCs aren't installed" line when the overview RPC errors | `admin_beta_overview()` / `admin_list_waitlist()` | app/admin/admin-waitlist.tsx:28, app/admin/page.tsx |
 
 ---
 

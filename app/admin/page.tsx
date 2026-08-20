@@ -6,6 +6,11 @@ import { getSessionPhotoUrl } from "@/lib/db/session-photos";
 import { SOCIAL_ENABLED } from "@/lib/flags";
 
 import { AdminReports, type AdminReport } from "./admin-reports";
+import {
+  AdminWaitlist,
+  type BetaOverview,
+  type WaitlistEntry,
+} from "./admin-waitlist";
 
 // Shape of each element returned by the admin_list_reports() RPC. The RPC is
 // SECURITY DEFINER and reads the target preview across RLS, so it embeds the
@@ -39,6 +44,15 @@ type RawReport = {
   } | null;
 };
 
+type RawWaitlistRow = {
+  user_id: string;
+  queue_position: number;
+  email: string | null;
+  display_name: string | null;
+  username: string | null;
+  joined_at: string;
+};
+
 // The private moderation queue. Flag-gated and 404s anyone who isn't the admin
 // (is_admin() also re-checked inside every admin_* RPC). Reads open reports plus
 // an embedded target preview; story photos are re-signed here for review, which
@@ -53,6 +67,40 @@ export default async function AdminPage() {
 
   const { data } = await supabase.rpc("admin_list_reports");
   const rows = (data ?? []) as RawReport[];
+
+  // Beta capacity. Both RPCs are read-only and both degrade to null/empty on
+  // error, so a missing Stage 7 migration can't take the moderation queue down
+  // with it.
+  const [overviewRes, waitlistRes] = await Promise.all([
+    supabase.rpc("admin_beta_overview"),
+    supabase.rpc("admin_list_waitlist"),
+  ]);
+
+  const rawOverview = overviewRes.error
+    ? null
+    : (overviewRes.data as {
+        seat_cap: number;
+        seated: number;
+        waiting: number;
+      } | null);
+  const overview: BetaOverview | null = rawOverview
+    ? {
+        seatCap: rawOverview.seat_cap,
+        seated: rawOverview.seated,
+        waiting: rawOverview.waiting,
+      }
+    : null;
+
+  const waitlist: WaitlistEntry[] = (
+    (waitlistRes.error ? [] : (waitlistRes.data ?? [])) as RawWaitlistRow[]
+  ).map((row) => ({
+    userId: row.user_id,
+    position: Number(row.queue_position),
+    email: row.email,
+    displayName: row.display_name,
+    username: row.username,
+    joinedAt: row.joined_at,
+  }));
 
   const reports: AdminReport[] = await Promise.all(
     rows.map(async (row): Promise<AdminReport> => {
@@ -126,5 +174,10 @@ export default async function AdminPage() {
     })
   );
 
-  return <AdminReports reports={reports} />;
+  return (
+    <>
+      <AdminWaitlist overview={overview} entries={waitlist} />
+      <AdminReports reports={reports} />
+    </>
+  );
 }

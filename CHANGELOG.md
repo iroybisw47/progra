@@ -4,6 +4,115 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-08-20
+
+### 11:37 · Admin panel for the beta cap: waitlist queue + seat controls
+**Requires SQL (run by hand, before deploy).**
+
+Admitting people previously meant hand-written SQL. `/admin` now carries a Beta
+capacity section above the moderation queue: seated-of-cap and waiting counts,
+an editable seat cap, and one card per waitlisted person with a Grant a seat
+button.
+
+Email is the headline field on each card, not the handle — a waitlisted user
+never reaches onboarding, so `display_name` and `username` are almost always
+null. `admin_list_waitlist()` is `SECURITY DEFINER` precisely to join
+`auth.users` for it.
+
+`admin_grant_seat()` **refuses** when there is no room rather than quietly
+growing the beta; raising the cap is a separate, explicit decision, and the
+panel says so when it's full. `admin_set_seat_cap()` never evicts — the cap
+gates new claims only, so members numbered above a lowered cap keep their seats.
+
+Both read RPCs degrade to null/empty on error and the panel renders an explicit
+"RPCs aren't installed" line rather than an empty list, so deploying this ahead
+of its SQL cannot take the moderation queue down with it — and an empty panel
+can never be misread as "nobody is waiting".
+
+New: `app/admin/admin-waitlist.tsx`; `grantBetaSeat` / `setBetaSeatCap` in
+`app/actions/admin.ts`. RPCs: `admin_beta_overview`, `admin_list_waitlist`,
+`admin_grant_seat`, `admin_set_seat_cap` — each re-checking `is_admin()`
+internally, matching the report-queue pattern.
+
+### 11:35 · 250-user beta cap: race-safe seat counter + waitlist wall
+**Requires SQL (run by hand, before deploy) — already applied.**
+
+Signup was completely open: any Google/Apple account reached `/onboarding` and
+became a member. The cap is now 250, enforced at the only moment that can't be
+raced — the instant `auth.users` gains a row.
+
+`profiles.seat_no` (int, partial-unique, nullable) is the single source of
+truth: non-null = member, null = waitlisted. Putting it on `profiles` rather
+than a join table means it rides along in the `getProfile()` the root layout
+already fetches (zero extra queries on the member path), and a deleted account
+frees its seat through the FK cascade that was already there.
+
+Race-safety is two independent layers. `claim_beta_seat()` takes
+`pg_advisory_xact_lock` around the "lowest free seat" lookup, so the read and
+the write consuming it are one atomic step; the partial unique index makes a
+double-booked seat a `23505` even if the lock were somehow bypassed. The
+allocator (`next_free_seat`, split out so it is testable with zero writes)
+returns the *lowest* free number, so the cap means "250 concurrent members",
+not "250 signups ever".
+
+The signup hook is an **additive** `zz_claim_beta_seat` trigger on `auth.users`,
+not an edit to `handle_new_user` — replacing a function whose header we can't
+see risks silently changing its security posture, and same-table triggers fire
+alphabetically so the `zz_` prefix guarantees it runs after the profiles row
+exists. Its body swallows every exception: a claim failure must never break
+sign-up, and `claim_beta_seat_self()` heals it on first load.
+
+There is no cron in this repo, so **admission is lazy**: raising
+`beta_config.seat_cap` admits waitlisted users on their next page load, the same
+shape as `EnsureSessionCap`. The cap lives in a DB row precisely so a full beta
+is fixable in seconds without a redeploy.
+
+The wall renders **in place of** the layout's children rather than redirecting
+to a `/full` route — the layout can't read the pathname, so a redirect would
+loop on that route. Swapping children also means a waitlisted user never
+receives an app shell to soft-navigate from. Known limitation: `/privacy` and
+`/terms` are unreachable while signed in and seat-less; reaching them means
+signing out, and the button is on the wall.
+
+`isWaitlisted()` tests strict `=== null` on purpose. `undefined` means the
+column isn't deployed yet (PostgREST omits absent keys), which must read as
+*member* — otherwise an app deployed ahead of the SQL locks all 250 users out of
+their own accounts. Missing column fails open.
+
+Page loads aren't the whole surface: a valid JWT can POST a server action
+without ever requesting a page. `requireSeat()` guards the 18 content-creating
+mutations (`clockIn`, `createSession`, `createGoal`, `createHabit`, `addComment`,
+`toggleReaction`, `postRecap`, `sendFriendRequest`, `completeOnboarding`, …) —
+weighted toward the outward-facing writes, where a waitlisted account could
+otherwise surface in someone else's feed. Downstream actions that only mutate
+existing rows are covered transitively: those rows can't exist unless a guarded
+action created them first.
+
+`seat_no` is not user-writable. A column-level `revoke` can't express that (a
+role holding table-level `UPDATE` isn't constrained by it), so a
+`guard_profiles_seat_no` BEFORE UPDATE trigger rejects the column when
+`current_user` is `authenticated`/`anon`. Deliberately not `SECURITY DEFINER` —
+it needs `current_user` to reflect the real caller, which is `postgres` inside
+the definer claim functions. Without it the cap would be theatre: a waitlisted
+user could seat themselves with one PATCH.
+
+New: `lib/auth/seat.ts` (pure, unit-tested), `lib/auth/require-seat.ts`
+(server-only), `components/beta-full.tsx`. `app/layout.tsx` gains the gate and a
+shared `Shell` so the app tree and the wall can't drift on fonts or layout.
+
+DB objects: `beta_config`, `beta_waitlist` (both RLS-on with **no** policies —
+invisible to every client, the `push_log` trick), `profiles.seat_no` +
+`profiles_seat_no_key`, and `next_free_seat` / `claim_beta_seat` /
+`claim_beta_seat_self` / `beta_waitlist_position` / `claim_seat_on_signup` /
+`guard_profiles_seat_no`.
+
+Verified: 14-assertion grant/policy sweep; reuse, idempotence and exhaustion
+tests in SQL; adversarial JWT test (anon and `authenticated` get `42501` on both
+tables and on `claim_beta_seat(uuid)`; the seat_no guard fires); wall confirmed
+live by pinning the cap below a freed seat, and lazy promotion confirmed by
+raising it back. `tsc` clean, `eslint` clean, 190 tests pass, `npm run build`
+succeeds, signed-out `/`, `/login`, `/privacy`, `/terms` all 200.
+
 ## 2026-08-19
 
 ### · One navy button: `PrimaryButton`, and the sheets converted to it

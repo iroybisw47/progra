@@ -222,6 +222,32 @@ signed in; its center FAB live-ticks while a session runs.
   `block_user`, `search_users`, `can_see_session`, `owns_session`, `toggle_reaction`,
   `can_see_session_photo`, and the Phase-4 set: `is_admin`, `admin_list_reports`,
   `admin_resolve_report`, `admin_take_down_story`, `admin_delete_comment`, `delete_own_account`.
+  See **Beta capacity** below for the seat-cap RPCs.
+
+**Beta capacity (250-seat cap):**
+- `profiles.seat_no` (int, **partial unique index** `profiles_seat_no_key` where not null) —
+  non-null = member, null = waitlisted. Not user-writable: a `guard_profiles_seat_no`
+  BEFORE UPDATE trigger rejects the column when `current_user` is `authenticated`/`anon`
+  (a column-level `revoke` can't express this — table-level `UPDATE` overrides it).
+- Tables: `beta_config` (single row, `id = 1` CHECK, `seat_cap`), `beta_waitlist`
+  (`user_id` PK, identity `position`, `joined_at`). Both **RLS-on with NO policies** —
+  invisible to every client, same trick as `push_log`; revoked from `anon`+`authenticated`.
+- RPCs: `next_free_seat(p_cap)` (read-only allocator, the testable seam),
+  `claim_beta_seat(p_user)` (**revoked from all roles** — trigger only),
+  `claim_beta_seat_self()`, `beta_waitlist_position()`, plus admin:
+  `admin_beta_overview`, `admin_list_waitlist`, `admin_grant_seat`, `admin_set_seat_cap`.
+- Race-safety is two independent layers: `pg_advisory_xact_lock(hashtext('progra.beta_seat_claim'))`
+  serializes claimants so the "lowest free seat" read and the write consuming it are one
+  atomic step, and the partial unique index makes a double-booked seat a `23505` even if
+  the lock were bypassed. The allocator returns the **lowest** free number, so a seat freed
+  by account deletion is reused — the cap means "250 concurrent members", not "250 signups ever".
+- Signup hook is an **additive** `zz_claim_beta_seat` AFTER INSERT trigger on `auth.users`,
+  deliberately NOT an edit to `handle_new_user` (replacing a function whose header isn't in the
+  repo risks silently changing its security posture). Same-table triggers fire alphabetically,
+  so `zz_` guarantees it runs after the profiles row exists. Its body swallows every exception:
+  a claim failure must never break sign-up.
+- **No cron exists**, so admission is lazy: raising `beta_config.seat_cap` seats waitlisted
+  users on their next page load, via `claim_beta_seat_self()` in the root layout.
 
 **RLS model (load-bearing):** SELECT policies are `owner OR are_friends AND NOT is_private`.
 Own-view reads in `lib/db/*` **also** filter `.eq("user_id", me.id)` (defense-in-depth).
@@ -260,7 +286,7 @@ filter and let friend-read RLS decide. **Every FK to `auth.users` is `ON DELETE 
   `begin…rollback` and does **not** reliably persist temp tables across statements — prefer a
   single self-contained `DO`/function that cleans up after itself, and to show test output use a
   permanent `returns setof text` helper + `select * from it` (notices are often hidden).
-- **Verify suite:** `npx tsc --noEmit` (ignore `.next/`), `npx eslint`, `npx vitest run` (45 tests),
+- **Verify suite:** `npx tsc --noEmit` (ignore `.next/`), `npx eslint`, `npx vitest run` (190 tests),
   `npm run build`. Each security-sensitive change also gets an **adversarial JWT test** (impersonate
   via `set_config('request.jwt.claims', …)` + `set local role authenticated`).
 

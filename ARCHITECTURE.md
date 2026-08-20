@@ -11,7 +11,7 @@
 > first. When code and this doc disagree, the code wins — and the doc should be
 > fixed in the same session.
 >
-> _Last updated: 2026-08-18_
+> _Last updated: 2026-08-20_
 
 ---
 
@@ -110,13 +110,20 @@ feed at `/` are all gated by `SOCIAL_ENABLED`; with the flag off they 404 (or,
 for `/`, fall back to the dashboard) and the beta is unaffected. `/admin`
 additionally 404s anyone who isn't the admin (`rpc('is_admin')`).
 
+**The 250-seat beta cap pre-empts this entire table.** A signed-in user whose
+`profiles.seat_no` is null gets the beta-full wall rendered *in place of* the
+layout's children, on every route — see §5 Beta capacity. It is a layout-level
+swap, not a route, because the root layout can't read the pathname and a redirect
+to a `/full` route would loop on that route itself. Signed-out surfaces are
+unaffected.
+
 | Route | Server page | Client | Purpose |
 |---|---|---|---|
 | `/` | `app/page.tsx` | — | Home. Flag off → personal dashboard (`components/dashboard.tsx`). Flag on → the social **feed** (`components/feed.tsx`): friends' recent finished sessions + comment threads. |
 | `/me` | `app/me/page.tsx` | — | **You** tab (social on only): the personal dashboard, relocated off Home. Shares `components/dashboard.tsx`. |
 | `/friends` | `friends/page.tsx` | `friends-client.tsx` | Friend search / requests / blocked (social on only). |
 | `/profile/[username]` | `profile/[username]/page.tsx` | `profile-actions.tsx` | Public profile: identity + a friend's non-private goals/habits + photo **stories** (social on only). |
-| `/admin` | `admin/page.tsx` | `admin-reports.tsx` | Moderation queue (social on + `is_admin()` only): open reports with target preview, take-down / dismiss. |
+| `/admin` | `admin/page.tsx` | `admin-waitlist.tsx`, `admin-reports.tsx` | Moderation queue (social on + `is_admin()` only): open reports with target preview, take-down / dismiss. Also **Beta capacity** — seated/cap/waiting, an editable seat cap, and grant-a-seat per waitlisted user. |
 | `/login` | `app/login/page.tsx` | `google-sign-in-button.tsx` | Google OAuth entry. |
 | `/auth/callback` | `route.ts` | — | OAuth code exchange → session. |
 | `/auth/signout` | `route.ts` | — | Sign out. |
@@ -143,7 +150,7 @@ is the interactive shell. `loading.tsx` provides route-level skeletons.
 
 | Table | Owner module | Key columns / notes |
 |---|---|---|
-| `profiles` | `lib/auth/profile.ts`, `lib/google/oauth.ts` | One row per user (created by a Supabase trigger on auth signup). Stores Google `provider_token`, `provider_refresh_token`, `token_expires_at`, the user's IANA timezone, and `onboarded_at` (null until the first-run wizard completes; Home gates on it). |
+| `profiles` | `lib/auth/profile.ts`, `lib/google/oauth.ts` | One row per user (created by a Supabase trigger on auth signup). Stores Google `provider_token`, `provider_refresh_token`, `token_expires_at`, the user's IANA timezone, and `onboarded_at` (null until the first-run wizard completes; Home gates on it), and `seat_no` (the beta seat; see **Beta capacity** below). |
 | `categories` | `lib/db/categories.ts` | `name`, `color`, `rules` (JSON, `titleContains[]` for auto-categorization). |
 | `sessions` | `lib/db/sessions.ts` | The clock-in record. `started_at`/`ended_at` (real wall-clock), `paused_ms` (banked), `paused_since` (set only while paused), `category_id`, `goal_id`, and (social v2) `photo_path` (the session's one optional photo). `auto_ended_at` / `auto_end_reviewed_at` (both nullable) record that the 10-hour cap ended the row and whether the user has reviewed it — `is_private` alone can't say so, since a draft is private too. **Partial unique index** enforces one active (`ended_at IS NULL`) session per user → insert error `23505`. |
 | `goals` | `lib/db/goals.ts` | `weekly_quota_hours`, active flag, ordering. |
@@ -185,6 +192,49 @@ friend AND session not private AND session ended)); and definer RPCs `are_friend
 `admin_delete_comment`, `delete_own_account`. Cross-user reads (`*ForUser`
 helpers, `listFriendFeed`, `listProfileSessions`) omit the owner filter and let
 the friend-read RLS (`owner OR are_friends AND NOT is_private`) decide.
+
+**Beta capacity (250-seat cap).** `profiles.seat_no` (int, **partial unique index**
+`profiles_seat_no_key` where not null) is the single source of truth: non-null = a
+member, null = waitlisted. Putting it on `profiles` rather than a join table is what
+makes the gate free — it rides along in the `getProfile()` the root layout already
+fetches — and what makes seat release automatic, since the existing
+`ON DELETE CASCADE` to `auth.users` takes the row with the account.
+
+Two supporting tables, both **RLS-on with NO policies** (invisible to every client,
+the same trick as `push_log`) and revoked from `anon`+`authenticated`: `beta_config`
+(single row, `id = 1` CHECK, `seat_cap`) and `beta_waitlist` (`user_id` PK, identity
+`position`, `joined_at`; a row exists only while waiting, so position is a count of
+rows ahead).
+
+Definer RPCs: `next_free_seat(p_cap)` (read-only allocator, split out as the testable
+seam), `claim_beta_seat(p_user)` (**revoked from every role** — it takes a user id, so
+only the signup trigger may call it), `claim_beta_seat_self()` (`auth.uid()`-scoped,
+granted to `authenticated`), `beta_waitlist_position()`, and the admin set
+`admin_beta_overview` / `admin_list_waitlist` / `admin_grant_seat` /
+`admin_set_seat_cap`.
+
+**Race-safety is two independent layers.** `claim_beta_seat` takes
+`pg_advisory_xact_lock(hashtext('progra.beta_seat_claim'))` so the "lowest free seat"
+read and the write consuming it are one atomic step; the partial unique index makes a
+double-booked seat a `23505` even if the lock were bypassed. The allocator returns the
+**lowest** free number, so a seat freed by account deletion is reused — the cap means
+"250 concurrent members", not "250 signups ever".
+
+The signup hook is an **additive** `zz_claim_beta_seat` AFTER INSERT trigger on
+`auth.users`, deliberately *not* an edit to `handle_new_user`: replacing a function
+whose header isn't in the repo risks silently changing its security posture, and an
+additive trigger reverts with one `drop`. Same-table triggers fire alphabetically, so
+the `zz_` prefix guarantees it runs after the profiles row exists. Its body swallows
+every exception — a claim failure must never break sign-up; the user simply lands
+seat-less and `claim_beta_seat_self()` heals it on first load.
+
+`seat_no` is **not user-writable**, enforced by a `guard_profiles_seat_no` BEFORE
+UPDATE trigger that rejects the column when `current_user` is `authenticated`/`anon`.
+A column-level `revoke` cannot express this (a role holding table-level `UPDATE` isn't
+constrained by it). Deliberately *not* `SECURITY DEFINER` — it needs `current_user` to
+reflect the real caller, which is `postgres` inside the definer claim functions.
+Without it the cap would be theatre: a waitlisted user could seat themselves with one
+PostgREST PATCH.
 
 **Weekly recap added these definer RPCs:** `week_leaderboard(p_week_start_ms,
 p_week_end_ms)` (ranks caller + accepted friends by **clocked** session time —
@@ -392,6 +442,19 @@ durably.
 - **Time math is local-time** with Mon-first weeks and inclusive ends, except the
   habit tz helpers which use UTC arithmetic on a tz-resolved date string.
 - **One active session per user**, DB-enforced (error `23505`).
+- **A seat is claimed at signup, never by the app.** `profiles.seat_no` is written
+  only by definer functions reached from the `zz_claim_beta_seat` trigger or
+  `claim_beta_seat_self()`; a guard trigger rejects the column from
+  `authenticated`/`anon`. The app only ever *reads* it.
+- **`isWaitlisted()` tests strict `=== null`, and that is load-bearing.**
+  `undefined` means the column isn't deployed yet (PostgREST omits absent keys) and
+  must read as *member* — otherwise an app deployed ahead of the hand-run SQL locks
+  every user out of their own account. Missing column fails **open**. Any future
+  gate on a hand-run column should copy this shape.
+- **Page-load gates are not enough on their own.** The layout wall covers navigation;
+  a valid JWT can still POST a server action without requesting a page. Capability
+  checks that matter belong in the action too (`requireSeat()`, mirroring
+  `requireAdmin()`).
 - **A session the cap ended is worth ZERO worked time, everywhere.**
   `sessionWorkedMs` returns 0 when `autoEndedAt` is set, so goals, recaps,
   rollups, the feed and the leaderboard all agree without any per-surface rule.
@@ -493,6 +556,16 @@ durably.
 ## 10. Open questions / things to verify when touched
 
 - Authoritative Supabase DDL is not in-repo — §5 is reconstructed from queries.
+- **Admission is silent.** Granting a seat notifies nobody: there is no transactional
+  email sender in the repo, and a waitlisted user has never registered an APNs token
+  (`PushRegistration` mounts only inside the app shell, which they never receive). They
+  find out by returning. Adding email means a new dependency — an explicit decision, not
+  a fill-in.
+- **`requireSeat()` covers 18 of ~60 actions**, chosen as the content-creating and
+  outward-facing set. Downstream mutations are argued to be covered transitively (their
+  rows can't exist unless a guarded action created them), but that reasoning is not
+  enforced anywhere — a future action that creates a *new* kind of row needs the guard
+  added by hand.
 - **The doc lags the 2026-08-01 → 08-15 sprint.** Undocumented as sections:
   the Capacitor iOS shell + native Google/Apple sign-in + push registration
   (APNs token via `save_device_token` RPC), timed sessions (plan columns +
@@ -510,6 +583,41 @@ durably.
 > Append one entry per work session / feature set. Keep it terse: what changed
 > architecturally, why, and any new invariant or migration. Seeded from git
 > history; entries before this file existed are reconstructed.
+
+### 2026-08-20 — 250-user beta cap: race-safe seat counter + waitlist **(requires SQL, run by hand — user has confirmed it is applied)**
+- Signup was open to anyone. It is now capped, enforced at the only moment that can't
+  be raced: the instant `auth.users` gains a row. `profiles.seat_no` (partial-unique,
+  nullable) is the single source of truth — non-null = member, null = waitlisted.
+- Race-safety is deliberately two independent layers: an advisory transaction lock
+  makes the "lowest free seat" read-then-write atomic, and the partial unique index
+  makes a double-booked seat a constraint violation even if the lock were bypassed.
+  Neither alone was considered sufficient.
+- New invariant: **a freed seat is reused.** The allocator returns the lowest free
+  number, so the cap means "250 concurrent members", not "250 signups ever". Account
+  deletion releases a seat through the pre-existing `ON DELETE CASCADE` — no new
+  cleanup path.
+- The signup hook is **additive** (`zz_claim_beta_seat` on `auth.users`), not an edit
+  to `handle_new_user`, whose body is not in the repo. Architectural preference worth
+  keeping: when a live function's full definition can't be read, add alongside rather
+  than `create or replace` over it.
+- The wall renders **in place of** the layout's children rather than redirecting to a
+  route. Root layouts can't read the pathname in Next 16, so a `/full` redirect would
+  loop on that route; swapping children also denies a waitlisted user any app shell to
+  soft-navigate from. Cost: `/privacy` and `/terms` are unreachable while signed in and
+  seat-less. Accepted — reaching them means signing out.
+- **No cron exists in this repo**, so admission is lazy: raising `beta_config.seat_cap`
+  seats waitlisted users on their next page load. This extends the `EnsureSessionCap`
+  precedent from client leaves to a server-side gate.
+- The cap lives in a DB row, not `lib/flags.ts`. This is a deliberate exception to the
+  "flags are build-time, a reviewable switch not a live toggle" rule recorded in §9 —
+  a full beta is an incident you want fixable in seconds, not a redeploy.
+- Gate depth is two layers, not three: the layout wall plus `requireSeat()` on 18
+  content-creating actions. Full RLS enforcement (a `has_seat()` precondition on every
+  INSERT policy) was considered and rejected as disproportionate — the residual risk is
+  a seat-less user writing rows scoped to themselves by RLS.
+- `/admin` gained a Beta capacity panel (`admin_beta_overview`, `admin_list_waitlist`,
+  `admin_grant_seat`, `admin_set_seat_cap`). `admin_grant_seat` refuses when full
+  rather than auto-raising the cap: a button that silently grows the beta isn't a cap.
 
 ### 2026-08-18 — Like/comment pushes (first SERVER-SENT notifications) **(requires SQL, run by hand)**
 - `alter table profiles add column social_pushes_enabled boolean` (null = on) and
