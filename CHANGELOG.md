@@ -6,6 +6,57 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-20
 
+### 20:15 · Pre-submission UI pass: six changes across the app
+Six small things, committed separately so any one can be reverted after device
+testing without taking the others with it.
+
+**Add a session is start-and-end, not start-and-duration.** You remember "I
+worked two till four", not "two hours starting at two". Duration is derived and
+shown live. The stepper enforced the 5-minute floor and 10-hour cap by clamping;
+free-typed times can violate both, so `save()` checks them explicitly. An end at
+or before the start reads as "past midnight" — the only interpretation that
+isn't nonsense, and a shape the stepper could already produce. Fixed a latent
+bug while in there: `openEdit` seeded duration from `workedMs`, which excludes
+paused time, so re-saving a paused session quietly trimmed it.
+
+**Week → Sessions opens that week.** It linked to a bare `/history`, which
+defaults to month, so asking for this week's sessions landed you in a different
+period. `/history` already parsed `?view=week&w=`; `weekStart` was already on
+the component in the right format.
+
+**Dark mode is gone.** Mostly dead already — no `ThemeProvider` was ever mounted
+— but a real sun/moon toggle survived in the `/clock` header, applying `.dark` to
+that subtree and persisting in localStorage. Removed, along with 62 lines of
+unreachable `.dark` tokens, the dark `themeColor` (which advertised `#14181f` to
+iOS for a palette the app never renders), and the unused `next-themes`
+dependency. The `dark` custom-variant stays — nine vendored shadcn components
+still carry `dark:` utilities and that line is what compiles them — as does
+`color-scheme: light`, which matters *more* now that there's no dark palette to
+fall back on.
+
+**A gear replaces the profile chip row.** Up to three chips plus a report flag
+sat beside someone's name, which is what forced it to truncate. One 32px gear
+leaves the name the line. The sheet reads Add/Remove as friend · Block · Report;
+a pending request says "Cancel friend request" and an incoming one splits into
+Accept and Decline, because calling either a friendship would misdescribe the
+tap. Block now confirms — in a menu it sits one tap from "Remove as friend" and
+it navigates you away. `ReportButton` gained optional controlled
+`open`/`onOpenChange` so the sheet can close before the dialog opens rather than
+the two fighting over focus.
+
+**The profile session count was wrong, not just capped.** Both the Sessions stat
+and the Recent-sessions header counted the array from `listProfileSessions`,
+which is limited — so past the limit a profile reported exactly that number
+forever. `countProfileSessions` does it in the database with `head`+`exact` under
+the same RLS, so a friend is counted exactly what they may see. Render cap raised
+50 → 200; signing is one batched `createSignedUrls` call regardless of count, so
+the cost is payload, not round trips. Both `/profile/[username]` and `/me`.
+
+**The landing page is the name, the line, and the way in.** Two feature bullets
+removed; tagline gains "world's". Note for when Google's OAuth verification
+clears: the calendar bullet existed partly so Google's reviewers could see the
+scope described publicly. `/privacy` still does; the landing no longer will.
+
 ### 19:10 · Two hard submission blockers: a transparent app icon and no Support URL
 Both would have stopped the submission, and neither was on any earlier list
 because both live outside the app's own code.
