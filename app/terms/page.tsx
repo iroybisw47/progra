@@ -165,6 +165,9 @@ export default function TermsPage() {
           <Link href="/" className="hover:underline">
             Home
           </Link>
+          <Link href="/support" className="hover:underline">
+            Support
+          </Link>
           <Link href="/privacy" className="hover:underline">
             Privacy Policy
           </Link>

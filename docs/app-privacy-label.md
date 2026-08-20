@@ -134,6 +134,10 @@ every "used for tracking" answer No.
 ## Pre-submission checklist
 
 - [ ] Privacy policy URL in App Store Connect resolves to `/privacy`
+- [x] Support URL exists and is public — `/support` (mandatory ASC field; the landing page alone would dead-end a reviewer)
+- [x] App icon is 1024×1024 with **no alpha channel** — stripped 2026-08-20; alpha is an automatic upload rejection
+- [ ] Archived build has `aps-environment: production` — the checked-in entitlement says `development`
+- [ ] `APNS_HOST` unset (or `api.push.apple.com`) in the production environment, not the sandbox host
 - [ ] Effective date in `app/privacy/page.tsx` **and** `app/terms/page.tsx` match each other and reality
 - [ ] Every purpose claimed above appears in the privacy policy text
 - [ ] `lib/analytics.ts` event union hasn't grown a category not declared here

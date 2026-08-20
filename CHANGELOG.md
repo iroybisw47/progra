@@ -6,6 +6,28 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-20
 
+### 19:10 · Two hard submission blockers: a transparent app icon and no Support URL
+Both would have stopped the submission, and neither was on any earlier list
+because both live outside the app's own code.
+
+**The app icon carried an alpha channel.** `hasAlpha: yes` on the 1024×1024
+`AppIcon.png`. App Store validation rejects that at upload — the large icon may
+not be transparent or contain an alpha channel. Every pixel was already fully
+opaque (min alpha 255), so `sharp().flatten()` removed the channel without
+changing a single visible pixel; the flatten background is irrelevant for that
+reason. Note the icon is a hand-made gradient asset, NOT output of
+`scripts/generate-icons.mjs` — that script only produces the flat-navy web/PWA
+icons, so regenerating won't reintroduce this.
+
+**There was no Support URL.** App Store Connect requires one and it is
+mandatory. The only contact anywhere was a `mailto:` inside `/privacy` and
+`/terms`, and the landing page has no contact information at all — so a reviewer
+following a Support URL pointed at `progra.world` would land on a sign-in screen
+with no way to reach anyone. `/support` is public, carries the email, the
+in-app bug-report route, the 24-hour moderation commitment, how to delete an
+account, and what notifications the app sends. Linked from the landing footer
+and both legal pages.
+
 ### 18:30 · Google Calendar connect goes dark for the first submission
 `calendar.events.readonly` is a **sensitive** Google scope, and the OAuth app
 hasn't cleared verification (`NEXT_PUBLIC_SHOW_UNVERIFIED_WARNING` is still 1).

@@ -117,6 +117,10 @@ function SignedOutLanding() {
 
       <footer className="text-muted-foreground pt-6 pb-[max(env(safe-area-inset-bottom),24px)] text-xs">
         © 2026 Progra ·{" "}
+        <Link href="/support" className="hover:underline">
+          Support
+        </Link>{" "}
+        ·{" "}
         <Link href="/privacy" className="hover:underline">
           Privacy Policy
         </Link>{" "}

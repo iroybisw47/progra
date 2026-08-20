@@ -167,6 +167,9 @@ export default function PrivacyPage() {
           <Link href="/" className="hover:underline">
             Home
           </Link>
+          <Link href="/support" className="hover:underline">
+            Support
+          </Link>
           <Link href="/terms" className="hover:underline">
             Terms of Service
           </Link>
