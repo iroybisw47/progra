@@ -29,12 +29,10 @@ import type { Category } from "@/lib/storage";
 import { entityColor, goalColorOf } from "@/lib/colors";
 import { formatTime12 } from "@/lib/dates";
 import { formatDuration } from "@/lib/duration";
-import { cn } from "@/lib/utils";
 
-// How much the ± buttons move a session's length.
-const STEP_MIN = 15;
 const MIN_MIN = 5;
 const MAX_MIN = 10 * 60; // the session cap — a longer one would be trimmed anyway
+const DAY_MS = 24 * 60 * 60_000;
 
 type Draft = {
   // null = a new session.
@@ -42,18 +40,21 @@ type Draft = {
   title: string;
   categoryId: string | null;
   goalId: string | null;
-  // Local wall-clock start, "HH:MM" (24h) — what <input type="time"> speaks.
+  // Local wall-clock start and end, "HH:MM" (24h) — what <input type="time">
+  // speaks. Duration is derived, never stored: two clock times are what a person
+  // remembers about a session they forgot to log ("I worked 2 till 4"), whereas
+  // a length is something they'd have to compute.
   start: string;
-  minutes: number;
+  end: string;
 };
 
 // The sessions manager: a bottom sheet listing today's rows, and a second sheet
-// for adding or editing one — name, what it counts towards, start time and
-// duration. Mirrors the habits and goals sheets; every mutation goes through
+// for adding or editing one — name, what it counts towards, and the start and
+// end times. Mirrors the habits and goals sheets; every mutation goes through
 // the existing session actions.
 //
-// Imported calendar events are listed but not editable here: they belong to
-// Google Calendar, and their category is changed from /clock.
+// A running session isn't editable here — it's still accumulating, so there is
+// no end time to enter.
 export function ManageSessions({
   open,
   onOpenChange,
@@ -71,6 +72,9 @@ export function ManageSessions({
 }) {
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState<Draft | null>(null);
+  // Recomputed per render rather than stored: the two inputs are the source of
+  // truth, so a derived duration can never drift out of step with them.
+  const draftMinutes = draft ? (draftSpan(draft)?.minutes ?? null) : null;
 
   function openNew() {
     const now = new Date();
@@ -80,7 +84,7 @@ export function ManageSessions({
       categoryId: categories[0]?.id ?? null,
       goalId: categories.length === 0 ? (goals[0]?.id ?? null) : null,
       start: toTimeInput(now.getTime() - 60 * 60_000),
-      minutes: 60,
+      end: toTimeInput(now.getTime()),
     });
   }
 
@@ -91,7 +95,9 @@ export function ManageSessions({
       categoryId: s.categoryId,
       goalId: s.goalId,
       start: toTimeInput(s.startedAt),
-      minutes: Math.max(MIN_MIN, Math.round(s.workedMs / 60_000)),
+      // Real end time when there is one. workedMs excludes pauses, so adding it
+      // to the start would quietly shorten a paused session on every edit.
+      end: toTimeInput(s.endedAt ?? s.startedAt + s.workedMs),
     });
   }
 
@@ -106,12 +112,20 @@ export function ManageSessions({
       toast.error("Pick a category or a goal");
       return;
     }
-    const startedAt = fromTimeInput(draft.start);
-    if (startedAt === null) {
-      toast.error("Enter a valid start time");
+    const span = draftSpan(draft);
+    if (span === null) {
+      toast.error("Enter a valid start and end time");
       return;
     }
-    const endedAt = startedAt + draft.minutes * 60_000;
+    const { startedAt, endedAt, minutes } = span;
+    if (minutes < MIN_MIN) {
+      toast.error(`A session needs at least ${MIN_MIN} minutes`);
+      return;
+    }
+    if (minutes > MAX_MIN) {
+      toast.error("That's longer than the 10-hour session cap");
+      return;
+    }
     if (endedAt > Date.now()) {
       toast.error("That would end in the future");
       return;
@@ -214,7 +228,7 @@ export function ManageSessions({
             + Add a session
           </PrimaryButton>
           <p className="text-disabled pt-2.5 text-[11px]">
-            Calendar events and a running session can&rsquo;t be edited here.
+            A running session can&rsquo;t be edited here.
           </p>
         </div>
       </BottomSheetContent>
@@ -280,59 +294,41 @@ export function ManageSessions({
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <div className="flex flex-1 flex-col gap-[7px]">
-                <span className="section-label">Start</span>
-                <input
-                  type="time"
-                  aria-label="Start time"
-                  className="text-ink w-full border-b-2 border-hairline bg-transparent pb-2 text-base font-semibold tabular-nums outline-none"
-                  value={draft?.start ?? ""}
-                  onChange={(e) =>
-                    setDraft((d) => (d ? { ...d, start: e.target.value } : d))
-                  }
-                />
-              </div>
-              <div className="flex flex-1 flex-col gap-[7px]">
-                <span className="section-label">Duration</span>
-                <div className="flex items-center gap-2">
-                  <StepButton
-                    label="Shorter"
-                    disabled={(draft?.minutes ?? 0) <= MIN_MIN}
-                    onClick={() =>
-                      setDraft((d) =>
-                        d
-                          ? {
-                              ...d,
-                              minutes: Math.max(MIN_MIN, d.minutes - STEP_MIN),
-                            }
-                          : d
-                      )
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-3">
+                <div className="flex flex-1 flex-col gap-[7px]">
+                  <span className="section-label">Start</span>
+                  <input
+                    type="time"
+                    aria-label="Start time"
+                    className="text-ink w-full border-b-2 border-hairline bg-transparent pb-2 text-base font-semibold tabular-nums outline-none"
+                    value={draft?.start ?? ""}
+                    onChange={(e) =>
+                      setDraft((d) => (d ? { ...d, start: e.target.value } : d))
                     }
-                  >
-                    −
-                  </StepButton>
-                  <span className="text-ink flex-1 text-center text-base font-semibold whitespace-nowrap tabular-nums">
-                    {formatDuration((draft?.minutes ?? 0) * 60_000)}
-                  </span>
-                  <StepButton
-                    label="Longer"
-                    disabled={(draft?.minutes ?? 0) >= MAX_MIN}
-                    onClick={() =>
-                      setDraft((d) =>
-                        d
-                          ? {
-                              ...d,
-                              minutes: Math.min(MAX_MIN, d.minutes + STEP_MIN),
-                            }
-                          : d
-                      )
+                  />
+                </div>
+                <div className="flex flex-1 flex-col gap-[7px]">
+                  <span className="section-label">End</span>
+                  <input
+                    type="time"
+                    aria-label="End time"
+                    className="text-ink w-full border-b-2 border-hairline bg-transparent pb-2 text-base font-semibold tabular-nums outline-none"
+                    value={draft?.end ?? ""}
+                    onChange={(e) =>
+                      setDraft((d) => (d ? { ...d, end: e.target.value } : d))
                     }
-                  >
-                    +
-                  </StepButton>
+                  />
                 </div>
               </div>
+              {/* Duration is what the old stepper showed directly. Keeping it
+                  visible means entering two clock times never costs you the
+                  number you were actually checking. */}
+              <span className="text-faint text-xs tabular-nums">
+                {draftMinutes === null
+                  ? "Enter a start and end time"
+                  : formatDuration(draftMinutes * 60_000)}
+              </span>
             </div>
 
             <div className="flex gap-2.5">
@@ -380,34 +376,26 @@ export function ManageSessions({
   );
 }
 
-function StepButton({
-  label,
-  disabled,
-  onClick,
-  children,
-}: {
-  label: string;
-  disabled?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        "border-hairline text-caption flex size-[30px] shrink-0 items-center justify-center rounded-[10px] border-[1.5px] text-[15px] leading-none font-semibold",
-        "transition-transform active:scale-90 disabled:opacity-35"
-      )}
-    >
-      {children}
-    </button>
-  );
+// Start and end as clock times -> the absolute span they describe.
+//
+// An end at or before the start reads as "ran past midnight", which is the only
+// interpretation that isn't nonsense — and it keeps a shape the duration stepper
+// this replaced could already produce (23:00 + 2h). Returns null on unparseable
+// input; callers decide what to say about it.
+function draftSpan(
+  draft: Draft
+): { startedAt: number; endedAt: number; minutes: number } | null {
+  const startedAt = fromTimeInput(draft.start);
+  const endRaw = fromTimeInput(draft.end);
+  if (startedAt === null || endRaw === null) return null;
+  const endedAt = endRaw > startedAt ? endRaw : endRaw + DAY_MS;
+  return {
+    startedAt,
+    endedAt,
+    minutes: Math.round((endedAt - startedAt) / 60_000),
+  };
 }
 
-// epoch ms → "HH:MM" in local time, and back onto today's date.
 function toTimeInput(ms: number): string {
   const d = new Date(ms);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
