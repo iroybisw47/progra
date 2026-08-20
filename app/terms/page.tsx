@@ -14,7 +14,7 @@ export default function TermsPage() {
             Terms of Service
           </h1>
           <p className="text-muted-foreground text-sm">
-            Effective date: July 22, 2026
+            Effective date: August 20, 2026
           </p>
         </header>
 

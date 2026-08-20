@@ -25,6 +25,7 @@ import { ColorSwatches } from "@/components/color-swatches";
 import { CATEGORY_COLORS } from "@/lib/category-colors";
 import { InviteShare } from "@/components/v2/invite-share";
 import { PrograMark } from "@/components/progra-mark";
+import { ToggleSwitch } from "@/components/v2/toggle-switch";
 import { cn } from "@/lib/utils";
 
 import { createGoal } from "@/app/actions/goals";
@@ -36,6 +37,7 @@ import {
 } from "@/lib/habit-reminder-prefs";
 import {
   completeOnboarding,
+  setInterviewConsent,
   setProfileIdentity,
   setUsername,
 } from "@/app/actions/profile";
@@ -127,6 +129,9 @@ export function OnboardingClientV2({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [stepIndex, setStepIndex] = useState(0);
+  // Research-interview opt-in, asked on the final screen. Starts false and
+  // stays false unless the user turns it on — a pre-ticked box is not consent.
+  const [consent, setConsent] = useState(false);
 
   // The notify step exists only in the shell. `native` flips at most once,
   // immediately after hydration, while the user is still on `welcome` at index
@@ -321,6 +326,20 @@ export function OnboardingClientV2({
 
   function finish() {
     startTransition(async () => {
+      // Consent first, and deliberately non-blocking: losing the flag is an
+      // annoyance, being stuck on the last screen of onboarding is a dead end.
+      // Same reasoning as the claim_invite swallow in the auth callback. Only
+      // written when true — null already means "not consented", so a decline
+      // needs no write and skipAll() needs no special case.
+      if (consent) {
+        const c = await setInterviewConsent(true);
+        if (!("error" in c)) {
+          track("interview_consent_set", {
+            enabled: true,
+            source: "onboarding",
+          });
+        }
+      }
       const r = await completeOnboarding();
       if ("error" in r) {
         toast.error(r.error);
@@ -1242,6 +1261,33 @@ export function OnboardingClientV2({
                   </span>
                 </div>
               )}
+            </div>
+
+            {/* The one ask on this screen. Its own rise step so it lands after
+                the summary rather than competing with it, and off by default —
+                a pre-ticked box isn't consent. */}
+            <div
+              className="rise border-hairline flex items-start gap-3 border-t pt-3"
+              style={{ "--rise-delay": "2.1s" } as React.CSSProperties}
+            >
+              <label
+                htmlFor="interview-consent"
+                className="flex min-w-0 flex-1 flex-col gap-0.5"
+              >
+                <span className="text-body text-[13.5px] font-semibold">
+                  Open to a short chat about how it&rsquo;s going?
+                </span>
+                <span className="text-faint text-xs leading-[1.45]">
+                  We&rsquo;d email you at your sign-in address. Turn it off any
+                  time in Settings.
+                </span>
+              </label>
+              <ToggleSwitch
+                id="interview-consent"
+                checked={consent}
+                onCheckedChange={setConsent}
+                ariaLabel="Open to a research interview"
+              />
             </div>
           </div>
         )}

@@ -33,7 +33,10 @@ export type AnalyticsEvent =
   | "social_pushes_toggled" // { enabled }
   // Bug reports. `route` is the screen the reporter came FROM, not /settings —
   // it answers whether one screen generates most of the complaints.
-  | "bug_report_submitted"; // { route }
+  | "bug_report_submitted" // { route }
+  // Research interview opt-in. `source` is "onboarding" | "settings" — the
+  // consent rate at each is the only read available on whether the copy works.
+  | "interview_consent_set"; // { enabled, source }
 
 type Props = Record<string, string | number | boolean | null>;
 

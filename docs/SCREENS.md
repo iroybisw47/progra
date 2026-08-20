@@ -167,8 +167,10 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S48 | profile/[username] | empty | "No shared sessions yet." | `pastSessions.length === 0` | app/profile/[username]/page.tsx:180 |
 | S49 | profile-actions | relationship | none→Add / outgoing→Cancel / incoming→Accept+Decline / friends→Remove+Block / self→Edit | `relationship.kind` | app/profile/[username]/profile-actions.tsx:59,63,74,84,106,132 |
 | S53 | RootLayout (every route) | capacity | **beta-full wall** in place of the entire app tree — no children, no BottomNav, no session/push leaves — vs. the normal app shell | `isWaitlisted(profile)` AND `claim_beta_seat_self()` returns null | app/layout.tsx:99-132, components/beta-full.tsx:7 |
+| S57 | onboarding `go` step | consent | research-interview opt-in row below the goal/habit summary; off by default, written only on finish | local `consent` state | app/onboarding/onboarding-client-v2.tsx (go step) |
 | S54 | /admin (Beta capacity) | capacity | seated-of-cap + waiting counts, editable seat cap, one Grant-a-seat card per waitlisted user; "RPCs aren't installed" line when the overview RPC errors | `admin_beta_overview()` / `admin_list_waitlist()` | app/admin/admin-waitlist.tsx:28, app/admin/page.tsx |
 | S55 | /admin (Bug reports) | queue | open-first list of user bug reports with device/route/build context; Resolve · Dismiss · Reopen; "RPCs aren't installed" line vs. "Nothing reported yet" | `admin_list_bug_reports()` | app/admin/admin-bug-reports.tsx:29, app/admin/page.tsx |
+| S56 | /admin (Interview consents) | list | opted-in users with email, name and consent date, plus a CSV download; "Nobody has opted in yet" vs. "RPCs aren't installed" | `admin_list_interview_consents()` | app/admin/admin-interviews.tsx:36, app/admin/page.tsx |
 
 ---
 

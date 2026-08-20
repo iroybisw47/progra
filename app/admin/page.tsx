@@ -7,6 +7,10 @@ import { SOCIAL_ENABLED } from "@/lib/flags";
 
 import { AdminReports, type AdminReport } from "./admin-reports";
 import {
+  AdminInterviews,
+  type InterviewConsent,
+} from "./admin-interviews";
+import {
   AdminBugReports,
   type AdminBugReport,
 } from "./admin-bug-reports";
@@ -46,6 +50,15 @@ type RawReport = {
     // set by the RPC when the target no longer exists / was taken down
     gone?: boolean;
   } | null;
+};
+
+type RawConsentRow = {
+  user_id: string;
+  email: string | null;
+  username: string | null;
+  display_name: string | null;
+  consented_at: string | null;
+  seat_no: number | null;
 };
 
 type RawBugRow = {
@@ -89,10 +102,11 @@ export default async function AdminPage() {
   // Beta capacity. Both RPCs are read-only and both degrade to null/empty on
   // error, so a missing Stage 7 migration can't take the moderation queue down
   // with it.
-  const [overviewRes, waitlistRes, bugRes] = await Promise.all([
+  const [overviewRes, waitlistRes, bugRes, consentRes] = await Promise.all([
     supabase.rpc("admin_beta_overview"),
     supabase.rpc("admin_list_waitlist"),
     supabase.rpc("admin_list_bug_reports"),
+    supabase.rpc("admin_list_interview_consents"),
   ]);
 
   const rawOverview = overviewRes.error
@@ -109,6 +123,18 @@ export default async function AdminPage() {
         waiting: rawOverview.waiting,
       }
     : null;
+
+  const consentsInstalled = !consentRes.error;
+  const consents: InterviewConsent[] = (
+    (consentsInstalled ? (consentRes.data ?? []) : []) as RawConsentRow[]
+  ).map((row) => ({
+    userId: row.user_id,
+    email: row.email,
+    username: row.username,
+    displayName: row.display_name,
+    consentedAt: row.consented_at,
+    seatNo: row.seat_no,
+  }));
 
   // Same degrade-on-error discipline as the capacity panel: a missing
   // migration must not take the moderation queue down with it.
@@ -217,6 +243,10 @@ export default async function AdminPage() {
       {/* Bug reports first — the most actionable thing on this page. */}
       <AdminBugReports reports={bugReports} installed={bugsInstalled} />
       <AdminWaitlist overview={overview} entries={waitlist} />
+      {/* A mailing list, not a queue — nothing here needs action today, so it
+          sits below the two that do. Moderation stays last: it owns the page's
+          bottom padding. */}
+      <AdminInterviews consents={consents} installed={consentsInstalled} />
       <AdminReports reports={reports} />
     </>
   );

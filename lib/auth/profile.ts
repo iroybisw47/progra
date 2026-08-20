@@ -56,6 +56,19 @@ export type Profile = {
   // `=== null`, so the app shipping ahead of the SQL fails OPEN rather than
   // locking every user out of their own account.
   seat_no?: number | null;
+  // Opt-IN to being contacted for a product interview, and when it was given.
+  //
+  // NOTE THE POLARITY — it is the opposite of social_pushes_enabled above.
+  // That one is an opt-OUT and reads null as "on". This is an opt-IN: null and
+  // false BOTH mean not consented, so every read site is `?? false`, never
+  // `?? true`. Getting it backwards emails people who never agreed.
+  //
+  // The stamp is cleared when consent is withdrawn, so it never outlives the
+  // consent it records. Both are optional keys for the same reason seat_no is:
+  // before the column SQL runs PostgREST omits them, and `?? false` then
+  // degrades to "nobody consented" rather than throwing.
+  interview_consent?: boolean | null;
+  interview_consent_at?: string | null;
   created_at: string;
   updated_at: string;
 };

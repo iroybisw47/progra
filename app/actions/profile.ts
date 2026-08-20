@@ -33,6 +33,35 @@ export async function setSocialPushesEnabled(
   return { ok: true };
 }
 
+// Opt-IN to research interview contact, set from onboarding's final screen and
+// revocable in Settings. Unlike setSocialPushesEnabled above this is an opt-in,
+// so there is no "null means yes" decoding anywhere — null and false are both
+// "no" and the admin RPC filters on `is true`.
+//
+// Withdrawing clears the timestamp as well as the flag, so interview_consent_at
+// can never describe a consent that no longer exists.
+export async function setInterviewConsent(
+  enabled: boolean
+): Promise<{ ok: true } | { error: string }> {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      interview_consent: enabled,
+      interview_consent_at: enabled ? new Date().toISOString() : null,
+    })
+    .eq("id", user.id);
+
+  if (error) return { error: "Couldn't save that — try again." };
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
 export async function setProfileTimezone(
   timezone: string
 ): Promise<{ ok: true } | { error: string }> {

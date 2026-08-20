@@ -19,6 +19,7 @@ import { ReplayOnboardingButton } from "@/components/replay-onboarding-button";
 import { ToggleSwitch } from "@/components/v2/toggle-switch";
 import {
   disconnectGoogleCalendar,
+  setInterviewConsent,
   setProfileIdentity,
   setProfileTimezone,
   setSocialPushesEnabled,
@@ -98,6 +99,7 @@ export function SettingsClient({
   socialPushesEnabled,
   isAdmin,
   openReports,
+  interviewConsent,
 }: {
   email: string;
   username: string | null;
@@ -112,6 +114,9 @@ export function SettingsClient({
   socialPushesEnabled: boolean | null;
   isAdmin: boolean;
   openReports: number;
+  // Research-interview opt-IN. false is the honest default: null (never
+  // asked) and false (declined) are the same thing here.
+  interviewConsent: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [bugOpen, setBugOpen] = useState(false);
@@ -308,6 +313,12 @@ export function SettingsClient({
             />
           </>
         )}
+
+        <Band />
+
+        {/* Research */}
+        <SectionLabel>Research</SectionLabel>
+        <InterviewConsentRow initialConsent={interviewConsent} />
 
         <Band />
 
@@ -761,6 +772,44 @@ function HabitReminderRow() {
 // Server-sent likes/comments pushes, account-level. Optimistic: flip locally,
 // revert on a failed save — the pattern the identity sheet uses, minus the
 // sheet.
+// Where interview consent is withdrawn. Consent that can't be taken back
+// isn't consent, so this row exists even though the ask happens in onboarding.
+// Same optimistic-then-revert shape as SocialPushRow below.
+function InterviewConsentRow({ initialConsent }: { initialConsent: boolean }) {
+  const [consent, setConsent] = useState(initialConsent);
+
+  return (
+    <>
+      <ToggleRow
+        label="Open to an interview"
+        ariaLabel="Open to a research interview"
+        checked={consent}
+        onCheckedChange={(next) => {
+          setConsent(next);
+          track("interview_consent_set", {
+            enabled: next,
+            source: "settings",
+          });
+          void setInterviewConsent(next).then((r) => {
+            if ("error" in r) {
+              setConsent(!next);
+              toast.error("Couldn't save — try again.");
+            }
+          });
+        }}
+      />
+      <Inset>
+        <p className="text-caption text-xs leading-relaxed text-pretty">
+          Lets us email you at your sign-in address to ask for a short chat
+          about how you use Progra — around 20 minutes, and never more than
+          that. Turning this off stops it, and deleting your account withdraws
+          it entirely.
+        </p>
+      </Inset>
+    </>
+  );
+}
+
 function SocialPushRow({ initialEnabled }: { initialEnabled: boolean }) {
   const [enabled, setEnabled] = useState(initialEnabled);
 

@@ -6,6 +6,73 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-20
 
+### 13:20 · Interview consent, and a privacy policy that permits the outreach
+**Requires SQL (run by hand, before deploy).**
+
+Exploration reframed this one. "Email capture" turned out to have no email to
+capture — Google and Apple OAuth already put it in the JWT, `getCurrentUser()`
+returns it, and `admin_list_waitlist` / `admin_list_bug_reports` already surface
+other users' addresses. The only missing thing was **permission to use it**,
+which is one nullable boolean. So this is not a new data category, it is a new
+*purpose* for one already collected — a far smaller change, including on the
+privacy label.
+
+**`profiles.interview_consent` is an opt-IN, and its polarity is the opposite of
+`social_pushes_enabled` sitting three lines above it in the same type.** That one
+is an opt-out documenting "null = on". Here null and false both mean NOT
+consented and every read is `?? false`. Getting it backwards emails people who
+never agreed, so it is stated in the column comment, the type comment, and the
+RPC (`where interview_consent is true`, which null does not match).
+`interview_consent_at` is cleared on withdrawal, so the stamp can never describe
+a consent that no longer exists.
+
+The ask lives on onboarding's **existing final screen** rather than an eleventh
+step — no change to `STEPS`, `activeSteps`, the progress dots or the "Step N of
+M" numbering, which is the entire reason for putting it there. It renders as its
+own `rise` step below the goal/habit summary so it reads as a closing question
+rather than competing with the celebration. Off by default, always: a pre-ticked
+box is not consent.
+
+`finish()` writes it **before** `completeOnboarding()` and **only when true**,
+swallowing any failure — losing a consent flag is an annoyance, being stuck on
+the last screen of onboarding is a dead end (the `claim_invite` reasoning from
+the auth callback). Because null already means not consented, `skipAll()` needed
+no special case at all: someone who skips never saw the checkbox and therefore
+never consented, which falls straight out of the default.
+
+Settings gains a **Research** section so consent can be withdrawn — consent that
+can't be taken back isn't consent. Same optimistic-then-revert shape as
+`SocialPushRow`.
+
+`/admin` gains a fourth panel with CSV export. Every field is quoted and internal
+quotes doubled: a display name containing a comma would otherwise shift every
+column after it, silently, and you'd find out when the mail merge was already
+wrong. The panel sits third rather than last because `AdminReports` owns the
+page's bottom padding, and anything after it inherits a `pb-28` gap.
+
+**The privacy policy edit was not optional.** §2 said Google user data is used
+"only to provide user-facing features inside Progra" and enumerated three;
+emailing someone for an interview is not one, so the first outreach email would
+have made that sentence false — the specific failure App Review 5.1.2 and the
+Google API Services User Data Policy both turn on. A new "Research and product
+interviews" section is now the stated exception, §2 points at it, "What we
+collect" discloses the flag, and the effective date is bumped in **both**
+`privacy` and `terms` (terms promises it will be, so leaving one stale breaks the
+other's promise).
+
+Verified `public_profiles` is column-explicit (`id, username, display_name, bio,
+onboarded_at, avatar_path`) — the consent flag is not friend-readable.
+
+Also new: `docs/app-privacy-label.md`, the full App Store Connect declaration
+drafted now rather than at submission, because the label must match what is
+collected and the consent copy must match the label. It records every category,
+every "not collected" answer and why, the third-party table, and the fact that
+every "used for tracking" answer is No.
+
+No change to `deleteAccount`: the columns live on `profiles`, which already
+cascades from `auth.users`, so deleting an account withdraws consent by
+construction — which the consent copy now says.
+
 ### 12:40 · Users can report bugs, and the reports land in /admin
 **Requires SQL (run by hand, before deploy).**
 

@@ -54,6 +54,9 @@ export default async function SettingsPage({
           ? params.calendar
           : null
       }
+      // `?? false`, never `?? true` — this is an opt-in, so a null column
+      // (never asked) must read as not consented.
+      interviewConsent={profile?.interview_consent ?? false}
       isAdmin={isAdmin === true}
       openReports={openReports}
     />

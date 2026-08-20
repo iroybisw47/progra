@@ -14,7 +14,7 @@ export default function PrivacyPage() {
             Privacy Policy
           </h1>
           <p className="text-muted-foreground text-sm">
-            Effective date: July 22, 2026
+            Effective date: August 20, 2026
           </p>
         </header>
 
@@ -36,6 +36,10 @@ export default function PrivacyPage() {
               photos you attach to them.
             </li>
             <li>Basic usage data needed to operate and improve the app.</li>
+            <li>
+              Whether you have opted in to being contacted for a product
+              interview, and the date you did so. Off unless you turn it on.
+            </li>
           </ul>
         </section>
 
@@ -45,9 +49,25 @@ export default function PrivacyPage() {
           </h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
             Google user data is used only to provide user-facing features
-            inside Progra — signing you in, showing your calendar events
+            inside Progra &mdash; signing you in, showing your calendar events
             alongside your tracked time, and building your personal summaries.
-            We do not use it for advertising, and we never sell it.
+            The one exception is described under Research and product interviews
+            below, and it happens only if you opt in. We do not use it for
+            advertising, and we never sell it.
+          </p>
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <h2 className="text-lg font-semibold tracking-tight">
+            Research and product interviews
+          </h2>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            If you opt in, we may email you at your sign-in address to ask for a
+            short conversation about how you use Progra. This is off by default
+            and never happens without your explicit opt-in. You can withdraw at
+            any time from Settings, and deleting your account withdraws it
+            entirely. We do not use your email for advertising or newsletters,
+            and we never share it with anyone for their own purposes.
           </p>
         </section>
 

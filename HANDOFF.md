@@ -223,6 +223,23 @@ signed in; its center FAB live-ticks while a session runs.
   `can_see_session_photo`, and the Phase-4 set: `is_admin`, `admin_list_reports`,
   `admin_resolve_report`, `admin_take_down_story`, `admin_delete_comment`, `delete_own_account`.
   See **Beta capacity** below for the seat-cap RPCs.
+  Plus `admin_list_bug_reports`, `admin_resolve_bug_report`,
+  `admin_list_interview_consents` — see **Bug reports & interview consent**.
+
+**Bug reports & interview consent (pre-submission surfaces):**
+- `bug_reports` — INSERT-only RLS (`reporter_id = auth.uid()`, no select policy)
+  plus `revoke select, update, delete`; `commit_sha` stamped server-side from
+  `VERCEL_GIT_COMMIT_SHA`. RPCs `admin_list_bug_reports` (definer, joins
+  `auth.users` for the reporter email) and `admin_resolve_bug_report`.
+- `lib/last-route.ts` — a two-slot route history in module variables, written
+  during render by `<RouteMemory/>`. Exists because `usePathname()` at submit
+  time is always `/settings`; `getReportRoute()` substitutes the previous route
+  there so a report names the screen the bug actually happened on.
+- `profiles.interview_consent` + `interview_consent_at` — an opt-**IN**, the
+  OPPOSITE polarity to `social_pushes_enabled`: null and false both mean NOT
+  consented, every read is `?? false`, and `admin_list_interview_consents`
+  filters `where interview_consent is true`. Withdrawal clears the stamp.
+  `public_profiles` is column-explicit and does not expose either.
 
 **Beta capacity (250-seat cap):**
 - `profiles.seat_no` (int, **partial unique index** `profiles_seat_no_key` where not null) —
@@ -286,7 +303,7 @@ filter and let friend-read RLS decide. **Every FK to `auth.users` is `ON DELETE 
   `begin…rollback` and does **not** reliably persist temp tables across statements — prefer a
   single self-contained `DO`/function that cleans up after itself, and to show test output use a
   permanent `returns setof text` helper + `select * from it` (notices are often hidden).
-- **Verify suite:** `npx tsc --noEmit` (ignore `.next/`), `npx eslint`, `npx vitest run` (190 tests),
+- **Verify suite:** `npx tsc --noEmit` (ignore `.next/`), `npx eslint`, `npx vitest run` (196 tests),
   `npm run build`. Each security-sensitive change also gets an **adversarial JWT test** (impersonate
   via `set_config('request.jwt.claims', …)` + `set local role authenticated`).
 
