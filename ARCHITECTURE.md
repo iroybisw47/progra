@@ -123,7 +123,7 @@ unaffected.
 | `/me` | `app/me/page.tsx` | — | **You** tab (social on only): the personal dashboard, relocated off Home. Shares `components/dashboard.tsx`. |
 | `/friends` | `friends/page.tsx` | `friends-client.tsx` | Friend search / requests / blocked (social on only). |
 | `/profile/[username]` | `profile/[username]/page.tsx` | `profile-actions.tsx` | Public profile: identity + a friend's non-private goals/habits + photo **stories** (social on only). |
-| `/admin` | `admin/page.tsx` | `admin-waitlist.tsx`, `admin-reports.tsx` | Moderation queue (social on + `is_admin()` only): open reports with target preview, take-down / dismiss. Also **Beta capacity** — seated/cap/waiting, an editable seat cap, and grant-a-seat per waitlisted user. |
+| `/admin` | `admin/page.tsx` | `admin-bug-reports.tsx`, `admin-waitlist.tsx`, `admin-interviews.tsx`, `admin-reports.tsx` | Moderation queue (social on + `is_admin()` only): open reports with target preview, take-down / dismiss. Now four stacked panels, in order: **Bug reports** (open-first triage), **Beta capacity** (seated/cap/waiting, editable cap, grant-a-seat), **Interview consents** (opt-in list + CSV), **Moderation**. Ordering is deliberate — actionable queues first, and Moderation stays last because it owns the page's bottom padding. |
 | `/login` | `app/login/page.tsx` | `google-sign-in-button.tsx` | Google OAuth entry. |
 | `/auth/callback` | `route.ts` | — | OAuth code exchange → session. |
 | `/auth/signout` | `route.ts` | — | Sign out. |
@@ -236,6 +236,27 @@ reflect the real caller, which is `postgres` inside the definer claim functions.
 Without it the cap would be theatre: a waitlisted user could seat themselves with one
 PostgREST PATCH.
 
+**Bug reports.** `bug_reports` is INSERT-only for users — RLS
+`with check (reporter_id = auth.uid())`, no select policy, plus an explicit
+`revoke select, update, delete` so Supabase's default table grant can't combine
+with a future stray policy. Admin reads via `admin_list_bug_reports()` (definer,
+joins `auth.users` for the reporter's email) and acts via
+`admin_resolve_bug_report()`, which allows reopening. `commit_sha` is stamped
+server-side from `VERCEL_GIT_COMMIT_SHA` rather than from an app-version
+constant: exact build identification, nothing to hand-bump, unspoofable, null
+outside Vercel. Client-supplied diagnostics (route, platform, user agent,
+viewport) are length-capped but not otherwise validated — they are diagnostic,
+not authorization, so they need to be bounded rather than trustworthy.
+
+**Interview consent.** `profiles.interview_consent` + `interview_consent_at`.
+**The polarity is the opposite of `social_pushes_enabled`** and that is the one
+thing to remember: `social_pushes_enabled` is an opt-OUT documenting "null =
+on"; `interview_consent` is an opt-IN where null and false both mean *not
+consented*. Every read is `?? false`, and `admin_list_interview_consents()`
+filters `where interview_consent is true`, which null does not match. The stamp
+is cleared on withdrawal so it can never describe a consent that no longer
+exists. `public_profiles` is column-explicit and exposes neither.
+
 **Weekly recap added these definer RPCs:** `week_leaderboard(p_week_start_ms,
 p_week_end_ms)` (ranks caller + accepted friends by **clocked** session time —
 takes only the week bounds, derives the circle from `auth.uid()` so a caller can
@@ -319,6 +340,22 @@ numbers reconcile across every surface.
   **on at 18:00** (product decision: users who granted permission before the
   feature existed start getting it; Settings is the way out). Both expose a
   pure `…For(stored)` decision fn plus an event/`useSyncExternalStore` pair.
+
+---
+
+**`lib/last-route.ts`** — a two-slot route history (`previous`, `current`) in
+module-level variables, written during render by the `<RouteMemory/>` leaf in
+the root layout. It exists because `usePathname()` at bug-report submit time is
+always `/settings`: people walk to Settings *after* hitting the bug, so
+capturing the current route would stamp every report with the one screen that
+isn't the problem — worse than capturing nothing, because it looks
+authoritative. `getReportRoute()` substitutes the previous route only on
+`/settings`, so a future contextual entry point gets the current screen for
+free. Module variables rather than state, so there is nothing to re-render and
+nothing for `set-state-in-effect` to flag; Strict Mode's double render is
+absorbed by the same-path guard that already exists to stop a re-render shifting
+history. In-memory only — a report is filed seconds after the bug, so
+persistence would only add a way to serve stale data after a cold start.
 
 ---
 
@@ -442,6 +479,22 @@ durably.
 - **Time math is local-time** with Mon-first weeks and inclusive ends, except the
   habit tz helpers which use UTC arithmetic on a tz-resolved date string.
 - **One active session per user**, DB-enforced (error `23505`).
+- **Opt-in and opt-out flags are not interchangeable, and the codebase has one
+  of each.** `social_pushes_enabled` is an opt-OUT: null means on, read it
+  `?? true`. `interview_consent` is an opt-IN: null and false both mean no, read
+  it `?? false`, and query it `is true` in SQL so null cannot match. They sit
+  three lines apart in the same type. Any new consent flag must state its
+  polarity in the column comment, the type comment and the query.
+- **Diagnostic context is bounded, not trusted.** Client-supplied route /
+  platform / user agent on a bug report is length-capped and stored as given; it
+  informs a human, it never authorizes anything. Anything that *does* authorize
+  is derived server-side (`commit_sha` from the Vercel env, `reporter_id` from
+  `auth.uid()`).
+- **A queue's empty state must distinguish "nothing here" from "not
+  installed".** Every admin panel takes an `installed` prop derived from
+  `!res.error` and says which — an empty list that actually means "the migration
+  didn't run" reads as "no work to do", and that is the one wrong answer that
+  matters.
 - **A seat is claimed at signup, never by the app.** `profiles.seat_no` is written
   only by definer functions reached from the `zz_claim_beta_seat` trigger or
   `claim_beta_seat_self()`; a guard trigger rejects the column from
@@ -556,12 +609,25 @@ durably.
 ## 10. Open questions / things to verify when touched
 
 - Authoritative Supabase DDL is not in-repo — §5 is reconstructed from queries.
+- **Nobody has verified the CSV export works on device.** `/admin`'s interview
+  export uses a page-initiated `a.download`, which is unreliable inside the iOS
+  WebView. The catch falls back to a toast telling you to use a desktop browser,
+  but the failure may not throw at all — it may simply do nothing.
+- **`AdminReports` owns the page's bottom padding** (`pb-28`) because it was
+  once the only panel. Every panel added since sits *above* it for that reason
+  alone. A fifth panel appended after it will inherit a ~7rem gap; the real fix
+  is moving the padding to the page.
+- **`interview_consent` records consent but nothing records the ask.** A user
+  who saw the onboarding toggle and left it off is indistinguishable from one
+  who skipped onboarding entirely. Fine today; if consent ever needs an audit
+  trail, that distinction has to be stored at the point of asking.
 - **Admission is silent.** Granting a seat notifies nobody: there is no transactional
   email sender in the repo, and a waitlisted user has never registered an APNs token
   (`PushRegistration` mounts only inside the app shell, which they never receive). They
   find out by returning. Adding email means a new dependency — an explicit decision, not
   a fill-in.
-- **`requireSeat()` covers 18 of ~60 actions**, chosen as the content-creating and
+- **`requireSeat()` covers 20 of ~60 actions** (the 18 from the cap work, plus
+  `submitBugReport` and `setInterviewConsent`), chosen as the content-creating and
   outward-facing set. Downstream mutations are argued to be covered transitively (their
   rows can't exist unless a guarded action created them), but that reasoning is not
   enforced anywhere — a future action that creates a *new* kind of row needs the guard
@@ -583,6 +649,32 @@ durably.
 > Append one entry per work session / feature set. Keep it terse: what changed
 > architecturally, why, and any new invariant or migration. Seeded from git
 > history; entries before this file existed are reconstructed.
+
+### 2026-08-20 — Bug reports, and interview consent **(requires SQL, run by hand — user has confirmed both applied)**
+- Two pre-submission surfaces, both reusing the admin-panel shape the beta-cap
+  work established. `/admin` now stacks four panels.
+- **New invariant, two flavours of consent flag.** `interview_consent` is the
+  codebase's first opt-IN, and it sits three lines from `social_pushes_enabled`,
+  an opt-OUT with inverted null semantics. Recorded in §9 because the failure
+  mode — reading an opt-in as `?? true` — emails people who never agreed.
+- **`lib/last-route.ts` is the interesting piece.** A bug report is filed from
+  `/settings` but happened somewhere else, so `usePathname()` at submit time is
+  uniformly wrong rather than merely absent. A two-slot module-variable history
+  written during render solves it in ~20 lines and adds no state.
+- Bug-report diagnostics are bounded-not-trusted; `commit_sha` comes from
+  `VERCEL_GIT_COMMIT_SHA` server-side rather than a hand-bumped constant.
+- **The privacy policy was a blocking dependency, not a follow-up.** §2 said
+  Google data is used "only to provide user-facing features inside Progra"; the
+  first interview email would have falsified it, which is precisely what App
+  Review 5.1.2 and Google's API Services User Data Policy turn on. The policy
+  now carries a "Research and product interviews" exception, and both `privacy`
+  and `terms` effective dates moved together.
+- `docs/app-privacy-label.md` is new: the App Store Connect declaration drafted
+  ahead of submission so the label and the in-app consent copy are written from
+  the same source rather than reconciled later.
+- Consent needed no `deleteAccount` change and no `skipAll()` special case —
+  `profiles` already cascades from `auth.users`, and null already means "not
+  consented". Both fell out of existing invariants rather than new code.
 
 ### 2026-08-20 — 250-user beta cap: race-safe seat counter + waitlist **(requires SQL, run by hand — user has confirmed it is applied)**
 - Signup was open to anyone. It is now capped, enforced at the only moment that can't
