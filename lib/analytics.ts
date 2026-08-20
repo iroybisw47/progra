@@ -30,7 +30,10 @@ export type AnalyticsEvent =
   | "clock_reminders_toggled" // { enabled }
   | "habit_reminder_toggled" // { enabled }
   | "habit_reminder_time_changed" // { time }
-  | "social_pushes_toggled"; // { enabled }
+  | "social_pushes_toggled" // { enabled }
+  // Bug reports. `route` is the screen the reporter came FROM, not /settings —
+  // it answers whether one screen generates most of the complaints.
+  | "bug_report_submitted"; // { route }
 
 type Props = Record<string, string | number | boolean | null>;
 

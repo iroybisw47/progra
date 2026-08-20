@@ -7,6 +7,10 @@ import { SOCIAL_ENABLED } from "@/lib/flags";
 
 import { AdminReports, type AdminReport } from "./admin-reports";
 import {
+  AdminBugReports,
+  type AdminBugReport,
+} from "./admin-bug-reports";
+import {
   AdminWaitlist,
   type BetaOverview,
   type WaitlistEntry,
@@ -44,6 +48,20 @@ type RawReport = {
   } | null;
 };
 
+type RawBugRow = {
+  id: string;
+  reporter_email: string | null;
+  reporter_username: string | null;
+  description: string;
+  route: string | null;
+  platform: string | null;
+  user_agent: string | null;
+  viewport: string | null;
+  commit_sha: string | null;
+  status: "open" | "resolved" | "dismissed";
+  created_at: string;
+};
+
 type RawWaitlistRow = {
   user_id: string;
   queue_position: number;
@@ -71,9 +89,10 @@ export default async function AdminPage() {
   // Beta capacity. Both RPCs are read-only and both degrade to null/empty on
   // error, so a missing Stage 7 migration can't take the moderation queue down
   // with it.
-  const [overviewRes, waitlistRes] = await Promise.all([
+  const [overviewRes, waitlistRes, bugRes] = await Promise.all([
     supabase.rpc("admin_beta_overview"),
     supabase.rpc("admin_list_waitlist"),
+    supabase.rpc("admin_list_bug_reports"),
   ]);
 
   const rawOverview = overviewRes.error
@@ -90,6 +109,25 @@ export default async function AdminPage() {
         waiting: rawOverview.waiting,
       }
     : null;
+
+  // Same degrade-on-error discipline as the capacity panel: a missing
+  // migration must not take the moderation queue down with it.
+  const bugsInstalled = !bugRes.error;
+  const bugReports: AdminBugReport[] = (
+    (bugsInstalled ? (bugRes.data ?? []) : []) as RawBugRow[]
+  ).map((row) => ({
+    id: row.id,
+    reporterEmail: row.reporter_email,
+    reporterUsername: row.reporter_username,
+    description: row.description,
+    route: row.route,
+    platform: row.platform,
+    userAgent: row.user_agent,
+    viewport: row.viewport,
+    commitSha: row.commit_sha,
+    status: row.status,
+    createdAt: row.created_at,
+  }));
 
   const waitlist: WaitlistEntry[] = (
     (waitlistRes.error ? [] : (waitlistRes.data ?? [])) as RawWaitlistRow[]
@@ -176,6 +214,8 @@ export default async function AdminPage() {
 
   return (
     <>
+      {/* Bug reports first — the most actionable thing on this page. */}
+      <AdminBugReports reports={bugReports} installed={bugsInstalled} />
       <AdminWaitlist overview={overview} entries={waitlist} />
       <AdminReports reports={reports} />
     </>

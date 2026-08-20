@@ -24,8 +24,19 @@ export default async function SettingsPage({
   const { data: isAdmin } = await supabase.rpc("is_admin");
   let openReports = 0;
   if (isAdmin === true) {
-    const { data } = await supabase.rpc("admin_list_reports");
-    openReports = Array.isArray(data) ? data.length : 0;
+    // Both feed the one badge on the Report queue row — the row is a link to
+    // /admin, and /admin is where both queues live. Bug reports are filtered to
+    // open ones because the RPC returns resolved and dismissed too, and a badge
+    // counting settled work would never clear.
+    const [reportsRes, bugsRes] = await Promise.all([
+      supabase.rpc("admin_list_reports"),
+      supabase.rpc("admin_list_bug_reports"),
+    ]);
+    const reports = Array.isArray(reportsRes.data) ? reportsRes.data.length : 0;
+    const bugs = Array.isArray(bugsRes.data)
+      ? bugsRes.data.filter((r: { status: string }) => r.status === "open").length
+      : 0;
+    openReports = reports + bugs;
   }
 
   return (

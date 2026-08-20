@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
+import { isBugStatus } from "@/lib/bug-reports";
 
 type Result = { ok: true } | { error: string };
 type ServerClient = Awaited<ReturnType<typeof createClient>>;
@@ -98,6 +99,27 @@ export async function setBetaSeatCap(cap: number): Promise<Result> {
   if ("error" in gate) return gate;
   const { error } = await supabase.rpc("admin_set_seat_cap", { p_cap: cap });
   if (error) return { error: "Couldn't update the cap." };
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+// ── Bug reports ────────────────────────────────────────────────────────────
+// Triage, not moderation: `open` is the inbox, and reopening is allowed because
+// "fixed" turns out to be wrong often enough to need an undo.
+
+export async function resolveBugReport(
+  id: string,
+  status: string
+): Promise<Result> {
+  if (!isBugStatus(status)) return { error: "Unknown status." };
+  const supabase = await createClient();
+  const gate = await requireAdmin(supabase);
+  if ("error" in gate) return gate;
+  const { error } = await supabase.rpc("admin_resolve_bug_report", {
+    p_id: id,
+    p_status: status,
+  });
+  if (error) return { error: "Couldn't update the report." };
   revalidatePath("/admin");
   return { ok: true };
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CheckIcon, ChevronRightIcon } from "lucide-react";
@@ -37,6 +38,14 @@ import {
 } from "@/lib/notification-permission";
 import { useNotificationPermission } from "@/lib/use-notification-permission";
 import { cn } from "@/lib/utils";
+
+// Click-gated, so it loads as its own chunk after hydration instead of riding
+// in the Settings bundle. Renders nothing while closed.
+const ReportBugSheet = dynamic(
+  () =>
+    import("@/components/v2/report-bug-sheet").then((m) => m.ReportBugSheet),
+  { ssr: false }
+);
 
 // Flipped to "0" once Google's app verification clears (build-time inlined).
 const SHOW_UNVERIFIED_WARNING =
@@ -105,6 +114,7 @@ export function SettingsClient({
   openReports: number;
 }) {
   const [pending, startTransition] = useTransition();
+  const [bugOpen, setBugOpen] = useState(false);
 
   // Toast-only effect (no state) — doesn't add to the set-state-in-effect debt.
   const calendarToastFired = useRef(false);
@@ -299,6 +309,12 @@ export function SettingsClient({
           </>
         )}
 
+        <Band />
+
+        {/* Help */}
+        <SectionLabel>Help</SectionLabel>
+        <Row label="Report a bug" onClick={() => setBugOpen(true)} />
+
         {/* Account actions */}
         <div className="flex flex-col gap-2.5 px-5 pt-7">
           <form action="/auth/signout" method="post" className="w-full">
@@ -312,6 +328,8 @@ export function SettingsClient({
           <HoldToDelete />
         </div>
       </main>
+
+      <ReportBugSheet open={bugOpen} onOpenChange={setBugOpen} />
 
       {/* Edit profile */}
       <BottomSheet open={editing} onOpenChange={setEditing}>

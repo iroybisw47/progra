@@ -6,6 +6,65 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-20
 
+### 12:40 · Users can report bugs, and the reports land in /admin
+**Requires SQL (run by hand, before deploy).**
+
+The only support affordance in the product was a `mailto:` buried in `/privacy`
+and `/terms`, neither of which is linked from Settings. Settings → Help → Report
+a bug now opens a sheet; the reports queue in `/admin` above Moderation and Beta
+capacity, open ones first.
+
+**The design turns on one thing:** `usePathname()` at submit time always returns
+`/settings`, because people walk to Settings *after* hitting the bug. Capturing
+the current route would stamp every report with the one screen that isn't the
+problem — worse than capturing nothing, because it looks authoritative. So
+`lib/last-route.ts` holds a two-slot route history in module variables, written
+during render by a `<RouteMemory />` leaf (module variables, not state, so there
+is nothing to re-render and nothing for `set-state-in-effect` to flag; Strict
+Mode's double render is absorbed by the same-path guard that stops a re-render
+shifting history). `getReportRoute()` substitutes the previous route only on
+`/settings`, so a future contextual entry point gets the current screen for free.
+
+`commit_sha` is stamped server-side from `VERCEL_GIT_COMMIT_SHA` rather than
+shipping an app-version constant: exact build identification, no config change,
+nothing to hand-bump and forget, and unspoofable. Null outside Vercel.
+
+Client-supplied context (route, platform, user agent, viewport) is length-capped
+but otherwise stored as given — it is diagnostic, not authorization, so it needs
+to be bounded rather than trustworthy. An unrecognised platform is dropped
+rather than passed through, since the column CHECK would reject the whole insert.
+
+The description is truncated at 1000 rather than rejected, matching
+`reportContent`'s treatment of `note` — losing the tail of an over-long report
+beats losing the report. That cap earns the app's **first character counter**;
+every other capped field just sets `maxLength`, which is fine at 300 and
+invisible at 1000.
+
+RLS is INSERT-only, like `reports`: `with check (reporter_id = auth.uid())`, no
+select policy, and `revoke select, update, delete` on top so the default
+Supabase grant can't combine with a future stray policy. Admin reads through
+`admin_list_bug_reports()`, definer because it joins `auth.users` for the
+reporter's email — a reporter often has no username worth showing.
+`admin_resolve_bug_report` allows reopening, because "fixed" turns out to be
+wrong often enough to need an undo.
+
+FK cascades on account deletion. That keeps deletion a single clean cascade — an
+App Store requirement not worth complicating — and a report is the user's own
+content.
+
+The panel distinguishes "nothing reported" from "RPCs aren't installed", and the
+admin page degrades to `[]` on error, so deploying ahead of the SQL can't take
+the moderation queue down.
+
+`requireSeat()` applies, so waitlisted users can't file. They also can't reach
+Settings — the wall replaces the app shell — so there is no dead entry point.
+
+New: `lib/bug-reports.ts`, `lib/last-route.ts` (+6 tests),
+`app/actions/bug-reports.ts`, `components/route-memory.tsx`,
+`components/v2/report-bug-sheet.tsx`, `app/admin/admin-bug-reports.tsx`.
+`settings-client.tsx` gains its first `next/dynamic` import, per the lazy-dialog
+rule. The Report queue badge now counts open bugs alongside open reports.
+
 ### 11:37 · Admin panel for the beta cap: waitlist queue + seat controls
 **Requires SQL (run by hand, before deploy).**
 

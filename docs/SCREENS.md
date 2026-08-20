@@ -106,6 +106,7 @@ falls through to the Next.js default.
 | D24 | Report content | dialog | ReportButton | /profile/[username], /session/[id], feed cards | components/report-button.tsx:79 |
 | D25 | Delete account confirm | alert | DeleteAccountButton | Dashboard only (beta/social `/`, `/me`) — legacy | components/delete-account-button.tsx:49 (mount dashboard.tsx:233) |
 | D26 | Notifications panel | sheet | NotificationsBell | /friends | components/notifications-bell.tsx:69 (mount friends-client.tsx:163) |
+| D27 | Report a bug | sheet | Settings → Help → "Report a bug" | /settings | components/v2/report-bug-sheet.tsx:16 (lazy via next/dynamic, mount settings-client.tsx:332) |
 
 ### Whole-surface conditional states
 
@@ -167,6 +168,7 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S49 | profile-actions | relationship | none→Add / outgoing→Cancel / incoming→Accept+Decline / friends→Remove+Block / self→Edit | `relationship.kind` | app/profile/[username]/profile-actions.tsx:59,63,74,84,106,132 |
 | S53 | RootLayout (every route) | capacity | **beta-full wall** in place of the entire app tree — no children, no BottomNav, no session/push leaves — vs. the normal app shell | `isWaitlisted(profile)` AND `claim_beta_seat_self()` returns null | app/layout.tsx:99-132, components/beta-full.tsx:7 |
 | S54 | /admin (Beta capacity) | capacity | seated-of-cap + waiting counts, editable seat cap, one Grant-a-seat card per waitlisted user; "RPCs aren't installed" line when the overview RPC errors | `admin_beta_overview()` / `admin_list_waitlist()` | app/admin/admin-waitlist.tsx:28, app/admin/page.tsx |
+| S55 | /admin (Bug reports) | queue | open-first list of user bug reports with device/route/build context; Resolve · Dismiss · Reopen; "RPCs aren't installed" line vs. "Nothing reported yet" | `admin_list_bug_reports()` | app/admin/admin-bug-reports.tsx:29, app/admin/page.tsx |
 
 ---
 

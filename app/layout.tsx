@@ -10,6 +10,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { EnsurePlanComplete } from "@/components/ensure-plan-complete";
 import { PostHogInit } from "@/components/posthog-init";
 import { NotificationTapRouter } from "@/components/notification-tap-router";
+import { RouteMemory } from "@/components/route-memory";
 import { SyncClockReminders } from "@/components/sync-clock-reminders";
 import { SyncHabitReminders } from "@/components/sync-habit-reminders";
 import { PlanCompleteModal } from "@/components/v2/plan-complete-modal";
@@ -223,6 +224,9 @@ export default async function RootLayout({
           user, so there's nothing to save until someone is signed in.
           No-op on web. */}
       {user && <PushRegistration />}
+      {/* Remembers the previous route so a bug report filed from /settings can
+          name the screen the bug actually happened on. Renders nothing. */}
+      {user && <RouteMemory />}
       <Toaster />
     </Shell>
   );
