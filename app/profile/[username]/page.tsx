@@ -17,7 +17,10 @@ import {
   listCompletionsForUserInRange,
 } from "@/lib/db/habits";
 import { listRecentSessionsForUser } from "@/lib/db/sessions";
-import { listProfileSessions } from "@/lib/db/profile-sessions";
+import {
+  countProfileSessions,
+  listProfileSessions,
+} from "@/lib/db/profile-sessions";
 import { listReactionsForSessions } from "@/lib/db/reactions";
 import { LIKE_EMOJI } from "@/lib/social/reactions";
 import { aggregateWeekByGoal } from "@/lib/aggregate";
@@ -66,22 +69,29 @@ export default async function ProfilePage({
         </header>
 
         {/* Identity */}
-        <div className="flex items-center gap-3.5 px-5 pt-4">
+        {/* items-start, not items-center: a long name now WRAPS instead of
+            truncating, and the gear should stay level with the first line
+            rather than drifting to the vertical middle of a two-line name. */}
+        <div className="flex items-start gap-3.5 px-5 pt-4">
           <AvatarInitials
             name={target.displayName}
             username={target.username}
             avatarUrl={target.avatarUrl}
             className="size-[58px] shrink-0 text-xl"
           />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <h1 className="text-ink truncate font-serif text-[22px] font-medium tracking-[-0.015em]">
+          <div className="flex min-w-0 flex-1 flex-col pt-1">
+            {/* No truncate. The old row could carry three action chips, which is
+                what squeezed the name; a single 32px gear leaves it the line. */}
+            <h1 className="text-ink font-serif text-[22px] leading-[1.2] font-medium tracking-[-0.015em] text-balance">
               {target.displayName || `@${target.username}`}
             </h1>
             <span className="text-faint truncate text-[13px]">
               @{target.username}
             </span>
           </div>
-          <ProfileActions target={target} relationship={relationship} />
+          <div className="pt-1.5">
+            <ProfileActions target={target} relationship={relationship} />
+          </div>
         </div>
         {target.bio && (
           <p className="text-body px-5 pt-2.5 text-[13px] text-pretty">
@@ -128,10 +138,21 @@ async function ProfileContent({
   // resolve alongside goals/habits rather than after them. Comments aren't read
   // here: a session row links to /session/[id], where the thread lives.
   const pastSessionsPromise = listProfileSessions(userId);
+  // Counted in the database, not from the array above — the array is capped, so
+  // deriving the stat from it pins a heavy user's profile at the cap forever.
+  const sessionCountPromise = countProfileSessions(userId);
   const reactionsPromise = pastSessionsPromise.then((items) =>
     listReactionsForSessions(items.map((i) => i.sessionId))
   );
-  const [goals, sessions, habits, completions, pastSessions, reactionsBySession] =
+  const [
+    goals,
+    sessions,
+    habits,
+    completions,
+    pastSessions,
+    reactionsBySession,
+    sessionCount,
+  ] =
     await Promise.all([
       listActiveGoalsForUser(userId),
       listRecentSessionsForUser(userId),
@@ -139,6 +160,7 @@ async function ProfileContent({
       listCompletionsForUserInRange(userId, startDate, endDate),
       pastSessionsPromise,
       reactionsPromise,
+      sessionCountPromise,
     ]);
 
   const goalWeekly = aggregateWeekByGoal(sessions, now);
@@ -158,7 +180,7 @@ async function ProfileContent({
       {/* Stats */}
       <div className="flex px-5 pt-[18px]">
         <Stat value={formatHours(weekTotalMs)} label="This week" />
-        <Stat value={String(pastSessions.length)} label="Sessions" />
+        <Stat value={String(sessionCount)} label="Sessions" />
         <Stat value={String(goalBreakdown.length)} label="Goals" />
       </div>
 
@@ -225,7 +247,7 @@ async function ProfileContent({
           <span className="section-label">Recent sessions</span>
           <span className="flex-1" />
           <span className="text-caption text-[10px] font-semibold tracking-[0.06em]">
-            {pastSessions.length}
+            {sessionCount}
           </span>
         </div>
         {pastSessions.length === 0 ? (

@@ -17,7 +17,10 @@ import {
   listCompletionsForUserInRange,
 } from "@/lib/db/habits";
 import { listRecentSessionsForUser } from "@/lib/db/sessions";
-import { listProfileSessions } from "@/lib/db/profile-sessions";
+import {
+  countProfileSessions,
+  listProfileSessions,
+} from "@/lib/db/profile-sessions";
 import { listReactionsForSessions } from "@/lib/db/reactions";
 import { LIKE_EMOJI } from "@/lib/social/reactions";
 import { entityColor } from "@/lib/colors";
@@ -56,6 +59,9 @@ export default async function MePage() {
   // here any more: the session list is a compact row per session, and the
   // thread lives on /session/[id].)
   const pastSessionsPromise = listProfileSessions(user.id);
+  // Counted in the database: the list above is capped, so counting it pins the
+  // stat at the cap once you pass it.
+  const sessionCountPromise = countProfileSessions(user.id);
   const reactionsPromise = pastSessionsPromise.then((items) =>
     listReactionsForSessions(items.map((i) => i.sessionId))
   );
@@ -66,6 +72,7 @@ export default async function MePage() {
     completions,
     pastSessions,
     reactionsBySession,
+    sessionCount,
   ] = await Promise.all([
     listActiveGoalsForUser(user.id),
     listRecentSessionsForUser(user.id),
@@ -73,6 +80,7 @@ export default async function MePage() {
     listCompletionsForUserInRange(user.id, startDate, endDate),
     pastSessionsPromise,
     reactionsPromise,
+    sessionCountPromise,
   ]);
 
   const goalWeekly = aggregateWeekByGoal(sessions, now);
@@ -140,7 +148,7 @@ export default async function MePage() {
         {/* Stats */}
         <div className="flex px-5 pt-[18px]">
           <Stat value={formatHours(weekTotalMs)} label="This week" />
-          <Stat value={String(pastSessions.length)} label="Sessions" />
+          <Stat value={String(sessionCount)} label="Sessions" />
           <Stat value={String(completions.length)} label="Habits done" />
         </div>
 
@@ -191,7 +199,7 @@ export default async function MePage() {
             <span className="section-label">Your sessions</span>
             <span className="flex-1" />
             <span className="text-caption text-[10px] font-semibold tracking-[0.06em]">
-              {pastSessions.length}
+              {sessionCount}
             </span>
           </div>
           {pastSessions.length === 0 ? (

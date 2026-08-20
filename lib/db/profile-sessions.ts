@@ -25,16 +25,40 @@ import { sessionWorkedMs } from "@/lib/session";
 // profile card drifted into showing less than the feed's.
 export type ProfileSessionItem = SessionCardItem;
 
-// Newest-first cap. The profile shows a session history rather than a curated
-// gallery, so this is the only thing bounding the read — raise it or add
-// pagination if a profile ever outgrows one screenful of scrolling.
-const DEFAULT_LIMIT = 50;
+// Newest-first cap on the RENDERED list. Raised from 50 once real profiles
+// outgrew it. Signing is one batched createSignedUrls call regardless of count,
+// so the cost of a bigger number is payload size, not round trips — but the
+// page is still server-rendered in one go, so it isn't unbounded either. Add
+// "load more" if this is ever outgrown in turn.
+//
+// The profile's session COUNT must never be derived from this list — use
+// countProfileSessions below, or a heavy user's profile reports exactly this
+// number forever.
+const DEFAULT_LIMIT = 200;
 
 // A user's finished sessions for their profile, newest first. RLS does the
 // filtering (owner → all, including private; accepted friend → non-private;
 // stranger/blocked → none), so this deliberately does NOT re-filter on
 // is_private — doing so would hide your own private sessions from your own
 // profile.
+// How many finished sessions this profile actually has, independent of the
+// render cap above.
+//
+// THE BUG THIS FIXES: the profile's "Sessions" stat and the Recent-sessions
+// header both counted the array returned by listProfileSessions, which is
+// capped — so anyone past the cap showed exactly that number and it never moved
+// again. head+exact does the count in the database, and the same RLS applies,
+// so a viewer is counted exactly the sessions they are allowed to see.
+export async function countProfileSessions(userId: string): Promise<number> {
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("sessions")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .not("ended_at", "is", null);
+  return count ?? 0;
+}
+
 export async function listProfileSessions(
   userId: string,
   limit = DEFAULT_LIMIT

@@ -32,13 +32,25 @@ export function ReportButton({
   targetId,
   label,
   className,
+  open: openProp,
+  onOpenChange,
 }: {
   targetType: ReportTargetType;
   targetId: string;
   label?: string;
   className?: string;
+  // Controlled mode. Pass both to open the dialog from somewhere else — a menu
+  // row, say — and the built-in flag trigger is not rendered at all, so the
+  // caller owns the affordance. Omit both and it behaves exactly as before.
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const controlled = openProp !== undefined;
+  const [openInternal, setOpenInternal] = useState(false);
+  const open = controlled ? openProp : openInternal;
+  const setOpen = controlled
+    ? (onOpenChange ?? (() => {}))
+    : setOpenInternal;
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [note, setNote] = useState("");
   const [pending, startTransition] = useTransition();
@@ -63,18 +75,20 @@ export function ReportButton({
 
   return (
     <>
-      <button
-        type="button"
-        aria-label={`Report ${targetType}`}
-        onClick={() => setOpen(true)}
-        className={cn(
-          "text-caption hover:text-ink inline-flex shrink-0 items-center gap-1 text-xs transition-colors",
-          className
-        )}
-      >
-        <FlagIcon className="size-3.5" />
-        {label}
-      </button>
+      {!controlled && (
+        <button
+          type="button"
+          aria-label={`Report ${targetType}`}
+          onClick={() => setOpen(true)}
+          className={cn(
+            "text-caption hover:text-ink inline-flex shrink-0 items-center gap-1 text-xs transition-colors",
+            className
+          )}
+        >
+          <FlagIcon className="size-3.5" />
+          {label}
+        </button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
