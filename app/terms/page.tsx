@@ -55,7 +55,11 @@ export default function TermsPage() {
             Don&rsquo;t misuse Progra: no unlawful content or activity, no
             harassment of other users, no attempts to break, overload, or
             reverse-engineer the service, and no accessing other people&rsquo;s
-            data without permission.
+            data without permission. Objectionable content &mdash; anything
+            abusive, hateful, sexually explicit, violent, or targeting someone
+            for who they are &mdash; is not allowed anywhere in Progra,
+            including session photos, notes, comments, display names, and
+            profile text. There is no tolerance for it.
           </p>
         </section>
 
@@ -69,6 +73,34 @@ export default function TermsPage() {
             display that content within the app so we can provide the service
             (for example, showing your sessions to friends you&rsquo;ve
             connected with, subject to your privacy settings).
+          </p>
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <h2 className="text-lg font-semibold tracking-tight">
+            Reporting and moderation
+          </h2>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            Every session, comment, and profile in Progra can be reported from
+            the app &mdash; use the report control on the item itself. You can
+            also block any user, which immediately stops them seeing your
+            content or contacting you.
+          </p>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            We review reported content and act on it{" "}
+            <strong className="text-foreground font-semibold">
+              within 24 hours
+            </strong>
+            . Content that breaks the acceptable-use rules above is removed, and
+            the accounts responsible are suspended or terminated. If you would
+            rather reach us directly, email{" "}
+            <a
+              href="mailto:support@progra.world"
+              className="underline underline-offset-2"
+            >
+              support@progra.world
+            </a>
+            .
           </p>
         </section>
 

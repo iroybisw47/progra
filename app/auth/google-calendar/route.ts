@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { CALENDAR_SCOPE } from "@/lib/auth/profile";
 import { getCurrentUser } from "@/lib/auth/require-user";
+import { requireSeat } from "@/lib/auth/require-seat";
 import {
   GCAL_STATE_COOKIE,
   callbackUri,
@@ -18,6 +19,14 @@ export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.redirect(`${publicOrigin(request)}/login`);
+  }
+
+  // Route handlers do NOT render the root layout, so the beta-full wall that
+  // gates every page never runs here — a waitlisted user could reach Google's
+  // consent screen by typing this URL. Bounce them to `/`, where the wall is.
+  const seat = await requireSeat();
+  if ("error" in seat) {
+    return NextResponse.redirect(publicOrigin(request));
   }
 
   const from = parseFrom(request.nextUrl.searchParams.get("from"));

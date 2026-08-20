@@ -8,3 +8,8 @@ import { createReminderSync } from "@/lib/notification-sync";
 const engine = createReminderSync(allHabitReminderIds);
 
 export const syncHabitReminders = engine.sync;
+
+// Clear everything the habit family owns. Used when a session ends (sign-out,
+// account deletion, switching users) — reminders are wall-clock scheduled on
+// the device, so nothing expires them on its own.
+export const cancelHabitReminders = engine.cancelAll;

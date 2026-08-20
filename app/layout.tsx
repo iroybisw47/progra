@@ -11,6 +11,7 @@ import { EnsurePlanComplete } from "@/components/ensure-plan-complete";
 import { PostHogInit } from "@/components/posthog-init";
 import { NotificationTapRouter } from "@/components/notification-tap-router";
 import { RouteMemory } from "@/components/route-memory";
+import { NotificationLifecycle } from "@/components/notification-lifecycle";
 import { SyncClockReminders } from "@/components/sync-clock-reminders";
 import { SyncHabitReminders } from "@/components/sync-habit-reminders";
 import { PlanCompleteModal } from "@/components/v2/plan-complete-modal";
@@ -121,7 +122,7 @@ export default async function RootLayout({
     // gets no app shell at all. PostHogInit stays: hitting the wall is exactly
     // the drop-off worth measuring.
     return (
-      <Shell>
+      <Shell userId={user?.id ?? null}>
         <BetaFull position={waitlistPosition} />
         <PostHogInit
           userId={user?.id ?? null}
@@ -134,7 +135,7 @@ export default async function RootLayout({
   }
 
   return (
-    <Shell>
+    <Shell userId={user?.id ?? null}>
       {children}
       {/* Analytics. Deliberately NOT gated on `user`: the signed-out landing
           and the invite pages are exactly where drop-off matters most. */}
@@ -234,13 +235,25 @@ export default async function RootLayout({
 
 // One definition of the html/body chrome, shared by the app tree and the
 // beta-full wall so the two can never drift on fonts or layout.
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({
+  children,
+  userId,
+}: {
+  children: React.ReactNode;
+  userId: string | null;
+}) {
   return (
     <html
       lang="en"
       className={`${hanken.variable} ${newsreader.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        {/* Ungated on purpose: a leaf gated on `user` can never observe user
+            becoming null, which is the event it exists to catch. Living in
+            Shell means the beta-full wall gets it too. */}
+        <NotificationLifecycle userId={userId} />
+      </body>
     </html>
   );
 }

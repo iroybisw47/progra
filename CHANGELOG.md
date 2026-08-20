@@ -6,6 +6,47 @@ when it was done, not a start/stop work timer.
 
 ## 2026-08-20
 
+### 17:55 · Pre-submission regression pass: notifications outliving their account, and a wall you could walk around
+First pass looking at the features together rather than one at a time. Three
+real defects, all at the seams.
+
+**Local notifications survived sign-out and account deletion.** `SyncClockReminders`
+and `SyncHabitReminders` are mounted `{user && …}`, so signing out *unmounts*
+them — and unmounting cancels nothing. `cancelClockReminders` existed and was
+never called from anywhere; the habit family exported no cancel at all.
+Reminders are wall-clock scheduled on the device, so a deleted account went on
+firing "Still going?" hourly and habit nudges for up to a week.
+`components/notification-lifecycle.tsx` is mounted **ungated** inside `Shell` —
+a leaf gated on `user` can never observe `user` becoming null, which is the only
+event it exists for. Covers sign-out, deletion, and the shared-device
+user-switch in one place instead of three call sites remembering. Matters for
+review specifically: a reviewer *will* delete the test account.
+
+**Route handlers bypass the beta-full wall.** Pages are genuinely covered — the
+wall replaces the layout's children and a walled user never receives an app
+shell to navigate from. But route handlers don't render the layout at all, so
+`/auth/google-calendar` let a seat-less user reach Google's consent screen by
+typing the URL. Now `requireSeat()`-gated. The other three handlers are correct:
+`/auth/callback` is how you *become* walled, and `/auth/signout` is the wall's
+only button.
+
+**Nothing stopped the two notification id ranges colliding.** Clock owns
+9001/9002 + 9101–9109, habits 9201–9207 — disjoint today, but
+`MAX_HOURLY_REMINDERS` is computed from `SESSION_CAP_MS`, so raising the session
+cap grows the clock range toward the habit base. The failure would be silent and
+destructive, since each family cancels by clearing its whole range.
+`lib/notification-ids.test.ts` asserts non-overlap and headroom.
+
+**Submission requirements.** `/terms` gains a Reporting and moderation section
+committing to act on reports **within 24 hours**, and the acceptable-use rule now
+names objectionable content explicitly — the two written pieces Guideline 1.2
+requires and the only ones that were missing. `Info.plist`'s
+`UIRequiredDeviceCapabilities` was `armv7` (32-bit ARM, dropped at iOS 11) from
+the Capacitor template; now `arm64`.
+
+Verified: `tsc` clean, `eslint` **10 problems — the documented baseline, unchanged**,
+199 tests, build clean, signed-out routes 200.
+
 ### 13:20 · Interview consent, and a privacy policy that permits the outreach
 **Requires SQL (run by hand, before deploy).**
 
