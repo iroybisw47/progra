@@ -1,0 +1,36 @@
+2. DEVICES / OS TESTED
+iPhone-only app (TARGETED_DEVICE_FAMILY = 1), minimum iOS 15.0.
+- <DEVICE MODEL> on iOS <VERSION> — primary device; every flow in the attached recording was performed on it.
+- iOS Simulator during development only; all recorded flows were verified on hardware.
+
+3. WHAT IT DOES / WHO IT IS FOR
+Progra is a productivity tracker with a social layer. A user clocks in to a category of work, the app times the session, and the finished session — with an optional note and photo — appears in a feed their accepted friends can see, react to and comment on. Around that loop it keeps weekly goals, daily habits, session history, and a weekly recap.
+Audience: students and self-directed knowledge workers who track their own time and want accountability from people they know.
+Problem and value: solo time tracking is easy to abandon because nothing happens when you stop. Progra makes tracked time visible to a small, mutual-consent friend group, so the user ends the week with an honest record and a peer group that saw the work.
+Free. No in-app purchases, no subscription, no advertising.
+
+4. SETUP / ACCESS
+There is no demo account and none is possible: Progra has no username/password path. Sign-in is Sign in with Apple or Google only, so a reviewer signs in with their own Apple ID and gets a fresh account. Hide My Email is supported; no invite code or sample files are needed.
+1) Launch, tap "Sign in with Apple".
+2) Onboarding runs once and creates a first goal and habit. Notification permission is requested here and may be declined without blocking anything.
+3) Clock (center tab): pick a category, tap "Clock in". Pause/resume supported; clocking out opens a finish screen for a note and photo.
+4) Progress (first tab): habits, goals, weekly recap. Feed: reactions and comments on friends' sessions.
+5) Friends: search a username and send a request. Both sides must accept before either can see the other's sessions. To see the social surfaces populated, add <HELPER HANDLE>, which accepts promptly and has visible sessions.
+6) You > Settings: profile, time zone, notification preferences, bug report, and account deletion at the bottom.
+Social surfaces are gated in the database by row-level security on auth.uid(), so a new account correctly sees an empty feed until a friend request is accepted. That is the intended state, not a failure.
+
+5. EXTERNAL SERVICES
+- Supabase (Postgres, Auth, Storage): database, authentication, private photo storage
+- Vercel: hosting for the web layer the native shell loads
+- Sign in with Apple, Google Sign-In: authentication
+- Google Calendar API (calendar.events.readonly): optional; reads event titles and times so calendar time can sit beside tracked time
+- Anthropic (Claude API): categorizes calendar event titles into the user's own categories; not used for advertising or model training
+- Apple Push Notification service: social notifications
+- PostHog: product analytics keyed to the account's user ID; no advertising identifiers, no cross-app tracking, no data brokers
+No payment processor, ad network or data provider, and nothing is sold or shared for advertising.
+
+6. REGIONAL DIFFERENCES
+None. Progra behaves identically in every region and storefront. The interface is English-only. There is no geofenced content, no region-specific pricing (the app is free), and no feature enabled or disabled by country. Times display in the time zone chosen in Settings, the only locale-dependent behavior in the app.
+
+7. REGULATED INDUSTRY / PROTECTED MATERIAL
+Not applicable. Progra is not a health, medical, financial or gambling product, and work-time entries are user-authored content, not health data. It contains no licensed third-party material. The only third-party user data it touches is the user's own Google Calendar, read with a read-only scope under explicit OAuth consent and governed by the Google API Services User Data Policy including its Limited Use requirements, committed to at https://progra.world/privacy.
