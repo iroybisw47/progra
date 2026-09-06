@@ -18,6 +18,7 @@ export function GoogleSignInButton({
   next,
   referrer,
   label = "Continue with Google",
+  disabled = false,
 }: {
   next?: string;
   // Inviter's username (from /i/[username]). Carried through OAuth as `?ref=` so
@@ -25,6 +26,8 @@ export function GoogleSignInButton({
   // `ref`, because React intercepts a `ref` prop and it would never arrive here.
   referrer?: string;
   label?: string;
+  // Set by SignInButtons until the terms checkbox is ticked (Guideline 1.2).
+  disabled?: boolean;
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -141,7 +144,7 @@ export function GoogleSignInButton({
     <Button
       className="h-11 w-full text-base"
       onClick={handleClick}
-      disabled={loading}
+      disabled={loading || disabled}
     >
       {loading ? "Redirecting…" : label}
     </Button>

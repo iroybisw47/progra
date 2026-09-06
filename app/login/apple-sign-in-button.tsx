@@ -30,12 +30,15 @@ export function AppleSignInButton({
   next,
   referrer,
   label = "Sign in with Apple",
+  disabled = false,
 }: {
   next?: string;
   // Inviter's username, carried through so the action can call claim_invite.
   // Named `referrer`, not `ref`, because React intercepts a `ref` prop.
   referrer?: string;
   label?: string;
+  // Set by SignInButtons until the terms checkbox is ticked (Guideline 1.2).
+  disabled?: boolean;
 }) {
   const [loading, setLoading] = useState(false);
   const isNative = useIsNativeApp();
@@ -111,7 +114,7 @@ export function AppleSignInButton({
       // the two sit directly above one another.
       className="h-11 w-full bg-black text-base text-white hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-white/90"
       onClick={handleClick}
-      disabled={loading}
+      disabled={loading || disabled}
     >
       {loading ? (
         "Signing in…"

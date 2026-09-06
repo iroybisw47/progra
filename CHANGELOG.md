@@ -4,6 +4,88 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-09-06
+
+### 11:47 · Guideline 1.2: the terms were right, the presentation wasn't
+Apple rejected the submission for not requiring users to agree to terms before
+registering or logging in. The terms themselves were never the problem —
+`/terms` § Acceptable use has said "There is no tolerance for it" about
+harassing, hateful, sexually explicit and violent content since it was written.
+What was missing was the *agreement*: `/terms` was a footer link on the landing
+page and absent entirely from `/login`, so nothing was ever presented as
+something to accept.
+
+The gate went into `sign-in-buttons.tsx` because that component already exists
+to decide Guideline 4.8 in one place, and `/`, `/login` and both
+`/i/[username]` branches render it — so all four inherit the checkbox without
+each remembering to. It became a Client Component in the process; every caller
+passes plain strings, so the boundary costs nothing.
+
+An explicit tick rather than a passive "by continuing you agree" line. The
+passive form satisfies some reviewers, but only the affirmative one answers
+"require that users agree", and a second rejection costs another review cycle.
+The zero-tolerance sentence is repeated in the checkbox label itself so a
+reviewer sees the required language without opening the linked page.
+
+The consent text is a `<div>`, not a `<label>`, and the checkbox is named via
+`aria-labelledby`. Clicking a link inside a label activates the label's control
+as well as following the href, so wrapping it would have meant that reading the
+terms silently ticked the box agreeing to them.
+
+**No new binary is needed.** `server.url` points at progra.world, so deploying
+the web layer changes the behaviour of the build already sitting in review.
+
+## 2026-08-26
+
+### 23:22 · Items 2–7 answered, and split by where they get pasted
+`docs/app-review-notes-paste.txt` is the literal paste for App Review
+Information → Notes: plain text, no tables, items 2–7, measured at 3,998
+characters against the field's ~4000 cap. It got there by moving the Guideline
+4.2 / 1.2 / 5.1.1 argument *out* — that belongs in the Resolution Center reply,
+which has no meaningful limit and is where a case is argued. Notes is the durable
+reference Apple asked to inherit on future submissions; the reply is the case for
+this one. `docs/app-review-notes.md` now holds both, plus the reply verbatim.
+
+Item 2 stopped being a template: `TARGETED_DEVICE_FAMILY = 1` and
+`IPHONEOS_DEPLOYMENT_TARGET = 15.0` make Progra iPhone-only at a minimum of iOS
+15.0, so no iPad testing is owed. The device model and OS version are the only
+two placeholders left, and they are left blank deliberately — Apple checks that
+list against the build's own compatibility data, so it is not a field to fill in
+plausibly.
+
+### 21:52 · Export compliance is answered in the binary, not in the web form
+`ITSAppUsesNonExemptEncryption = false` in `ios/App/App/Info.plist`. Without it
+every upload lands in App Store Connect as "Missing Compliance" and blocks
+TestFlight until someone clicks through the encryption questionnaire — which is
+exactly the wrong moment to discover it, since a build stuck there cannot be
+handed to an internal tester.
+
+`false` is the accurate answer, not the convenient one: the only cryptography in
+the app is `crypto.randomUUID()` and the SHA-256 nonce digest in
+`lib/auth/nonce.ts`, and hashing is not encryption — Apple's exemption covers
+authentication use explicitly. Everything else is TLS supplied by the OS.
+
+Does not affect the build already in review; that one still needs the question
+answered by hand in ASC.
+
+## 2026-08-24
+
+### 21:50 · Answers for Apple's "Information Needed" request
+App Review came back asking for the standard seven: a device recording, the test
+matrix, what the app is, how to get in, the external services, regional
+differences, and regulated-industry documentation. Nothing about the binary — it
+is answered in Resolution Center, not with a new build. `docs/app-review-notes.md`
+holds paste-ready text for the App Review Information → Notes field (permanent,
+so future submissions inherit it) plus a nine-beat shot list for the recording,
+ordered so account deletion comes last because it destroys the account it was
+recorded on.
+
+The load-bearing part is the pre-flight list at the top. Two things would sink
+the review regardless of how good the notes are: a reviewer whose signup lands on
+the 250-seat waitlist wall instead of the app, and the checked-in
+`aps-environment: development`, which makes every push the reviewer might look
+for silently fail. Both are checkboxes now rather than assumptions.
+
 ## 2026-08-20
 
 ### 20:15 · Pre-submission UI pass: six changes across the app
