@@ -37,6 +37,12 @@ type SignInInput = {
   // does so on the FIRST authorization only; Google never sends it through this
   // path (its profile name arrives as user metadata at signup).
   displayName?: string;
+  // TEMPORARY diagnostic, remove once the Guideline 4 fix is confirmed on
+  // device. `displayName` alone cannot distinguish "Apple sent no name" from
+  // "the webview is still running the pre-fix bundle" — both arrive as
+  // undefined. This is sent unconditionally by the new client, so its presence
+  // dates the bundle and its value reports what Apple actually returned.
+  appleNameSeen?: boolean;
   next?: string;
   ref?: string;
 };
@@ -118,15 +124,31 @@ async function signInWithProviderIdToken(
   const userId = data.user?.id;
   const seedName = input.displayName?.trim().slice(0, 50);
   if (seedName && userId) {
-    try {
-      await supabase
-        .from("profiles")
-        .update({ display_name: seedName })
-        .eq("id", userId)
-        .is("display_name", null);
-    } catch {
-      // ignore — sign-in proceeds without the name
-    }
+    // .select() so the row count is observable: an UPDATE that matches nothing
+    // is not an error, and silently matching zero rows is one of the failure
+    // modes being diagnosed.
+    const { data: seeded, error: seedError } = await supabase
+      .from("profiles")
+      .update({ display_name: seedName })
+      .eq("id", userId)
+      .is("display_name", null)
+      .select("id");
+
+    // Never the name itself — that is the user's real name and Vercel logs are
+    // not the place for it. Length is enough to prove one arrived.
+    console.log("[native-auth] name seed:", {
+      provider,
+      appleNameSeen: input.appleNameSeen ?? "absent (pre-fix bundle)",
+      nameLength: seedName.length,
+      rowsUpdated: seeded?.length ?? 0,
+      error: seedError?.message ?? null,
+    });
+  } else {
+    console.log("[native-auth] name seed skipped:", {
+      provider,
+      appleNameSeen: input.appleNameSeen ?? "absent (pre-fix bundle)",
+      hasUserId: !!userId,
+    });
   }
 
   // Invite attribution, mirroring app/auth/callback/route.ts: the same

@@ -100,6 +100,10 @@ export function AppleSignInButton({
         idToken,
         nonce: nonce.forSupabase,
         displayName,
+        // TEMPORARY, paired with the server log — see SignInInput. Sent
+        // unconditionally so the server can tell a nameless Apple response
+        // apart from a stale bundle that never sent the field at all.
+        appleNameSeen: !!displayName,
         next,
         ref: referrer,
       });
