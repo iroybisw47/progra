@@ -106,6 +106,42 @@ has something to summarise rather than unlocking onto an empty week.
 
 ---
 
+## The feed is a rolling 7-day window — this decays fastest
+
+`listFriendFeed(daysBack = 7)` in `lib/db/feed.ts:110` selects only sessions
+whose `ended_at` is **non-null and within the last 7 days**. So a friend's
+sessions do not sit in the feed permanently: seed them today, and if Apple looks
+a week later the Feed tab is empty again — the exact failure 2.1(a) was filed
+for. Unfinished sessions never appear at all.
+
+Real friends do not solve this either. They only help while they happen to be
+posting, which is not something to bet a submission on.
+
+So **before every submission**, pull the demo friend's sessions back into the
+window:
+
+```sql
+-- Spread the demo friend's sessions across the last few days.
+with numbered as (
+  select id,
+         row_number() over (order by started_at) as n,
+         ended_at - started_at                   as dur
+  from public.sessions
+  where user_id = (select id from auth.users where email = '<DEMO FRIEND EMAIL>')
+    and ended_at is not null
+)
+update public.sessions s
+set ended_at   = now() - (numbered.n || ' days')::interval,
+    started_at = now() - (numbered.n || ' days')::interval - numbered.dur
+from numbered
+where s.id = numbered.id;
+```
+
+Aim for four or five sessions on the demo friend rather than one, so the feed
+still reads as a feed after they are spread out.
+
+---
+
 ## The reset, before every resubmission
 
 Onboarding runs once. The first reviewer to complete it sets `onboarded_at`, and
