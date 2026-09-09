@@ -6,6 +6,38 @@ when it was done, not a start/stop work timer.
 
 ## 2026-09-09
 
+### 18:02 · A password door, for App Review only
+Apple's Guideline 2.1(a) rejection asked for credentials a reviewer can type
+into App Store Connect. Every existing way in borrows an identity from Google or
+Apple, so there was nothing to hand over — "no demo account is possible" was
+true, and was exactly what got rejected.
+
+`signInWithPassword` is a server action for the reason native-auth.ts already
+documents: the server client writes the session as a real Set-Cookie header,
+which WebKit commits immediately, while the browser client writes via
+document.cookie, which WKWebView flushes lazily and can drop. Supabase's own
+error is not echoed back — it distinguishes "no such user" from "wrong
+password", and repeating that turns the form into an oracle for which addresses
+hold accounts.
+
+No sign-up, no password reset, no email confirmation. Each is a flow with its
+own mail and edge cases, and none is needed for one account provisioned by hand
+in the dashboard.
+
+Visible on every sign-in surface rather than native-only or hidden behind a
+gesture. The shell has no address bar, so a hidden door cannot be reached by
+URL, and a reviewer who does not find it files another rejection — one quiet
+underlined line is the cheaper side of that trade. It renders after both OAuth
+buttons so Guideline 4.8's equal-prominence comparison stays between Apple and
+Google, and it is disabled until the terms checkbox is ticked, because 1.2
+governs this door too.
+
+Known tradeoff, accepted: enabling Supabase's Email provider also opens its
+public sign-up endpoint, and the anon key is public by design. Supabase's
+"disable signups" switch would close it but would block Google and Apple
+sign-ups with it. Anyone arriving that way still lands behind the 250-seat cap
+and RLS, so they see an empty app and nobody else's data.
+
 ### 17:38 · Guideline 4: stop asking Apple users for a name Apple already sent
 The rejection was caused by a decision that was written down and reasoned about
 at the time. `native-auth.ts` said: "Apple sends the user's name and email ONLY

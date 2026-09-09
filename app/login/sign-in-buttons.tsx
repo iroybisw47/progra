@@ -6,6 +6,7 @@ import { useId, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { AppleSignInButton } from "./apple-sign-in-button";
+import { EmailSignInForm } from "./email-sign-in-form";
 import { GoogleSignInButton } from "./google-sign-in-button";
 
 // Every sign-in surface renders this rather than the individual buttons, so
@@ -92,6 +93,9 @@ export function SignInButtons({
         label={googleLabel}
         disabled={!agreed}
       />
+      {/* Below both OAuth buttons, and after them in the DOM, so Guideline 4.8's
+          "equal prominence" comparison stays between Apple and Google alone. */}
+      <EmailSignInForm next={next} disabled={!agreed} />
     </div>
   );
 }
