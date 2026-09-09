@@ -10,14 +10,24 @@ Problem and value: solo time tracking is easy to abandon because nothing happens
 Free. No in-app purchases, no subscription, no advertising.
 
 4. SETUP / ACCESS
-There is no demo account and none is possible: Progra has no username/password path. Sign-in is Sign in with Apple or Google only, so a reviewer signs in with their own Apple ID and gets a fresh account. Hide My Email is supported; no invite code or sample files are needed.
-1) Launch, tap "Sign in with Apple".
-2) Onboarding runs once and creates a first goal and habit. Notification permission is requested here and may be declined without blocking anything.
-3) Clock (center tab): pick a category, tap "Clock in". Pause/resume supported; clocking out opens a finish screen for a note and photo.
-4) Progress (first tab): habits, goals, weekly recap. Feed: reactions and comments on friends' sessions.
-5) Friends: search a username and send a request. Both sides must accept before either can see the other's sessions. To see the social surfaces populated, add <HELPER HANDLE>, which accepts promptly and has visible sessions.
-6) You > Settings: profile, time zone, notification preferences, bug report, and account deletion at the bottom.
-Social surfaces are gated in the database by row-level security on auth.uid(), so a new account correctly sees an empty feed until a friend request is accepted. That is the intended state, not a failure.
+Demo credentials are in App Review Information > Sign-In Information. On the
+sign-in screen, tick the agreement to the Terms and Privacy Policy — every
+sign-in option stays disabled until it is — then tap "Sign in with email"
+beneath the two buttons. Apple and Google sign-in are also offered; both create
+a fresh, empty account.
+The demo account is pre-populated: accepted friends, a feed of their sessions,
+its own sessions with photos, goals and habits. It begins at onboarding so the
+first-run flow can be reviewed; that takes under a minute.
+1) Clock (center tab): pick a category, tap "Clock in". Pause/resume supported;
+   clocking out opens a finish screen for a note and photo.
+2) Progress (first tab): habits, goals, weekly recap.
+3) Feed: reactions and comments on friends' sessions. Tap a session to open it.
+4) Friends: existing friends, plus username search to send new requests.
+5) You > Settings: profile, time zone, notification preferences, bug report, and
+   account deletion at the bottom.
+Reporting and blocking are on every profile, session and feed card. Social reads
+are gated by row-level security on auth.uid(), so an account with no accepted
+friends correctly sees an empty feed — intended, not a failure.
 
 5. EXTERNAL SERVICES
 - Supabase (Postgres, Auth, Storage): database, authentication, private photo storage

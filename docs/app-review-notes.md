@@ -204,30 +204,37 @@ Free. No in-app purchases, no subscription, no advertising.
 
 ## 4. Setting up and accessing the main features
 
-**There is no demo account, and none is possible:** Progra has no
-username/password path. Sign-in is **Sign in with Apple** or **Sign in with
-Google** only, so a reviewer signs in with their own Apple ID (Hide My Email is
-fully supported) and gets a fresh account. No invite code, no promo code, no
-sample files are needed.
+**There is a demo account**, and its credentials live in **App Review
+Information → Sign-In Information** — not in this repo, which is public, and not
+in the Notes field.
 
-1. Launch → tap **Sign in with Apple** on the landing screen.
-2. Onboarding runs once and creates the first goal and habit. Notification
-   permission is requested here and can be declined without blocking anything.
-3. **Clock** (center tab) → pick a category → **Clock in**. The live timer
-   supports pause/resume; clocking out opens the finish screen where a note and
-   a photo can be attached.
-4. **Progress** (first tab) → habits, goals, and the weekly recap.
-5. **Friends** → search a username → send a request. Both sides must accept
-   before either can see the other's sessions. To see the social surfaces with
-   real content, add `@progra` (or the handle supplied in the reply) — that
-   account will accept promptly and has visible sessions.
-6. **Feed** → reactions and comments on friends' sessions.
-7. **You → Settings** → profile, time zone, notification preferences,
-   bug report, and **account deletion** at the bottom of the page.
+Progra's own accounts are Google or Apple only; the email + password door exists
+so App Review has credentials to type, and is the reason `password-auth.ts`
+carries no sign-up, reset or confirmation flow.
 
-Every social surface is friend-gated in the database (Postgres row-level
-security on `auth.uid()`), so a brand-new account correctly sees an empty feed
-until a friend request is accepted — that is the intended state, not a failure.
+1. On the sign-in screen, tick the agreement to the Terms of Service and Privacy
+   Policy. **Every sign-in option stays disabled until it is ticked** (Guideline
+   1.2), including the email one.
+2. Tap **Sign in with email** beneath the two OAuth buttons and enter the
+   credentials.
+3. The account **starts at onboarding**, deliberately, so the first-run flow can
+   be reviewed. It creates a goal and a habit and takes under a minute.
+4. **Clock** (center tab) → pick a category → **Clock in**. Pause/resume; the
+   finish screen takes a note and a photo.
+5. **Progress** (first tab) → habits, goals, weekly recap.
+6. **Feed** → the friends' sessions, with reactions and comments.
+7. **Friends** → the existing friendships, plus username search.
+8. **You → Settings** → profile, time zone, notifications, bug report, and
+   **account deletion** at the bottom.
+
+The account arrives **pre-friended**, so Feed and Friends are populated on first
+login — Apple named Friends specifically in the 2.1(a) rejection. Report and
+block are available on every profile, session and feed card.
+
+Every social surface is gated in the database by row-level security on
+`auth.uid()`, so an account with no accepted friends correctly sees an empty
+feed. That is the intended state, not a failure — and it is why a reviewer
+signing in with their own Apple ID sees so little.
 
 ---
 

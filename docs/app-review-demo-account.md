@@ -9,11 +9,16 @@ _Placeholders below: fill in once and keep this file current._
 
 | | |
 |---|---|
-| Reviewer email | `<REVIEWER EMAIL>` |
-| Reviewer password | `<REVIEWER PASSWORD>` — also in ASC → App Review Information → Sign-In Information |
+| Reviewer email | `review@progra.world` |
+| Reviewer password | **Not in this repo — `iroybisw47/progra` is PUBLIC.** Lives in ASC → App Review Information → Sign-In Information, and in your password manager. |
 | Reviewer handle | `@<REVIEWER HANDLE>` |
-| Demo friend A | `<A EMAIL>` / `@<A HANDLE>` |
-| Demo friend B | `<B EMAIL>` / `@<B HANDLE>` |
+| Demo friend | `<A EMAIL>` / `@<A HANDLE>` |
+| Real friends | your own account, plus anyone who has explicitly agreed |
+
+**Why the password is not written down here.** The account is friended to your
+real account, so it can read your real sessions, notes and photos. In a public
+repo those credentials would hand that to anyone who clones it. The email and
+handle are harmless on their own; the password is the whole lock.
 
 ---
 
@@ -55,19 +60,24 @@ Friend-read RLS means A and B cannot see the reviewer's sessions until the
 friendship is **accepted**, and cannot comment on sessions that do not exist yet.
 So:
 
-1. **Create A and B** in the dashboard.
-2. **As A:** complete onboarding, clock 3–4 sessions across different days, add a
-   goal, add habits and tick some days. Set a display name, bio and avatar — a
-   blank profile in the feed looks broken.
-3. **As B:** the same.
-4. **As the reviewer:** complete onboarding, clock 3–4 sessions, attach a photo
-   to at least one (this is also the only way photos get into the bucket).
-5. **Friend requests:** from A → reviewer, B → reviewer, and from your own real
-   account → reviewer. Accept all three as the reviewer.
-6. *(Optional)* a 4th account sending a request left **unaccepted**, so the
-   Friends tab shows the incoming-request state.
-7. **As A and B:** react and comment on the reviewer's sessions, so Feed and the
-   session detail screen both have content.
+1. **Create one demo friend** in the dashboard.
+2. **As the demo friend:** complete onboarding, clock 3–4 sessions across
+   different days, add a goal, add habits and tick some days. Set a display name,
+   bio and avatar — a blank profile in the feed looks broken.
+3. **As the reviewer:** complete onboarding, clock 3–4 sessions, attach a photo
+   to at least one (this is also the only way photos reach the bucket).
+4. **Friend requests:** from the demo friend → reviewer, and from your own real
+   account → reviewer. Accept both as the reviewer.
+5. **As the demo friend:** react and comment on the reviewer's sessions, so Feed
+   and the session detail screen both have content.
+
+**Keep at least one demo friend, however tempting it is to use only real
+accounts.** Reviewers are asked to demonstrate blocking and reporting, so one of
+these profiles *will* get blocked and reported. Pointing that at a real user
+deletes a real friendship — silently breaking the demo for the next reviewer —
+and drops a report against a real person into the moderation queue. Real friends
+are fine as *extra* content, with their agreement, but should never be the only
+target available.
 
 ---
 
@@ -88,7 +98,7 @@ where username = '<REVIEWER HANDLE>';
 --    how much data it has.
 update auth.users
 set created_at = now() - interval '30 days'
-where email = '<REVIEWER EMAIL>';
+where email = 'review@progra.world';
 ```
 
 You may also want to shift a few session timestamps into last week, so the recap
@@ -110,7 +120,7 @@ duplicates accumulate. Harmless, but tidy them occasionally:
 ```sql
 -- Inspect first; delete only what onboarding duplicated.
 select id, title, created_at from public.goals
-where user_id = (select id from auth.users where email = '<REVIEWER EMAIL>')
+where user_id = (select id from auth.users where email = 'review@progra.world')
 order by created_at desc;
 ```
 
@@ -120,7 +130,7 @@ order by created_at desc;
 
 - **App Review Information → Sign-In Information**: tick "Sign-in required",
   fill Username and Password.
-- Update the Notes: `docs/app-review-notes-paste.txt` still says no demo account
-  is possible. That is now false, and leaving the contradiction is its own
-  rejection.
+- Notes: paste `docs/app-review-notes-paste.txt`, which describes the demo
+  account rather than claiming none can exist. Never put the password there —
+  Sign-In Information is the field for it.
 - Say the account is pre-friended, so Feed and Friends are populated on arrival.

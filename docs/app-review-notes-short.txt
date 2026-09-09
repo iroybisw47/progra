@@ -1,17 +1,19 @@
-ACCESS: No demo account exists or is possible — Progra has no username/password
-path. Sign-in is Sign in with Apple or Google only; a reviewer signs in with
-their own Apple ID (Hide My Email supported) and gets a fresh account. No invite
-code or sample files needed. Users must tick an agreement to the Terms of
-Service and Privacy Policy before the sign-in buttons enable.
+ACCESS: Demo credentials are in App Review Information > Sign-In Information.
+On the sign-in screen, tick the agreement to the Terms of Service and Privacy
+Policy — every sign-in option is disabled until it is ticked — then tap "Sign in
+with email" beneath the two buttons. Sign in with Apple and Google are also
+offered; both create a fresh, empty account. The demo account is pre-populated
+with accepted friends, a feed of their sessions, its own sessions with photos,
+goals and habits, and it starts at onboarding so the first-run flow can be seen.
 
 MAIN FLOW: Sign in > onboarding creates a first goal and habit (notification
 permission is requested here and may be declined) > Clock tab: pick a category,
 "Clock in", pause/resume, clock out, attach a note and photo > Progress tab:
 habits, goals, weekly recap > Friends: search a username and send a request >
 Feed: reactions and comments > You > Settings: preferences and account deletion.
-To see social surfaces populated, add <HELPER HANDLE>. Feeds are row-level
-security gated, so a new account correctly sees an empty feed until a friend
-request is accepted.
+Reporting and blocking are on every profile, session and feed card. Feeds are
+row-level-security gated, so an account with no accepted friends correctly sees
+an empty feed — intended, not a failure.
 
 DEVICES: iPhone-only (TARGETED_DEVICE_FAMILY = 1), minimum iOS 15.0. Tested on
 <DEVICE MODEL> running iOS <VERSION>; all recorded flows verified on hardware.

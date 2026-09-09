@@ -143,7 +143,7 @@ every "used for tracking" answer No.
 - [ ] `lib/analytics.ts` event union hasn't grown a category not declared here
 - [ ] No new third-party SDK since the table above
 - [x] `UIRequiredDeviceCapabilities` is `arm64`, not the stale `armv7` template default
-- [ ] Review notes state there is NO demo account — Google / Sign in with Apple only
+- [x] Review notes carry the demo account's credentials — in **App Review Information → Sign-In Information**, never in the Notes field and never in this repo (it is public). See `docs/app-review-demo-account.md`
 - [ ] Review notes name the native functionality (push, scheduled local notifications, camera, Sign in with Apple) against a Guideline 4.2 read of `server.url`
 - [ ] Account deletion still reachable in-app (Guideline 5.1.1(v))
 - [x] Report / block / moderation queue plus a published 24-hour response commitment (Guideline 1.2) — `/terms` § Reporting and moderation
