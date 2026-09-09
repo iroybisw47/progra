@@ -1,0 +1,42 @@
+ACCESS: No demo account exists or is possible — Progra has no username/password
+path. Sign-in is Sign in with Apple or Google only; a reviewer signs in with
+their own Apple ID (Hide My Email supported) and gets a fresh account. No invite
+code or sample files needed. Users must tick an agreement to the Terms of
+Service and Privacy Policy before the sign-in buttons enable.
+
+MAIN FLOW: Sign in > onboarding creates a first goal and habit (notification
+permission is requested here and may be declined) > Clock tab: pick a category,
+"Clock in", pause/resume, clock out, attach a note and photo > Progress tab:
+habits, goals, weekly recap > Friends: search a username and send a request >
+Feed: reactions and comments > You > Settings: preferences and account deletion.
+To see social surfaces populated, add <HELPER HANDLE>. Feeds are row-level
+security gated, so a new account correctly sees an empty feed until a friend
+request is accepted.
+
+DEVICES: iPhone-only (TARGETED_DEVICE_FAMILY = 1), minimum iOS 15.0. Tested on
+<DEVICE MODEL> running iOS <VERSION>; all recorded flows verified on hardware.
+
+WHAT IT IS: A productivity tracker with a social layer. Users clock in to a
+category of work; finished sessions appear in a feed their accepted friends can
+react to and comment on, alongside weekly goals, daily habits and a weekly
+recap. For students and self-directed knowledge workers who want accountability
+from people they know: solo time tracking is easy to abandon because nothing
+happens when you stop. Free — no in-app purchases, subscriptions or advertising.
+
+SERVICES: Supabase (database, auth, photo storage), Vercel (hosting), Sign in
+with Apple and Google Sign-In (authentication), Google Calendar API read-only
+(optional), Anthropic Claude API (categorizes calendar event titles; not used
+for advertising or model training), APNs (notifications), PostHog (analytics
+keyed to user ID; no advertising identifiers, no tracking, no data brokers). No
+payment processor, ad network or data provider.
+
+REGIONS: No regional differences. Identical in every storefront, English-only,
+no geofenced content, no region-specific pricing. Time zone is user-selected in
+Settings.
+
+REGULATED / THIRD-PARTY MATERIAL: None applicable. Not a health, medical,
+financial or gambling product; work-time entries are user content, not health
+data. No licensed third-party material. The only third-party user data touched
+is the user's own Google Calendar, read-only under OAuth consent and governed by
+the Google API Services User Data Policy, committed to at
+https://progra.world/privacy.
