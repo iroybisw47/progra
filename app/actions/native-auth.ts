@@ -33,6 +33,10 @@ type SignInInput = {
   // "passed nonce and nonce in id_token should either both exist or not". See
   // buildNonce() in lib/auth/nonce.ts.
   nonce?: string;
+  // The name the provider handed over, when it hands one over at all. Apple
+  // does so on the FIRST authorization only; Google never sends it through this
+  // path (its profile name arrives as user metadata at signup).
+  displayName?: string;
   next?: string;
   ref?: string;
 };
@@ -66,7 +70,7 @@ async function signInWithProviderIdToken(
 
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.signInWithIdToken({
+  const { data, error } = await supabase.auth.signInWithIdToken({
     provider,
     token: input.idToken,
     ...(input.nonce ? { nonce: input.nonce } : {}),
@@ -96,6 +100,35 @@ async function signInWithProviderIdToken(
     return { error: error.message };
   }
 
+  // Seed the display name from the provider — first authorization only.
+  //
+  // Apple sends givenName/familyName exactly once, on the very first
+  // authorization for this Apple ID + app pair, and nulls forever after. When
+  // that was discarded, onboarding rendered an empty "Your name" field and the
+  // user had to type what Authentication Services had already supplied — the
+  // Guideline 4 rejection of 2026-09-09.
+  //
+  // `.is("display_name", null)` is load-bearing, not a cheap guard. A later
+  // sign-in carries no name, so this is normally a no-op; but if Apple ever did
+  // resend one, a user who has since renamed themselves must not have that
+  // choice overwritten by a stale first-run value.
+  //
+  // Swallowed like the invite attribution below: a missing display name is
+  // cosmetic and onboarding can still ask, a failed sign-in is not.
+  const userId = data.user?.id;
+  const seedName = input.displayName?.trim().slice(0, 50);
+  if (seedName && userId) {
+    try {
+      await supabase
+        .from("profiles")
+        .update({ display_name: seedName })
+        .eq("id", userId)
+        .is("display_name", null);
+    } catch {
+      // ignore — sign-in proceeds without the name
+    }
+  }
+
   // Invite attribution, mirroring app/auth/callback/route.ts: the same
   // SECURITY DEFINER RPC, which derives the caller from auth.uid(). Attribution
   // must NEVER block sign-in, so every failure is swallowed.
@@ -117,11 +150,15 @@ export async function signInWithGoogleIdToken(
   return signInWithProviderIdToken("google", input);
 }
 
-// Apple sends the user's name and email ONLY on the very first authorization,
-// and nothing on every sign-in after. That costs us nothing: no code in this
-// app reads provider metadata (profiles get their display name and handle from
-// onboarding, where the user types them), and require-user.ts already returns
-// a null email when the claim is absent.
+// Apple sends the user's name ONLY on the very first authorization, and nothing
+// on every sign-in after — so the caller forwards it as `displayName` and
+// signInWithProviderIdToken seeds the profile with it while the column is still
+// null. Guideline 4 requires exactly that: the app must not ask for a name
+// Authentication Services already provided.
+//
+// Email needs no equivalent. It arrives as a claim on the id_token, so
+// require-user.ts reads it straight off getClaims() and nothing ever asks the
+// user for it — including for Hide My Email relay addresses.
 export async function signInWithAppleIdToken(
   input: SignInInput
 ): Promise<Result> {

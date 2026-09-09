@@ -4,6 +4,41 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-09-09
+
+### 17:38 · Guideline 4: stop asking Apple users for a name Apple already sent
+The rejection was caused by a decision that was written down and reasoned about
+at the time. `native-auth.ts` said: "Apple sends the user's name and email ONLY
+on the very first authorization... That costs us nothing: no code in this app
+reads provider metadata (profiles get their display name and handle from
+onboarding, where the user types them)." It cost exactly one review cycle. The
+plugin returns `profile.givenName`/`familyName`, the button dropped them,
+nothing seeded `profiles.display_name`, and so onboarding's welcome step
+rendered an empty "Your name" field to someone who had just handed Apple their
+name.
+
+The button now forwards the name and the action seeds the column, guarded by
+`.is("display_name", null)`. That guard is the whole safety argument: Apple
+sends nothing on later sign-ins, so it is normally a no-op, but it also means a
+user who renames themselves can never have that overwritten. The write is
+swallowed on failure for the same reason invite attribution is — a missing
+display name is cosmetic, a failed sign-in is not.
+
+Email needed no equivalent: it rides the id_token as a claim, `getCurrentUser`
+reads it off `getClaims()`, and nothing ever asks the user for it — Hide My
+Email relay addresses included.
+
+The join went into `lib/auth/apple-name.ts` with tests rather than staying
+inline, because every interesting case is unreachable from a signed-in device:
+Apple only sends names on a first authorization, so exercising them by hand
+means revoking the app under Settings → Sign-In & Security between each attempt.
+Both halves are independently nullable, which the tests pin down.
+
+**Verifying this on device requires revoking first** — Settings → [name] →
+Sign-In & Security → Sign in with Apple → Progra → Stop Using Apple ID, and
+deleting the matching Progra account. Otherwise Apple returns nulls and a
+working fix looks broken.
+
 ## 2026-09-06
 
 ### 11:47 · Guideline 1.2: the terms were right, the presentation wasn't

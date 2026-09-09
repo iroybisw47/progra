@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { signInWithAppleIdToken } from "@/app/actions/native-auth";
 import { Button } from "@/components/ui/button";
+import { appleDisplayName } from "@/lib/auth/apple-name";
 import { buildNonce } from "@/lib/auth/nonce";
 import { useIsNativeApp } from "@/lib/use-is-native-app";
 
@@ -75,17 +76,30 @@ export function AppleSignInButton({
         },
       });
 
-      const idToken =
-        res.provider === "apple" && "idToken" in res.result
-          ? res.result.idToken
-          : null;
-      if (!idToken) {
+      const apple =
+        res.provider === "apple" && "idToken" in res.result ? res.result : null;
+
+      // Guard on `apple` itself, not on a hoisted idToken: narrowing a copy
+      // leaves `apple` nullable for the profile read below.
+      if (!apple?.idToken) {
         throw new Error("Apple didn't return an identity token.");
       }
+      const idToken = apple.idToken;
+
+      // Apple fills in givenName/familyName on the very FIRST authorization for
+      // this Apple ID + app pair, and returns nulls on every sign-in after.
+      // Forwarding it is what Guideline 4 requires: the app must not ask for a
+      // name that Authentication Services has already handed over. Dropping it
+      // is what got the 2026-09-09 rejection.
+      const displayName = appleDisplayName(
+        apple.profile.givenName,
+        apple.profile.familyName
+      );
 
       const out = await signInWithAppleIdToken({
         idToken,
         nonce: nonce.forSupabase,
+        displayName,
         next,
         ref: referrer,
       });
