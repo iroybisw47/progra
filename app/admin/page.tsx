@@ -19,6 +19,7 @@ import {
   type BetaOverview,
   type WaitlistEntry,
 } from "./admin-waitlist";
+import { AdminGoals, type AdminGoal } from "./admin-goals";
 
 // Shape of each element returned by the admin_list_reports() RPC. The RPC is
 // SECURITY DEFINER and reads the target preview across RLS, so it embeds the
@@ -75,6 +76,17 @@ type RawBugRow = {
   created_at: string;
 };
 
+type RawGoalRow = {
+  id: string;
+  user_id: string;
+  username: string | null;
+  display_name: string | null;
+  title: string;
+  weekly_quota_hours: string | number;
+  is_private: boolean;
+  color: string | null;
+};
+
 type RawWaitlistRow = {
   user_id: string;
   queue_position: number;
@@ -102,12 +114,14 @@ export default async function AdminPage() {
   // Beta capacity. Both RPCs are read-only and both degrade to null/empty on
   // error, so a missing Stage 7 migration can't take the moderation queue down
   // with it.
-  const [overviewRes, waitlistRes, bugRes, consentRes] = await Promise.all([
-    supabase.rpc("admin_beta_overview"),
-    supabase.rpc("admin_list_waitlist"),
-    supabase.rpc("admin_list_bug_reports"),
-    supabase.rpc("admin_list_interview_consents"),
-  ]);
+  const [overviewRes, waitlistRes, bugRes, consentRes, goalsRes] =
+    await Promise.all([
+      supabase.rpc("admin_beta_overview"),
+      supabase.rpc("admin_list_waitlist"),
+      supabase.rpc("admin_list_bug_reports"),
+      supabase.rpc("admin_list_interview_consents"),
+      supabase.rpc("admin_list_all_goals"),
+    ]);
 
   const rawOverview = overviewRes.error
     ? null
@@ -153,6 +167,22 @@ export default async function AdminPage() {
     commitSha: row.commit_sha,
     status: row.status,
     createdAt: row.created_at,
+  }));
+
+  const goalsInstalled = !goalsRes.error;
+  const allGoals: AdminGoal[] = (
+    (goalsInstalled ? (goalsRes.data ?? []) : []) as RawGoalRow[]
+  ).map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    username: row.username,
+    displayName: row.display_name,
+    title: row.title,
+    // jsonb_build_object emits numerics as JSON numbers, but the column is
+    // numeric and PostgREST stringifies it on other paths — normalize either.
+    weeklyQuotaHours: Number(row.weekly_quota_hours),
+    isPrivate: row.is_private ?? false,
+    color: row.color ?? null,
   }));
 
   const waitlist: WaitlistEntry[] = (
@@ -243,6 +273,7 @@ export default async function AdminPage() {
       {/* Bug reports first — the most actionable thing on this page. */}
       <AdminBugReports reports={bugReports} installed={bugsInstalled} />
       <AdminWaitlist overview={overview} entries={waitlist} />
+      <AdminGoals goals={allGoals} installed={goalsInstalled} />
       {/* A mailing list, not a queue — nothing here needs action today, so it
           sits below the two that do. Moderation stays last: it owns the page's
           bottom padding. */}

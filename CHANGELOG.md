@@ -4,6 +4,33 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-09-13
+
+### 15:36 · Everyone's goals, on the admin page
+Wanting to see every user's goals without friending them has two readings, and
+they are not the same change: an admin-only view, or making goals public to all
+signed-in users. This is the first. The `goals` SELECT policy is untouched, so
+what the beta users see is byte-identical before and after.
+
+The gate lives in the database. `admin_list_all_goals()` is `SECURITY DEFINER`,
+which is the only reason it can read across `owner OR are_friends AND NOT
+is_private` at all — and that makes its internal `is_admin()` check the access
+control, not a convenience. `app/admin/page.tsx` already 404s non-admins, so
+this is the same two-layer shape the other `admin_*` RPCs use.
+
+It returns private goals too. That's deliberate for a moderation surface, but
+the panel badges them rather than letting them pass as ordinary rows — seeing
+something a user explicitly marked owner-only should look different from seeing
+something they didn't.
+
+`AdminGoals` is a server component, unlike its four siblings; those are
+`"use client"` only because they own buttons, and this one is read-only.
+Grouping by person happens in TypeScript so the RPC stays a plain projection —
+the Map's insertion order carries the RPC's `username, created_at` ordering
+through without a second sort. Degrades to an explicit "not installed" note on
+RPC error, the same discipline as the capacity and bug panels: a missing
+migration must not take the moderation queue down with it.
+
 ## 2026-09-09
 
 ### 18:02 · A password door, for App Review only
