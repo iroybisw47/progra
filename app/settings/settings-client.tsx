@@ -313,14 +313,14 @@ export function SettingsClient({
           <ReplayOnboardingButton />
         </div>
 
-        {/* Moderator */}
+        {/* Admin — only ever rendered for the is_admin() account */}
         {isAdmin && (
           <>
             <Band />
-            <SectionLabel>Moderation</SectionLabel>
+            <SectionLabel>Admin</SectionLabel>
             <Row
               href="/admin"
-              label="Report queue"
+              label="Admin"
               badge={openReports > 0 ? String(openReports) : undefined}
             />
           </>

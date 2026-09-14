@@ -11,6 +11,7 @@ import { EnsurePlanComplete } from "@/components/ensure-plan-complete";
 import { PostHogInit } from "@/components/posthog-init";
 import { NotificationTapRouter } from "@/components/notification-tap-router";
 import { RouteMemory } from "@/components/route-memory";
+import { LastSeenPing } from "@/components/last-seen-ping";
 import { NotificationLifecycle } from "@/components/notification-lifecycle";
 import { SyncClockReminders } from "@/components/sync-clock-reminders";
 import { SyncHabitReminders } from "@/components/sync-habit-reminders";
@@ -227,6 +228,9 @@ export default async function RootLayout({
       {/* Remembers the previous route so a bug report filed from /settings can
           name the screen the bug actually happened on. Renders nothing. */}
       {user && <RouteMemory />}
+      {/* "Last opened" for the admin analytics roster. Normal branch only: a
+          waitlisted user can't use the app, so there's nothing to measure. */}
+      {user && <LastSeenPing />}
       <Toaster />
     </Shell>
   );

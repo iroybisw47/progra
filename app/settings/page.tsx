@@ -9,7 +9,7 @@ import { SettingsClient } from "./settings-client";
 
 // The Settings hub (V2). Consolidates account/identity/timezone/calendar, links
 // to the user's data (goals/categories/habits/past sessions), sharing controls,
-// the moderator queue (admins only), sign out, and account deletion. Flag-gated.
+// the admin page (admin only), sign out, and account deletion. Flag-gated.
 export default async function SettingsPage({
   searchParams,
 }: {
@@ -24,7 +24,7 @@ export default async function SettingsPage({
   const { data: isAdmin } = await supabase.rpc("is_admin");
   let openReports = 0;
   if (isAdmin === true) {
-    // Both feed the one badge on the Report queue row — the row is a link to
+    // Both feed the one badge on the Admin row — the row is a link to
     // /admin, and /admin is where both queues live. Bug reports are filtered to
     // open ones because the RPC returns resolved and dismissed too, and a badge
     // counting settled work would never clear.

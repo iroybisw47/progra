@@ -222,3 +222,23 @@ export async function completeOnboarding(): Promise<
   revalidatePath("/");
   return { ok: true };
 }
+
+// Records "this person opened the app" for the admin analytics roster. Called
+// by <LastSeenPing/> on first load and on every return to the foreground; the
+// touch_last_seen RPC throttles to one write per 10 minutes and can only ever
+// touch the caller's own row.
+//
+// Deliberately calls no revalidate*Surfaces() helper — the one exception to the
+// mutation rule. Nothing any user sees reads last_seen_at, and revalidating on
+// every app open would refetch the whole tree each time. The error is returned
+// but the caller ignores it: a missing migration must not toast on every open.
+export async function touchLastSeen(): Promise<
+  { ok: true } | { error: string }
+> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("touch_last_seen");
+  if (error) return { error: "Couldn't record visit." };
+  return { ok: true };
+}

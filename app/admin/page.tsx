@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { requireUser } from "@/lib/auth/require-user";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionPhotoUrl } from "@/lib/db/session-photos";
 import { SOCIAL_ENABLED } from "@/lib/flags";
@@ -19,7 +20,6 @@ import {
   type BetaOverview,
   type WaitlistEntry,
 } from "./admin-waitlist";
-import { AdminGoals, type AdminGoal } from "./admin-goals";
 
 // Shape of each element returned by the admin_list_reports() RPC. The RPC is
 // SECURITY DEFINER and reads the target preview across RLS, so it embeds the
@@ -76,17 +76,6 @@ type RawBugRow = {
   created_at: string;
 };
 
-type RawGoalRow = {
-  id: string;
-  user_id: string;
-  username: string | null;
-  display_name: string | null;
-  title: string;
-  weekly_quota_hours: string | number;
-  is_private: boolean;
-  color: string | null;
-};
-
 type RawWaitlistRow = {
   user_id: string;
   queue_position: number;
@@ -102,11 +91,9 @@ type RawWaitlistRow = {
 // the is_admin() branch of the storage policy permits.
 export default async function AdminPage() {
   if (!SOCIAL_ENABLED) notFound();
-  await requireUser();
+  await requireAdmin();
 
   const supabase = await createClient();
-  const { data: isAdmin } = await supabase.rpc("is_admin");
-  if (isAdmin !== true) notFound();
 
   const { data } = await supabase.rpc("admin_list_reports");
   const rows = (data ?? []) as RawReport[];
@@ -114,14 +101,12 @@ export default async function AdminPage() {
   // Beta capacity. Both RPCs are read-only and both degrade to null/empty on
   // error, so a missing Stage 7 migration can't take the moderation queue down
   // with it.
-  const [overviewRes, waitlistRes, bugRes, consentRes, goalsRes] =
-    await Promise.all([
-      supabase.rpc("admin_beta_overview"),
-      supabase.rpc("admin_list_waitlist"),
-      supabase.rpc("admin_list_bug_reports"),
-      supabase.rpc("admin_list_interview_consents"),
-      supabase.rpc("admin_list_all_goals"),
-    ]);
+  const [overviewRes, waitlistRes, bugRes, consentRes] = await Promise.all([
+    supabase.rpc("admin_beta_overview"),
+    supabase.rpc("admin_list_waitlist"),
+    supabase.rpc("admin_list_bug_reports"),
+    supabase.rpc("admin_list_interview_consents"),
+  ]);
 
   const rawOverview = overviewRes.error
     ? null
@@ -167,22 +152,6 @@ export default async function AdminPage() {
     commitSha: row.commit_sha,
     status: row.status,
     createdAt: row.created_at,
-  }));
-
-  const goalsInstalled = !goalsRes.error;
-  const allGoals: AdminGoal[] = (
-    (goalsInstalled ? (goalsRes.data ?? []) : []) as RawGoalRow[]
-  ).map((row) => ({
-    id: row.id,
-    userId: row.user_id,
-    username: row.username,
-    displayName: row.display_name,
-    title: row.title,
-    // jsonb_build_object emits numerics as JSON numbers, but the column is
-    // numeric and PostgREST stringifies it on other paths — normalize either.
-    weeklyQuotaHours: Number(row.weekly_quota_hours),
-    isPrivate: row.is_private ?? false,
-    color: row.color ?? null,
   }));
 
   const waitlist: WaitlistEntry[] = (
@@ -270,10 +239,27 @@ export default async function AdminPage() {
 
   return (
     <>
+      {/* Analytics is its own route so triaging a bug never pays for
+          computing everyone's retention. */}
+      <div className="flex w-full flex-col items-center px-5 pt-8">
+        <Link
+          href="/admin/analytics"
+          className="border-hairline flex w-full max-w-md items-center justify-between rounded-lg border px-4 py-3.5"
+        >
+          <span className="flex flex-col gap-0.5">
+            <span className="text-sm font-semibold">Analytics</span>
+            <span className="text-caption text-xs">
+              Users, goals, activity, retention
+            </span>
+          </span>
+          <span className="text-caption text-sm" aria-hidden>
+            →
+          </span>
+        </Link>
+      </div>
       {/* Bug reports first — the most actionable thing on this page. */}
       <AdminBugReports reports={bugReports} installed={bugsInstalled} />
       <AdminWaitlist overview={overview} entries={waitlist} />
-      <AdminGoals goals={allGoals} installed={goalsInstalled} />
       {/* A mailing list, not a queue — nothing here needs action today, so it
           sits below the two that do. Moderation stays last: it owns the page's
           bottom padding. */}

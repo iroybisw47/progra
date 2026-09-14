@@ -4,6 +4,67 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-09-14
+
+### 20:10 · Admin analytics, and Settings → Admin
+PostHog was answering the wrong question. The roster this needed — who each
+person is, their goals, when they last showed up — joins product data that
+lives only in Supabase to behaviour that lived only in PostHog. Moving one
+timestamp into Postgres is cheaper, and exposes less, than copying the product
+model (private goal titles included) into a third party. PostHog stays
+installed and collecting; it keeps the pageview history that can't be
+backfilled.
+
+**`/admin/analytics`** — retention (active 7d / 30d, never came back), 30-day
+daily actives, a cohort table, and a card per person with **Opened** and **Did
+something** side by side. Gated on `is_admin()` alone, not `SOCIAL_ENABLED`:
+none of it is social. Settings' "Moderation → Report queue" is now "Admin →
+Admin", and `/admin` links to it from the top. Analytics is its own route so
+triaging a bug never pays for computing everyone's retention.
+
+**Cohorts are there because of the growth rate.** 5 → 50 users in six weeks
+means most users are recent, recent users are the most active, and a rolling
+"% active this week" is flattered by growth alone. Cut by onboarding week is the
+only view that separates growing from retaining. Cells show `n/m` beside the %,
+and a window that hasn't finished is blank, never 0% — the classic cohort-chart
+bug, and the first thing the tests pin.
+
+**Definitions live in SQL and TypeScript on purpose.** SQL resolves every date
+to the user's own local day (`profiles.timezone`) and returns their
+`local_today`; `lib/admin-analytics.ts` then does whole-day arithmetic on
+`YYYY-MM-DD` strings only. That's what keeps DST out of the math, keeps
+`Date.now()` out of the server component (the RPC's `generated_at` is the page's
+clock), and makes the part most likely to be subtly wrong unit-testable — 25
+tests. Demo and owner accounts sit in `analytics_excluded_users` (RLS on, no
+policies, same trick as `beta_config`): in the roster, tagged, but in no
+denominator. Waitlisted users are out too — they never had access, so can't
+have churned.
+
+**Private goal titles are nulled inside the SQL**, so they never leave the
+database, not even to the admin; the card shows "+N private". This replaces
+yesterday's "Everyone's goals" panel, which showed them badged —
+`admin-goals.tsx` is gone and `admin_list_all_goals` is due to be dropped.
+
+**"Last opened" is a client leaf, not `after()`.** `after()` only fires when the
+server renders the layout, and resuming the iOS app from the background doesn't
+reload the page — the most common way people open Progra would never register.
+`<LastSeenPing/>` pings on mount and on `visibilitychange → visible`, throttled
+to 10 minutes in the client and again in `touch_last_seen()`'s WHERE.
+`touchLastSeen` is a deliberate exception to the mutation rule: it calls no
+revalidate helper, because nothing a user sees reads the column and
+revalidating on every app open would refetch the whole tree. The data starts
+empty on the day it ships; there is no backfill.
+
+`requireAdmin()` (`lib/auth/require-admin.ts`) is called per page, never from a
+layout — Next 16's auth guide notes layouts don't re-render on navigation. It's
+UX; the `is_admin()` check inside every definer RPC is the boundary. A
+signed-out `GET /admin/analytics` returns a 200 streamed shell carrying
+`NEXT_REDIRECT → /login` with none of the page's content, same as `/admin`.
+
+Charts are hand-drawn SVG on theme tokens — no new dependency. **Needs the SQL
+run by hand** (additive: one column, one table, three functions); until then
+the page says the RPCs aren't installed.
+
 ## 2026-09-13
 
 ### 15:36 · Everyone's goals, on the admin page

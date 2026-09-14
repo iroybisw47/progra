@@ -54,7 +54,8 @@ Sheet / AlertDialog overlay).
 | R17 | `/session/[id]` | route | feed cards; You + profile session rows; notifications panel; like/comment push taps | `!REDESIGN`→`notFound`; `requireUser`; `!detail`→`notFound` (RLS) | app/session/[id]/page.tsx (loader) · session-view.tsx (screen) |
 | R18 | `/profile/[username]` | route | author links in feed/friends/session/clocked-in/admin | `!SOCIAL_ENABLED`→`notFound`; `requireUser`; `!target`/blocked→`notFound` | app/profile/[username]/page.tsx:35-52 |
 | R19 | `/settings` | route | `/me` settings icon | `!REDESIGN`→`notFound`; `requireUser` | app/settings/page.tsx:13-24 |
-| R20 | `/admin` | route | Settings "Moderation" (admins); Dashboard | `!SOCIAL_ENABLED`→`notFound`; `requireUser`; `is_admin!==true`→`notFound` | app/admin/page.tsx:43-49 |
+| R20 | `/admin` | route | Settings "Admin" (admins); Dashboard | `!SOCIAL_ENABLED`→`notFound`; `requireAdmin` (signed-out→`/login`, not admin→`notFound`) | app/admin/page.tsx |
+| R26 | `/admin/analytics` | route | "Analytics" row at the top of /admin | `requireAdmin` only — **not** `SOCIAL_ENABLED`-gated; `?sort=active\|opened\|joined` | app/admin/analytics/page.tsx |
 | R21 | `/privacy` | route | footer links (`/`, `/terms`, login) | public | app/privacy/page.tsx:8 |
 | R22 | `/terms` | route | footer links (`/`, `/privacy`) | public | app/terms/page.tsx:8 |
 | R24 | `/support` | route | landing footer; /privacy and /terms footers; App Store Connect Support URL | public (no auth helpers) | app/support/page.tsx:15 |
@@ -80,6 +81,7 @@ falls through to the Next.js default.
 | L09 | `/history` | state | `<PageSkeleton title="History" />` | app/history/loading.tsx:4-10 |
 | L10 | `/sessions` | state | `<PageSkeleton title="Session history" />` | app/sessions/loading.tsx:4-10 |
 | L11 | `/categories` | state | `<PageSkeleton title="Categories" />` | app/categories/loading.tsx:4-10 |
+| L12 | `/admin/analytics` | state | `<PageSkeleton title="Analytics" />` | app/admin/analytics/loading.tsx |
 
 ### Dialogs / sheets / overlays
 
@@ -154,7 +156,7 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S33 | sessions-client | paging | "Load older" / "Loading…" | `hasMore`; `loading` | app/sessions/sessions-client.tsx:258,265 |
 | S34 | recap-client | nav | scrubber "Next" vs "This week" (RecapCard always renders) | `isCurrentWeek || isFutureWeek` | app/recap/recap-client.tsx:110 |
 | S35 | settings-client | connection | calendar "Disconnect" vs "Connect" (+ unverified warning) vs. **absent entirely** while `CALENDAR_CONNECT` is dark and the user isn't already connected | `calendarConnected ?`; `CALENDAR_CONNECT`; `SHOW_UNVERIFIED_WARNING` | app/settings/settings-client.tsx:239,250,267 |
-| S36 | settings-client | role | Moderation section only for admins | `isAdmin &&` | app/settings/settings-client.tsx:281 |
+| S36 | settings-client | role | "Admin" section + row (→ /admin, badge = open reports + open bugs) only for admins | `isAdmin &&` | app/settings/settings-client.tsx |
 | S37 | progress-client (home) | tabs | Today / Week / History views | `useState<Tab>("today")` | components/v2/progress-client.tsx:82,112-114 |
 | S50 | progress-client (home) | nudge | "Your week is ready" recap banner (above the tabs) → opens `/recap/{weekStart}` | `props.recapNudge` (set in `loadProgressData` when the week unlocked Sun 6pm local & is unopened) | components/v2/recap-nudge.tsx · components/v2/progress-client.tsx |
 | S38 | progress-client | empty | "Nothing tracked yet today." | `sessionsToday.length === 0` | components/v2/progress-client.tsx:209 |
@@ -173,6 +175,7 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S49 | profile-actions | relationship | none→Add / outgoing→Cancel / incoming→Accept+Decline / friends→Remove+Block / self→Edit | `relationship.kind` | app/profile/[username]/profile-actions.tsx:59,63,74,84,106,132 |
 | S53 | RootLayout (every route) | capacity | **beta-full wall** in place of the entire app tree — no children, no BottomNav, no session/push leaves — vs. the normal app shell | `isWaitlisted(profile)` AND `claim_beta_seat_self()` returns null | app/layout.tsx:99-132, components/beta-full.tsx:7 |
 | S57 | onboarding `go` step | consent | research-interview opt-in row below the goal/habit summary; off by default, written only on finish | local `consent` state | app/onboarding/onboarding-client-v2.tsx (go step) |
+| S58 | /admin/analytics | dashboard | Retention stats (active 7d / 30d, never came back, each with n/m) · 30-day DAU bars · cohort table (blank = window not elapsed) · roster cards with Opened / Did something, 30-day sparkline, goals ("+N private"), tags (excluded · waitlisted · not onboarded · opening, not doing); "analytics RPCs aren't installed" line when either RPC errors | `admin_list_users()` / `admin_activity_days()` | app/admin/analytics/page.tsx, user-card.tsx, cohort-table.tsx, charts.tsx |
 | S54 | /admin (Beta capacity) | capacity | seated-of-cap + waiting counts, editable seat cap, one Grant-a-seat card per waitlisted user; "RPCs aren't installed" line when the overview RPC errors | `admin_beta_overview()` / `admin_list_waitlist()` | app/admin/admin-waitlist.tsx:28, app/admin/page.tsx |
 | S55 | /admin (Bug reports) | queue | open-first list of user bug reports with device/route/build context; Resolve · Dismiss · Reopen; "RPCs aren't installed" line vs. "Nothing reported yet" | `admin_list_bug_reports()` | app/admin/admin-bug-reports.tsx:29, app/admin/page.tsx |
 | S56 | /admin (Interview consents) | list | opted-in users with email, name and consent date, plus a CSV download; "Nobody has opted in yet" vs. "RPCs aren't installed" | `admin_list_interview_consents()` | app/admin/admin-interviews.tsx:36, app/admin/page.tsx |
@@ -293,6 +296,7 @@ flowchart TD
   settings --> habits["/habits"]
   settings --> sessions["/sessions"]
   settings -->|admins only| admin["/admin"]
+  admin --> analytics["/admin/analytics"]
   settings --> replay["Replay onboarding → /onboarding"]
   settings --> editid["Edit identity dialog"]
   settings --> tz["Time-zone dialog"]
