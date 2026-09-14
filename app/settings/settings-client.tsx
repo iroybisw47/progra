@@ -20,6 +20,7 @@ import { ToggleSwitch } from "@/components/v2/toggle-switch";
 import {
   disconnectGoogleCalendar,
   setInterviewConsent,
+  setNudgesEnabled,
   setProfileIdentity,
   setProfileTimezone,
   setSocialPushesEnabled,
@@ -31,6 +32,7 @@ import {
   CALENDAR_CONNECT,
   CLOCK_REMINDERS,
   HABIT_REMINDERS,
+  NUDGES,
   SOCIAL_PUSH,
 } from "@/lib/flags";
 import {
@@ -102,6 +104,7 @@ export function SettingsClient({
   calendarConnected,
   calendarStatus,
   socialPushesEnabled,
+  nudgesEnabled,
   isAdmin,
   openReports,
   interviewConsent,
@@ -117,6 +120,7 @@ export function SettingsClient({
   calendarStatus: "connected" | "error" | null;
   // Account-level social-push opt-out; null = on (column default).
   socialPushesEnabled: boolean | null;
+  nudgesEnabled: boolean;
   isAdmin: boolean;
   openReports: number;
   // Research-interview opt-IN. false is the honest default: null (never
@@ -312,6 +316,10 @@ export function SettingsClient({
           </p>
           <ReplayOnboardingButton />
         </div>
+        {/* Gated on NUDGES only, NOT on push permission: this controls whether
+            friends can nudge you at all, and a nudge still lands in the
+            notifications panel on a phone that never granted notifications. */}
+        {NUDGES && <NudgesRow initialEnabled={nudgesEnabled} />}
 
         {/* Admin — only ever rendered for the is_admin() account */}
         {isAdmin && (
@@ -822,14 +830,47 @@ function InterviewConsentRow({ initialConsent }: { initialConsent: boolean }) {
   );
 }
 
+// Whether friends may nudge you. Distinct from the push toggle above it: this
+// one decides whether the nudge happens at all, that one only decides whether
+// it buzzes.
+function NudgesRow({ initialEnabled }: { initialEnabled: boolean }) {
+  const [enabled, setEnabled] = useState(initialEnabled);
+
+  return (
+    <>
+      <ToggleRow
+        label="Nudges"
+        ariaLabel="Let friends nudge you"
+        checked={enabled}
+        onCheckedChange={(next) => {
+          setEnabled(next);
+          track("nudges_toggled", { enabled: next });
+          void setNudgesEnabled(next).then((r) => {
+            if ("error" in r) {
+              setEnabled(!next);
+              toast.error("Couldn't save — try again.");
+            }
+          });
+        }}
+      />
+      <Inset>
+        <p className="text-caption text-xs leading-relaxed text-pretty">
+          Let friends nudge you in the afternoon when a goal or habit is still
+          open. They can nudge you at most once every six hours.
+        </p>
+      </Inset>
+    </>
+  );
+}
+
 function SocialPushRow({ initialEnabled }: { initialEnabled: boolean }) {
   const [enabled, setEnabled] = useState(initialEnabled);
 
   return (
     <>
       <ToggleRow
-        label="Likes & comments"
-        ariaLabel="Like and comment notifications"
+        label={NUDGES ? "Likes, comments & nudges" : "Likes & comments"}
+        ariaLabel="Like, comment and nudge notifications"
         checked={enabled}
         onCheckedChange={(next) => {
           setEnabled(next);
@@ -844,8 +885,8 @@ function SocialPushRow({ initialEnabled }: { initialEnabled: boolean }) {
       />
       <Inset>
         <p className="text-caption text-xs leading-relaxed text-pretty">
-          When a friend likes or comments on your session. Applies to all your
-          devices.
+          When a friend likes or comments on your session
+          {NUDGES ? ", or nudges you" : ""}. Applies to all your devices.
         </p>
       </Inset>
     </>

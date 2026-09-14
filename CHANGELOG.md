@@ -65,6 +65,72 @@ Charts are hand-drawn SVG on theme tokens — no new dependency. **Needs the SQL
 run by hand** (additive: one column, one table, three functions); until then
 the page says the RPCs aren't installed.
 
+## 2026-09-14
+
+### 15:20 · Nudges — friend-to-friend accountability (dark behind NUDGES)
+A friend opens your profile, sees you haven't touched a goal or finished habits
+today, and nudges you: two taps, one of five preset messages, a push, and a row
+in the notifications panel. Built subplan by subplan from a written spec; the
+database half was in prod and adversarially tested before a line of UI existed.
+
+**The spec was wrong about the codebase in five places, and the plan says so.**
+Blocking already existed (`block_user`/`are_blocked`, with UI), so the free-text
+roadmap's blocker is already met. The push tap router already follows a payload
+`url` and `/clock` already accepts `?goal=`, so the deep link the spec worked
+to avoid costs nothing and needs no App Review round trip. A separate
+`nudges_seen_at` was pointless when nudges render in the panel whose open
+already stamps `notifications_seen_at`. The spec's CHECK
+(`(kind='goal') = (goal_id is not null)`) contradicts its own `ON DELETE SET
+NULL` — a nudged goal could never be deleted. And revalidating the root layout
+on send would have cost every sender a full tree refetch while reaching the
+recipient no sooner than BottomNav's existing 90-second poll.
+
+**One SQL function decides eligibility, and both callers share it.**
+`nudge_targets(sender, recipient)` is the only place that knows what "behind
+today" means; `get_nudge_state` (the button) and `send_nudge` (the write) both
+call it, so the button and the send cannot drift apart. It resolves the day in
+the RECIPIENT's timezone — a sender in another timezone computing "today" from
+their own clock was the likeliest subtle bug in the whole feature — and mirrors
+`lib/session.ts` exactly: auto-ended sessions are worth zero, a session's whole
+worked time lands on the instant it ends, running sessions clamp at 10h.
+
+**It must not become a way to watch a friend's day.** Every rejection that
+touches visibility returns one identical `unavailable` — a private goal, a
+nonexistent goal, an archived goal, someone else's goal and a goal they already
+worked on are byte-identical to the sender. `hidden` carries no reason at all,
+and the button renders nothing rather than greying out, because a disabled
+button is itself a signal. A private active session reads as `hidden`, never
+`in_session`. Only the cooldown, which is the sender's own history, is ever
+explained.
+
+**Two subtleties that bite.** An abandoned over-cap timer (no cron closes it —
+only the owner's own client does) must count as neither "mid-session" nor worked
+time, or the drifting user this feature exists for becomes permanently
+un-nudgeable. And the advisory lock is per-RECIPIENT, not per-pair: a per-pair
+lock lets two senders both win the 60-minute push window and buzz the same
+person twice.
+
+**48 adversarial tests in prod, and a mutation check on the tests themselves.**
+The suite runs as one `DO` block that always ends by raising its own results, so
+every fixture and test nudge rolls back regardless of how the SQL editor handles
+transactions. Before handing it over it ran against a PGlite mock of prod built
+from catalog queries; ten deliberately planted bugs (the spec's CHECK, a leaked
+private session, a countable abandoned timer, a callable internal function, a
+private-goal oracle, a missing cooldown, …) were each caught by their intended
+test.
+
+**Also fixed along the way:** an unrecognized `reports.target_type` used to fall
+through and render as a *profile* report in `/admin` — which is precisely what a
+nudge report would have done. AGENTS.md claimed one service-role exception while
+the social push sender had been a second one for a month; it now lists both
+kinds, and the nudge sender is documented as the third.
+
+Push bodies are system-generated — the preset appears only in-app, a stricter
+rule than the comment push, which does carry user text. Coalescing inside 60
+minutes replaces the banner via `apns-collapse-id` with no sound rather than
+buzzing twice. **Needs the hand-run SQL** (`.claude/plans/nudges.sql`), and stays
+invisible until `NEXT_PUBLIC_NUDGES` is set.
+
 ## 2026-09-13
 
 ### 15:36 · Everyone's goals, on the admin page

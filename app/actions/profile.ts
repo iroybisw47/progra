@@ -33,6 +33,28 @@ export async function setSocialPushesEnabled(
   return { ok: true };
 }
 
+// Whether friends may nudge this user at all — not just whether it buzzes.
+// With this off, `nudge_targets` hides the button and refuses the send, so no
+// nudge is written and nothing reaches the notifications panel either. Default
+// true, so it's an opt-OUT like social pushes; the column is NOT NULL so there
+// is no null-means-on decoding here.
+export async function setNudgesEnabled(
+  enabled: boolean
+): Promise<{ ok: true } | { error: string }> {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ nudges_enabled: enabled })
+    .eq("id", user.id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
 // Opt-IN to research interview contact, set from onboarding's final screen and
 // revocable in Settings. Unlike setSocialPushesEnabled above this is an opt-in,
 // so there is no "null means yes" decoding anywhere — null and false are both

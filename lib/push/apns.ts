@@ -21,6 +21,16 @@ export type ApnsAlert = {
   body: string;
   // In-app path, delivered as a custom payload key for the tap router.
   url: string;
+  // apns-collapse-id: a later push with the SAME id REPLACES the earlier one
+  // on the lock screen and in Notification Center instead of stacking. Used by
+  // nudges to fold "and 2 others" into the banner already sitting there. Must
+  // be <= 64 bytes.
+  collapseId?: string;
+  // Omit aps.sound, so a replacement updates the banner without a second buzz.
+  silent?: boolean;
+  // Seconds until APNs stops trying. Defaults to a day; a nudge uses 4h,
+  // because "still time today" delivered tomorrow morning is just wrong.
+  ttlSeconds?: number;
 };
 
 // The APNs topic is the app's bundle id — a constant, not config: it must
@@ -118,8 +128,12 @@ export function sendApnsAlert(
       "apns-push-type": "alert",
       "apns-priority": "10",
       // Deliver within a day if the phone is offline — 0 would mean "now or
-      // never", and a like is still news tonight.
-      "apns-expiration": String(Math.floor(Date.now() / 1000) + 86_400),
+      // never", and a like is still news tonight. Callers with a shorter shelf
+      // life (nudges) pass their own.
+      "apns-expiration": String(
+        Math.floor(Date.now() / 1000) + (alert.ttlSeconds ?? 86_400)
+      ),
+      ...(alert.collapseId ? { "apns-collapse-id": alert.collapseId } : {}),
       "content-type": "application/json",
     });
 
@@ -157,7 +171,11 @@ export function sendApnsAlert(
 
     req.end(
       JSON.stringify({
-        aps: { alert: { title: alert.title, body: alert.body }, sound: "default" },
+        aps: {
+          alert: { title: alert.title, body: alert.body },
+          // No sound on a replacement: the banner updates in place, silently.
+          ...(alert.silent ? {} : { sound: "default" }),
+        },
         url: alert.url,
       })
     );

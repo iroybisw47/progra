@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { BottomSheet, BottomSheetContent } from "@/components/v2/bottom-sheet";
+import { MenuRow } from "@/components/v2/menu-row";
 import {
   Dialog,
   DialogClose,
@@ -288,29 +289,3 @@ export function ProfileActions({
   );
 }
 
-// One line in the gear sheet. Same hairline-separated rhythm as the Settings
-// rows, so the sheet reads as part of the app rather than a system menu.
-function MenuRow({
-  label,
-  onClick,
-  disabled,
-  destructive,
-}: {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  destructive?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={`border-divider flex w-full items-center border-t py-3.5 text-left text-[15px] font-medium transition-transform first:border-t-0 active:scale-[.99] disabled:opacity-50 ${
-        destructive ? "text-destructive" : "text-body"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}

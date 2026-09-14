@@ -49,6 +49,9 @@ export default async function SettingsPage({
       avatarPath={profile?.avatar_path ?? null}
       calendarConnected={isCalendarConnected(profile)}
       socialPushesEnabled={profile?.social_pushes_enabled ?? null}
+      // NOT NULL with default true in the DB; `!== false` also covers a profile
+      // read from before the column existed.
+      nudgesEnabled={profile?.nudges_enabled !== false}
       calendarStatus={
         params.calendar === "connected" || params.calendar === "error"
           ? params.calendar

@@ -45,13 +45,20 @@ params are `Promise<{...}>` and must be `await`ed.
 - **Never bypass RLS.** The app relies 100% on `auth.uid()` scoping — social
   reads must be provably DB-gated. Prove RLS/security changes with the
   adversarial JWT test before shipping to prod.
-- **No service-role key in user-facing paths**, with one documented
-  exception: Storage **writes** go through `lib/supabase/admin.ts` after
-  explicit in-action ownership/identity verification (Storage rejects all
-  user-JWT uploads as anon). Current call sites: `uploadSessionPhoto`,
-  `uploadAvatar`/`removeAvatar`. Everything else is anon-key + RLS;
-  privileged operations are `is_admin()`-gated `SECURITY DEFINER` RPCs —
-  never a god-key shortcut.
+- **No service-role key in user-facing paths**, with two documented
+  exception *kinds*, both of which authenticate and authorize **before** the
+  admin client touches anything. **(1) Storage writes** through
+  `lib/supabase/admin.ts` after explicit in-action ownership/identity
+  verification (Storage rejects all user-JWT uploads as anon): call sites
+  `uploadSessionPhoto`, `uploadAvatar`/`removeAvatar`. **(2) Server push
+  senders** (`lib/push/send-social-push.ts`, `lib/push/send-nudge-push.ts`),
+  which must read the *recipient's* owner-only rows (`device_tokens`,
+  `profiles.social_pushes_enabled`) — the recipient is precisely not the
+  caller. Each runs only inside `after()`, after a write that already
+  succeeded under RLS or a definer RPC, and derives the recipient from the DB
+  row rather than the caller. Everything else is anon-key + RLS; privileged
+  operations are `is_admin()`-gated `SECURITY DEFINER` RPCs — never a god-key
+  shortcut.
 - Every FK to `auth.users` is `ON DELETE CASCADE` **except**
   `profiles.referred_by`, which is a **deliberate** `ON DELETE SET NULL` —
   cascading would delete invitees' profiles when a referrer deletes their

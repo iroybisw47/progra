@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionPhotoUrl } from "@/lib/db/session-photos";
 import { SOCIAL_ENABLED } from "@/lib/flags";
+import { NUDGE_PRESETS, isNudgePreset } from "@/lib/social/nudges";
 
 import { AdminReports, type AdminReport } from "./admin-reports";
 import {
@@ -27,7 +28,7 @@ import {
 type RawReport = {
   id: string;
   reporter_username: string | null;
-  target_type: "story" | "comment" | "profile" | "recap";
+  target_type: "story" | "comment" | "profile" | "recap" | "nudge";
   target_id: string;
   reason: string;
   note: string | null;
@@ -48,6 +49,11 @@ type RawReport = {
     // recap
     week_start_ms?: number | null;
     tracked_ms?: number | null;
+    // nudge
+    sender_username?: string | null;
+    recipient_username?: string | null;
+    preset_key?: string | null;
+    target_label?: string | null;
     // set by the RPC when the target no longer exists / was taken down
     gone?: boolean;
   } | null;
@@ -225,13 +231,46 @@ export default async function AdminPage() {
         };
       }
 
+      if (row.target_type === "nudge") {
+        // The preset is a KEY in the database so the copy can change without a
+        // migration; the admin queue shows the current wording.
+        const preset = t.preset_key ?? null;
+        return {
+          ...base,
+          target: {
+            kind: "nudge",
+            nudgeId: row.target_id,
+            senderUsername: t.sender_username ?? null,
+            recipientUsername: t.recipient_username ?? null,
+            presetLabel:
+              preset && isNudgePreset(preset) ? NUDGE_PRESETS[preset] : preset,
+            targetLabel: t.target_label ?? null,
+            gone: t.gone === true || preset == null,
+          },
+        };
+      }
+
+      if (row.target_type === "profile") {
+        return {
+          ...base,
+          target: {
+            kind: "profile",
+            userId: row.target_id,
+            username: t.username ?? null,
+            displayName: t.display_name ?? null,
+          },
+        };
+      }
+
+      // An unrecognized target_type used to fall through to the profile branch
+      // and render as a profile report — silently wrong. Say so instead.
       return {
         ...base,
         target: {
           kind: "profile",
           userId: row.target_id,
-          username: t.username ?? null,
-          displayName: t.display_name ?? null,
+          username: null,
+          displayName: `Unknown report type "${row.target_type}"`,
         },
       };
     })

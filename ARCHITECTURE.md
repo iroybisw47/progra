@@ -529,7 +529,7 @@ durably.
   `createSession` is deliberately uncapped. **`week_leaderboard` re-implements
   the cap in SQL** — the `36000000` literal there and `SESSION_CAP_MS` must move
   together.
-- **Service-role key: two narrow, server-only uses.** All privileged/admin power
+- **Service-role key: three narrow, server-only uses.** All privileged/admin power
   is otherwise `SECURITY DEFINER` RPCs gated by a single `is_admin()` helper
   (holds one UUID). `/admin` checks `is_admin()` to render *and* every `admin_*`
   RPC re-checks it (defense in depth), so a direct RPC call from a non-admin fails
@@ -546,8 +546,16 @@ durably.
   rows, and the recipient is precisely not the caller — plus writes `push_log`
   and deletes dead tokens; it runs only inside `after()` from an action whose
   like/comment write already succeeded under RLS, which is the proof the actor
-  may see that session. The key lives in `SUPABASE_SERVICE_ROLE_KEY` (server env
-  only, never `NEXT_PUBLIC_`, never in a client bundle).
+  may see that session.
+  **(3)** the nudge-push sender (`lib/push/send-nudge-push.ts`): same shape as
+  (2) — it reads the recipient's tokens and opt-out, claims `push_log`, and runs
+  only inside `after()` from `sendNudge`, after `send_nudge` (definer) re-checked
+  friendship, blocking, opt-in, the local 14:00 floor, mid-session state and the
+  6h cooldown and wrote the row. Two things it deliberately does not trust: the
+  recipient comes from the **nudge row**, never the caller, and the caller's id
+  must equal that row's `sender_id`. The key lives in
+  `SUPABASE_SERVICE_ROLE_KEY` (server env only, never `NEXT_PUBLIC_`, never in a
+  client bundle).
 - **Take-down = hide.** `admin_take_down_story` nulls `sessions.photo_path`, so
   `can_see_session_photo` no longer matches the object and stops serving the blob;
   `admin_delete_comment` deletes the row. Blob purge from Storage is deferred

@@ -34,6 +34,12 @@ export type AnalyticsEvent =
   // Bug reports. `route` is the screen the reporter came FROM, not /settings —
   // it answers whether one screen generates most of the complaints.
   | "bug_report_submitted" // { route }
+  // Nudges. `pushed` distinguishes a nudge that buzzed from one coalesced into
+  // an earlier push, which is the tuning signal for the 60-minute window.
+  | "nudge_sheet_opened"
+  | "nudge_sent" // { kind, preset, pushed }
+  | "nudge_rejected" // { reason }
+  | "nudges_toggled" // { enabled }
   // Research interview opt-in. `source` is "onboarding" | "settings" — the
   // consent rate at each is the only read available on whether the copy works.
   | "interview_consent_set"; // { enabled, source }

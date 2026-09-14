@@ -37,6 +37,10 @@ export type Profile = {
   // Null = on — the default for every row that predates the column. (May be
   // absent until the column SQL is run — treated as null.)
   social_pushes_enabled: boolean | null;
+  // Whether friends may nudge this user. Optional because the column was added
+  // after these rows existed: a profile read before the migration simply has no
+  // key, and every read treats anything but false as on.
+  nudges_enabled?: boolean | null;
   // When the user last opened the Notifications panel (likes/comments on their
   // own sessions). Independent of friend_requests_seen_at so the like/comment dot
   // clears only on opening the panel, never on merely visiting Friends. Null =

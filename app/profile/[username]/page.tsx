@@ -9,9 +9,11 @@ import { KudosButton } from "@/components/kudos-button";
 import { requireUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
-import { SOCIAL_ENABLED } from "@/lib/flags";
+import { NUDGES, SOCIAL_ENABLED } from "@/lib/flags";
 import { getPublicProfileByUsername, getRelationship } from "@/lib/db/profiles";
 import { listActiveGoalsForUser } from "@/lib/db/goals";
+import { getNudgeState } from "@/lib/db/nudges";
+import { NUDGE_HIDDEN } from "@/lib/social/nudges";
 import {
   listActiveHabitsForUser,
   listCompletionsForUserInRange,
@@ -29,6 +31,7 @@ import { formatDuration } from "@/lib/duration";
 import { todayInTimeZone, weekRangeInTimeZone } from "@/lib/dates";
 
 import { ProfileActions } from "./profile-actions";
+import { NudgeButton } from "./nudge-button";
 
 const HOUR_MS = 60 * 60 * 1000;
 const formatHours = (ms: number) => `${(ms / HOUR_MS).toFixed(1)}h`;
@@ -56,7 +59,12 @@ export default async function ProfilePage({
   });
   if (blocked) notFound();
 
-  const relationship = await getRelationship(target.userId);
+  // In parallel: get_nudge_state re-checks friendship itself, so asking for it
+  // alongside the relationship costs no extra round trip.
+  const [relationship, nudgeState] = await Promise.all([
+    getRelationship(target.userId),
+    NUDGES ? getNudgeState(target.userId) : Promise.resolve(NUDGE_HIDDEN),
+  ]);
   const canSeeContent =
     relationship.kind === "self" || relationship.kind === "friends";
 
@@ -89,7 +97,14 @@ export default async function ProfilePage({
               @{target.username}
             </span>
           </div>
-          <div className="pt-1.5">
+          <div className="flex shrink-0 items-center gap-2 pt-1.5">
+            {relationship.kind === "friends" && (
+              <NudgeButton
+                state={nudgeState}
+                recipientId={target.userId}
+                name={target.displayName || `@${target.username}`}
+              />
+            )}
             <ProfileActions target={target} relationship={relationship} />
           </div>
         </div>

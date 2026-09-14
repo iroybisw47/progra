@@ -63,6 +63,15 @@ export type AdminReport = {
         trackedMs: number | null;
         ownerUsername: string | null;
         gone: boolean;
+      }
+    | {
+        kind: "nudge";
+        nudgeId: string;
+        senderUsername: string | null;
+        recipientUsername: string | null;
+        presetLabel: string | null;
+        targetLabel: string | null;
+        gone: boolean;
       };
 };
 
@@ -286,6 +295,29 @@ function TargetPreview({ target }: { target: AdminReport["target"] }) {
         )}
         <span className="text-sm">
           Weekly recap · week of {week} · {hrs} tracked
+        </span>
+      </div>
+    );
+  }
+
+  if (target.kind === "nudge") {
+    if (target.gone) {
+      return <p className="text-caption text-sm italic">Nudge already gone.</p>;
+    }
+    // Nothing to take down: the text is one of five fixed presets, never the
+    // sender's own words. What's actionable is the PERSON — the remedy is the
+    // recipient blocking them, or an account-level decision.
+    return (
+      <div className="bg-track flex flex-col gap-1 rounded-lg px-3 py-2">
+        <span className="text-caption text-xs">
+          {target.senderUsername ? `@${target.senderUsername}` : "someone"} →{" "}
+          {target.recipientUsername ? `@${target.recipientUsername}` : "someone"}
+        </span>
+        <span className="text-sm break-words">
+          {target.presetLabel ?? "—"}
+          {target.targetLabel && (
+            <span className="text-caption"> · {target.targetLabel}</span>
+          )}
         </span>
       </div>
     );

@@ -8,6 +8,8 @@ import { hydrateUsers, type PublicUser } from "@/lib/db/friends";
 import { hydrateGoals } from "@/lib/db/feed";
 import { createClient } from "@/lib/supabase/server";
 import { LIKE_EMOJI } from "@/lib/social/reactions";
+import { NUDGES } from "@/lib/flags";
+import { isNudgeTargetKind, type NudgeTargetKind } from "@/lib/social/nudges";
 
 // How far back the Notifications panel looks. Bounds cost and matches the
 // "recent activity" spirit of the feed. Tunable.
@@ -42,7 +44,27 @@ export type CommentNotification = {
   unread: boolean;
 };
 
-export type NotificationItem = LikeNotification | CommentNotification;
+// One nudge, from one friend. NEVER collapsed the way likes are: a like is a
+// tap, but a nudge is a person deliberately prodding you, and folding three of
+// them into "3 people nudged you" would lose exactly what makes it land.
+export type NudgeNotification = {
+  kind: "nudge";
+  key: string; // `nudge:${nudgeId}`
+  nudgeId: string;
+  sender: PublicUser;
+  targetKind: NudgeTargetKind;
+  goalId: string | null;
+  // Snapshot taken at send time, so it survives a rename or deletion.
+  targetLabel: string;
+  presetKey: string;
+  latestAt: number;
+  unread: boolean;
+};
+
+export type NotificationItem =
+  | LikeNotification
+  | CommentNotification
+  | NudgeNotification;
 
 // The embedded session shape (many-to-one FK). PostgREST returns it as a single
 // object; normalize defensively in case a config surfaces it as a one-element
@@ -51,6 +73,15 @@ type EmbeddedSession = {
   user_id: string;
   task_name: string;
   goal_id: string | null;
+};
+type NudgeRow = {
+  id: string;
+  sender_id: string;
+  target_kind: string;
+  goal_id: string | null;
+  target_label: string;
+  preset_key: string;
+  created_at: string;
 };
 type LikeRow = {
   session_id: string;
@@ -99,7 +130,7 @@ export const listMyNotifications = cache(
     const sinceIso = windowStartIso();
     const supabase = await createClient();
 
-    const [likeRes, commentRes] = await Promise.all([
+    const [likeRes, commentRes, nudgeRes] = await Promise.all([
       supabase
         .from("session_reactions")
         .select("session_id, user_id, created_at, sessions!inner(user_id, task_name, goal_id)")
@@ -115,10 +146,24 @@ export const listMyNotifications = cache(
         .neq("author_id", me.id)
         .gte("created_at", sinceIso)
         .order("created_at", { ascending: false }),
+      // Nudges sent TO me. RLS already limits this to my own rows (and hides a
+      // blocked sender's), so no owner filter is needed beyond recipient_id.
+      // Skipped entirely while the flag is dark, and an error — e.g. the table
+      // not existing yet — degrades to "no nudges" rather than an empty panel.
+      NUDGES
+        ? supabase
+            .from("nudges")
+            .select("id, sender_id, target_kind, goal_id, target_label, preset_key, created_at")
+            .eq("recipient_id", me.id)
+            .gte("created_at", sinceIso)
+            .order("created_at", { ascending: false })
+            .limit(NOTIF_MAX)
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
     const likeRows = (likeRes.data ?? []) as LikeRow[];
     const commentRows = (commentRes.data ?? []) as CommentRow[];
+    const nudgeRows = (nudgeRes.error ? [] : (nudgeRes.data ?? [])) as NudgeRow[];
 
     // Group likes by session (rows already newest-first, so the first row per
     // session is the latest and actor order is most-recent-first). Distinct
@@ -168,6 +213,7 @@ export const listMyNotifications = cache(
       ...new Set([
         ...[...likeBySession.values()].flatMap((g) => g.actorIds),
         ...commentRows.map((r) => r.author_id),
+        ...nudgeRows.map((r) => r.sender_id),
       ]),
     ];
     const [goalById, usersById] = await Promise.all([
@@ -217,6 +263,24 @@ export const listMyNotifications = cache(
       });
     }
 
+    for (const row of nudgeRows) {
+      const sender = usersById.get(row.sender_id);
+      if (!sender) continue; // a sender we can't resolve → skip
+      const at = ms(row.created_at);
+      items.push({
+        kind: "nudge",
+        key: `nudge:${row.id}`,
+        nudgeId: row.id,
+        sender,
+        targetKind: isNudgeTargetKind(row.target_kind) ? row.target_kind : "habits",
+        goalId: row.goal_id,
+        targetLabel: row.target_label,
+        presetKey: row.preset_key,
+        latestAt: at,
+        unread: at > seenMs,
+      });
+    }
+
     items.sort((a, b) => b.latestAt - a.latestAt);
     return items.slice(0, NOTIF_MAX);
   }
@@ -234,7 +298,7 @@ export const hasUnseenNotifications = cache(async (): Promise<boolean> => {
   const sinceIso = windowStartIso();
   const supabase = await createClient();
 
-  const [latestLike, latestComment] = await Promise.all([
+  const [latestLike, latestComment, latestNudge] = await Promise.all([
     supabase
       .from("session_reactions")
       .select("created_at, sessions!inner(user_id)")
@@ -256,7 +320,18 @@ export const hasUnseenNotifications = cache(async (): Promise<boolean> => {
       .limit(1)
       .maybeSingle()
       .then((r) => ms((r.data as { created_at: string } | null)?.created_at)),
+    NUDGES
+      ? supabase
+          .from("nudges")
+          .select("created_at")
+          .eq("recipient_id", me.id)
+          .gte("created_at", sinceIso)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+          .then((r) => ms((r.data as { created_at: string } | null)?.created_at))
+      : Promise.resolve(0),
   ]);
 
-  return Math.max(latestLike, latestComment) > seenMs;
+  return Math.max(latestLike, latestComment, latestNudge) > seenMs;
 });

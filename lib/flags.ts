@@ -101,6 +101,14 @@ export const HABIT_REMINDERS = envFlag(process.env.NEXT_PUBLIC_HABIT_REMINDERS);
 // the APNS_* server env vars, so flipping this without them is a logged no-op.
 export const SOCIAL_PUSH = envFlag(process.env.NEXT_PUBLIC_SOCIAL_PUSH);
 
+// Master switch for nudges: the button on a friend's profile, the target/preset
+// sheet, the rows in the notifications panel and the Settings opt-out. Implies
+// SOCIAL_ENABLED — a nudge is friends-only, so it can't mean anything with the
+// social layer dark. The PUSH half additionally needs SOCIAL_PUSH: with this on
+// and that off, a nudge still lands in the panel, it just doesn't buzz.
+export const NUDGES =
+  envFlag(process.env.NEXT_PUBLIC_NUDGES) && SOCIAL_ENABLED;
+
 // How long an "hour" is for the hourly nudge. Only ever anything else in test
 // mode; lib/clock-reminders.ts stays pure and takes this as an argument rather
 // than reading the flag itself.

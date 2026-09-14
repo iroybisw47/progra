@@ -17,7 +17,12 @@ export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
   other: "Other",
 };
 
-export type ReportTargetType = "story" | "comment" | "profile" | "recap";
+export type ReportTargetType =
+  | "story"
+  | "comment"
+  | "profile"
+  | "recap"
+  | "nudge";
 
 export const REPORT_NOTE_MAX = 500;
 

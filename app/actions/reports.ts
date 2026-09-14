@@ -16,6 +16,7 @@ const TARGET_TYPES: ReportTargetType[] = [
   "comment",
   "profile",
   "recap",
+  "nudge",
 ];
 
 // File a report. Write-only for users: the reports table's RLS allows this

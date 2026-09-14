@@ -126,6 +126,15 @@ export function revalidateIdentitySurfaces() {
   revalidateDynamicSessionPages();
 }
 
+// A sent nudge changes exactly one rendered thing: the sender's own Nudge
+// button, which flips to its cooldown state. The recipient learns about it from
+// BottomNav's 90-second badge poll (the same path likes and comments take), not
+// from revalidation — revalidating the root layout here would cost every sender
+// a full tree refetch and still not reach the recipient any sooner.
+export function revalidateNudgeSurfaces() {
+  revalidatePath("/profile/[username]", "page");
+}
+
 export function revalidateFriendSurfaces() {
   revalidatePath("/friends");
   revalidatePath("/feed");
