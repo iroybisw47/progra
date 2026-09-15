@@ -12,14 +12,15 @@
 // one already drifting, and "you haven't done your habits" reads as a scolding.
 //
 // The keys are frozen by that CHECK, so they no longer describe their copy
-// (miss_you is now the mog one). Rewording is free; renaming a key isn't.
+// (miss_you is now the slow-progress one). Rewording is free; renaming a key
+// isn't.
 // Past nudges render with the current copy — only the key is stored.
 export const NUDGE_PRESETS = {
   lock_in: "Lock in",
   still_time: "Still got time today!",
   waiting: "Your friends are counting on you",
   one_session: "You can do this!",
-  miss_you: "I'm gonna mog you",
+  miss_you: "Slow progress is better than no progress",
 } as const;
 
 export type NudgePresetKey = keyof typeof NUDGE_PRESETS;

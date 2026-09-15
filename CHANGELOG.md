@@ -6,6 +6,10 @@ when it was done, not a start/stop work timer.
 
 ## 2026-09-15
 
+### 14:08 · Nudge preset: "Slow progress is better than no progress"
+Replaces "I'm gonna mog you". Copy only: the database stores the preset key, so
+there's no SQL and past nudges with that key show the new wording.
+
 ### 09:13 · Replies to comments, dark behind COMMENT_REPLIES (SQL applied)
 Anyone who can see a post can now reply to a comment on it. Tap **Reply** on a
 comment and a reply box opens right under that thread, so you never lose sight of
