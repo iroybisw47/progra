@@ -4,10 +4,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { signInWithAppleIdToken } from "@/app/actions/native-auth";
-import { Button } from "@/components/ui/button";
 import { appleDisplayName } from "@/lib/auth/apple-name";
 import { buildNonce } from "@/lib/auth/nonce";
 import { useIsNativeApp } from "@/lib/use-is-native-app";
+
+import { AUTH_BUTTON } from "./auth-button";
 
 // MODULE scope, not component state: at most one native sign-in at a time. A
 // remount would reset component state while the native sheet is still up.
@@ -17,7 +18,7 @@ let nativeFlowInFlight = false;
 // a black or white button — a plain text button is a known 4.8 review nitpick.
 function AppleMark() {
   return (
-    <svg viewBox="0 0 384 512" aria-hidden="true" className="size-4 fill-current">
+    <svg viewBox="0 0 384 512" aria-hidden="true" className="size-[15px] fill-current">
       <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
     </svg>
   );
@@ -31,15 +32,20 @@ export function AppleSignInButton({
   next,
   referrer,
   label = "Sign in with Apple",
-  disabled = false,
+  locked = false,
+  onLocked,
+  describedBy,
 }: {
   next?: string;
   // Inviter's username, carried through so the action can call claim_invite.
   // Named `referrer`, not `ref`, because React intercepts a `ref` prop.
   referrer?: string;
   label?: string;
-  // Set by SignInButtons until the terms checkbox is ticked (Guideline 1.2).
-  disabled?: boolean;
+  // True until the terms checkbox is ticked (Guideline 1.2). The tap still
+  // lands — it calls onLocked (the terms row shakes) and goes no further.
+  locked?: boolean;
+  onLocked?: () => void;
+  describedBy?: string;
 }) {
   const [loading, setLoading] = useState(false);
   const isNative = useIsNativeApp();
@@ -48,6 +54,10 @@ export function AppleSignInButton({
   if (!isNative) return null;
 
   async function handleClick() {
+    if (locked) {
+      onLocked?.();
+      return;
+    }
     if (nativeFlowInFlight) return;
     nativeFlowInFlight = true;
     setLoading(true);
@@ -127,21 +137,18 @@ export function AppleSignInButton({
   }
 
   return (
-    <Button
+    <button
+      type="button"
       // Same height as the Google button — 4.8 asks for equal prominence, and
       // the two sit directly above one another.
-      className="h-11 w-full bg-black text-base text-white hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-white/90"
+      className={`${AUTH_BUTTON} bg-black text-white`}
       onClick={handleClick}
-      disabled={loading || disabled}
+      disabled={loading}
+      aria-disabled={locked || undefined}
+      aria-describedby={locked ? describedBy : undefined}
     >
-      {loading ? (
-        "Signing in…"
-      ) : (
-        <>
-          <AppleMark />
-          {label}
-        </>
-      )}
-    </Button>
+      <AppleMark />
+      {loading ? "Signing in…" : label}
+    </button>
   );
 }

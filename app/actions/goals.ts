@@ -22,7 +22,11 @@ type CreateGoalInput = {
   color?: string | null;
 };
 
-export async function createGoal(input: CreateGoalInput): Promise<Result> {
+// Success carries the new id, so a caller that may save again (onboarding's
+// Back → Save goal) can update instead of creating a duplicate.
+export async function createGoal(
+  input: CreateGoalInput
+): Promise<{ ok: true; id: string } | { error: string }> {
   const title = capText(input.title, TITLE_MAX);
   if (!title) return { error: "Title required" };
   if (!Number.isFinite(input.weeklyQuotaHours) || input.weeklyQuotaHours <= 0) {
@@ -41,17 +45,21 @@ export async function createGoal(input: CreateGoalInput): Promise<Result> {
     return { error: "Unknown color" };
   }
 
-  const { error } = await supabase.from("goals").insert({
-    user_id: user.id,
-    title,
-    description: capText(input.description, DESC_MAX),
-    weekly_quota_hours: input.weeklyQuotaHours,
-    color: input.color ?? null,
-  });
+  const { data, error } = await supabase
+    .from("goals")
+    .insert({
+      user_id: user.id,
+      title,
+      description: capText(input.description, DESC_MAX),
+      weekly_quota_hours: input.weeklyQuotaHours,
+      color: input.color ?? null,
+    })
+    .select("id")
+    .single();
 
   if (error) return { error: error.message };
   revalidateGoalSurfaces();
-  return { ok: true };
+  return { ok: true, id: (data as { id: string }).id };
 }
 
 type UpdateGoalPatch = {

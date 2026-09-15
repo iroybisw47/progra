@@ -55,3 +55,21 @@ function subscribeHash(cb: () => void): () => void {
 export function useLocationHash(): string {
   return useSyncExternalStore(subscribeHash, () => window.location.hash, () => "");
 }
+
+// usePrefersReducedMotion: the OS "reduce motion" setting, live. False on the
+// server and before hydration, so a decorative animation renders its normal
+// markup and is neutralised by the CSS media query until JS can do better
+// (e.g. skip a typing effect entirely).
+function subscribeReducedMotion(cb: () => void): () => void {
+  const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+}
+
+export function usePrefersReducedMotion(): boolean {
+  return useSyncExternalStore(
+    subscribeReducedMotion,
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => false
+  );
+}

@@ -339,13 +339,81 @@
   }
 }
 
-/* Reduced-motion: the engine also has a JS instant-path, but neutralize the
-   decorative onboarding animations at the CSS layer too. */
+/* Login + onboarding redesign (2026-09-15). Timings are the design's. */
+/* The 7-bar week strip: each bar breathes from its base. */
+@keyframes bar-pulse {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+/* The terms row, when a sign-in button is tapped before agreeing. */
+@keyframes nudge-x {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+/* The goal preview ring filling to ~62% (r=38 → circumference 238.76). */
+@keyframes wheel-fill {
+  from {
+    stroke-dashoffset: 238.76;
+  }
+  to {
+    stroke-dashoffset: 90.7;
+  }
+}
+/* Checkmarks, the sent bubble, the attached photo. */
+@keyframes check-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@utility check-pop {
+  animation: check-pop 0.3s ease both;
+}
+/* Marker-highlight sweep across emphasised copy (background-size on a
+   no-repeat gradient). */
+@keyframes hl-sweep {
+  from {
+    background-size: 0% 100%;
+  }
+  to {
+    background-size: 100% 100%;
+  }
+}
+
+/* Reduced-motion: neutralise the decorative login/onboarding animations at
+   the CSS layer (the typed headline also has a JS path). Delays are zeroed
+   too — the Done splash's copy enters 1.7s late, and with the duration at
+   ~0 that delay would just be 1.7s of nothing. Looped animations (hands,
+   bars, dots) run one ~instant iteration and settle on their base pose. */
 @media (prefers-reduced-motion: reduce) {
   [data-onboarding] *,
   [data-onboarding] *::before,
-  [data-onboarding] *::after {
+  [data-onboarding] *::after,
+  [data-login] *,
+  [data-login] *::before,
+  [data-login] *::after {
     animation-duration: 0.001ms !important;
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }

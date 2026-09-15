@@ -9,10 +9,12 @@ import { requireSeat } from "@/lib/auth/require-seat";
 
 type Result = { ok: true } | { error: string };
 
+// Success carries the new id, so a caller that may save again (onboarding's
+// Back → Save habits) can tell what already exists.
 export async function createHabit(
   name: string,
   color?: string
-): Promise<Result> {
+): Promise<{ ok: true; id: string } | { error: string }> {
   const trimmed = name.trim();
   if (!trimmed) return { error: "Name required" };
 
@@ -33,13 +35,15 @@ export async function createHabit(
     chosenColor = CATEGORY_COLORS[(count ?? 0) % CATEGORY_COLORS.length].value;
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("habits")
-    .insert({ user_id: user.id, name: trimmed, color: chosenColor });
+    .insert({ user_id: user.id, name: trimmed, color: chosenColor })
+    .select("id")
+    .single();
 
   if (error) return { error: error.message };
   revalidateHabitSurfaces();
-  return { ok: true };
+  return { ok: true, id: (data as { id: string }).id };
 }
 
 type UpdateHabitPatch = {

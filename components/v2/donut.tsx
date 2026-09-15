@@ -10,6 +10,7 @@ export function Donut({
   label,
   sub,
   labelClassName = "text-lg",
+  subClassName = "text-[8px]",
 }: {
   segments: Segment[];
   size?: number;
@@ -19,6 +20,8 @@ export function Donut({
   // Tailwind text-size for the center label. Defaults to the compact size the
   // week/history donuts use; the big Today donut passes a larger one.
   labelClassName?: string;
+  // Tailwind text-size for the sub label under it.
+  subClassName?: string;
 }) {
   const total = segments.reduce((s, x) => s + x.value, 0);
   const r = (size - stroke) / 2;
@@ -71,7 +74,9 @@ export function Donut({
             </span>
           )}
           {sub && (
-            <span className="text-disabled text-[8px] font-semibold uppercase tracking-[0.12em]">
+            <span
+              className={`text-disabled font-semibold uppercase tracking-[0.12em] ${subClassName}`}
+            >
               {sub}
             </span>
           )}

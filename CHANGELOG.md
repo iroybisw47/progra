@@ -6,6 +6,43 @@ when it was done, not a start/stop work timer.
 
 ## 2026-09-15
 
+### 15:19 · Login and onboarding redesigned
+The sign-in screen and the first-run wizard are rebuilt from the design
+handoff, in the app's own components — the HTML references never ship.
+
+**Login.** A brand mark with drifting clock hands, "Progra" typing itself in
+behind a caret, one line on what the app is, a week of breathing bars, then the
+terms row and the buttons, each rising in turn. The buttons dim until the terms
+box is ticked, and a tap on a dimmed one shakes the terms row instead of doing
+nothing — no SDK, action or redirect runs before agreement (Guideline 1.2 is
+now enforced inside each button, with `aria-disabled` rather than `disabled`).
+Apple stays native-only. The same buttons and gate serve `/` and
+`/i/[username]`; only `/login` gets the new page and entrance.
+
+**Onboarding.** Eight steps (seven on the web, which has no notifications):
+who you are → how Progra works (your week next to a friend's) → first goal
+(live preview ring) → habits → a practice clock-in → notifications → a practice
+post → hold your friends accountable (a practice nudge on Maya's profile, then
+the share sheet) → Ready, Set, GO! Every headline types in, and retypes when
+you come back to a step. The goal's title, colour and hours flow through the
+clock chip, the timer, the post summary, the invite message and the summary.
+Copy is the design's, verbatim. The 1463-line client is now a ~450-line shell
+that owns all state plus one small component per step.
+
+Two long-standing wrinkles went with it: going Back and saving again no longer
+creates a duplicate goal or duplicate habits (`createGoal`/`createHabit` now
+return the new `id`; the shell updates or skips what it already made), and the
+practice timer no longer keeps running — and advancing whatever step you're on
+— after you leave it. Dropped from onboarding, on purpose: the research-
+interview opt-in (Settings still has it), the habit-reminder time picker, and
+the practice-step toasts. Reduced motion stills every decorative animation on
+both screens and shows headlines in full.
+
+Verified against the design files screen by screen in headless Chrome at
+420px, including the interactive states (terms shake, typed retype on Back,
+clock fast-forward and auto-advance, custom habit tile, posted, nudge sent,
+Done splash) and reduced motion.
+
 ### 14:13 · Nudge chip in the clock's navy
 When a friend can be nudged, the chip on their profile is now filled navy
 (`bg-brand`, the clock button's colour) instead of an outline. Locked and

@@ -1,137 +1,92 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import {
-  CheckIcon,
-  ChevronDownIcon,
-  ChevronLeftIcon,
-  ClockIcon,
-  ImageIcon,
-  MinusIcon,
-  PlusIcon,
-} from "lucide-react";
+import { ChevronLeftIcon } from "lucide-react";
 
+import { archiveHabit, createHabit } from "@/app/actions/habits";
+import { createGoal, updateGoal } from "@/app/actions/goals";
+import {
+  completeOnboarding,
+  setProfileIdentity,
+  setUsername,
+} from "@/app/actions/profile";
+import { PrimaryButton } from "@/components/v2/primary-button";
 import { track } from "@/lib/analytics";
-import {
-  openNotificationSettings,
-  requestNotificationPermission,
-} from "@/lib/notification-permission";
-import { useIsNativeApp } from "@/lib/use-is-native-app";
-import { useNotificationPermission } from "@/lib/use-notification-permission";
-import { AvatarPicker } from "@/components/avatar-picker";
-import { ColorSwatches } from "@/components/color-swatches";
-import { CATEGORY_COLORS } from "@/lib/category-colors";
-import { InviteShare } from "@/components/v2/invite-share";
-import { PrograMark } from "@/components/progra-mark";
-import { ToggleSwitch } from "@/components/v2/toggle-switch";
-import { cn } from "@/lib/utils";
-
-import { createGoal } from "@/app/actions/goals";
-import { createHabit } from "@/app/actions/habits";
 import { HABIT_REMINDERS } from "@/lib/flags";
 import {
   DEFAULT_HABIT_REMINDER_TIME,
   setHabitReminderPref,
 } from "@/lib/habit-reminder-prefs";
+import { shareInvite } from "@/lib/invite-share";
+import { requestNotificationPermission } from "@/lib/notification-permission";
 import {
-  completeOnboarding,
-  setInterviewConsent,
-  setProfileIdentity,
-  setUsername,
-} from "@/app/actions/profile";
+  DEFAULT_GOAL_COLOR,
+  activeSteps,
+  doneSummary,
+  eyebrowFor,
+  inviteMessage,
+  nextHabitColor,
+  type HabitPick,
+  type Step,
+} from "@/lib/onboarding";
 import { checkUsername } from "@/lib/social/username";
+import { useIsNativeApp } from "@/lib/use-is-native-app";
+import { useNotificationPermission } from "@/lib/use-notification-permission";
+import { cn } from "@/lib/utils";
 
-// First-run wizard, in the order the design lays it out: welcome (who you are)
-// → how Progra works → first goal → a practice clock-in → turn on notifications
-// → a practice post → habits → your friends → invite → go.
+import { DoneSplash } from "./done-splash";
+import { ClockStep } from "./steps/clock-step";
+import { FriendsStep } from "./steps/friends-step";
+import { GoalStep } from "./steps/goal-step";
+import { HabitStep } from "./steps/habit-step";
+import { HowStep } from "./steps/how-step";
+import { NotifyStep } from "./steps/notify-step";
+import { PostStep } from "./steps/post-step";
+import { WelcomeStep } from "./steps/welcome-step";
+
+// How long the Done splash holds before home (long enough for GO! and the
+// summary to land).
+const SPLASH_MS = 3_200;
+
+// First-run wizard (2026-09-15 redesign): who you are → how Progra works →
+// first goal → habits → a practice clock-in → notifications (shell only) →
+// a practice post → hold your friends accountable, and share → Ready, Set, GO!
 //
-// Ten steps in the shell, nine on the website — `notify` doesn't exist where
-// notifications don't.
+// One action per step. The goal and habits are created for real through the
+// same actions the app uses, so someone finishes with a week already set up.
+// The practice clock-in, post and nudge write nothing and say so.
 //
-// `how` earns its place before `goal`: the next screen asks for a goal, and a
-// goal only means something once you know it's the tracked-against-a-target
-// kind of thing, as opposed to a category or a habit.
+// This is the shell: every piece of state lives here and flows down to the
+// step components as props, which is what lets Back keep everything typed.
+// Each step remounts on entry (`key={step}`), so its rise-ins and the typed
+// headline replay — coming back to a step feels like arriving at it.
 //
-// Two of those steps are deliberately fake: the practice clock-in runs a
-// fast-forwarded 25-minute simulation on the wall clock and writes nothing, and
-// the practice post says so on screen. Everything else is real — the goal and
-// the habits are created through the same actions the app uses, so someone
-// finishes onboarding with a week already set up.
-const STEPS = [
-  "welcome",
-  "how",
-  "goal",
-  "clock",
-  "notify",
-  "post",
-  "habit",
-  "recap",
-  "invite",
-  "go",
-] as const;
-type Step = (typeof STEPS)[number];
-
-// `notify` is native-only — there are no notifications on the website — so the
-// live list is computed per render and is what everything reads. Never index
-// STEPS directly: on web the arrays differ in length, and the dots, the "step N
-// of M" eyebrow and the bounds clamp would all disagree with each other.
-function activeSteps(native: boolean): readonly Step[] {
-  return native ? STEPS : STEPS.filter((s) => s !== "notify");
-}
-
-// Numbered steps for the eyebrow — welcome and go aren't counted.
-function numberedSteps(steps: readonly Step[]): readonly Step[] {
-  return steps.filter((s) => s !== "welcome" && s !== "go");
-}
-
-// Preset habits, each with the reason it's worth doing (shown on the "?").
-const PRESETS = [
-  {
-    name: "Journaling",
-    color: "#6B639C",
-    tip: "Expressive writing is linked to lower stress levels and better working memory.",
-  },
-  {
-    name: "Meditation",
-    color: "#46808A",
-    tip: "A regular meditation practice measurably lowers cortisol and sharpens attention.",
-  },
-  {
-    name: "Stretching",
-    color: "#4E7A5F",
-    tip: "Daily stretching improves circulation and reduces the risk of muscle injury.",
-  },
-  {
-    name: "Drinking water",
-    color: "#4A6FA5",
-    tip: "Even mild dehydration measurably impairs concentration and mood.",
-  },
-];
-
-// The practice session's target, and how long the simulation really takes.
-const SIM_TARGET_MS = 25 * 60_000;
-const SIM_REAL_MS = 3_300;
-const SIM_REALTIME_MS = 1_500; // ticks at true speed before fast-forwarding
-
+// Saving twice must not create twice: Back → "Save goal" updates the goal it
+// already made, and Back → "Save habits" creates only the new ones (and
+// archives the ones un-picked).
 type Props = {
   initialUsername: string;
   initialDisplayName: string | null;
   avatarUrl: string | null;
+  // Dev preview only (app/onboarding/dev-preview, never shipped): open on a
+  // given step / the splash. Production always starts at welcome.
+  initialStep?: Step;
+  initialDone?: boolean;
 };
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export function OnboardingClientV2({
   initialUsername,
   initialDisplayName,
   avatarUrl,
+  initialStep,
+  initialDone = false,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [stepIndex, setStepIndex] = useState(0);
-  // Research-interview opt-in, asked on the final screen. Starts false and
-  // stays false unless the user turns it on — a pre-ticked box is not consent.
-  const [consent, setConsent] = useState(false);
 
   // The notify step exists only in the shell. `native` flips at most once,
   // immediately after hydration, while the user is still on `welcome` at index
@@ -139,8 +94,13 @@ export function OnboardingClientV2({
   // stepIndex is safe. It can never shift a step the user is partway through.
   const native = useIsNativeApp();
   const steps = activeSteps(native);
-  const numbered = numberedSteps(steps);
-  const step = steps[stepIndex];
+  // Production always starts at 0. The preview's `initialStep` is looked up in
+  // whichever list contains it — `notify` only exists in the native one.
+  const [stepIndex, setStepIndex] = useState(() =>
+    Math.max(0, activeSteps(initialStep === "notify").indexOf(initialStep ?? "welcome"))
+  );
+  const step = steps[Math.min(stepIndex, steps.length - 1)];
+  const [done, setDone] = useState(initialDone);
 
   const notifyPermission = useNotificationPermission();
 
@@ -148,50 +108,49 @@ export function OnboardingClientV2({
   const [displayName, setDisplayName] = useState(initialDisplayName ?? "");
   const [username, setUsernameInput] = useState(initialUsername);
   const usernameCheck = username.trim() ? checkUsername(username) : null;
-  const usernameError =
-    usernameCheck && !usernameCheck.ok ? usernameCheck.error : null;
+  const usernameError = usernameCheck && !usernameCheck.ok ? usernameCheck.error : null;
   const usernameValid = !!usernameCheck?.ok;
+  const [claimed, setClaimed] = useState<{ username: string; displayName: string } | null>(
+    null
+  );
 
-  // Goal.
+  // Goal — the title, colour and hours flow through every later step.
   const [goalTitle, setGoalTitle] = useState("");
+  const [goalColor, setGoalColor] = useState(DEFAULT_GOAL_COLOR);
   const [hours, setHours] = useState(5);
-  const [goalColorPick, setGoalColorPick] = useState<string | null>(
-    CATEGORY_COLORS[6].value
-  );
-  const goalDisplay = goalTitle.trim() || "your first goal";
-  // Whatever they picked paints the practice session, the Progress mock and the
-  // summary, so the color they chose is the one they keep seeing.
-  const goalTint = goalColorPick ?? CATEGORY_COLORS[6].value;
+  const [savedGoal, setSavedGoal] = useState<{
+    id: string;
+    title: string;
+    hours: number;
+    color: string;
+  } | null>(null);
 
-  // Practice clock-in.
+  // Habits.
+  const [picked, setPicked] = useState<HabitPick[]>([]);
+  const [habitDraft, setHabitDraft] = useState("");
+  const [savedHabits, setSavedHabits] = useState<(HabitPick & { id: string })[]>([]);
+
+  // Practice clock-in (the simulation itself lives in ClockStep).
   const [practiceTask, setPracticeTask] = useState("");
-  const [sim, setSim] = useState(0);
-  const [running, setRunning] = useState(false);
-  const [fast, setFast] = useState(false);
-  const simTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  useEffect(
-    () => () => {
-      if (simTimer.current) clearInterval(simTimer.current);
-    },
-    []
-  );
+  const [clockRunning, setClockRunning] = useState(false);
 
   // Practice post.
   const [photo, setPhoto] = useState(false);
-  const [postText, setPostText] = useState("");
+  const [caption, setCaption] = useState("");
   const [posted, setPosted] = useState(false);
 
-  // Habits.
-  const [picked, setPicked] = useState<{ name: string; color: string }[]>([]);
-  const [habitDraft, setHabitDraft] = useState("");
-  // The habit step's reminder time (shell + granted only). Saved with the
-  // habits; leaving the step untouched keeps the device default (on at 18:00,
-  // inert until habits exist).
-  const [reminderTime, setReminderTime] = useState(DEFAULT_HABIT_REMINDER_TIME);
-  const [hint, setHint] = useState<string | null>(null);
+  // Friends: the practice nudge, and whether the invite went out.
+  const [nudgeOpen, setNudgeOpen] = useState(false);
+  const [nudged, setNudged] = useState<string | null>(null);
+  const [shared, setShared] = useState(false);
 
-  const go = (i: number) =>
+  const go = (i: number) => {
+    setClockRunning(false);
     setStepIndex(Math.max(0, Math.min(steps.length - 1, i)));
+  };
+  const next = () => go(stepIndex + 1);
+
+  // ── Writes ──────────────────────────────────────────────────────────────
 
   function claimUsername() {
     const check = checkUsername(username);
@@ -199,17 +158,25 @@ export function OnboardingClientV2({
       toast.error(check.error);
       return;
     }
+    const name = displayName.trim();
+    if (claimed && claimed.username === check.username && claimed.displayName === name) {
+      go(1);
+      return;
+    }
     startTransition(async () => {
-      const r = await setUsername(check.username);
-      if ("error" in r) {
-        toast.error(r.error);
-        return;
+      if (claimed?.username !== check.username) {
+        const r = await setUsername(check.username);
+        if ("error" in r) {
+          toast.error(r.error);
+          return;
+        }
       }
-      const identity = await setProfileIdentity({ displayName });
+      const identity = await setProfileIdentity({ displayName: name });
       if ("error" in identity) {
         toast.error(identity.error);
         return;
       }
+      setClaimed({ username: check.username, displayName: name });
       go(1);
     });
   }
@@ -220,129 +187,129 @@ export function OnboardingClientV2({
       toast.error("Give your goal a name first");
       return;
     }
-    startTransition(async () => {
-      const r = await createGoal({
-        title,
-        weeklyQuotaHours: hours,
-        color: goalColorPick,
-      });
-      if ("error" in r) {
-        toast.error(r.error);
-        return;
-      }
-      go(stepIndex + 1);
-    });
-  }
-
-  function startPractice() {
-    if (simTimer.current) clearInterval(simTimer.current);
-    setRunning(true);
-    setFast(false);
-    setSim(0);
-    const t0 = Date.now();
-    simTimer.current = setInterval(() => {
-      const real = Date.now() - t0;
-      // Real seconds first, so it reads as a genuine timer, then an eased
-      // fast-forward to the 25-minute target.
-      let value: number;
-      if (real < SIM_REALTIME_MS) {
-        value = real;
-      } else {
-        const p = Math.min(1, (real - SIM_REALTIME_MS) / 1_800);
-        value = SIM_REALTIME_MS + p * p * (SIM_TARGET_MS - SIM_REALTIME_MS);
-        setFast(true);
-      }
-      if (real >= SIM_REAL_MS || value >= SIM_TARGET_MS) {
-        if (simTimer.current) clearInterval(simTimer.current);
-        setSim(SIM_TARGET_MS);
-        setRunning(false);
-        setFast(false);
-        // "Next", not a named step: what follows the practice clock-in is
-        // `notify` in the shell and `post` on the web. Functional update
-        // because this runs inside the interval closure, where a captured
-        // stepIndex would be stale.
-        setStepIndex((i) => Math.min(steps.length - 1, i + 1));
-        toast.success("25 minutes logged — practice, so it wasn't saved");
-      } else {
-        setSim(value);
-      }
-    }, 100);
-  }
-
-  function togglePreset(preset: { name: string; color: string }) {
-    setPicked((list) =>
-      list.some((h) => h.name === preset.name)
-        ? list.filter((h) => h.name !== preset.name)
-        : [...list, { name: preset.name, color: preset.color }]
-    );
-  }
-
-  function addOwnHabit() {
-    const name = habitDraft.trim();
-    if (!name) return;
-    if (picked.some((h) => h.name.toLowerCase() === name.toLowerCase())) {
-      setHabitDraft("");
-      return;
-    }
-    // Own habits take the next palette color the presets haven't used.
-    const color = PRESETS[picked.length % PRESETS.length].color;
-    setPicked((list) => [...list, { name, color }]);
-    setHabitDraft("");
-  }
-
-  // Creates every picked habit for real, then moves on. Skipping creates none.
-  function saveHabits(next: number) {
-    const pending = habitDraft.trim()
-      ? [
-          ...picked,
-          {
-            name: habitDraft.trim(),
-            color: PRESETS[picked.length % PRESETS.length].color,
-          },
-        ]
-      : picked;
-    if (pending.length === 0) {
-      toast.error("Pick a habit or add your own — or skip");
+    if (
+      savedGoal &&
+      savedGoal.title === title &&
+      savedGoal.hours === hours &&
+      savedGoal.color === goalColor
+    ) {
+      next();
       return;
     }
     startTransition(async () => {
-      for (const h of pending) {
-        const r = await createHabit(h.name, h.color);
+      if (savedGoal) {
+        const r = await updateGoal(savedGoal.id, {
+          title,
+          weeklyQuotaHours: hours,
+          color: goalColor,
+        });
         if ("error" in r) {
           toast.error(r.error);
           return;
         }
+        setSavedGoal({ ...savedGoal, title, hours, color: goalColor });
+      } else {
+        const r = await createGoal({ title, weeklyQuotaHours: hours, color: goalColor });
+        if ("error" in r) {
+          toast.error(r.error);
+          return;
+        }
+        setSavedGoal({ id: r.id, title, hours, color: goalColor });
       }
-      setHabitDraft("");
-      // The reminder choice rides along with the habits it's about. Written
-      // even when it equals the default: choosing 18:00 IS a choice, and the
-      // write is what a replayed onboarding uses to overwrite an old pick.
-      if (HABIT_REMINDERS && native && notifyPermission === "granted") {
-        setHabitReminderPref({ enabled: true, time: reminderTime });
-      }
-      go(next);
+      next();
     });
   }
 
-  function finish() {
+  function toggleHabit(habit: HabitPick) {
+    setPicked((list) =>
+      list.some((h) => h.name === habit.name)
+        ? list.filter((h) => h.name !== habit.name)
+        : [...list, habit]
+    );
+  }
+
+  function addOwnHabit(): HabitPick[] {
+    const name = habitDraft.trim();
+    if (!name) return picked;
+    setHabitDraft("");
+    if (picked.some((h) => h.name.toLowerCase() === name.toLowerCase())) return picked;
+    const list = [...picked, { name, color: nextHabitColor(picked.length) }];
+    setPicked(list);
+    return list;
+  }
+
+  // Creates the picked habits that don't exist yet, archives the saved ones
+  // that were un-picked, then moves on. Skipping writes nothing.
+  function saveHabits() {
+    const list = addOwnHabit();
+    if (list.length === 0) {
+      toast.error("Pick a habit or add your own — or skip");
+      return;
+    }
     startTransition(async () => {
-      // Consent first, and deliberately non-blocking: losing the flag is an
-      // annoyance, being stuck on the last screen of onboarding is a dead end.
-      // Same reasoning as the claim_invite swallow in the auth callback. Only
-      // written when true — null already means "not consented", so a decline
-      // needs no write and skipAll() needs no special case.
-      if (consent) {
-        const c = await setInterviewConsent(true);
-        if (!("error" in c)) {
-          track("interview_consent_set", {
-            enabled: true,
-            source: "onboarding",
-          });
+      const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+      const saved = [...savedHabits];
+      for (const h of list) {
+        if (saved.some((s) => same(s.name, h.name))) continue;
+        const r = await createHabit(h.name, h.color);
+        if ("error" in r) {
+          toast.error(r.error);
+          setSavedHabits(saved);
+          return;
         }
+        saved.push({ ...h, id: r.id });
       }
-      const r = await completeOnboarding();
+      for (const s of savedHabits) {
+        if (list.some((h) => same(h.name, s.name))) continue;
+        const r = await archiveHabit(s.id);
+        if (!("error" in r)) saved.splice(saved.findIndex((x) => x.id === s.id), 1);
+      }
+      setSavedHabits(saved);
+      next();
+    });
+  }
+
+  function askNotifications() {
+    // Only asks when the state is `prompt`, so a replay on an already-answered
+    // device shows no dialog; advances on ANY outcome — a refusal must never
+    // trap someone in onboarding.
+    if (notifyPermission !== "prompt") {
+      track("notification_permission_skipped", {
+        source: "onboarding",
+        state: notifyPermission ?? "unknown",
+      });
+      next();
+      return;
+    }
+    void requestNotificationPermission().then((result) => {
+      track("notification_permission_asked", { source: "onboarding", result });
+      // The habits they just saved get the default daily reminder, now that
+      // reminders can actually arrive.
+      if (result === "granted" && HABIT_REMINDERS && savedHabits.length > 0) {
+        setHabitReminderPref({ enabled: true, time: DEFAULT_HABIT_REMINDER_TIME });
+      }
+      next();
+    });
+  }
+
+  const usernameForLink = username.trim() || initialUsername || "you";
+  const invite = inviteMessage({ hours, goalTitle, habits: picked });
+
+  async function share() {
+    const outcome = await shareInvite(invite, usernameForLink);
+    if (outcome === "copied") toast.success("Invite copied — paste it to a friend");
+    if (outcome === "failed") toast.error("Couldn't share — copy the link from Friends later.");
+    if (outcome === "shared" || outcome === "copied") setShared(true);
+  }
+
+  function finish() {
+    setDone(true);
+    router.prefetch("/");
+    startTransition(async () => {
+      const [r] = await Promise.all([completeOnboarding(), sleep(SPLASH_MS)]);
       if ("error" in r) {
         toast.error(r.error);
+        setDone(false);
         return;
       }
       track("onboarding_completed");
@@ -362,1102 +329,224 @@ export function OnboardingClientV2({
     });
   }
 
-  const inviteMessage = `My goal this week is to spend ${hours} hours on ${
-    goalTitle.trim() ? `“${goalTitle.trim()}”` : "my goal"
-  }.. help hold me accountable and make your own goals on Progra`;
+  // ── The primary CTA per step ─────────────────────────────────────────────
 
-  // The primary CTA per step: its label, and what it does. Gated steps nudge
-  // with a toast rather than sitting there dead.
-  const cta: Record<Step, { label: string; onClick: () => void; dim?: boolean }> =
-    {
-      welcome: {
-        label: "Get started",
-        onClick: () =>
-          usernameValid
-            ? claimUsername()
-            : toast.error("Pick a username to continue"),
-        dim: !usernameValid,
-      },
-      how: { label: "Continue", onClick: () => go(stepIndex + 1) },
-      goal: { label: "Save goal", onClick: saveGoal, dim: !goalTitle.trim() },
-      clock: {
-        label: running ? "Clocking in…" : "Clock in above to continue",
-        onClick: () =>
-          toast.info(
-            running ? "Almost done — it's fast-forwarding" : "Tap Clock in to try it"
-          ),
-        dim: true,
-      },
-      // Legal caller #1 of the gesture-only ask, and the one that matters most:
-      // iOS shows its dialog once ever, so this is the single best chance the
-      // app gets, taken right after the practice clock-in that just made the
-      // point. Advances on ANY outcome — a refusal must never trap someone in
-      // onboarding — and only asks when the state is `prompt`, so a replay on
-      // an already-answered device shows no dialog.
-      notify: {
-        label:
-          notifyPermission === "prompt" ? "Enable notifications" : "Continue",
-        onClick: () => {
-          if (notifyPermission !== "prompt") {
-            track("notification_permission_skipped", {
-              source: "onboarding",
-              state: notifyPermission ?? "unknown",
-            });
-            go(stepIndex + 1);
-            return;
-          }
-          void requestNotificationPermission().then((result) => {
-            track("notification_permission_asked", {
-              source: "onboarding",
-              result,
-            });
-            go(stepIndex + 1);
-          });
-        },
-      },
-      post: {
-        label: posted ? "Continue" : "Post above to continue",
-        onClick: () =>
-          posted
-            ? go(stepIndex + 1)
-            : toast.info("Try posting — it's just practice"),
-        dim: !posted,
-      },
-      habit: {
-        label: picked.length > 1 ? "Save habits" : "Save habit",
-        onClick: () => saveHabits(stepIndex + 1),
-        dim: picked.length === 0 && !habitDraft.trim(),
-      },
-      recap: { label: "Continue", onClick: () => go(stepIndex + 1) },
-      invite: { label: "Continue", onClick: () => go(stepIndex + 1) },
-      go: { label: "Start my week", onClick: finish },
-    };
+  const cta: Record<Step, { label: string; onClick: () => void; dim?: boolean }> = {
+    welcome: {
+      label: "Get started",
+      onClick: () =>
+        usernameValid ? claimUsername() : toast.error("Pick a username to continue"),
+      dim: !usernameValid,
+    },
+    how: { label: "Continue", onClick: next },
+    goal: { label: "Save goal", onClick: saveGoal, dim: !goalTitle.trim() },
+    habit: {
+      label: picked.length > 1 ? "Save habits" : "Save habit",
+      onClick: saveHabits,
+      dim: picked.length === 0 && !habitDraft.trim(),
+    },
+    clock: {
+      label: clockRunning ? "Clocking in…" : "Clock in above to continue",
+      onClick: () =>
+        toast.info(clockRunning ? "Almost done — it's fast-forwarding" : "Tap Clock in to try it"),
+      dim: true,
+    },
+    notify: {
+      label: notifyPermission === "prompt" ? "Enable notifications" : "Continue",
+      onClick: askNotifications,
+    },
+    post: {
+      label: posted ? "Continue" : "Post above to continue",
+      onClick: () => (posted ? next() : toast.info("Try posting — it's just practice")),
+      dim: !posted,
+    },
+    friends: {
+      label: shared ? "Start my week" : "Share with friends",
+      onClick: () => (shared ? finish() : void share()),
+    },
+  };
 
-  const skippable =
-    step === "habit" || step === "invite" || step === "notify";
+  const quietSkip: Partial<Record<Step, { label: string; onClick: () => void }>> = {
+    habit: {
+      label: "Skip for now",
+      onClick: () => {
+        // Nothing new is written; the picks fall back to whatever was already
+        // saved, so the invite message and summary stay honest.
+        setPicked(savedHabits.map(({ name, color }) => ({ name, color })));
+        setHabitDraft("");
+        next();
+      },
+    },
+    notify: {
+      label: "Skip for now",
+      onClick: () => {
+        // Skipping is precisely NOT asking, which leaves the one-shot dialog
+        // unspent for Settings or the live timer to offer later.
+        track("notification_permission_skipped", {
+          source: "onboarding",
+          state: notifyPermission ?? "unknown",
+        });
+        next();
+      },
+    },
+    friends: { label: "Start my week without sharing", onClick: finish },
+  };
+
+  const eyebrow = eyebrowFor(step, steps);
 
   return (
-    <div data-onboarding className="relative flex flex-1 flex-col">
-      {/* Back + progress dots */}
-      <header className="flex h-[84px] flex-none items-center gap-2.5 px-5 pt-[max(env(safe-area-inset-top),20px)]">
-        {stepIndex > 0 ? (
+    <div data-onboarding className="relative flex flex-1 flex-col overflow-hidden">
+      {!done && (
+        <header className="relative z-[2] flex h-16 flex-none items-center gap-2.5 px-5">
+          {stepIndex > 0 ? (
+            <button
+              type="button"
+              aria-label="Back"
+              onClick={() => go(stepIndex - 1)}
+              className="border-hairline text-caption hover:border-brand flex size-8 shrink-0 items-center justify-center rounded-[11px] border-[1.5px] transition-colors"
+            >
+              <ChevronLeftIcon className="size-[15px]" strokeWidth={2} />
+            </button>
+          ) : (
+            <span className="size-8 shrink-0" />
+          )}
+          <span className="flex flex-1 justify-center gap-[5px]">
+            {steps.map((s, i) => (
+              <span
+                key={s}
+                className={cn(
+                  "h-[5px] rounded-full transition-all duration-300",
+                  i === stepIndex
+                    ? "bg-brand w-[18px]"
+                    : i < stepIndex
+                      ? "bg-brand/30 w-[5px]"
+                      : "bg-control-border w-[5px]"
+                )}
+              />
+            ))}
+          </span>
           <button
             type="button"
-            aria-label="Back"
-            onClick={() => go(stepIndex - 1)}
-            className="border-hairline text-caption hover:border-brand flex size-8 shrink-0 items-center justify-center rounded-[11px] border-[1.5px]"
+            onClick={skipAll}
+            disabled={pending}
+            className="text-caption hover:text-ink w-8 shrink-0 text-right text-xs font-medium transition-colors disabled:opacity-50"
           >
-            <ChevronLeftIcon className="size-[15px]" strokeWidth={2} />
+            Skip
           </button>
-        ) : (
-          <span className="size-8 shrink-0" />
-        )}
-        <span className="flex flex-1 justify-center gap-[5px]">
-          {steps.map((s, i) => (
-            <span
-              key={s}
-              className={cn(
-                "h-[5px] rounded-full transition-all duration-300",
-                i === stepIndex
-                  ? "bg-brand w-[18px]"
-                  : i < stepIndex
-                    ? "w-[5px] bg-[#b7c4d3]"
-                    : "bg-control-border w-[5px]"
-              )}
-            />
-          ))}
-        </span>
-        <button
-          type="button"
-          onClick={skipAll}
-          disabled={pending}
-          className="text-caption hover:text-ink w-8 shrink-0 text-right text-xs font-medium disabled:opacity-50"
-        >
-          Skip
-        </button>
-      </header>
+        </header>
+      )}
 
       <main
         key={step}
-        className="mx-auto flex w-full max-w-[420px] flex-1 flex-col overflow-y-auto overscroll-contain px-6"
+        className="relative z-[1] mx-auto flex w-full max-w-[420px] flex-1 flex-col overflow-y-auto overscroll-contain px-6"
       >
         {step === "welcome" && (
-          <div className="flex flex-1 flex-col justify-center gap-[22px] pb-10">
-            <PrograMark
-              size={58}
-              className="shadow-[0_14px_30px_-12px_rgba(28,58,94,.55)]"
-              style={{
-                animation: "pop-in 0.55s cubic-bezier(.34,1.56,.64,1) both",
-              }}
-            />
-            <h1 className="text-ink font-serif text-[40px] leading-[1.08] font-medium tracking-[-0.02em]">
-              Welcome to
-              <br />
-              Progra.
-            </h1>
-            <p className="rise text-[16px] leading-[1.6] text-pretty text-secondary-ink [--rise-delay:.15s]">
-              Progra helps you stop procrastinating on your goals by letting
-              your friends see your progress and hold you accountable.
-            </p>
-            <div className="flex flex-col gap-3">
-              {[
-                ["#4A6FA5", "Set weekly hour goals"],
-                ["#46808A", "Clock in and track your sessions"],
-                ["#A98A38", "Friends see your progress — and your slack"],
-              ].map(([color, label], i) => (
-                <div
-                  key={label}
-                  className="rise flex items-center gap-[11px]"
-                  style={
-                    { "--rise-delay": `${0.3 + i * 0.12}s` } as React.CSSProperties
-                  }
-                >
-                  <span
-                    aria-hidden
-                    className="size-[9px] shrink-0 rounded-[2px]"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span className="text-[13.5px] font-medium text-secondary-ink">
-                    {label}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Identity — Progra needs a handle before anything else can be
-                shared, so it's claimed here rather than in a settings screen. */}
-            <div
-              className="rise flex flex-col gap-3.5 pt-1"
-              style={{ "--rise-delay": ".7s" } as React.CSSProperties}
-            >
-              <Field label="Your name" hint="Optional">
-                <input
-                  className="text-ink w-full border-b-2 border-hairline bg-transparent pb-2 text-[19px] font-medium tracking-[-0.01em] outline-none placeholder:text-disabled"
-                  placeholder="Your name"
-                  maxLength={50}
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                />
-              </Field>
-              <Field label="Username" error={usernameError ?? undefined}>
-                <div className="relative flex items-center">
-                  <span className="text-caption pr-1 text-[19px]">@</span>
-                  <input
-                    className="text-ink min-w-0 flex-1 border-b-2 border-hairline bg-transparent pb-2 text-[19px] font-medium tracking-[-0.01em] outline-none placeholder:text-disabled"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    placeholder="yourhandle"
-                    value={username}
-                    onChange={(e) =>
-                      setUsernameInput(e.target.value.replace(/\s/g, ""))
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && usernameValid && !pending) {
-                        e.preventDefault();
-                        claimUsername();
-                      }
-                    }}
-                  />
-                  {usernameValid && (
-                    <CheckIcon
-                      className="text-brand ml-2 size-5 shrink-0"
-                      strokeWidth={2.2}
-                    />
-                  )}
-                </div>
-              </Field>
-              <AvatarPicker
-                name={displayName.trim() || initialDisplayName}
-                username={username.trim() || initialUsername || "?"}
-                avatarUrl={avatarUrl}
-                sizeClassName="size-14 text-lg"
-              />
-            </div>
-          </div>
+          <WelcomeStep
+            displayName={displayName}
+            onDisplayName={setDisplayName}
+            username={username}
+            onUsername={setUsernameInput}
+            usernameValid={usernameValid}
+            usernameError={usernameError}
+            initialDisplayName={initialDisplayName}
+            initialUsername={initialUsername}
+            avatarUrl={avatarUrl}
+            onSubmit={claimUsername}
+            pending={pending}
+          />
         )}
-
-        {/* What the next few screens are actually asking for. Goals and
-            categories are the same clock with and without a target, and that
-            distinction is invisible in the app until someone explains it. */}
-        {step === "how" && (
-          <StepBody
-            step="how"
-            numbered={numbered}
-            title="How Progra works."
-            body="Your time goes into a goal or a category - the same clock either way, the difference is whether you're aiming at a number. Habits sit beside them for the small daily things."
-          >
-            <div className="border-control-border overflow-hidden rounded-2xl border-[1.5px]">
-              {[
-                {
-                  color: "#4A6FA5",
-                  name: "Goals",
-                  meta: "Weekly target",
-                  copy: "Something you want to put a set number of hours into every week. Progra counts them and tells you where you stand - and so do your friends.",
-                },
-                {
-                  color: "#46808A",
-                  name: "Categories",
-                  meta: "No target",
-                  copy: "Something you just want to see the time on - reading, admin, the gym. Logged the same way; there is simply nothing to hit.",
-                },
-                {
-                  color: "#6B639C",
-                  name: "Habits",
-                  meta: "One tap",
-                  copy: "The small daily things, with no clock at all. You check them off on your Progress tab.",
-                },
-              ].map((row, i) => (
-                <div
-                  key={row.name}
-                  className={cn(
-                    "rise flex flex-col gap-1.5 px-3.5 py-3",
-                    i > 0 && "border-divider border-t"
-                  )}
-                  style={
-                    { "--rise-delay": `${0.1 + i * 0.12}s` } as React.CSSProperties
-                  }
-                >
-                  <div className="flex items-center gap-[9px]">
-                    <span
-                      aria-hidden
-                      className="size-[9px] shrink-0 rounded-[2px]"
-                      style={{ backgroundColor: row.color }}
-                    />
-                    <span className="text-ink text-[13.5px] font-semibold">
-                      {row.name}
-                    </span>
-                    <span className="flex-1" />
-                    <span className="text-faint text-[10px] font-semibold tracking-[0.06em] uppercase">
-                      {row.meta}
-                    </span>
-                  </div>
-                  <p className="text-[12.5px] leading-[1.55] text-pretty text-secondary-ink">
-                    {row.copy}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </StepBody>
-        )}
-
+        {step === "how" && <HowStep eyebrow={eyebrow} />}
         {step === "goal" && (
-          <StepBody
-            step="goal"
-            numbered={numbered}
-            title="Set your first goal."
-            body='Make it a specific, actionable thing you can put hours into every week - be intention-focused instead of outcome-focused. For example, instead of your goal being “Run a marathon”, make your goal “Run 5 hours a week”.'
-          >
-            <Field label="Your goal">
-              <input
-                className="text-ink w-full border-b-2 border-hairline bg-transparent pb-2 text-[19px] font-medium tracking-[-0.01em] outline-none placeholder:text-disabled"
-                placeholder="e.g. Write thesis chapter 3"
-                maxLength={120}
-                value={goalTitle}
-                onChange={(e) => setGoalTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !pending) {
-                    e.preventDefault();
-                    saveGoal();
-                  }
-                }}
-              />
-            </Field>
-            <Field label="Color">
-              <ColorSwatches value={goalColorPick} onChange={setGoalColorPick} />
-            </Field>
-            <Field label="Hours per week">
-              <div className="flex items-center gap-4">
-                <Stepper
-                  label="Fewer hours"
-                  disabled={hours <= 1}
-                  onClick={() => setHours((h) => Math.max(1, h - 1))}
-                >
-                  <MinusIcon className="size-4" />
-                </Stepper>
-                <span className="stat-num min-w-[74px] text-center text-[30px] leading-none">
-                  {hours}h
-                </span>
-                <Stepper
-                  label="More hours"
-                  disabled={hours >= 40}
-                  onClick={() => setHours((h) => Math.min(40, h + 1))}
-                >
-                  <PlusIcon className="size-4" />
-                </Stepper>
-              </div>
-            </Field>
-          </StepBody>
+          <GoalStep
+            eyebrow={eyebrow}
+            title={goalTitle}
+            onTitle={setGoalTitle}
+            color={goalColor}
+            onColor={setGoalColor}
+            hours={hours}
+            onHours={setHours}
+            onSubmit={saveGoal}
+            pending={pending}
+          />
         )}
-
-        {step === "clock" && (
-          <StepBody
-            step="clock"
-            numbered={numbered}
-            title="Try clocking in."
-            body="To track time towards your goal, go to the clock tab. Then, name the session, pick whatever goal you want to work towards, and start. When you are done working towards your goal, you can clock out, and Progra will store your time. The practice one is set to 25 minutes - we will fast forward it for you."
-          >
-            <div className="border-control-border flex flex-col gap-3.5 rounded-2xl border-[1.5px] p-4">
-              {!running ? (
-                <>
-                  <Field label="Name this session">
-                    <div className="border-control-border flex items-center rounded-[13px] border-[1.5px]">
-                      <input
-                        className="text-ink h-12 min-w-0 flex-1 bg-transparent pl-3.5 text-[15px] font-medium outline-none placeholder:text-disabled"
-                        placeholder="e.g. Quick run around neighborhood"
-                        value={practiceTask}
-                        onChange={(e) => setPracticeTask(e.target.value)}
-                      />
-                      <span className="text-disabled px-3.5 text-xs font-medium whitespace-nowrap">
-                        + note
-                      </span>
-                    </div>
-                  </Field>
-                  <div className="flex gap-2">
-                    <span className="border-control-border text-body flex h-[38px] min-w-0 flex-1 items-center justify-center gap-[7px] rounded-xl border-[1.5px] px-2.5 text-[12.5px] font-semibold">
-                      <span
-                        aria-hidden
-                        className="size-2 shrink-0 rounded-[2px]"
-                        style={{ backgroundColor: goalTint }}
-                      />
-                      <span className="truncate">{goalDisplay}</span>
-                      <ChevronDownIcon
-                        className="text-disabled size-3 shrink-0"
-                        strokeWidth={2.4}
-                      />
-                    </span>
-                    <span className="border-control-border text-body flex h-[38px] shrink-0 items-center gap-[7px] rounded-xl border-[1.5px] px-3 text-[12.5px] font-semibold">
-                      <ClockIcon className="text-caption size-[13px]" />
-                      25m
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={startPractice}
-                    className="bg-brand text-primary-foreground h-[50px] w-full rounded-[14px] text-[15px] font-semibold shadow-[0_10px_22px_-10px_rgba(28,58,94,.55)] transition-transform active:scale-[.98]"
-                  >
-                    Clock in for 25m
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div className="flex flex-col gap-1">
-                    <span className="stat-num text-[52px] leading-[0.95]">
-                      {formatSim(sim)}
-                    </span>
-                    <div className="flex items-center gap-[7px] pt-2">
-                      <span
-                        aria-hidden
-                        className="size-2 shrink-0 animate-[pulse-dot_1.6s_infinite] rounded-full"
-                        style={{ backgroundColor: goalTint }}
-                      />
-                      <span className="text-body truncate text-[13px] font-semibold">
-                        {practiceTask.trim() || goalDisplay}
-                      </span>
-                      <span className="flex-1" />
-                      <span className="text-faint text-xs whitespace-nowrap">
-                        25m target
-                      </span>
-                    </div>
-                  </div>
-                  <div className="bg-track h-2 overflow-hidden rounded-full">
-                    <div
-                      className="h-full rounded-full transition-[width] duration-100 ease-linear"
-                      style={{
-                        width: `${Math.min(100, (sim / SIM_TARGET_MS) * 100)}%`,
-                        backgroundColor: goalTint,
-                      }}
-                    />
-                  </div>
-                  <span className="text-caption text-center text-xs font-medium">
-                    {fast
-                      ? "Fast-forwarding — you get the idea."
-                      : "It's running. Sit back — we'll fast-forward this one."}
-                  </span>
-                </>
-              )}
-            </div>
-          </StepBody>
-        )}
-
-        {/* Straight after the practice clock-in, which is what makes the point:
-            they have just seen a session run away from them on fast-forward. */}
-        {step === "notify" && (
-          <StepBody
-            step="notify"
-            numbered={numbered}
-            title="Don't lose track of time."
-            body="Work for long enough and it's easy to forget you're still clocked in. We can nudge you each hour so a session never runs away with your evening."
-          >
-            {notifyPermission === "granted" ? (
-              <div className="flex items-center gap-2 pt-0.5">
-                <CheckIcon
-                  className="size-4 text-success"
-                  strokeWidth={2.4}
-                />
-                <span className="text-[13px] font-semibold text-success">
-                  Notifications are on — we&rsquo;ll remind you.
-                </span>
-              </div>
-            ) : notifyPermission === "denied" ? (
-              // Terminal. iOS asks once and never again, so the only way back
-              // is Settings — and saying so is better than an Enable button
-              // that would silently do nothing.
-              <div className="border-control-border flex flex-col gap-3 rounded-2xl border-[1.5px] p-4">
-                <p className="text-caption text-[13px] leading-[1.55] text-pretty">
-                  Notifications are turned off for Progra, and iOS only asks
-                  once. You can switch them back on in Settings.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    track("notification_settings_opened", {
-                      source: "onboarding",
-                      state: notifyPermission,
-                    });
-                    openNotificationSettings();
-                  }}
-                  className="border-control-border h-[46px] w-full rounded-[13px] border-[1.5px] text-sm font-semibold transition-transform active:scale-[.98]"
-                >
-                  Open Settings
-                </button>
-              </div>
-            ) : (
-              // `prompt`, and also null/unavailable — which on this step can
-              // only be a brief pre-read flicker, since it doesn't render at
-              // all off-native. No button in the card: the pinned CTA asks.
-              <div className="border-control-border flex flex-col gap-3 rounded-2xl border-[1.5px] p-4">
-                <NotifyLine>
-                  A nudge each hour you&rsquo;re still clocked in
-                </NotifyLine>
-                <NotifyLine>
-                  An alert when a timed session reaches its target
-                </NotifyLine>
-                {HABIT_REMINDERS && (
-                  <NotifyLine>
-                    A daily reminder for habits you haven&rsquo;t checked off
-                  </NotifyLine>
-                )}
-                <NotifyLine>
-                  Nothing else — no streaks, no marketing
-                </NotifyLine>
-              </div>
-            )}
-          </StepBody>
-        )}
-
-        {step === "post" && (
-          <StepBody
-            step="post"
-            numbered={numbered}
-            title="Nice - now share it."
-            body={
-              <>
-                When you clock out, you can post the session to your feed -
-                usually with a photo of what you got done. Try it -{" "}
-                <strong className="text-body font-semibold">
-                  this is practice, nothing will actually be posted.
-                </strong>
-              </>
-            }
-          >
-            <div className="border-control-border flex flex-col gap-3 rounded-2xl border-[1.5px] p-4">
-              <div className="flex items-center gap-2.5">
-                <span className="bg-inset text-caption flex size-[34px] items-center justify-center rounded-full text-[13px] font-semibold">
-                  You
-                </span>
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="text-body text-[13px] font-semibold">
-                    Your first session
-                  </span>
-                  <span className="text-faint truncate text-[11px]">
-                    25m · {goalDisplay}
-                  </span>
-                </div>
-                <span
-                  aria-hidden
-                  className="size-[9px] shrink-0 rounded-[2px]"
-                  style={{ backgroundColor: goalTint }}
-                />
-              </div>
-              {photo ? (
-                <div className="flex h-[76px] items-center justify-center gap-2 rounded-xl bg-[linear-gradient(135deg,#dfe5ec,#eef0f3)]">
-                  <ImageIcon className="size-4 text-secondary-ink" />
-                  <span className="text-xs font-semibold whitespace-nowrap text-secondary-ink">
-                    desk-photo.jpg attached
-                  </span>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setPhoto(true)}
-                  className="text-caption hover:border-brand flex h-[76px] w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-dashed border-[#d5d9df] bg-inset-2 text-[12.5px] font-semibold"
-                >
-                  <ImageIcon className="size-4" />
-                  Add a photo
-                </button>
-              )}
-              <input
-                className="text-ink w-full border-b-2 border-hairline bg-transparent pb-2 text-sm outline-none placeholder:text-disabled"
-                placeholder="Say something about it…"
-                value={postText}
-                onChange={(e) => setPostText(e.target.value)}
-              />
-              {posted ? (
-                <div className="flex items-center gap-2 pt-0.5">
-                  <CheckIcon
-                    className="size-4 text-success"
-                    strokeWidth={2.4}
-                  />
-                  <span className="text-[13px] font-semibold text-success">
-                    Got it - that&rsquo;s the whole flow. Nothing was posted.
-                  </span>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPosted(true);
-                    toast.success("Practice only — nothing was posted");
-                  }}
-                  className="bg-brand text-primary-foreground h-[46px] w-full rounded-[13px] text-sm font-semibold transition-transform active:scale-[.98]"
-                >
-                  Post to feed
-                </button>
-              )}
-            </div>
-          </StepBody>
-        )}
-
         {step === "habit" && (
-          <StepBody
-            step="habit"
-            numbered={numbered}
-            title="Quick habits, too."
-            body="Not everything needs a timer. Habits are one-tap daily check-offs on your Progress tab, right under your week."
-          >
-            {/* A mock of the Progress tab, so the habits land somewhere the
-                user recognises later. */}
-            <div className="border-control-border overflow-hidden rounded-2xl border-[1.5px]">
-              <div className="flex flex-col gap-1.5 px-3.5 pt-3 pb-2.5 opacity-45">
-                <div className="flex items-center gap-[7px]">
-                  <span className="section-label">This week</span>
-                  <span className="flex-1" />
-                  <span className="text-caption text-[10px] font-semibold">
-                    {hours}h goal
-                  </span>
-                </div>
-                <span className="stat-num text-[22px] leading-[0.9]">2.1h</span>
-                <div className="bg-track flex h-[7px] overflow-hidden rounded-full">
-                  <div
-                    className="h-full"
-                    style={{ width: "42%", backgroundColor: goalTint }}
-                  />
-                </div>
-              </div>
-              <div className="border-hairline flex flex-col gap-2 border-t px-3.5 pt-2.5 pb-3">
-                <div className="flex items-center gap-[7px]">
-                  <span className="text-brand text-[10px] font-semibold uppercase tracking-[0.14em]">
-                    Habits
-                  </span>
-                  <span className="flex-1" />
-                  <span className="text-caption text-[10px] font-semibold">
-                    0 of {Math.max(picked.length, 1)}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-x-[9px] gap-y-1.5">
-                  {(picked.length > 0
-                    ? picked
-                    : [{ name: "Your habits…", color: null }]
-                  ).map((h) => (
-                    <div
-                      key={h.name}
-                      className="flex min-w-0 items-center gap-[7px] rounded-[12px] border-[1.5px] py-[5px] pr-[9px] pl-[7px]"
-                      style={{
-                        borderColor: h.color ?? "var(--control-border)",
-                        backgroundColor: h.color ? "#fff" : "var(--inset-2)",
-                      }}
-                    >
-                      <span
-                        className="size-5 shrink-0 rounded-[7px] border-[1.5px] bg-white"
-                        style={{
-                          borderColor: h.color ?? "#d5d9df",
-                        }}
-                      />
-                      <span
-                        className={cn(
-                          "min-w-0 flex-1 truncate text-xs font-medium",
-                          h.color ? "text-body" : "text-disabled"
-                        )}
-                      >
-                        {h.name}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <span className="section-label">Pick a few to start</span>
-              <div className="grid grid-cols-2 gap-2">
-                {PRESETS.map((p) => {
-                  const on = picked.some((h) => h.name === p.name);
-                  return (
-                    <div key={p.name} className="relative flex">
-                      <button
-                        type="button"
-                        aria-pressed={on}
-                        onClick={() => togglePreset(p)}
-                        className="text-body flex min-w-0 flex-1 items-center gap-[7px] rounded-[12px] border-[1.5px] bg-white px-2.5 py-2 text-[12.5px] font-semibold transition-transform active:scale-[.96]"
-                        style={{
-                          borderColor: on ? p.color : "var(--control-border)",
-                        }}
-                      >
-                        <span
-                          className="flex size-[18px] shrink-0 items-center justify-center rounded-[6px] border-[1.5px] text-white"
-                          style={{
-                            borderColor: on ? p.color : "#d5d9df",
-                            backgroundColor: on ? p.color : "#fff",
-                          }}
-                        >
-                          {on && (
-                            <CheckIcon className="size-3" strokeWidth={3.2} />
-                          )}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-left">
-                          {p.name}
-                        </span>
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`Why ${p.name}?`}
-                          onMouseEnter={() => setHint(p.name)}
-                          onMouseLeave={() => setHint(null)}
-                          onFocus={() => setHint(p.name)}
-                          onBlur={() => setHint(null)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setHint(hint === p.name ? null : p.name);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setHint(hint === p.name ? null : p.name);
-                            }
-                          }}
-                          className="text-caption flex size-4 shrink-0 cursor-help items-center justify-center rounded-full border-[1.5px] border-[#d5d9df] text-[10px] font-semibold"
-                        >
-                          ?
-                        </span>
-                      </button>
-                      <span
-                        role="tooltip"
-                        className={cn(
-                          "text-primary-foreground pointer-events-none absolute bottom-[calc(100%+7px)] z-10 w-[206px] rounded-[10px] bg-[#12171d] px-[11px] py-2 text-[11px] leading-[1.5] shadow-[0_10px_24px_-8px_rgba(18,23,29,.45)] transition-opacity",
-                          hint === p.name ? "opacity-100" : "opacity-0",
-                          PRESETS.indexOf(p) % 2 === 0 ? "left-0" : "right-0"
-                        )}
-                      >
-                        {p.tip}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="flex items-end gap-2 pt-0.5">
-                <input
-                  className="text-ink min-w-0 flex-1 border-b-2 border-hairline bg-transparent pb-2 text-[15px] font-medium outline-none placeholder:text-disabled"
-                  placeholder="Or add your own…"
-                  value={habitDraft}
-                  onChange={(e) => setHabitDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addOwnHabit();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={addOwnHabit}
-                  className="border-hairline text-brand hover:border-brand h-[34px] shrink-0 rounded-[11px] border-[1.5px] px-3 text-xs font-semibold"
-                >
-                  + Add
-                </button>
-              </div>
-              {/* An inline row rather than its own step: the steps array
-                  changing length mid-flow is exactly what the `native` gate
-                  was designed to avoid, and this is one input. Shell + granted
-                  only — a time picker for notifications that can't arrive is
-                  noise; Settings has the full control either way. Saved by
-                  saveHabits, so skipping the step keeps the default. */}
-              {HABIT_REMINDERS &&
-                native &&
-                notifyPermission === "granted" &&
-                (picked.length > 0 || habitDraft.trim() !== "") && (
-                  <div className="border-control-border flex items-center gap-2.5 rounded-2xl border-[1.5px] px-4 py-3">
-                    <span className="text-caption flex-1 text-[13px] leading-[1.5]">
-                      Remind me at
-                      <span className="text-faint"> (6pm works well)</span>
-                    </span>
-                    <input
-                      type="time"
-                      value={reminderTime}
-                      onChange={(e) => {
-                        if (!e.target.value) return;
-                        setReminderTime(e.target.value);
-                      }}
-                      className="border-hairline text-ink rounded-lg border px-2 py-1 text-sm font-medium tabular-nums"
-                    />
-                  </div>
-                )}
-            </div>
-          </StepBody>
+          <HabitStep
+            eyebrow={eyebrow}
+            picked={picked}
+            onToggle={toggleHabit}
+            draft={habitDraft}
+            onDraft={setHabitDraft}
+            onAdd={addOwnHabit}
+          />
         )}
-
-        {step === "recap" && (
-          <StepBody
-            step="recap"
-            numbered={numbered}
-            title="Friends are the point."
-            body={`Add the people whose opinion you would rather not disappoint. They see your hours all week and you see theirs - and every Sunday everyone's week lands in the same list: who hit their goal, who missed. Yours is ${hours}h.`}
-          >
-            <div className="border-control-border overflow-hidden rounded-2xl border-[1.5px]">
-              <div className="flex items-center gap-[7px] px-3.5 pt-3 pb-2">
-                <span className="section-label">
-                  This week&rsquo;s leaderboard
-                </span>
-              </div>
-              {[
-                ["1", "MP", "Maya P.", "hit 8h goal", "8.6h", "hit ✓", true],
-                ["2", "Y", "You", goalDisplay, `${hours}h`, "on track", false],
-                ["3", "PS", "Priya S.", "hit 6h goal", "6.4h", "hit ✓", true],
-                ["4", "SK", "Sam K.", "missed 6h goal", "4.1h", "missed ✗", false],
-              ].map(([rank, initials, name, sub, hoursLabel, badge, hit]) => (
-                <div
-                  key={rank as string}
-                  className="border-divider flex items-center gap-[11px] border-t px-3.5 py-2"
-                  style={
-                    name === "You"
-                      ? { backgroundColor: "var(--tint-you)" }
-                      : undefined
-                  }
-                >
-                  <span className="text-ink w-4 text-center font-serif text-[13px] font-semibold tabular-nums">
-                    {rank as string}
-                  </span>
-                  <span className="bg-inset text-caption flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold">
-                    {initials as string}
-                  </span>
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="text-body text-[12.5px] font-semibold">
-                      {name as string}
-                    </span>
-                    <span className="text-faint truncate text-[10.5px]">
-                      {sub as string}
-                    </span>
-                  </div>
-                  <span className="shrink-0 text-[12.5px] font-semibold tabular-nums text-secondary-ink">
-                    {hoursLabel as string}
-                  </span>
-                  <span
-                    className={cn(
-                      "w-[60px] shrink-0 text-right text-[11px] font-semibold whitespace-nowrap",
-                      hit ? "text-success" : "text-cat-burnt",
-                      name === "You" && "text-brand"
-                    )}
-                  >
-                    {badge as string}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <span className="text-faint text-xs">
-              That little &ldquo;missed&rdquo; is the whole trick. Nobody wants
-              their friends to see it.
-            </span>
-          </StepBody>
+        {step === "clock" && (
+          <ClockStep
+            eyebrow={eyebrow}
+            goalTitle={goalTitle}
+            goalColor={goalColor}
+            task={practiceTask}
+            onTask={setPracticeTask}
+            onRunningChange={setClockRunning}
+            onDone={next}
+          />
         )}
-
-        {step === "invite" && (
-          <StepBody
-            step="invite"
-            numbered={numbered}
-            title="Want to take your goals seriously?"
-            body="Invite friends to hold you accountable. Progra works because someone is watching."
-          >
-            <div className="border-control-border bg-inset flex flex-col gap-3 rounded-2xl border-[1.5px] p-4">
-              <span className="section-label">Your invite message</span>
-              <p className="text-ink font-serif text-[15px] leading-[1.55] text-pretty">
-                “{inviteMessage}”
-              </p>
-            </div>
-            <InviteShare
-              username={username.trim() || initialUsername}
-              message={inviteMessage}
-            />
-          </StepBody>
+        {step === "notify" && <NotifyStep eyebrow={eyebrow} permission={notifyPermission} />}
+        {step === "post" && (
+          <PostStep
+            eyebrow={eyebrow}
+            name={displayName.trim() || initialDisplayName}
+            username={username.trim() || initialUsername || "?"}
+            avatarUrl={avatarUrl}
+            goalTitle={goalTitle}
+            goalColor={goalColor}
+            photo={photo}
+            onPhoto={() => setPhoto(true)}
+            caption={caption}
+            onCaption={setCaption}
+            posted={posted}
+            onPost={() => setPosted(true)}
+          />
         )}
-
-        {step === "go" && (
-          <div className="flex flex-1 flex-col justify-center gap-5 pb-10">
-            <h1 className="text-ink font-serif text-[52px] leading-[1.02] font-medium tracking-[-0.03em]">
-              <span className="rise inline-block">Ready.</span>
-              <br />
-              <span
-                className="rise inline-block"
-                style={{ "--rise-delay": ".45s" } as React.CSSProperties}
-              >
-                Set.
-              </span>
-              <br />
-              <span
-                className="text-brand rise inline-block"
-                style={{ "--rise-delay": ".95s" } as React.CSSProperties}
-              >
-                GO!
-              </span>
-            </h1>
-            <p
-              className="rise text-[15px] leading-[1.6] text-pretty text-secondary-ink"
-              style={{ "--rise-delay": "1.5s" } as React.CSSProperties}
-            >
-              Your week starts now: {hours} hours on “{goalDisplay}”
-              {picked.length > 0
-                ? `, plus ${picked.map((h) => h.name.toLowerCase()).join(", ")} every day.`
-                : "."}{" "}
-              Your friends will see how it goes.
-            </p>
-            <div
-              className="rise flex flex-col gap-2.5"
-              style={{ "--rise-delay": "1.8s" } as React.CSSProperties}
-            >
-              <div className="border-hairline flex items-center gap-2.5 border-t pt-2.5">
-                <span
-                  aria-hidden
-                  className="size-[9px] shrink-0 rounded-[2px]"
-                  style={{ backgroundColor: goalTint }}
-                />
-                <span className="text-body min-w-0 flex-1 truncate text-[13.5px] font-semibold">
-                  {goalDisplay}
-                </span>
-                <span className="shrink-0 text-[13px] font-semibold tabular-nums text-secondary-ink">
-                  {hours}h/wk
-                </span>
-              </div>
-              {picked.length > 0 && (
-                <div className="border-hairline flex items-center gap-2.5 border-t pt-2.5">
-                  <CheckIcon
-                    className="text-caption size-3.5 shrink-0"
-                    strokeWidth={2.2}
-                  />
-                  <span className="text-body min-w-0 flex-1 truncate text-[13.5px] font-semibold">
-                    {picked.map((h) => h.name).join(", ")}
-                  </span>
-                  <span className="text-faint shrink-0 text-xs whitespace-nowrap">
-                    {picked.length > 1 ? "daily habits" : "daily habit"}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* The one ask on this screen. Its own rise step so it lands after
-                the summary rather than competing with it, and off by default —
-                a pre-ticked box isn't consent. */}
-            <div
-              className="rise border-hairline flex items-start gap-3 border-t pt-3"
-              style={{ "--rise-delay": "2.1s" } as React.CSSProperties}
-            >
-              <label
-                htmlFor="interview-consent"
-                className="flex min-w-0 flex-1 flex-col gap-0.5"
-              >
-                <span className="text-body text-[13.5px] font-semibold">
-                  Open to a short chat about how it&rsquo;s going?
-                </span>
-                <span className="text-faint text-xs leading-[1.45]">
-                  We&rsquo;d email you at your sign-in address. Turn it off any
-                  time in Settings.
-                </span>
-              </label>
-              <ToggleSwitch
-                id="interview-consent"
-                checked={consent}
-                onCheckedChange={setConsent}
-                ariaLabel="Open to a research interview"
-              />
-            </div>
-          </div>
+        {step === "friends" && (
+          <FriendsStep
+            eyebrow={eyebrow}
+            nudgeOpen={nudgeOpen}
+            onOpenNudge={() => setNudgeOpen(true)}
+            nudged={nudged}
+            onNudge={setNudged}
+          />
         )}
       </main>
 
-      {/* Pinned CTA */}
-      <div className="flex flex-none flex-col gap-2.5 px-6 pt-3.5 pb-[max(env(safe-area-inset-bottom),24px)]">
-        <button
-          type="button"
-          onClick={cta[step].onClick}
-          disabled={pending}
-          className={cn(
-            "bg-brand text-primary-foreground h-[52px] w-full rounded-[15px] text-base font-semibold shadow-[0_10px_22px_-10px_rgba(28,58,94,.55)] transition-[transform,opacity] active:scale-[.98]",
-            cta[step].dim && "opacity-40"
-          )}
-        >
-          {cta[step].label}
-        </button>
-        {skippable && (
-          <button
-            type="button"
-            onClick={() => {
-              if (step === "habit") {
-                setPicked([]);
-                setHabitDraft("");
-              }
-              // Nothing to reset for `notify` — skipping is precisely NOT
-              // asking, which leaves the one-shot dialog unspent for Settings
-              // or the live timer to offer later.
-              if (step === "notify") {
-                track("notification_permission_skipped", {
-                  source: "onboarding",
-                  state: notifyPermission ?? "unknown",
-                });
-              }
-              go(stepIndex + 1);
-            }}
-            className="text-caption hover:text-brand self-center text-xs font-medium"
-          >
-            Skip for now
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Pieces ─────────────────────────────────────────────────────────────────
-
-// The shared shape of a middle step: numbered eyebrow, serif title, body copy,
-// then whatever that step's controls are — each entering on the rise stagger.
-function StepBody({
-  step,
-  // Passed in rather than read from module scope: the list is one shorter on
-  // the web, where the notify step doesn't exist, so "step N of M" has to come
-  // from the same array the dots are drawn from.
-  numbered,
-  title,
-  body,
-  children,
-}: {
-  step: Step;
-  numbered: readonly Step[];
-  title: string;
-  body: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  const n = numbered.indexOf(step) + 1;
-  const practice = step === "clock" || step === "post";
-  return (
-    <div className="flex flex-col gap-[18px] pt-[18px] pb-6">
-      <span className="section-label rise">
-        Step {n} of {numbered.length}
-        {practice && " · Practice"}
-      </span>
-      <h1
-        className="text-ink rise font-serif text-[30px] leading-[1.12] font-medium tracking-[-0.02em]"
-        style={{ "--rise-delay": ".1s" } as React.CSSProperties}
-      >
-        {title}
-      </h1>
-      <p
-        className="rise text-sm leading-[1.6] text-pretty text-secondary-ink"
-        style={{ "--rise-delay": ".25s" } as React.CSSProperties}
-      >
-        {body}
-      </p>
-      <div
-        className="rise flex flex-col gap-[18px]"
-        style={{ "--rise-delay": ".4s" } as React.CSSProperties}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-// One promise the notification step makes, ticked. Listing them is the whole
-// argument for granting — the ask is unrepeatable, so it has to be specific
-// about what arrives and, just as importantly, what doesn't.
-function NotifyLine({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-start gap-2.5">
-      <CheckIcon
-        className="mt-[3px] size-[15px] shrink-0 text-success"
-        strokeWidth={2.4}
-      />
-      <span className="text-body text-[13.5px] leading-[1.45]">{children}</span>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  hint,
-  error,
-  children,
-}: {
-  label: string;
-  // A quiet note ("Optional"); `error` is the same slot in terracotta.
-  hint?: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-[7px]">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="section-label">{label}</span>
-        {(error || hint) && (
-          <span
+      {!done && (
+        <div className="relative z-[2] mx-auto flex w-full max-w-[420px] flex-none flex-col gap-2.5 px-6 pt-3.5 pb-[max(env(safe-area-inset-bottom),24px)]">
+          <PrimaryButton
+            size="screen"
+            onClick={cta[step].onClick}
+            disabled={pending}
+            aria-disabled={cta[step].dim || undefined}
             className={cn(
-              "text-[11px]",
-              error ? "text-destructive" : "text-faint"
+              "transition-[transform,opacity] duration-200",
+              cta[step].dim && "opacity-40"
             )}
           >
-            {error ?? hint}
-          </span>
-        )}
-      </div>
-      {children}
+            {cta[step].label}
+          </PrimaryButton>
+          {quietSkip[step] && (
+            <button
+              type="button"
+              onClick={quietSkip[step].onClick}
+              className="text-caption hover:text-brand self-center p-0.5 text-xs font-medium transition-colors"
+            >
+              {quietSkip[step].label}
+            </button>
+          )}
+        </div>
+      )}
+
+      {done && (
+        <DoneSplash summary={doneSummary({ hours, goalTitle, habits: picked })} />
+      )}
     </div>
   );
-}
-
-function Stepper({
-  label,
-  disabled,
-  onClick,
-  children,
-}: {
-  label: string;
-  disabled?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="border-hairline text-caption flex size-[38px] items-center justify-center rounded-xl border-[1.5px] transition-transform active:scale-90 disabled:opacity-35"
-    >
-      {children}
-    </button>
-  );
-}
-
-// m:ss for the practice simulation.
-function formatSim(ms: number): string {
-  const total = Math.floor(ms / 1000);
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }

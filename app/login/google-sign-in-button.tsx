@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
 import { buildNonce } from "@/lib/auth/nonce";
 import { createClient } from "@/lib/supabase/client";
 import { isNativeApp } from "@/lib/native";
 import { GOOGLE_IOS_CLIENT_ID } from "@/lib/native-auth";
 import { signInWithGoogleIdToken } from "@/app/actions/native-auth";
+
+import { AUTH_BUTTON } from "./auth-button";
 
 // MODULE scope, not component state: at most one native sign-in at a time. A
 // remount would reset component state while the native picker is still up.
@@ -18,7 +19,9 @@ export function GoogleSignInButton({
   next,
   referrer,
   label = "Continue with Google",
-  disabled = false,
+  locked = false,
+  onLocked,
+  describedBy,
 }: {
   next?: string;
   // Inviter's username (from /i/[username]). Carried through OAuth as `?ref=` so
@@ -26,12 +29,20 @@ export function GoogleSignInButton({
   // `ref`, because React intercepts a `ref` prop and it would never arrive here.
   referrer?: string;
   label?: string;
-  // Set by SignInButtons until the terms checkbox is ticked (Guideline 1.2).
-  disabled?: boolean;
+  // True until the terms checkbox is ticked (Guideline 1.2). The tap still
+  // lands — it calls onLocked (the terms row shakes) and goes no further.
+  locked?: boolean;
+  onLocked?: () => void;
+  describedBy?: string;
 }) {
   const [loading, setLoading] = useState(false);
 
   async function handleClick() {
+    if (locked) {
+      onLocked?.();
+      return;
+    }
+    if (loading) return;
     setLoading(true);
     const supabase = createClient();
 
@@ -141,12 +152,15 @@ export function GoogleSignInButton({
   }
 
   return (
-    <Button
-      className="h-11 w-full text-base"
+    <button
+      type="button"
+      className={`${AUTH_BUTTON} bg-brand text-primary-foreground shadow-[0_10px_22px_-10px_rgba(28,58,94,.55)]`}
       onClick={handleClick}
-      disabled={loading || disabled}
+      disabled={loading}
+      aria-disabled={locked || undefined}
+      aria-describedby={locked ? describedBy : undefined}
     >
       {loading ? "Redirecting…" : label}
-    </Button>
+    </button>
   );
 }

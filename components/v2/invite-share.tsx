@@ -2,74 +2,35 @@
 
 import { toast } from "sonner";
 
-import { track } from "@/lib/analytics";
-
-// The Web Share API isn't on every navigator at the TS lib level.
-type ShareCapableNavigator = Navigator & {
-  share?: (data: {
-    title?: string;
-    text?: string;
-    url?: string;
-  }) => Promise<void>;
-};
-
-// Canonical host for the DISPLAYED link. The actual shared/copied URL is built
-// from window.location.origin at click time, so it's environment-correct
-// (localhost in dev, the real host in prod) without any render-time window read.
-const SITE_HOST = "progra.world";
-const SHARE_TEXT =
-  "Join me on Progra — we track our study time and keep each other honest.";
+import {
+  DEFAULT_INVITE_TEXT,
+  SITE_HOST,
+  copyInvite,
+  shareInvite,
+} from "@/lib/invite-share";
 
 // Share/copy the current user's own invite link (/i/{username}). Used by the
-// onboarding invite step and the empty-feed state. No state/effect: the button
-// reads window only inside click handlers, so it's hydration-safe.
+// empty-feed state (and, before the 2026-09-15 redesign, the onboarding invite
+// step). No state/effect: the buttons read window only inside click handlers,
+// so it's hydration-safe.
 export function InviteShare({
   username,
   message,
 }: {
   username: string;
-  // Onboarding personalises this ("My goal this week is to spend 5 hours on
-  // …"); everywhere else falls back to the generic line.
   message?: string;
 }) {
-  const text = message ?? SHARE_TEXT;
-  const linkFor = () =>
-    typeof window !== "undefined"
-      ? `${window.location.origin}/i/${username}`
-      : `https://${SITE_HOST}/i/${username}`;
-  // Message AND link, as one block. Both buttons send exactly this, so what
-  // gets pasted into a chat can't depend on which one was tapped.
-  const shareBody = () => `${text}\n${linkFor()}`;
+  const text = message ?? DEFAULT_INVITE_TEXT;
 
   async function copy() {
-    try {
-      await navigator.clipboard.writeText(shareBody());
-      toast.success("Invite link copied");
-    } catch {
-      toast.error("Couldn't copy — long-press the link to copy it.");
-    }
+    if (await copyInvite(text, username)) toast.success("Invite link copied");
+    else toast.error("Couldn't copy — long-press the link to copy it.");
   }
 
   async function share() {
-    const nav = navigator as ShareCapableNavigator;
-    if (typeof nav.share === "function") {
-      try {
-        // The link rides inside `text` rather than in `url`. Share targets
-        // pick and choose between the two fields — several of the ones people
-        // actually invite through take the text and drop the url, which sent
-        // an invite with no way to accept it. Passing both instead would
-        // print the link twice wherever a target honours both.
-        await nav.share({ title: "Progra", text: shareBody() });
-        // Only after the sheet resolves — an AbortError below means the user
-        // dismissed it, which isn't an invite.
-        track("invite_sent", { method: "share_sheet" });
-        return;
-      } catch (e) {
-        if ((e as Error).name === "AbortError") return; // user dismissed the sheet
-        // any other failure → fall through to copy
-      }
-    }
-    copy();
+    const outcome = await shareInvite(text, username);
+    if (outcome === "copied") toast.success("Invite link copied");
+    if (outcome === "failed") toast.error("Couldn't copy — long-press the link to copy it.");
   }
 
   return (

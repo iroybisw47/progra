@@ -127,7 +127,7 @@ unaffected.
 | `/login` | `app/login/page.tsx` | `google-sign-in-button.tsx` | Google OAuth entry. |
 | `/auth/callback` | `route.ts` | — | OAuth code exchange → session. |
 | `/auth/signout` | `route.ts` | — | Sign out. |
-| `/onboarding` | `onboarding/page.tsx` | `onboarding-client-v2.tsx` (redesign) / `onboarding-client.tsx` (legacy) | First-run wizard. Redesign: 10-step flow, 9 on web (welcome→how→goal→clock→notify→post→habit→friends→invite→go; `notify` is native-only) — no calendar step; connect lives in History/Settings. Home redirects here while `profiles.onboarded_at` is null; "Replay onboarding" re-enters it. |
+| `/onboarding` | `onboarding/page.tsx` | `onboarding-client-v2.tsx` (redesign) / `onboarding-client.tsx` (legacy) | First-run wizard. Redesign (2026-09-15): 8-step flow, 7 on web (welcome→how→goal→habit→clock→notify→post→friends, then a Done splash; `notify` is native-only). The shell (`onboarding-client-v2.tsx`) owns all state and every write; steps are props-down components in `onboarding/steps/`. Headlines type in (`components/v2/typed-headline.tsx`). Back → re-save updates the existing goal / creates only new habits (the create actions return the new `id` for this). `components/onboarding/conversation.tsx` is unused since this rewrite. Home redirects here while `profiles.onboarded_at` is null; "Replay onboarding" re-enters it. |
 | `/search` | `search/page.tsx` | — | Placeholder ("Coming soon") for a future search surface. |
 | `/clock` | `clock/page.tsx` | `clock-client.tsx` | Clock in/out/pause; live timer; week strip. |
 | `/goals` | `goals/page.tsx` | `goals-client.tsx` | Weekly quotas and progress. |

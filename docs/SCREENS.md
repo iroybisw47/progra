@@ -34,8 +34,8 @@ Sheet / AlertDialog overlay).
 | Screen ID | Route | Kind | Entered from | Gate | File:line |
 |---|---|---|---|---|---|
 | R01 | `/` (Progress / home) | route | BottomNav "Progress"; post-login redirect | `getCurrentUser`; `!user`→SignedOutLanding; REDESIGN→`onboarded_at` redirect | app/page.tsx:19-56 |
-| R02 | `/login` | route | any gated route when signed out | public; `getCurrentUser`→`redirect(next)` if authed | app/login/page.tsx:13-25 |
-| R03 | `/onboarding` | route | `/` redirect when `onboarded_at` null; replay button | `requireUser`; REDESIGN→v2 wizard else legacy | app/onboarding/page.tsx:32-48 |
+| R02 | `/login` | route | any gated route when signed out | public; `getCurrentUser`→`redirect(next)` if authed. 2026-09-15 redesign: drifting brand mark, "Progra" typing itself in (`TypedHeadline`), tagline, `WeekPulse` bars, then `SignInButtons entrance` — everything rise-staggered, stilled under reduced motion (`data-login`) | app/login/page.tsx |
+| R03 | `/onboarding` | route | `/` redirect when `onboarded_at` null; replay button | `requireUser`; REDESIGN→v2 wizard else legacy | app/onboarding/page.tsx |
 | R04 | `/feed` | route | BottomNav "Feed"; `/session/[id]` back-link | `!REDESIGN`→`notFound`; `requireUser` | app/feed/page.tsx:9-12 |
 | R05 | `/friends` | route | BottomNav "Friends"; feed/dashboard/profile links | `!SOCIAL_ENABLED`→`notFound`; `requireUser` | app/friends/page.tsx:18-20 |
 | R06 | `/me` (You) | route | BottomNav "You" | `!SOCIAL_ENABLED`→`notFound`; `requireUser`; REDESIGN inline profile, else Dashboard | app/me/page.tsx:36-44 |
@@ -133,10 +133,10 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S09 | live-timer-client | status | "Paused" vs "Tracking" (timer color, Resume/Pause, glow) | `paused = pausedSince != null` | app/clock/live/live-timer-client.tsx:282-288,401 |
 | S10 | live-timer-client | other | "Photo attached" chip vs "Add photo" | `hasPhoto ?` | app/clock/live/live-timer-client.tsx:375 |
 | S11 | live-timer-client | edit sub-state | edit sheet: "Ended at" + "Finish session" vs "Save" | `!stillRunning &&` | app/clock/live/live-timer-client.tsx:504,520 |
-| S12 | onboarding-client-v2 (REDESIGN) | step | 10-step machine (9 on web): welcome→**how**→goal→clock→*notify*→post→habit→friends→invite→go. `notify` is native-only; `clock` and `post` are deliberate simulations, the goal and habits are created for real; calendar connect lives in History/Settings | `useState<Step>` | app/onboarding/onboarding-client-v2.tsx |
-| S13 | onboarding-client-v2 | phase (per step) | conversational typing→streaming→ready reveal | `Conversation` engine | app/onboarding/onboarding-client-v2.tsx:19-23 |
-| S14 | conversation.tsx | phase | typing indicator vs. streamed text vs. controls | `state.phase` typing/streaming/ready | components/onboarding/conversation.tsx:90,164,215 |
-| S15 | conversation.tsx | other | reduced-motion mounts straight to "ready" | `instant` | components/onboarding/conversation.tsx:89,93 |
+| S12 | onboarding-client-v2 (REDESIGN) | step | 8-step machine (7 on web): welcome→how→goal→habit→clock→*notify*→post→friends, then the Done splash. `notify` is native-only; `clock`, `post` and the friends-step nudge are deliberate practice (write nothing); the goal and habits are created for real. Header: back (hidden on welcome), 8 dots, Skip (→ `completeOnboarding` + home). Footer: `PrimaryButton size="screen"` (40% + `aria-disabled` when gated) + a quiet skip on habit/notify/friends | `stepIndex` (number) in the shell; steps are props-down components in app/onboarding/steps/ | app/onboarding/onboarding-client-v2.tsx |
+| S13 | onboarding step headline | other | every headline types in letter-by-letter behind a navy caret (`TypedHeadline`, 280ms then 32ms/char); an invisible ghost keeps the height stable; retypes on every step entry incl. Back; full text + no caret under reduced motion | `key={step}` remount | components/v2/typed-headline.tsx · app/onboarding/onboarding-ui.tsx (`StepTemplate`) |
+| S14 | onboarding `friends` step | state | Nudge pill (left of the gear, as on a real profile) → "Pick a message" list from `NUDGE_PRESETS` → navy bubble + "Nudge sent to Maya", pill dims to "Nudged". CTA "Share with friends" → `shareInvite` (share sheet / clipboard) → CTA becomes "Start my week"; quiet skip "Start my week without sharing" | `nudgeOpen`, `nudged`, `shared` | app/onboarding/steps/friends-step.tsx |
+| S15 | onboarding Done splash | overlay | "Ready. / Set. / GO!" (rise 0/.45/.95s), `WeekPulse`, summary line; `completeOnboarding` runs alongside a 3.2s hold, then `router.push("/")`; an error toasts and drops back to the step | `done` | app/onboarding/done-splash.tsx |
 | S16 | onboarding-client (legacy, !REDESIGN) | step | 9-step machine incl. tour-home/history/habits early-returns | `useState<Step>("welcome")` | app/onboarding/onboarding-client.tsx:151; :262,280,292,315,330,367,392,442,531 |
 | S17 | onboarding-client (legacy) | sub-machine | practice: idle / running / done | `practicePhase` | app/onboarding/onboarding-client.tsx:168,461,485,516 |
 | S18 | onboarding-client (legacy) | sub-machine | tour spotlights (home recap/history, history sync/categorize) | `homeTour`,`historyTour` | app/onboarding/onboarding-client.tsx:152,735,755,840,881,892 |
@@ -175,7 +175,7 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S48 | profile/[username] | empty | "No shared sessions yet." | `pastSessions.length === 0` | app/profile/[username]/page.tsx:180 |
 | S49 | profile-actions | relationship | none→Add / outgoing→Cancel / incoming→Accept+Decline / friends→Remove+Block / self→Edit | `relationship.kind` | app/profile/[username]/profile-actions.tsx:59,63,74,84,106,132 |
 | S53 | RootLayout (every route) | capacity | **beta-full wall** in place of the entire app tree — no children, no BottomNav, no session/push leaves — vs. the normal app shell | `isWaitlisted(profile)` AND `claim_beta_seat_self()` returns null | app/layout.tsx:99-132, components/beta-full.tsx:7 |
-| S57 | onboarding `go` step | consent | research-interview opt-in row below the goal/habit summary; off by default, written only on finish | local `consent` state | app/onboarding/onboarding-client-v2.tsx (go step) |
+| S57 | ~~onboarding `go` step~~ | consent | *Removed 2026-09-15* — the research-interview opt-in no longer appears in onboarding (the Done splash has no room for it); the toggle in Settings is the only place it's set | — | app/settings/settings-client.tsx |
 | S58 | /admin/analytics | dashboard | Retention stats (active 7d / 30d, never came back, each with n/m) · 30-day DAU bars · cohort table (blank = window not elapsed) · roster cards with Opened / Did something, 30-day sparkline, goals ("+N private"), tags (excluded · waitlisted · not onboarded · opening, not doing); "analytics RPCs aren't installed" line when either RPC errors | `admin_list_users()` / `admin_activity_days()` | app/admin/analytics/page.tsx, user-card.tsx, cohort-table.tsx, charts.tsx |
 | S59 | profile/[username] (Nudge chip) | role | Nudge chip beside the gear for a **friend** only. `ok` → chip opens S60. `cooldown` → dimmed "Nudged · 4h"; `locked` → dimmed 🔒 "Nudge". A tap on either toasts the reason (turned off · before 9am their time + wait · in a session · all caught up · nothing to nudge · can't right now). `hidden` (not a friend) renders nothing. Private sessions are ignored, never a reason | `getNudgeState()` · `nudgeRefusalMessage` | app/profile/[username]/nudge-button.tsx |
 | S60 | Nudge sheet | step | Step 1 targets (one row per behind-today visible goal, `Goal · {title}` + color marker; `Habits` row "{n} of {m} left today") → step 2 the five presets; a preset tap sends | local `target` state | app/profile/[username]/nudge-sheet.tsx |
@@ -199,10 +199,10 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 ```mermaid
 flowchart TD
   landing["SignedOutLanding (/)"] -->|Sign in| login["/login"]
-  login -->|Google OAuth| root["/"]
+  login -->|"terms ticked → Apple (native) / Google / email"| root["/"]
   login -->|already authed| root
   root -->|"onboarded_at null (REDESIGN/SOCIAL)"| onb["/onboarding"]
-  onb -->|REDESIGN| v2["OnboardingClientV2: welcome→how→goal→clock→notify→post→habit→friends→invite→go"]
+  onb -->|REDESIGN| v2["OnboardingClientV2: welcome→how→goal→habit→clock→notify→post→friends → Done splash"]
   onb -->|legacy| lg["OnboardingClient: 9-step + practice + tours"]
   v2 -->|complete| root
   lg -->|complete| root
