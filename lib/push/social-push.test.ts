@@ -5,6 +5,8 @@ import {
   commentSnippet,
   composeSocialPush,
   likeDedupeKey,
+  planReplyPushes,
+  replyDedupeKey,
 } from "@/lib/push/social-push";
 
 describe("composeSocialPush", () => {
@@ -45,6 +47,67 @@ describe("composeSocialPush", () => {
   });
 });
 
+describe("replies", () => {
+  it("tells the person replied to, and lands on the reply", () => {
+    const out = composeSocialPush({
+      kind: "reply",
+      actorName: "Maya P.",
+      sessionId: "s1",
+      taskName: "Math revision",
+      commentBody: "same!",
+      commentId: "c9",
+    });
+    expect(out.title).toBe("Maya P.");
+    expect(out.body).toBe('replied to you on "Math revision": same!');
+    expect(out.url).toBe("/session/s1#c-c9");
+  });
+
+  it("anchors a comment push too, when it knows the comment", () => {
+    const out = composeSocialPush({
+      kind: "comment",
+      actorName: "Maya P.",
+      sessionId: "s1",
+      taskName: "Math revision",
+      commentBody: "nice",
+      commentId: "c1",
+    });
+    expect(out.url).toBe("/session/s1#c-c1");
+  });
+});
+
+// actor = who replied, owner = whose post, replied = who was replied to.
+describe("planReplyPushes", () => {
+  const plan = (actorId: string, ownerId: string, replyToAuthorId: string | null) =>
+    planReplyPushes({ actorId, ownerId, replyToAuthorId });
+
+  it("pushes the replied-to person and, separately, the owner", () => {
+    expect(plan("b", "a", "c")).toEqual([
+      { recipient: "c", kind: "reply" },
+      { recipient: "a", kind: "comment" },
+    ]);
+  });
+
+  it("gives an owner who was replied to ONE push — the reply one", () => {
+    expect(plan("b", "a", "a")).toEqual([{ recipient: "a", kind: "reply" }]);
+  });
+
+  it("the owner replying pushes only the person they replied to", () => {
+    expect(plan("a", "a", "c")).toEqual([{ recipient: "c", kind: "reply" }]);
+  });
+
+  it("replying to yourself only tells the owner", () => {
+    expect(plan("b", "a", "b")).toEqual([{ recipient: "a", kind: "comment" }]);
+  });
+
+  it("with no replied-to person it's an ordinary comment", () => {
+    expect(plan("b", "a", null)).toEqual([{ recipient: "a", kind: "comment" }]);
+  });
+
+  it("the owner replying to themself pushes no one", () => {
+    expect(plan("a", "a", "a")).toEqual([]);
+  });
+});
+
 describe("commentSnippet", () => {
   it("passes short comments through, trimmed", () => {
     expect(commentSnippet("  nice run!  ")).toBe("nice run!");
@@ -75,5 +138,10 @@ describe("dedupe keys", () => {
     expect(likeDedupeKey("u1", "s1")).toBe("like:u1:s1");
     expect(likeDedupeKey("u1", "s2")).not.toBe(likeDedupeKey("u1", "s1"));
     expect(commentDedupeKey("c1")).toBe("comment:c1");
+  });
+
+  it("a reply's key can't collide with its own comment key", () => {
+    expect(replyDedupeKey("c1")).toBe("reply:c1");
+    expect(replyDedupeKey("c1")).not.toBe(commentDedupeKey("c1"));
   });
 });

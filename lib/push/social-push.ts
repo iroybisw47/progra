@@ -5,15 +5,18 @@ import { LIKE_EMOJI } from "@/lib/social/reactions";
 // consumes this; lib/push/apns.ts does the sending.
 
 export type SocialPushInput = {
-  kind: "like" | "comment";
+  kind: "like" | "comment" | "reply";
   // display_name ?? username ?? fallback — resolved by the caller.
   actorName: string;
   // The palette emoji the reaction stored. Only read for kind "like".
   emoji?: string;
   sessionId: string;
   taskName: string;
-  // Only read for kind "comment".
+  // Only read for kinds "comment" and "reply".
   commentBody?: string;
+  // When set, a tap lands ON the comment (/session/{id}#c-{commentId}) —
+  // the thread expands to it even if it's collapsed.
+  commentId?: string;
 };
 
 export type SocialPushContent = {
@@ -33,7 +36,18 @@ export function commentSnippet(body: string): string {
 }
 
 export function composeSocialPush(input: SocialPushInput): SocialPushContent {
-  const url = `/session/${input.sessionId}`;
+  const url =
+    input.commentId === undefined
+      ? `/session/${input.sessionId}`
+      : `/session/${input.sessionId}#c-${input.commentId}`;
+
+  if (input.kind === "reply") {
+    return {
+      title: input.actorName,
+      body: `replied to you on "${input.taskName}": ${commentSnippet(input.commentBody ?? "")}`,
+      url,
+    };
+  }
 
   if (input.kind === "comment") {
     return {
@@ -65,4 +79,28 @@ export function likeDedupeKey(actorId: string, sessionId: string): string {
 
 export function commentDedupeKey(commentId: string): string {
   return `comment:${commentId}`;
+}
+
+// A reply can push two people — the post owner ("commented on…") and the
+// person replied to ("replied to you…") — and push_log is keyed on `key`
+// alone, so each needs its own.
+export function replyDedupeKey(commentId: string): string {
+  return `reply:${commentId}`;
+}
+
+// Who a reply notifies, and how. The person replied to gets "replied to you";
+// the post owner keeps getting the ordinary "commented on" for every comment
+// on their post — unless they ARE the person replied to (one push, the reply
+// one). Nobody is ever pushed about their own comment.
+export function planReplyPushes(input: {
+  actorId: string;
+  ownerId: string;
+  replyToAuthorId: string | null;
+}): Array<{ recipient: string; kind: "reply" | "comment" }> {
+  const { actorId, ownerId, replyToAuthorId } = input;
+  const plan: Array<{ recipient: string; kind: "reply" | "comment" }> = [];
+  const replied = replyToAuthorId !== null && replyToAuthorId !== actorId ? replyToAuthorId : null;
+  if (replied !== null) plan.push({ recipient: replied, kind: "reply" });
+  if (ownerId !== actorId && ownerId !== replied) plan.push({ recipient: ownerId, kind: "comment" });
+  return plan;
 }

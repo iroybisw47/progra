@@ -160,7 +160,7 @@ is the interactive shell. `loading.tsx` provides route-level skeletons.
 | `habits` (+ logs) | `lib/db/habits.ts` | Habit definitions and per-day completion. Tz-checked server-side. |
 | rollups / recap | `lib/db/rollups.ts`, `lib/db/recap.ts` | Read-side aggregation helpers for `/history` and `/recap`. |
 | `friendships` (social v2) | `lib/db/friends.ts` | One row per pair: `requester_id`/`addressee_id`, `status` (pending/accepted/blocked), `blocked_by`. RLS hides blocks from the blocked party; consent-critical transitions go through `SECURITY DEFINER` RPCs (`accept_friend_request`, `block_user`). |
-| `session_comments` (social v2) | `lib/db/comments.ts`, `app/actions/comments.ts` | Comments on feed sessions (`body` 1–500). RLS mirrors session visibility via the `can_see_session` definer helper; delete limited to author or session owner (`owns_session`). |
+| `session_comments` (social v2) | `lib/db/comments.ts`, `app/actions/comments.ts` | Comments on feed sessions (`body` 1–500). RLS mirrors session visibility via the `can_see_session` definer helper; delete limited to author or session owner (`owns_session`). **Replies** (`COMMENT_REPLIES`, 2026-09-15): one level deep via `parent_id` (thread root; composite FK with `session_id`, cascades), `reply_to_id` (the comment answered; set null) and `reply_to_author_id` (recipient; cascades). The client sends only `reply_to_id`; the BEFORE INSERT `session_comments_thread_guard` definer derives the other two and refuses — with RLS's own 42501 — a target on another/invisible session or across a block with the replied-to or root author. Deleting a root deletes its replies. Known gap: comments from someone you blocked stay visible on a mutual friend's post. |
 | `session_reactions` (social v2) | `lib/db/reactions.ts`, `app/actions/reactions.ts` | Fixed-palette emoji reactions on feed sessions. RLS SELECT mirrors session visibility; writes go **only** through the `toggle_reaction` definer RPC (atomic insert-or-delete, re-checks visibility + emoji) so a reaction can't target an unseen session or be forged. |
 | `reports` (social v2, Phase 4) | `lib/social/reports.ts`, `app/actions/reports.ts` | Abuse reports. **INSERT-only RLS** (`reporter_id = auth.uid()`) — users can file but never read; the admin reads via definer RPCs. `target_type` ∈ story/comment/profile/**recap** (CHECK), `target_id` (polymorphic, no FK), fixed reason set + optional note, `status`. |
 | `recap_views` (weekly recap) | `lib/db/recap-views.ts`, `app/actions/recap.ts` | Per-`(user_id, week_start_ms)` marker that a recap was opened — drives the "your week is ready" nudge across devices (survives reinstall, unlike localStorage). Owner-only RLS (SELECT + INSERT). |
@@ -546,7 +546,12 @@ durably.
   rows, and the recipient is precisely not the caller — plus writes `push_log`
   and deletes dead tokens; it runs only inside `after()` from an action whose
   like/comment write already succeeded under RLS, which is the proof the actor
-  may see that session.
+  may see that session. For a **reply** it can push two people: the post owner
+  and the replied-to author — read from the stored comment's
+  `reply_to_author_id` (set by the thread-guard trigger, never the caller),
+  after checking the row's author is the actor. The replied-to author is
+  re-checked at send time (still able to see the session, no block), because
+  the reply text rides in the push.
   **(3)** the nudge-push sender (`lib/push/send-nudge-push.ts`): same shape as
   (2) — it reads the recipient's tokens and opt-out, claims `push_log`, and runs
   only inside `after()` from `sendNudge`, after `send_nudge` (definer) re-checked

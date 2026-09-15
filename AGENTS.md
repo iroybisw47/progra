@@ -56,7 +56,9 @@ params are `Promise<{...}>` and must be `await`ed.
   `profiles.social_pushes_enabled`) — the recipient is precisely not the
   caller. Each runs only inside `after()`, after a write that already
   succeeded under RLS or a definer RPC, and derives the recipient from the DB
-  row rather than the caller. Everything else is anon-key + RLS; privileged
+  row rather than the caller (for a reply: the `reply_to_author_id` the
+  thread-guard trigger stamped from the replied-to row, re-checked for
+  visibility and blocks at send time). Everything else is anon-key + RLS; privileged
   operations are `is_admin()`-gated `SECURITY DEFINER` RPCs — never a god-key
   shortcut.
 - Every FK to `auth.users` is `ON DELETE CASCADE` **except**

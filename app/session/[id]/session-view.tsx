@@ -4,15 +4,18 @@ import { LockIcon } from "lucide-react";
 import { AvatarInitials } from "@/components/avatar-initials";
 import { CategoryMarker } from "@/components/category-marker";
 import { CommentComposer } from "@/components/comment-composer";
-import { DeleteCommentButton } from "@/components/delete-comment-button";
 import { KudosButton } from "@/components/kudos-button";
 import { ReportButton } from "@/components/report-button";
 import { BackButton } from "@/components/v2/back-button";
+import { CommentRow } from "@/components/v2/comment-row";
+import { CommentThreads } from "@/components/v2/comment-threads";
 import { entityColor, tint } from "@/lib/colors";
 import type { CommentItem } from "@/lib/db/comments";
 import type { SessionDetail } from "@/lib/db/session-detail";
 import { formatRelativeTime } from "@/lib/dates";
 import { formatDuration } from "@/lib/duration";
+import { COMMENT_REPLIES } from "@/lib/flags";
+import { groupCommentThreads } from "@/lib/social/comment-threads";
 
 // One post, in full. The feed card (components/v2/session-card.tsx) opens into
 // this, so it speaks the same vocabulary at a larger scale — same author row,
@@ -164,7 +167,7 @@ export function SessionDetailView({
 
         <div className="bg-track border-hairline mt-6 h-1.5 border-t" aria-hidden />
 
-        {/* Comments */}
+        {/* Comments. The count includes replies. */}
         <div className="flex items-center gap-[7px] px-5 pt-[18px] pb-2">
           <span className="section-label">Comments</span>
           <span className="flex-1" />
@@ -180,44 +183,15 @@ export function SessionDetailView({
             No comments yet.
           </p>
         )}
-        {comments.map((c) => (
-          <div
-            key={c.id}
-            className="border-divider flex items-start gap-2.5 border-t px-5 py-3"
-          >
-            <Link href={`/profile/${c.author.username}`} className="shrink-0">
-              <AvatarInitials
-                name={c.author.displayName}
-                username={c.author.username}
-                avatarUrl={c.author.avatarUrl}
-                className="size-[26px] text-[10px]"
-              />
-            </Link>
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <div className="flex items-baseline gap-2">
-                <Link
-                  href={`/profile/${c.author.username}`}
-                  className="text-body truncate text-[12.5px] font-semibold"
-                >
-                  {c.author.displayName || `@${c.author.username}`}
-                </Link>
-                <span className="text-faint shrink-0 text-[11px]">
-                  {formatRelativeTime(c.createdAt, now)}
-                </span>
-              </div>
-              <span className="text-[13.5px] leading-[1.5] break-words text-secondary-ink">
-                {c.body}
-              </span>
-            </div>
-            <span className="shrink-0 pt-0.5">
-              {c.canDelete ? (
-                <DeleteCommentButton commentId={c.id} />
-              ) : (
-                <ReportButton targetType="comment" targetId={c.id} />
-              )}
-            </span>
-          </div>
-        ))}
+        {COMMENT_REPLIES ? (
+          <CommentThreads
+            sessionId={detail.sessionId}
+            threads={groupCommentThreads(comments)}
+            now={now}
+          />
+        ) : (
+          comments.map((c) => <CommentRow key={c.id} comment={c} now={now} />)
+        )}
 
         <div className="border-divider border-t px-5 pt-3.5">
           <CommentComposer sessionId={detail.sessionId} />

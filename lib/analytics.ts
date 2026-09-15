@@ -41,6 +41,10 @@ export type AnalyticsEvent =
   | "nudge_rejected" // { reason }
   | "nudge_locked_tapped" // { reason } — incl. "cooldown"
   | "nudges_toggled" // { enabled }
+  // Comment replies. `depth` says whether the reply answered a top-level
+  // comment ("root") or another reply ("reply").
+  | "comment_reply_opened"
+  | "comment_reply_posted" // { depth }
   // Research interview opt-in. `source` is "onboarding" | "settings" — the
   // consent rate at each is the only read available on whether the copy works.
   | "interview_consent_set"; // { enabled, source }

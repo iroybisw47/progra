@@ -19,6 +19,7 @@ import {
 } from "@/app/actions/notifications";
 import { formatRelativeTime } from "@/lib/dates";
 import { NUDGES } from "@/lib/flags";
+import { commentAnchorId } from "@/lib/social/comment-threads";
 import { NUDGE_PRESETS, isNudgePreset } from "@/lib/social/nudges";
 import { cn } from "@/lib/utils";
 import type {
@@ -152,13 +153,17 @@ function likeSummary(item: LikeNotification): string {
   }`;
 }
 
-// Where a row navigates. Likes and comments go to the session they're about;
-// a nudge goes where its push would have — the clock picker with that goal
+// Where a row navigates. Likes go to the session they're about; comments and
+// replies land ON the comment (#c-{id}, which expands a collapsed thread); a
+// nudge goes where its push would have — the clock picker with that goal
 // preselected, or home for habits — so acting on it is one tap either way.
 function hrefFor(item: NotificationItem): string {
   if (item.kind === "nudge") {
     if (item.targetKind === "habits") return "/";
     return item.goalId === null ? "/clock" : `/clock?goal=${item.goalId}`;
+  }
+  if (item.kind === "comment" || item.kind === "reply") {
+    return `/session/${item.sessionId}#${commentAnchorId(item.commentId)}`;
   }
   return `/session/${item.sessionId}`;
 }
@@ -210,11 +215,11 @@ function NotificationRow({
               liked your session
             </p>
           )}
-          {item.kind === "comment" && (
+          {(item.kind === "comment" || item.kind === "reply") && (
             <>
               <p className="text-sm leading-snug">
                 <span className="font-semibold">{nameOf(item.author)}</span>{" "}
-                commented
+                {item.kind === "reply" ? "replied to you" : "commented"}
               </p>
               <p className="text-ink/80 mt-0.5 line-clamp-2 text-sm leading-snug">
                 {item.body}

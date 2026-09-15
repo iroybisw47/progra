@@ -109,6 +109,15 @@ export const SOCIAL_PUSH = envFlag(process.env.NEXT_PUBLIC_SOCIAL_PUSH);
 export const NUDGES =
   envFlag(process.env.NEXT_PUBLIC_NUDGES) && SOCIAL_ENABLED;
 
+// Master switch for replies to comments: the Reply control and threads on the
+// session page, the "replied to you" panel rows, and reply pushes. Implies
+// SOCIAL_ENABLED — replies only exist inside the social layer. The PUSH half
+// additionally needs SOCIAL_PUSH. Off, the page reads and renders exactly as
+// before: the reader doesn't even select the thread columns, so this can't
+// break comments if it's flipped before the hand-run SQL has been applied.
+export const COMMENT_REPLIES =
+  envFlag(process.env.NEXT_PUBLIC_COMMENT_REPLIES) && SOCIAL_ENABLED;
+
 // How long an "hour" is for the hourly nudge. Only ever anything else in test
 // mode; lib/clock-reminders.ts stays pure and takes this as an argument rather
 // than reading the flag itself.

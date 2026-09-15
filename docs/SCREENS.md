@@ -51,7 +51,7 @@ Sheet / AlertDialog overlay).
 | R14 | `/clock` | route | BottomNav center "Clock"; Progress goal cards; live-timer back | ungated in page; RLS in loaders | app/clock/page.tsx:10-17 |
 | R15 | `/clock/finish` | route | live-timer clock-out redirect | `!REDESIGN`→`notFound`; `requireUser`; own-row + ended checks | app/clock/finish/page.tsx:25-46 |
 | R16 | `/clock/live` | route | clock strip; nav center while tracking | `!REDESIGN`→`notFound`; `requireUser`; `!active`→`/clock` | app/clock/live/page.tsx:15-20 |
-| R17 | `/session/[id]` | route | feed cards; You + profile session rows; notifications panel; like/comment push taps | `!REDESIGN`→`notFound`; `requireUser`; `!detail`→`notFound` (RLS) | app/session/[id]/page.tsx (loader) · session-view.tsx (screen) |
+| R17 | `/session/[id]` | route | feed cards; You + profile session rows; notifications panel; like/comment/reply push taps (`#c-{commentId}` lands on the comment, expanding a collapsed thread) | `!REDESIGN`→`notFound`; `requireUser`; `!detail`→`notFound` (RLS) | app/session/[id]/page.tsx (loader) · session-view.tsx (screen) |
 | R18 | `/profile/[username]` | route | author links in feed/friends/session/clocked-in/admin | `!SOCIAL_ENABLED`→`notFound`; `requireUser`; `!target`/blocked→`notFound` | app/profile/[username]/page.tsx:35-52 |
 | R19 | `/settings` | route | `/me` settings icon | `!REDESIGN`→`notFound`; `requireUser` | app/settings/page.tsx:13-24 |
 | R20 | `/admin` | route | Settings "Admin" (admins); Dashboard | `!SOCIAL_ENABLED`→`notFound`; `requireAdmin` (signed-out→`/login`, not admin→`notFound`) | app/admin/page.tsx |
@@ -180,6 +180,11 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S59 | profile/[username] (Nudge chip) | role | Nudge chip beside the gear for a **friend** only. `ok` → chip opens S60. `cooldown` → dimmed "Nudged · 4h"; `locked` → dimmed 🔒 "Nudge". A tap on either toasts the reason (turned off · before 9am their time + wait · in a session · all caught up · nothing to nudge · can't right now). `hidden` (not a friend) renders nothing. Private sessions are ignored, never a reason | `getNudgeState()` · `nudgeRefusalMessage` | app/profile/[username]/nudge-button.tsx |
 | S60 | Nudge sheet | step | Step 1 targets (one row per behind-today visible goal, `Goal · {title}` + color marker; `Habits` row "{n} of {m} left today") → step 2 the five presets; a preset tap sends | local `target` state | app/profile/[username]/nudge-sheet.tsx |
 | S61 | notifications-bell (nudge row) | entry kind | "**{name}** nudged you" + preset copy + `Goal · {label}`/`Habits` · time; never collapsed; links to `/clock?goal=` or `/`; Report flag sibling opens the report dialog | `item.kind === "nudge"` | components/notifications-bell.tsx |
+| S63 | session-view (comment threads) | role | `COMMENT_REPLIES` on: comments render as threads one level deep — replies indented to the text column (20px avatar, no divider), "@name" before a reply to a reply; each row's meta line gets a **Reply** button. Off: the flat list, unchanged. Header count includes replies | `COMMENT_REPLIES` | components/v2/comment-threads.tsx · comment-row.tsx |
+| S64 | comment thread (collapse) | state | 4+ replies show the first 2 + "View N more replies"; expanded → "Hide replies". A `#c-{id}` deep link opens its thread and tints the row | `openThreads` / hash | components/v2/comment-threads.tsx |
+| S65 | comment thread (inline reply box) | step | "Replying to {name} · Cancel" + 16px input "Reply to {name}…" + Post, under the thread being answered; one open at a time; Esc/Cancel returns focus to that Reply button; the bottom composer stays for top-level comments | `replyTo` | components/v2/comment-threads.tsx |
+| S66 | delete-thread dialog | dialog | "Delete comment? This also deletes its N replies." — only for a top-level comment with replies | `replyCount > 0` | components/v2/delete-thread-dialog.tsx |
+| S67 | notifications-bell (reply row) | entry kind | "**{name}** replied to you" + body + label · time; links to `/session/{id}#c-{commentId}`. A reply on my post to my comment shows only here, not also as "commented"; blocked authors never show | `item.kind === "reply"` | components/notifications-bell.tsx |
 | S62 | settings-client (Nudges) | toggle | "Nudges" row in **Sharing** (gated on `NUDGES`, not push permission) — whether friends may nudge you at all. The push row above it becomes "Likes, comments & nudges" | `nudges_enabled` | app/settings/settings-client.tsx |
 | S54 | /admin (Beta capacity) | capacity | seated-of-cap + waiting counts, editable seat cap, one Grant-a-seat card per waitlisted user; "RPCs aren't installed" line when the overview RPC errors | `admin_beta_overview()` / `admin_list_waitlist()` | app/admin/admin-waitlist.tsx:28, app/admin/page.tsx |
 | S55 | /admin (Bug reports) | queue | open-first list of user bug reports with device/route/build context; Resolve · Dismiss · Reopen; "RPCs aren't installed" line vs. "Nothing reported yet" | `admin_list_bug_reports()` | app/admin/admin-bug-reports.tsx:29, app/admin/page.tsx |
@@ -339,8 +344,10 @@ flowchart TD
 consumer in `components/` has a confirmed mount site (D01-D26).
 
 **Listed-but-not-overlays (no Dialog/Sheet/AlertDialog rendered):**
-- `components/delete-comment-button.tsx` — inline confirm control; mounts at
-  `components/feed.tsx:6` and `app/session/[id]/page.tsx:7`.
+- `components/delete-comment-button.tsx` — one-tap delete (no confirm) for a
+  comment without replies; mounts in `components/v2/comment-row.tsx` and
+  `components/feed.tsx`. A top-level comment WITH replies opens
+  `components/v2/delete-thread-dialog.tsx` (AlertDialog) first.
 - `components/v2/hold-to-delete.tsx` — press-and-hold control; mounts at
   `app/settings/settings-client.tsx:304`.
 

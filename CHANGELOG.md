@@ -6,6 +6,34 @@ when it was done, not a start/stop work timer.
 
 ## 2026-09-15
 
+### 09:13 · Replies to comments, dark behind COMMENT_REPLIES (SQL applied)
+Anyone who can see a post can now reply to a comment on it. Tap **Reply** on a
+comment and a reply box opens right under that thread, so you never lose sight of
+what you're answering. The bottom box stays for new top-level comments. Threads
+go one level deep, like Instagram: a reply to a reply files under the same
+thread with "@name" in front of it. A thread with four or more replies collapses
+to its first two.
+
+The person replied to gets "X replied to you" as a push and in the panel, and
+tapping either lands on the reply, expanding its thread if it's collapsed. The
+post owner still gets the ordinary "commented on…" for every comment, unless
+they're the one replied to, in which case they get one notification.
+Deleting a top-level comment deletes its replies, so it asks first when there
+are any.
+
+The database decides the thread shape. The client only says which comment it's
+answering; a trigger works out the thread and who's being replied to from that
+row. It refuses a reply across a block (with the person replied to or whoever
+started the thread) or onto a post you can't see, and every refusal looks the
+same as an ordinary permission error. Reply pushes re-check that the person
+can still see the post, since the reply text is in the push. Also: both
+comment inputs are 16px now, which stops iOS zooming in on focus.
+
+**SQL already applied:** `comment-replies.sql` STEP 1 (three columns + the
+thread-guard trigger). 28/28 adversarial tests passed in prod, 29/29 locally,
+10/10 planted bugs caught. **To switch on:** set `NEXT_PUBLIC_COMMENT_REPLIES=1`
+and redeploy. With it off, comments read and render exactly as before.
+
 ### 08:20 · Nudges open at 9am, not 2pm (needs SQL)
 A friend can now be nudged from 09:00 their local time instead of 14:00. The
 locked chip says "You can nudge Sam from 9am their time — in 2h." **Needs

@@ -34,8 +34,10 @@ export function CommentComposer({ sessionId }: { sessionId: string }) {
         submit();
       }}
     >
+      {/* 16px (text-base): anything smaller makes iOS zoom the page in on
+          focus. */}
       <input
-        className="border-control-border text-ink focus:border-brand h-11 min-w-0 flex-1 rounded-[13px] border-[1.5px] px-3.5 text-sm outline-none placeholder:text-disabled disabled:opacity-50"
+        className="border-control-border text-ink focus:border-brand h-11 min-w-0 flex-1 rounded-[13px] border-[1.5px] px-3.5 text-base outline-none placeholder:text-disabled disabled:opacity-50"
         placeholder="Add a comment…"
         maxLength={COMMENT_MAX_LENGTH}
         value={value}

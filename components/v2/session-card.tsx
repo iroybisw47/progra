@@ -41,7 +41,9 @@ export function SessionCard({
   author?: PublicUser;
   canReport?: boolean;
 }) {
-  const preview = comments[0];
+  // The first TOP-LEVEL comment — a reply out of its thread reads as a non
+  // sequitur. The count below still includes replies.
+  const preview = comments.find((c) => c.parentId === null) ?? comments[0];
   const a = item.attribution;
   const durationLabel = formatDuration(item.workedMs);
 

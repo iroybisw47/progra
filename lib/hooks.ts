@@ -41,3 +41,17 @@ function getMinuteSnap(): number {
 export function useNowMinute(): number {
   return useSyncExternalStore(subscribeNow, getMinuteSnap, getNowServerSnap);
 }
+
+// useLocationHash: the URL's #fragment, kept current across hashchange. The
+// server snapshot is "" — there is no hash on the server — so a component that
+// reacts to it (a comment deep link expanding its thread) renders the same
+// markup on both sides and adjusts after hydration, with no state set in an
+// effect.
+function subscribeHash(cb: () => void): () => void {
+  window.addEventListener("hashchange", cb);
+  return () => window.removeEventListener("hashchange", cb);
+}
+
+export function useLocationHash(): string {
+  return useSyncExternalStore(subscribeHash, () => window.location.hash, () => "");
+}

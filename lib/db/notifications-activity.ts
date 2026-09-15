@@ -8,7 +8,8 @@ import { hydrateUsers, type PublicUser } from "@/lib/db/friends";
 import { hydrateGoals } from "@/lib/db/feed";
 import { createClient } from "@/lib/supabase/server";
 import { LIKE_EMOJI } from "@/lib/social/reactions";
-import { NUDGES } from "@/lib/flags";
+import { COMMENT_REPLIES, NUDGES } from "@/lib/flags";
+import { mergeReplyNotifications } from "@/lib/social/reply-notifications";
 import { isNudgeTargetKind, type NudgeTargetKind } from "@/lib/social/nudges";
 
 // How far back the Notifications panel looks. Bounds cost and matches the
@@ -44,6 +45,21 @@ export type CommentNotification = {
   unread: boolean;
 };
 
+// A reply to one of MY comments — on anyone's post I can still see. Never
+// collapsed, like comments. A reply on my own post to my comment shows only
+// here, not also as a comment (mergeReplyNotifications).
+export type ReplyNotification = {
+  kind: "reply";
+  key: string; // `reply:${commentId}`
+  commentId: string;
+  sessionId: string;
+  sessionLabel: string;
+  author: PublicUser;
+  body: string;
+  latestAt: number;
+  unread: boolean;
+};
+
 // One nudge, from one friend. NEVER collapsed the way likes are: a like is a
 // tap, but a nudge is a person deliberately prodding you, and folding three of
 // them into "3 people nudged you" would lose exactly what makes it land.
@@ -64,6 +80,7 @@ export type NudgeNotification = {
 export type NotificationItem =
   | LikeNotification
   | CommentNotification
+  | ReplyNotification
   | NudgeNotification;
 
 // The embedded session shape (many-to-one FK). PostgREST returns it as a single
@@ -109,6 +126,26 @@ function embeddedSession(
   return Array.isArray(s) ? (s[0] ?? null) : s;
 }
 
+// Which of these people have a block with me, either direction. A block made
+// AGAINST me is invisible to me in friendships, so this goes through the
+// are_blocked definer — the answer only ever filters rows out. One call per
+// distinct author; the lists here are a handful at most.
+async function blockedAmong(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  me: string,
+  userIds: string[]
+): Promise<Set<string>> {
+  const distinct = [...new Set(userIds)].filter((id) => id !== me);
+  const answers = await Promise.all(
+    distinct.map(async (id) => {
+      const { data, error } = await supabase.rpc("are_blocked", { a: me, b: id });
+      // Unknown → treat as blocked: a hidden row beats a harassing one.
+      return error || data !== false ? id : null;
+    })
+  );
+  return new Set(answers.filter((id): id is string => id !== null));
+}
+
 function windowStartIso(): string {
   return new Date(
     Date.now() - NOTIF_WINDOW_DAYS * 24 * 60 * 60 * 1000
@@ -130,7 +167,7 @@ export const listMyNotifications = cache(
     const sinceIso = windowStartIso();
     const supabase = await createClient();
 
-    const [likeRes, commentRes, nudgeRes] = await Promise.all([
+    const [likeRes, commentRes, nudgeRes, replyRes] = await Promise.all([
       supabase
         .from("session_reactions")
         .select("session_id, user_id, created_at, sessions!inner(user_id, task_name, goal_id)")
@@ -159,11 +196,30 @@ export const listMyNotifications = cache(
             .order("created_at", { ascending: false })
             .limit(NOTIF_MAX)
         : Promise.resolve({ data: null, error: null }),
+      // Replies to MY comments, on any post I can still see (RLS). The
+      // embedded session is only for the label. An error — e.g. the thread
+      // columns not existing yet — degrades to "no replies".
+      COMMENT_REPLIES
+        ? supabase
+            .from("session_comments")
+            .select("id, session_id, author_id, body, created_at, sessions!inner(user_id, task_name, goal_id)")
+            .eq("reply_to_author_id", me.id)
+            .neq("author_id", me.id)
+            .gte("created_at", sinceIso)
+            .order("created_at", { ascending: false })
+            .limit(NOTIF_MAX)
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
     const likeRows = (likeRes.data ?? []) as LikeRow[];
-    const commentRows = (commentRes.data ?? []) as CommentRow[];
     const nudgeRows = (nudgeRes.error ? [] : (nudgeRes.data ?? [])) as NudgeRow[];
+    const rawReplyRows = (replyRes.error ? [] : (replyRes.data ?? [])) as CommentRow[];
+    const { commentRows, replyRows } = mergeReplyNotifications({
+      me: me.id,
+      commentRows: (commentRes.data ?? []) as CommentRow[],
+      replyRows: rawReplyRows,
+      blockedIds: await blockedAmong(supabase, me.id, rawReplyRows.map((r) => r.author_id)),
+    });
 
     // Group likes by session (rows already newest-first, so the first row per
     // session is the latest and actor order is most-recent-first). Distinct
@@ -205,7 +261,7 @@ export const listMyNotifications = cache(
       ...new Set(
         [
           ...[...likeBySession.values()].map((g) => g.goalId),
-          ...commentRows.map((r) => embeddedSession(r.sessions)?.goal_id ?? null),
+          ...[...commentRows, ...replyRows].map((r) => embeddedSession(r.sessions)?.goal_id ?? null),
         ].filter((g): g is string => g != null)
       ),
     ];
@@ -213,6 +269,7 @@ export const listMyNotifications = cache(
       ...new Set([
         ...[...likeBySession.values()].flatMap((g) => g.actorIds),
         ...commentRows.map((r) => r.author_id),
+        ...replyRows.map((r) => r.author_id),
         ...nudgeRows.map((r) => r.sender_id),
       ]),
     ];
@@ -263,6 +320,24 @@ export const listMyNotifications = cache(
       });
     }
 
+    for (const row of replyRows) {
+      const s = embeddedSession(row.sessions);
+      const author = usersById.get(row.author_id);
+      if (!s || !author) continue;
+      const at = ms(row.created_at);
+      items.push({
+        kind: "reply",
+        key: `reply:${row.id}`,
+        commentId: row.id,
+        sessionId: row.session_id,
+        sessionLabel: labelFor(s.goal_id, s.task_name),
+        author,
+        body: row.body,
+        latestAt: at,
+        unread: at > seenMs,
+      });
+    }
+
     for (const row of nudgeRows) {
       const sender = usersById.get(row.sender_id);
       if (!sender) continue; // a sender we can't resolve → skip
@@ -298,7 +373,7 @@ export const hasUnseenNotifications = cache(async (): Promise<boolean> => {
   const sinceIso = windowStartIso();
   const supabase = await createClient();
 
-  const [latestLike, latestComment, latestNudge] = await Promise.all([
+  const [latestLike, latestComment, latestNudge, latestReply] = await Promise.all([
     supabase
       .from("session_reactions")
       .select("created_at, sessions!inner(user_id)")
@@ -331,7 +406,25 @@ export const hasUnseenNotifications = cache(async (): Promise<boolean> => {
           .maybeSingle()
           .then((r) => ms((r.data as { created_at: string } | null)?.created_at))
       : Promise.resolve(0),
+    // Only replies newer than the last look — usually none, so the 90s poll
+    // almost never pays for the block check.
+    COMMENT_REPLIES
+      ? supabase
+          .from("session_comments")
+          .select("created_at, author_id")
+          .eq("reply_to_author_id", me.id)
+          .neq("author_id", me.id)
+          .gt("created_at", new Date(Math.max(seenMs, ms(sinceIso))).toISOString())
+          .order("created_at", { ascending: false })
+          .limit(10)
+          .then(async (r) => {
+            const rows = (r.error ? [] : (r.data ?? [])) as { created_at: string; author_id: string }[];
+            if (rows.length === 0) return 0;
+            const blocked = await blockedAmong(supabase, me.id, rows.map((row) => row.author_id));
+            return ms(rows.find((row) => !blocked.has(row.author_id))?.created_at);
+          })
+      : Promise.resolve(0),
   ]);
 
-  return Math.max(latestLike, latestComment, latestNudge) > seenMs;
+  return Math.max(latestLike, latestComment, latestNudge, latestReply) > seenMs;
 });
