@@ -1,10 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { LockIcon } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import {
   formatCooldownLeft,
+  nudgeRefusalMessage,
+  nudgeStateRefusal,
   type NudgeState,
 } from "@/lib/social/nudges";
 import { track } from "@/lib/analytics";
@@ -16,14 +20,16 @@ const NudgeSheet = dynamic(() =>
   import("./nudge-sheet").then((m) => m.NudgeSheet)
 );
 
+const CHIP =
+  "border-hairline h-8 shrink-0 rounded-[11px] border-[1.5px] px-3.5 text-xs font-semibold whitespace-nowrap transition-transform active:scale-95";
+
 // The Nudge chip in the profile identity row. Styled like the self "Edit" chip
 // so the two read as the same class of control.
 //
-// It renders only for an eligible friend or an active cooldown — every other
-// state arrives as `hidden` and renders nothing at all. That's deliberate:
-// a disabled or greyed button would still be a signal about someone's day
-// (they're mid-session, they turned nudges off, they're already done), and a
-// "you can't nag them" affordance is worse than no affordance.
+// Every friend gets a chip. When they can't be nudged right now it renders
+// dimmed — locked, or "Nudged · 4h" on a cooldown — and a tap says why in a
+// toast. The reasons are the RPC's, computed from what a friend may see anyway;
+// see NudgeLockReason. Only `hidden` (not a friend) renders nothing.
 export function NudgeButton({
   state,
   recipientId,
@@ -42,25 +48,41 @@ export function NudgeButton({
 
   if (state.status === "hidden") return null;
 
-  if (state.status === "cooldown") {
-    const left = nowMs === 0 ? null : formatCooldownLeft(state.cooldownUntil, nowMs);
+  const refusal = nudgeStateRefusal(state);
+  if (refusal) {
+    const left =
+      state.status === "cooldown" && nowMs !== 0
+        ? formatCooldownLeft(state.cooldownUntil, nowMs)
+        : null;
     return (
-      <span
-        aria-label={
-          left === null ? `Already nudged ${name}` : `You can nudge ${name} again in ${left}`
-        }
-        className="border-hairline text-faint inline-flex h-8 shrink-0 items-center rounded-[11px] border-[1.5px] px-3.5 text-xs font-semibold whitespace-nowrap opacity-60"
+      <button
+        type="button"
+        aria-label={`Can't nudge ${name} right now — tap for why`}
+        className={`${CHIP} text-faint inline-flex items-center gap-1.5 opacity-60`}
+        onClick={() => {
+          track("nudge_locked_tapped", { reason: refusal.reason });
+          toast(nudgeRefusalMessage(refusal, name, Date.now()));
+        }}
       >
-        {left === null ? "Nudged" : `Nudged · ${left}`}
-      </span>
+        {state.status === "cooldown" ? (
+          left === null ? "Nudged" : `Nudged · ${left}`
+        ) : (
+          <>
+            <LockIcon className="size-3" strokeWidth={2.4} aria-hidden />
+            Nudge
+          </>
+        )}
+      </button>
     );
   }
+
+  if (state.status !== "ok") return null;
 
   return (
     <>
       <button
         type="button"
-        className="border-hairline text-caption h-8 shrink-0 rounded-[11px] border-[1.5px] px-3.5 text-xs font-semibold whitespace-nowrap transition-transform active:scale-95"
+        className={`${CHIP} text-caption`}
         onClick={() => {
           track("nudge_sheet_opened");
           setOpen(true);

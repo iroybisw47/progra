@@ -12,25 +12,26 @@ import {
   isNudgeTargetKind,
   nudgeRejectionFallback,
   parseSendNudgeResult,
-  type NudgeRejection,
+  type NudgeRefusal,
 } from "@/lib/social/nudges";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validate";
 
-type SendResult =
-  | { ok: true; pushed: boolean }
-  | { error: string; reason: NudgeRejection; cooldownUntil: number | null };
+type SendResult = { ok: true; pushed: boolean } | ({ error: string } & NudgeRefusal);
+
+const UNAVAILABLE = { reason: "unavailable", cooldownUntil: null, opensAt: null } as const;
 
 // Nudge a friend about one goal, or about their habits.
 //
 // The DB is the real gate: send_nudge re-checks friendship, blocking, the
-// recipient's opt-out, their 14:00 local floor, whether they're mid-session, and
-// the 6-hour per-pair cooldown, inside one transaction holding a per-recipient
-// advisory lock. The checks here only save a round-trip.
+// recipient's opt-out, their 14:00 local floor, whether they're in a visible
+// session, and the 6-hour per-pair cooldown, inside one transaction holding a
+// per-recipient advisory lock. The checks here only save a round-trip.
 //
 // Its rejections come back as data, not exceptions, because the client branches
-// on them — and every rejection that touches visibility is the same generic
-// "unavailable", so this can't be used to probe a friend's private goals.
+// on them. A locked recipient's refusal carries the same reason the chip shows;
+// a bad TARGET is always the generic "unavailable", so this can't be used to
+// probe a friend's private goals.
 export async function sendNudge(input: {
   recipientId: string;
   kind: string;
@@ -38,25 +39,25 @@ export async function sendNudge(input: {
   preset: string;
 }): Promise<SendResult> {
   if (!NUDGES) {
-    return { error: "Nudges aren't available.", reason: "unavailable", cooldownUntil: null };
+    return { error: "Nudges aren't available.", ...UNAVAILABLE };
   }
 
   const user = await getCurrentUser();
   if (!user) {
-    return { error: "Not authenticated", reason: "unavailable", cooldownUntil: null };
+    return { error: "Not authenticated", ...UNAVAILABLE };
   }
   const seat = await requireSeat();
   if ("error" in seat) {
-    return { ...seat, reason: "unavailable", cooldownUntil: null };
+    return { ...seat, ...UNAVAILABLE };
   }
 
   const { recipientId, kind, goalId, preset } = input;
   if (!isUuid(recipientId) || !isNudgeTargetKind(kind) || !isNudgePreset(preset)) {
-    return { error: "Couldn't send that nudge.", reason: "unavailable", cooldownUntil: null };
+    return { error: "Couldn't send that nudge.", ...UNAVAILABLE };
   }
   // The RPC enforces this too; mirroring it keeps the shapes honest here.
   if (kind === "goal" ? !isUuid(goalId) : goalId !== null) {
-    return { error: "Couldn't send that nudge.", reason: "unavailable", cooldownUntil: null };
+    return { error: "Couldn't send that nudge.", ...UNAVAILABLE };
   }
 
   const supabase = await createClient();
@@ -67,7 +68,7 @@ export async function sendNudge(input: {
     p_preset: preset,
   });
   if (error) {
-    return { error: "Couldn't send that nudge.", reason: "unavailable", cooldownUntil: null };
+    return { error: "Couldn't send that nudge.", ...UNAVAILABLE };
   }
 
   const result = parseSendNudgeResult(data);
@@ -78,6 +79,7 @@ export async function sendNudge(input: {
       error: nudgeRejectionFallback(result),
       reason: result.reason,
       cooldownUntil: result.cooldownUntil,
+      opensAt: result.opensAt,
     };
   }
 

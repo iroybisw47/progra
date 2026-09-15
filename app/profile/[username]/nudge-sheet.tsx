@@ -11,7 +11,7 @@ import { track } from "@/lib/analytics";
 import {
   NUDGE_PRESETS,
   NUDGE_PRESET_KEYS,
-  nudgeRejectionMessage,
+  nudgeRefusalMessage,
   type NudgeGoalTarget,
   type NudgePresetKey,
   type NudgeState,
@@ -58,13 +58,7 @@ export function NudgeSheet({
       if ("error" in result) {
         // Re-render the action's name-free copy with the friend's actual name
         // and the exact wait — the action only knows ids.
-        toast.error(
-          nudgeRejectionMessage(
-            { ok: false, reason: result.reason, cooldownUntil: result.cooldownUntil },
-            name,
-            Date.now()
-          )
-        );
+        toast.error(nudgeRefusalMessage(result, name, Date.now()));
         track("nudge_rejected", { reason: result.reason });
         onOpenChange(false);
         return;

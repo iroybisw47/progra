@@ -4,7 +4,41 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-09-15
+
+### 08:07 · Nudge chip shows why you can't nudge (needs SQL)
+Every friend now gets a Nudge chip. When they can't be nudged right now the chip
+is dimmed with a lock, and tapping it says why: turned off nudges, before 2pm
+their time (with how long until it opens), in a session, all caught up today, no
+goals or habits to nudge, or a vague "can't be nudged right now" for accounts
+that aren't set up. The cooldown chip ("Nudged · 4h") is tappable the same way,
+and a refused send toasts the same reason.
+
+This reverses v1's rule that every refusal rendered nothing. The reasons are
+computed from what a friend can already see, and **private sessions are now
+ignored**. v1 hid the chip during a private session so it looked like any other
+hidden state. With reasons showing, that disguise no longer works, so a friend in
+a private session reads exactly as if they weren't clocked in, and a nudge can
+land mid-session. Private goals and habits still can't be inferred: the
+"caught up" vs "nothing to nudge" split counts visible rows only, and a bad goal
+id on send is still the one generic refusal.
+
+**Needs hand-run SQL:** `nudges.sql` STEP 7 replaces `nudge_targets`,
+`get_nudge_state` and `send_nudge` (same signatures). Either deploy order is safe.
+Old app code reads the new `locked` state as hidden, and the new code just never
+receives it until the SQL runs. Adversarial suite updated: 53/53 locally
+(51 in prod, where the two account-delete cases are skipped), 13/13 planted bugs
+caught.
+
 ## 2026-09-14
+
+### 15:49 · Nudges switched on in production
+`NEXT_PUBLIC_NUDGES=1` set in Vercel and redeployed. Because the iOS shell loads
+progra.world, the feature reached App Store installs on next open with no App Review.
+First real nudge sent between two beta accounts. The first attempt showed no button —
+correctly: the recipient was clocked in, and a recipient mid-session reads as hidden. A
+gate-by-gate diagnostic query now lives with the hand-run SQL for the next "why is there
+no button?".
 
 ### 20:10 · Admin analytics, and Settings → Admin
 PostHog was answering the wrong question. The roster this needed — who each

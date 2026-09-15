@@ -39,6 +39,7 @@ export type AnalyticsEvent =
   | "nudge_sheet_opened"
   | "nudge_sent" // { kind, preset, pushed }
   | "nudge_rejected" // { reason }
+  | "nudge_locked_tapped" // { reason } — incl. "cooldown"
   | "nudges_toggled" // { enabled }
   // Research interview opt-in. `source` is "onboarding" | "settings" — the
   // consent rate at each is the only read available on whether the copy works.

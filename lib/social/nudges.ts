@@ -39,13 +39,44 @@ export type NudgeGoalTarget = {
   color: string | null;
 };
 
-// What get_nudge_state returns, once parsed. "hidden" is the catch-all: the
-// recipient isn't nudgeable and the button doesn't render. It deliberately
-// carries NO reason — disabled, before 14:00, mid-session and "caught up" must
-// be indistinguishable, or the button becomes a way to watch a friend's day.
+// Why a friend can't be nudged right now. Shown to the sender when they tap the
+// locked chip, so each must be safe to reveal: every one is computed by the RPC
+// from the recipient's VISIBLE rows only, and a private session is ignored
+// outright (a friend in one reads exactly as if they weren't clocked in).
+//   unavailable       not onboarded, waitlisted, or no usable timezone
+//   disabled          turned nudges off in Settings
+//   too_early         before 14:00 their time (opensAt = when it opens)
+//   in_session        in a visible running session
+//   done_today        every visible goal worked and every visible habit done
+//   nothing_to_nudge  no visible goals or habits at all
+export type NudgeLockReason =
+  | "unavailable"
+  | "disabled"
+  | "too_early"
+  | "in_session"
+  | "done_today"
+  | "nothing_to_nudge";
+
+const LOCK_REASONS: readonly NudgeLockReason[] = [
+  "unavailable",
+  "disabled",
+  "too_early",
+  "in_session",
+  "done_today",
+  "nothing_to_nudge",
+];
+
+function asLockReason(value: unknown): NudgeLockReason {
+  return LOCK_REASONS.find((reason) => reason === value) ?? "unavailable";
+}
+
+// What get_nudge_state returns, once parsed. "hidden" now means only "not a
+// friend" (or self, or blocked) — no chip at all. A friend who can't be nudged
+// right now is "locked", and the chip says why when tapped.
 export type NudgeState =
   | { status: "hidden" }
   | { status: "cooldown"; cooldownUntil: number }
+  | { status: "locked"; reason: NudgeLockReason; opensAt: number | null }
   | {
       status: "ok";
       goals: NudgeGoalTarget[];
@@ -76,6 +107,10 @@ export function parseNudgeState(json: unknown): NudgeState {
   if (row.status === "cooldown") {
     const until = asMs(row.cooldown_until);
     return until === null ? NUDGE_HIDDEN : { status: "cooldown", cooldownUntil: until };
+  }
+
+  if (row.status === "locked") {
+    return { status: "locked", reason: asLockReason(row.reason), opensAt: asMs(row.opens_at) };
   }
 
   if (row.status !== "ok") return NUDGE_HIDDEN;
@@ -109,28 +144,50 @@ export function parseNudgeState(json: unknown): NudgeState {
   return { status: "ok", goals, habits };
 }
 
-export type NudgeRejection = "cooldown" | "in_session" | "unavailable";
+export type NudgeRejection = "cooldown" | NudgeLockReason;
+
+// Why a nudge can't happen, with the times the copy needs. The same shape
+// serves a refused send and a tap on the locked chip, so both say the same
+// thing.
+export type NudgeRefusal = {
+  reason: NudgeRejection;
+  cooldownUntil: number | null;
+  opensAt: number | null;
+};
 
 export type SendNudgeResult =
   | { ok: true; nudgeId: string; pushed: boolean }
-  | { ok: false; reason: NudgeRejection; cooldownUntil: number | null };
+  | ({ ok: false } & NudgeRefusal);
 
 export function parseSendNudgeResult(json: unknown): SendNudgeResult {
   const row = asRecord(json);
-  if (!row) return { ok: false, reason: "unavailable", cooldownUntil: null };
+  if (!row) return { ok: false, reason: "unavailable", cooldownUntil: null, opensAt: null };
 
   if (row.ok === true && typeof row.nudge_id === "string") {
     return { ok: true, nudgeId: row.nudge_id, pushed: row.pushed === true };
   }
 
-  const reason: NudgeRejection =
-    row.reason === "cooldown" || row.reason === "in_session"
-      ? row.reason
-      : "unavailable";
-  return { ok: false, reason, cooldownUntil: asMs(row.cooldown_until) };
+  return {
+    ok: false,
+    reason: row.reason === "cooldown" ? "cooldown" : asLockReason(row.reason),
+    cooldownUntil: asMs(row.cooldown_until),
+    opensAt: asMs(row.opens_at),
+  };
 }
 
-// "4h" / "35m" / "a moment" — the wait left on a per-pair cooldown. `nowMs` is
+// The refusal a non-ok chip stands for, or null when the chip can nudge.
+export function nudgeStateRefusal(state: NudgeState): NudgeRefusal | null {
+  if (state.status === "cooldown") {
+    return { reason: "cooldown", cooldownUntil: state.cooldownUntil, opensAt: null };
+  }
+  if (state.status === "locked") {
+    return { reason: state.reason, cooldownUntil: null, opensAt: state.opensAt };
+  }
+  return null;
+}
+
+// "4h" / "35m" / "a moment" — the wait left on a per-pair cooldown, or until
+// a friend's 2pm floor. `nowMs` is
 // passed in rather than read, so this stays pure and testable.
 export function formatCooldownLeft(untilMs: number, nowMs: number): string {
   const left = untilMs - nowMs;
@@ -142,31 +199,53 @@ export function formatCooldownLeft(untilMs: number, nowMs: number): string {
 
 // Name-free copy for a refused send, for the server action — it knows only ids.
 // The client re-renders this with the friend's actual name via
-// nudgeRejectionMessage below.
-export function nudgeRejectionFallback(
-  result: Extract<SendNudgeResult, { ok: false }>
-): string {
-  if (result.reason === "cooldown") return "You've already nudged them recently.";
-  if (result.reason === "in_session") return "They're in a session right now.";
-  return "They can't be nudged right now.";
+// nudgeRefusalMessage below.
+export function nudgeRejectionFallback(refusal: NudgeRefusal): string {
+  switch (refusal.reason) {
+    case "cooldown":
+      return "You've already nudged them recently.";
+    case "disabled":
+      return "They've turned off nudges.";
+    case "too_early":
+      return "You can nudge them from 2pm their time.";
+    case "in_session":
+      return "They're in a session right now.";
+    case "done_today":
+      return "They're all caught up today.";
+    case "nothing_to_nudge":
+      return "They don't have any goals or habits to nudge.";
+    case "unavailable":
+      return "They can't be nudged right now.";
+  }
 }
 
-// Toast copy for a refused send. Every hidden-state rejection says the same
-// vague thing, matching the RPC: the sender must not learn why.
-export function nudgeRejectionMessage(
-  result: Extract<SendNudgeResult, { ok: false }>,
+// Why you can't nudge {name}: the locked chip's tap, and a refused send's toast.
+// `nowMs` is passed in so this stays pure.
+export function nudgeRefusalMessage(
+  refusal: NudgeRefusal,
   name: string,
   nowMs: number
 ): string {
-  if (result.reason === "cooldown") {
-    const left =
-      result.cooldownUntil === null
-        ? null
-        : formatCooldownLeft(result.cooldownUntil, nowMs);
-    return left === null
-      ? `You've already nudged ${name} recently.`
-      : `You've already nudged ${name} — you can again in ${left}.`;
+  switch (refusal.reason) {
+    case "cooldown": {
+      if (refusal.cooldownUntil === null) return `You've already nudged ${name} recently.`;
+      const left = formatCooldownLeft(refusal.cooldownUntil, nowMs);
+      return `You've already nudged ${name} — you can again in ${left}.`;
+    }
+    case "disabled":
+      return `${name} has turned off nudges.`;
+    case "too_early": {
+      if (refusal.opensAt === null) return `You can nudge ${name} from 2pm their time.`;
+      const left = formatCooldownLeft(refusal.opensAt, nowMs);
+      return `You can nudge ${name} from 2pm their time — in ${left}.`;
+    }
+    case "in_session":
+      return `${name} is in a session right now.`;
+    case "done_today":
+      return `${name} is all caught up today.`;
+    case "nothing_to_nudge":
+      return `${name} doesn't have any goals or habits to nudge.`;
+    case "unavailable":
+      return `${name} can't be nudged right now.`;
   }
-  if (result.reason === "in_session") return `${name} is in a session right now.`;
-  return `${name} can't be nudged right now.`;
 }

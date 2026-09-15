@@ -6,8 +6,9 @@ import {
   formatCooldownLeft,
   isNudgePreset,
   isNudgeTargetKind,
+  nudgeRefusalMessage,
   nudgeRejectionFallback,
-  nudgeRejectionMessage,
+  nudgeStateRefusal,
   parseNudgeState,
   parseSendNudgeResult,
 } from "@/lib/social/nudges";
@@ -75,6 +76,35 @@ describe("parseNudgeState", () => {
     ).toEqual({ status: "cooldown", cooldownUntil: Date.parse("2026-09-15T00:00:00Z") });
   });
 
+  it("reads a locked state with its reason", () => {
+    expect(parseNudgeState({ status: "locked", reason: "in_session" })).toEqual({
+      status: "locked",
+      reason: "in_session",
+      opensAt: null,
+    });
+    expect(
+      parseNudgeState({
+        status: "locked",
+        reason: "too_early",
+        opens_at: "2026-09-14T21:00:00+00:00",
+      })
+    ).toEqual({
+      status: "locked",
+      reason: "too_early",
+      opensAt: Date.parse("2026-09-14T21:00:00Z"),
+    });
+  });
+
+  it("locks with the vague reason when the reason is unknown", () => {
+    for (const reason of [undefined, "private", "cooldown", 7]) {
+      expect(parseNudgeState({ status: "locked", reason })).toEqual({
+        status: "locked",
+        reason: "unavailable",
+        opensAt: null,
+      });
+    }
+  });
+
   it("hides anything malformed rather than offering a button", () => {
     for (const bad of [
       null,
@@ -127,16 +157,53 @@ describe("parseSendNudgeResult", () => {
       ok: false,
       reason: "in_session",
       cooldownUntil: null,
+      opensAt: null,
+    });
+    expect(
+      parseSendNudgeResult({
+        ok: false,
+        reason: "too_early",
+        opens_at: "2026-09-14T21:00:00+00:00",
+      })
+    ).toEqual({
+      ok: false,
+      reason: "too_early",
+      cooldownUntil: null,
+      opensAt: Date.parse("2026-09-14T21:00:00Z"),
     });
     expect(parseSendNudgeResult({ ok: false, reason: "private" })).toEqual({
       ok: false,
       reason: "unavailable",
       cooldownUntil: null,
+      opensAt: null,
     });
     expect(parseSendNudgeResult(null)).toEqual({
       ok: false,
       reason: "unavailable",
       cooldownUntil: null,
+      opensAt: null,
+    });
+  });
+});
+
+describe("nudgeStateRefusal", () => {
+  it("is null only for a nudgeable friend", () => {
+    expect(nudgeStateRefusal({ status: "ok", goals: [], habits: { left: 1, total: 1 } })).toBe(
+      null
+    );
+    expect(nudgeStateRefusal({ status: "hidden" })).toBe(null);
+  });
+
+  it("turns cooldown and locked into the same refusal a send returns", () => {
+    expect(nudgeStateRefusal({ status: "cooldown", cooldownUntil: NOW })).toEqual({
+      reason: "cooldown",
+      cooldownUntil: NOW,
+      opensAt: null,
+    });
+    expect(nudgeStateRefusal({ status: "locked", reason: "too_early", opensAt: NOW })).toEqual({
+      reason: "too_early",
+      cooldownUntil: null,
+      opensAt: NOW,
     });
   });
 });
@@ -149,28 +216,41 @@ describe("cooldown copy", () => {
     expect(formatCooldownLeft(NOW + 4 * 3_600_000, NOW)).toBe("4h");
   });
 
-  it("names the wait, and stays vague about everything else", () => {
-    expect(
-      nudgeRejectionMessage(
-        { ok: false, reason: "cooldown", cooldownUntil: NOW + 4 * 3_600_000 },
+  it("says why, by name", () => {
+    const say = (
+      reason: Parameters<typeof nudgeRefusalMessage>[0]["reason"],
+      times: { cooldownUntil?: number; opensAt?: number } = {}
+    ) =>
+      nudgeRefusalMessage(
+        { reason, cooldownUntil: times.cooldownUntil ?? null, opensAt: times.opensAt ?? null },
         "Sam",
         NOW
-      )
-    ).toBe("You've already nudged Sam — you can again in 4h.");
-    expect(
-      nudgeRejectionMessage({ ok: false, reason: "in_session", cooldownUntil: null }, "Sam", NOW)
-    ).toBe("Sam is in a session right now.");
-    // Disabled, before 14:00, caught up and "that goal is private" all land here.
-    expect(
-      nudgeRejectionMessage({ ok: false, reason: "unavailable", cooldownUntil: null }, "Sam", NOW)
-    ).toBe("Sam can't be nudged right now.");
+      );
+    expect(say("cooldown", { cooldownUntil: NOW + 4 * 3_600_000 })).toBe(
+      "You've already nudged Sam — you can again in 4h."
+    );
+    expect(say("cooldown")).toBe("You've already nudged Sam recently.");
+    expect(say("too_early", { opensAt: NOW + 35 * 60_000 })).toBe(
+      "You can nudge Sam from 2pm their time — in 35m."
+    );
+    expect(say("too_early")).toBe("You can nudge Sam from 2pm their time.");
+    expect(say("disabled")).toBe("Sam has turned off nudges.");
+    expect(say("in_session")).toBe("Sam is in a session right now.");
+    expect(say("done_today")).toBe("Sam is all caught up today.");
+    expect(say("nothing_to_nudge")).toBe("Sam doesn't have any goals or habits to nudge.");
+    // Not onboarded, waitlisted, no timezone — and any bad goal id on send.
+    expect(say("unavailable")).toBe("Sam can't be nudged right now.");
   });
 
   it("has name-free copy for the action, which only knows ids", () => {
-    const copy = (reason: "cooldown" | "in_session" | "unavailable") =>
-      nudgeRejectionFallback({ ok: false, reason, cooldownUntil: null });
+    const copy = (reason: Parameters<typeof nudgeRejectionFallback>[0]["reason"]) =>
+      nudgeRejectionFallback({ reason, cooldownUntil: null, opensAt: null });
     expect(copy("cooldown")).toBe("You've already nudged them recently.");
+    expect(copy("disabled")).toBe("They've turned off nudges.");
+    expect(copy("too_early")).toBe("You can nudge them from 2pm their time.");
     expect(copy("in_session")).toBe("They're in a session right now.");
+    expect(copy("done_today")).toBe("They're all caught up today.");
+    expect(copy("nothing_to_nudge")).toBe("They don't have any goals or habits to nudge.");
     expect(copy("unavailable")).toBe("They can't be nudged right now.");
   });
 });
