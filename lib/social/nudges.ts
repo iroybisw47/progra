@@ -10,12 +10,16 @@
 //
 // Tone is teammate, not supervisor: the person most likely to be nudged is the
 // one already drifting, and "you haven't done your habits" reads as a scolding.
+//
+// The keys are frozen by that CHECK, so they no longer describe their copy
+// (miss_you is now the mog one). Rewording is free; renaming a key isn't.
+// Past nudges render with the current copy — only the key is stored.
 export const NUDGE_PRESETS = {
-  lock_in: "Lock in 🔒",
-  still_time: "Still time today 👀",
-  waiting: "Your friends are waiting on you",
-  one_session: "One session. That's it.",
-  miss_you: "Feed's quiet without you",
+  lock_in: "Lock in",
+  still_time: "Still got time today!",
+  waiting: "Your friends are counting on you",
+  one_session: "You can do this!",
+  miss_you: "I'm gonna mog you",
 } as const;
 
 export type NudgePresetKey = keyof typeof NUDGE_PRESETS;
@@ -45,7 +49,7 @@ export type NudgeGoalTarget = {
 // outright (a friend in one reads exactly as if they weren't clocked in).
 //   unavailable       not onboarded, waitlisted, or no usable timezone
 //   disabled          turned nudges off in Settings
-//   too_early         before 14:00 their time (opensAt = when it opens)
+//   too_early         before 09:00 their time (opensAt = when it opens)
 //   in_session        in a visible running session
 //   done_today        every visible goal worked and every visible habit done
 //   nothing_to_nudge  no visible goals or habits at all
@@ -187,7 +191,7 @@ export function nudgeStateRefusal(state: NudgeState): NudgeRefusal | null {
 }
 
 // "4h" / "35m" / "a moment" — the wait left on a per-pair cooldown, or until
-// a friend's 2pm floor. `nowMs` is
+// a friend's 9am floor. `nowMs` is
 // passed in rather than read, so this stays pure and testable.
 export function formatCooldownLeft(untilMs: number, nowMs: number): string {
   const left = untilMs - nowMs;
@@ -207,7 +211,7 @@ export function nudgeRejectionFallback(refusal: NudgeRefusal): string {
     case "disabled":
       return "They've turned off nudges.";
     case "too_early":
-      return "You can nudge them from 2pm their time.";
+      return "You can nudge them from 9am their time.";
     case "in_session":
       return "They're in a session right now.";
     case "done_today":
@@ -235,9 +239,9 @@ export function nudgeRefusalMessage(
     case "disabled":
       return `${name} has turned off nudges.`;
     case "too_early": {
-      if (refusal.opensAt === null) return `You can nudge ${name} from 2pm their time.`;
+      if (refusal.opensAt === null) return `You can nudge ${name} from 9am their time.`;
       const left = formatCooldownLeft(refusal.opensAt, nowMs);
-      return `You can nudge ${name} from 2pm their time — in ${left}.`;
+      return `You can nudge ${name} from 9am their time — in ${left}.`;
     }
     case "in_session":
       return `${name} is in a session right now.`;

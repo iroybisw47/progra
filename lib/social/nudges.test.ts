@@ -231,9 +231,9 @@ describe("cooldown copy", () => {
     );
     expect(say("cooldown")).toBe("You've already nudged Sam recently.");
     expect(say("too_early", { opensAt: NOW + 35 * 60_000 })).toBe(
-      "You can nudge Sam from 2pm their time — in 35m."
+      "You can nudge Sam from 9am their time — in 35m."
     );
-    expect(say("too_early")).toBe("You can nudge Sam from 2pm their time.");
+    expect(say("too_early")).toBe("You can nudge Sam from 9am their time.");
     expect(say("disabled")).toBe("Sam has turned off nudges.");
     expect(say("in_session")).toBe("Sam is in a session right now.");
     expect(say("done_today")).toBe("Sam is all caught up today.");
@@ -247,7 +247,7 @@ describe("cooldown copy", () => {
       nudgeRejectionFallback({ reason, cooldownUntil: null, opensAt: null });
     expect(copy("cooldown")).toBe("You've already nudged them recently.");
     expect(copy("disabled")).toBe("They've turned off nudges.");
-    expect(copy("too_early")).toBe("You can nudge them from 2pm their time.");
+    expect(copy("too_early")).toBe("You can nudge them from 9am their time.");
     expect(copy("in_session")).toBe("They're in a session right now.");
     expect(copy("done_today")).toBe("They're all caught up today.");
     expect(copy("nothing_to_nudge")).toBe("They don't have any goals or habits to nudge.");

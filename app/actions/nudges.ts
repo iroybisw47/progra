@@ -24,7 +24,7 @@ const UNAVAILABLE = { reason: "unavailable", cooldownUntil: null, opensAt: null 
 // Nudge a friend about one goal, or about their habits.
 //
 // The DB is the real gate: send_nudge re-checks friendship, blocking, the
-// recipient's opt-out, their 14:00 local floor, whether they're in a visible
+// recipient's opt-out, their 09:00 local floor, whether they're in a visible
 // session, and the 6-hour per-pair cooldown, inside one transaction holding a
 // per-recipient advisory lock. The checks here only save a round-trip.
 //

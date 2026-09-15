@@ -550,7 +550,7 @@ durably.
   **(3)** the nudge-push sender (`lib/push/send-nudge-push.ts`): same shape as
   (2) — it reads the recipient's tokens and opt-out, claims `push_log`, and runs
   only inside `after()` from `sendNudge`, after `send_nudge` (definer) re-checked
-  friendship, blocking, opt-in, the local 14:00 floor, mid-session state and the
+  friendship, blocking, opt-in, the local 09:00 floor, mid-session state and the
   6h cooldown and wrote the row. Two things it deliberately does not trust: the
   recipient comes from the **nudge row**, never the caller, and the caller's id
   must equal that row's `sender_id`. The key lives in

@@ -6,6 +6,20 @@ when it was done, not a start/stop work timer.
 
 ## 2026-09-15
 
+### 08:20 · Nudges open at 9am, not 2pm (needs SQL)
+A friend can now be nudged from 09:00 their local time instead of 14:00. The
+locked chip says "You can nudge Sam from 9am their time — in 2h." **Needs
+hand-run SQL:** re-run `nudges.sql` STEP 7 (edited in place; it only replaces
+the functions, so re-running is safe), then STEP 2 (52/52 in prod). Run the SQL
+before deploying: against the old SQL, the new app would say "9am" while the
+chip stayed locked until 2pm.
+
+### 08:18 · New nudge preset copy
+The five presets now read "Lock in", "Still got time today!", "Your friends are
+counting on you", "You can do this!" and "I'm gonna mog you". Copy-only: the
+database stores the preset key, not the text, so there's no SQL and past nudges
+in the panel show the new wording too.
+
 ### 08:07 · Nudge chip shows why you can't nudge (needs SQL)
 Every friend now gets a Nudge chip. When they can't be nudged right now the chip
 is dimmed with a lock, and tapping it says why: turned off nudges, before 2pm

@@ -16,7 +16,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // AUTHORIZATION PRECONDITION (why the service-role reads below are safe, and
 // the third sanctioned use of the admin client): this runs only after
 // send_nudge returned ok. That definer re-checked friendship, blocking, the
-// recipient's opt-out, their local 14:00 floor, mid-session state and the
+// recipient's opt-out, their local 09:00 floor, mid-session state and the
 // cooldown, then wrote the row — so the row's existence IS the proof the sender
 // may nudge this person. Note what is NOT trusted: the recipient is read from
 // the nudge row, never taken from the caller, and the caller's id must match
