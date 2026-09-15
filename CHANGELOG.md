@@ -6,6 +6,11 @@ when it was done, not a start/stop work timer.
 
 ## 2026-09-15
 
+### 14:13 · Nudge chip in the clock's navy
+When a friend can be nudged, the chip on their profile is now filled navy
+(`bg-brand`, the clock button's colour) instead of an outline. Locked and
+cooldown chips stay dimmed outlines, so "you can nudge" stands apart.
+
 ### 14:08 · Nudge preset: "Slow progress is better than no progress"
 Replaces "I'm gonna mog you". Copy only: the database stores the preset key, so
 there's no SQL and past nudges with that key show the new wording.

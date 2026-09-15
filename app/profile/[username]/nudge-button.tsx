@@ -21,10 +21,10 @@ const NudgeSheet = dynamic(() =>
 );
 
 const CHIP =
-  "border-hairline h-8 shrink-0 rounded-[11px] border-[1.5px] px-3.5 text-xs font-semibold whitespace-nowrap transition-transform active:scale-95";
+  "h-8 shrink-0 rounded-[11px] border-[1.5px] px-3.5 text-xs font-semibold whitespace-nowrap transition-transform active:scale-95";
 
-// The Nudge chip in the profile identity row. Styled like the self "Edit" chip
-// so the two read as the same class of control.
+// The Nudge chip in the profile identity row. When you can nudge, it's filled
+// in the clock button's navy (bg-brand) — the same "go do it" colour.
 //
 // Every friend gets a chip. When they can't be nudged right now it renders
 // dimmed — locked, or "Nudged · 4h" on a cooldown — and a tap says why in a
@@ -58,7 +58,7 @@ export function NudgeButton({
       <button
         type="button"
         aria-label={`Can't nudge ${name} right now — tap for why`}
-        className={`${CHIP} text-faint inline-flex items-center gap-1.5 opacity-60`}
+        className={`${CHIP} border-hairline text-faint inline-flex items-center gap-1.5 opacity-60`}
         onClick={() => {
           track("nudge_locked_tapped", { reason: refusal.reason });
           toast(nudgeRefusalMessage(refusal, name, Date.now()));
@@ -82,7 +82,7 @@ export function NudgeButton({
     <>
       <button
         type="button"
-        className={`${CHIP} text-caption`}
+        className={`${CHIP} border-brand bg-brand text-primary-foreground`}
         onClick={() => {
           track("nudge_sheet_opened");
           setOpen(true);
