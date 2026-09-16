@@ -37,7 +37,7 @@ import type { Goal } from "@/lib/db/goals";
 import type { Category } from "@/lib/storage";
 import { entityColor, tint } from "@/lib/colors";
 import { formatDuration } from "@/lib/duration";
-import { formatTime12 } from "@/lib/dates";
+import { formatTime12InZone } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -84,6 +84,7 @@ export type HabitToday = { id: string; name: string; color: string | null; done:
 type Tab = "today" | "week";
 
 export function ProgressClient(props: {
+  timezone: string;
   dateLabel: string;
   todayTotalMs: number;
   todayTracked: number;
@@ -299,8 +300,8 @@ export function ProgressClient(props: {
                         : s.catName ?? "Uncategorized"}
                       {" · "}
                       {s.endedAt !== null
-                        ? `${formatTime12(new Date(s.startedAt))} – ${formatTime12(new Date(s.endedAt))}`
-                        : formatTime12(new Date(s.startedAt))}
+                        ? `${formatTime12InZone(s.startedAt, props.timezone)} – ${formatTime12InZone(s.endedAt, props.timezone)}`
+                        : formatTime12InZone(s.startedAt, props.timezone)}
                     </span>
                   </div>
                   <span className="text-body shrink-0 text-[13px] font-semibold tabular-nums">

@@ -59,7 +59,7 @@ import { primeTimerSound, setTimerSoundMuted } from "@/lib/timer-sound";
 import { useTimerSoundMuted } from "@/lib/use-muted";
 import { useBreakSchedule } from "./use-break-schedule";
 import { usePlanFinish } from "./use-plan-finish";
-import { formatTime } from "@/lib/dates";
+import { formatTimeInZone } from "@/lib/dates";
 import { entityColor, goalColorOf } from "@/lib/colors";
 import type { Attribution } from "@/lib/session-attribution";
 import type { Category } from "@/lib/storage";
@@ -72,6 +72,10 @@ type Props = {
   description: string | null;
   attribution: Attribution;
   startedAt: number;
+  // The user's stored IANA timezone, so the "Started HH:MM" label formats the
+  // same on the server and after hydration (see formatTimeInZone) — a plain
+  // local-time render trips React #418.
+  timezone: string;
   pausedMs: number;
   pausedSince: number | null;
   plan: SessionPlan;
@@ -114,6 +118,7 @@ export function LiveTimerClient({
   description,
   attribution,
   startedAt,
+  timezone,
   pausedMs,
   pausedSince,
   plan,
@@ -609,7 +614,7 @@ export function LiveTimerClient({
         )}
 
         <div className="text-faint text-xs">
-          Started {formatTime(new Date(startedAt))}
+          Started {formatTimeInZone(startedAt, timezone)}
           <Ticking>
             {(tick) => {
               const now = tick === 0 ? seedNow : tick;
