@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth/require-user";
+import { getProfile } from "@/lib/auth/profile";
 import { REDESIGN } from "@/lib/flags";
 import { getActiveSession } from "@/lib/db/sessions";
 import { listCategories } from "@/lib/db/categories";
@@ -19,9 +20,10 @@ export default async function LiveTimerPage() {
   const active = await getActiveSession();
   if (!active) redirect("/clock");
 
-  const [categories, goals] = await Promise.all([
+  const [categories, goals, profile] = await Promise.all([
     listCategories(),
     listActiveGoals(),
+    getProfile(),
   ]);
   const attribution = resolveAttribution(active, categories, goals);
 
@@ -32,6 +34,7 @@ export default async function LiveTimerPage() {
       description={active.description?.trim() || null}
       attribution={attribution}
       startedAt={active.startedAt}
+      timezone={profile?.timezone ?? "UTC"}
       pausedMs={active.pausedMs}
       pausedSince={active.pausedSince}
       plan={{

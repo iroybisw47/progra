@@ -34,6 +34,10 @@ import type { Category } from "@/lib/storage";
 const CHART_FALLBACK = "var(--chart-5)";
 
 export type ProgressData = {
+  // The user's stored IANA timezone. Threaded to the client so session clock
+  // times format identically on the server and after hydration (see
+  // formatTime12InZone) — a plain local-time render trips React #418.
+  timezone: string;
   dateLabel: string;
   // Option lists for the manage-sessions sheet's picker. Both are already read
   // for the breakdowns above — passing them through costs nothing extra.
@@ -231,6 +235,7 @@ export async function loadProgressData(): Promise<ProgressData> {
   }));
 
   return {
+    timezone: tz,
     dateLabel,
     categories,
     pickableGoals: activeGoals,

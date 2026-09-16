@@ -4,6 +4,8 @@ import {
   endOfMonth,
   endOfWeek,
   endOfYear,
+  formatTime12InZone,
+  formatTimeInZone,
   isRecapReady,
   mondayOfDateISO,
   recapReadyMs,
@@ -126,6 +128,33 @@ describe("weekWindow", () => {
     const now = weekWindow("UTC");
     const explicit = weekWindow("UTC", now.weekStartISO);
     expect(now).toEqual(explicit);
+  });
+});
+
+describe("formatTimeInZone / formatTime12InZone (SSR-safe clock times)", () => {
+  // 2026-07-06 22:30 UTC. The whole point of these helpers is that the string
+  // depends only on the instant and the given zone, never on the runtime's own
+  // timezone — that independence is what stops the server (UTC) and the client
+  // (device zone) disagreeing and tripping React #418.
+  const ms = Date.UTC(2026, 6, 6, 22, 30);
+
+  it("renders the same wall clock regardless of runtime zone", () => {
+    // LA in July is PDT (UTC−7): 15:30.
+    expect(formatTimeInZone(ms, "America/Los_Angeles")).toBe("15:30");
+    expect(formatTime12InZone(ms, "America/Los_Angeles")).toBe("3:30 PM");
+    // Tokyo (UTC+9) rolls past midnight into the next day: 07:30.
+    expect(formatTimeInZone(ms, "Asia/Tokyo")).toBe("07:30");
+    expect(formatTime12InZone(ms, "Asia/Tokyo")).toBe("7:30 AM");
+    // UTC is the identity case.
+    expect(formatTimeInZone(ms, "UTC")).toBe("22:30");
+    expect(formatTime12InZone(ms, "UTC")).toBe("10:30 PM");
+  });
+
+  it("formats midnight as 00:00 / 12:00 AM", () => {
+    // 07:00 UTC is midnight PDT.
+    const midnight = Date.UTC(2026, 6, 6, 7);
+    expect(formatTimeInZone(midnight, "America/Los_Angeles")).toBe("00:00");
+    expect(formatTime12InZone(midnight, "America/Los_Angeles")).toBe("12:00 AM");
   });
 });
 

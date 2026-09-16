@@ -88,10 +88,35 @@ export function formatTime(d: Date): string {
 // Separate from formatTime (24h) because that one also feeds <input type="time">
 // values (components/session-dialog.tsx), which require an HH:MM string.
 export function formatTime12(d: Date): string {
-  const h = d.getHours();
+  return time12(d.getHours(), d.getMinutes());
+}
+
+function time12(h: number, m: number): string {
   const ampm = h < 12 ? "AM" : "PM";
   const h12 = h % 12 || 12;
-  return `${h12}:${pad2(d.getMinutes())} ${ampm}`;
+  return `${h12}:${pad2(m)} ${ampm}`;
+}
+
+// The zone-explicit siblings of formatTime / formatTime12. Use these — not
+// formatTime(new Date(ms)) — anywhere the string is produced during server
+// rendering. The plain Date getters read the *runtime's* timezone: UTC on the
+// server (Vercel), the device's zone in the browser. So the server HTML and the
+// client hydration render disagree on the clock time and React throws hydration
+// error #418. Shifting the instant by the zone offset lets the
+// timezone-independent getUTC* getters read the zone's wall clock, so both sides
+// render the same string. `tz` is the user's stored IANA timezone.
+function zonedWallDate(ms: number, tz: string): Date {
+  return new Date(ms + tzOffsetMs(ms, tz));
+}
+
+export function formatTimeInZone(ms: number, tz: string): string {
+  const d = zonedWallDate(ms, tz);
+  return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+}
+
+export function formatTime12InZone(ms: number, tz: string): string {
+  const d = zonedWallDate(ms, tz);
+  return time12(d.getUTCHours(), d.getUTCMinutes());
 }
 
 // Returns YYYY-MM-DD (ISO-style) for the current moment in the given IANA
