@@ -16,6 +16,7 @@ import { NotificationLifecycle } from "@/components/notification-lifecycle";
 import { SyncClockReminders } from "@/components/sync-clock-reminders";
 import { SyncHabitReminders } from "@/components/sync-habit-reminders";
 import { PlanCompleteModal } from "@/components/v2/plan-complete-modal";
+import { WhatsNewModal } from "@/components/v2/whats-new-modal";
 import {
   getActiveSession,
   getUnreviewedPlanComplete,
@@ -25,6 +26,7 @@ import { getNavBadges } from "@/lib/db/notifications";
 import { HABIT_REMINDERS } from "@/lib/flags";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
+import { patchNoteToShow } from "@/lib/patch-notes";
 import { isWaitlisted } from "@/lib/auth/seat";
 import { createClient } from "@/lib/supabase/server";
 import { BetaFull } from "@/components/beta-full";
@@ -97,6 +99,10 @@ export default async function RootLayout({
       // serializing the others. Skipped entirely while the flag is dark.
       HABIT_REMINDERS ? getHabitReminderData() : Promise.resolve(null),
     ]);
+
+  // Free: the profile is already read above. `undefined` (the column doesn't
+  // exist yet) deliberately yields null — see patchNoteToShow.
+  const patchNote = patchNoteToShow(profile?.patch_notes_seen_version);
 
   // The 250-seat beta cap. Only the seat-less path costs anything: getProfile()
   // is already fetched above, so members pay nothing here.
@@ -191,6 +197,29 @@ export default async function RootLayout({
           sessionId={planComplete.id}
           taskName={planComplete.taskName}
           workedMs={planComplete.workedMs}
+        />
+      )}
+      {/* One release note, once. Three gates beyond `user`, all free:
+          · onboarded_at — nobody is interrupted mid-wizard, and the decision is
+            baked into THIS payload. completeOnboarding revalidates the page, not
+            the layout, and onboarding then pushes to "/" — so the layout the
+            browser is still holding could otherwise leak the note to a brand-new
+            account. A path check in the leaf can only fail open; this fails closed.
+          · !planComplete — that modal outranks this one (it's about the user's
+            own data and carries a CTA), and two Base UI dialogs would stack two
+            backdrops and fight over the focus trap. Yielding costs nothing:
+            suppressing doesn't stamp, so the note waits for the next load.
+          · patchNote — null when there's nothing to announce, or when the column
+            doesn't exist yet.
+          No next/dynamic, matching PlanCompleteModal: a client component imported
+          by a SERVER component is already its own chunk, fetched only when the
+          payload actually contains it — once per user per release. */}
+      {user && profile?.onboarded_at != null && !planComplete && patchNote && (
+        <WhatsNewModal
+          version={patchNote.version}
+          title={patchNote.title}
+          intro={patchNote.intro}
+          items={patchNote.items}
         />
       )}
       {/* Flat primitives again: an object literal is a fresh reference every

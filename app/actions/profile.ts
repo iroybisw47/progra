@@ -8,9 +8,14 @@ import {
   SEEDED_SYSTEM_FILLS,
 } from "@/lib/default-categories";
 import {
+  LATEST_PATCH_VERSION,
+  isKnownPatchVersion,
+} from "@/lib/patch-notes";
+import {
   revalidateCalendarSurfaces,
   revalidateCategorySurfaces,
   revalidateIdentitySurfaces,
+  revalidatePatchNoteSurfaces,
 } from "@/lib/revalidate";
 import { checkUsername } from "@/lib/social/username";
 import { getCurrentUser } from "@/lib/auth/require-user";
@@ -252,7 +257,14 @@ export async function completeOnboarding(): Promise<
   // the write-once filter above means a replay matches nothing. A replayer has
   // had an account for a while; handing them four categories again (or
   // resurrecting ones they deleted) would be a surprise.
-  if (data && data.length > 0) await seedDefaultCategories(user.id);
+  if (data && data.length > 0) {
+    await seedDefaultCategories(user.id);
+    // Start new accounts CURRENT, so a note that's already live isn't their
+    // welcome message — they see the NEXT one. Inside this branch, not after
+    // it: a replay matches nothing on the write-once filter above, and stamping
+    // a replayer would rob an existing user of a note they haven't seen yet.
+    await stampPatchNotesCurrent(user.id);
+  }
 
   revalidatePath("/");
   return { ok: true };
@@ -340,4 +352,55 @@ export async function touchLastSeen(): Promise<
   const { error } = await supabase.rpc("touch_last_seen");
   if (error) return { error: "Couldn't record visit." };
   return { ok: true };
+}
+
+// Stamps the "What's new" modal as seen. Every close path calls this — a dismiss
+// that didn't write would reopen the modal on the next load, which is the one
+// failure a modal can't have (see PlanCompleteModal).
+//
+// Takes the version the CLIENT actually rendered rather than stamping the
+// server's latest: a tab holding an older bundle saw the older note, and
+// stamping it forward would silently eat the newer one. Validated against
+// PATCH_NOTES so only a version this build authored can reach the column.
+export async function markPatchNotesSeen(
+  version: string
+): Promise<{ ok: true } | { error: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+  // No requireSeat(): a waitlisted user never gets the app shell, so there is
+  // nothing to gate. Matches markNotificationsSeen and the other seen-stamps.
+  if (!isKnownPatchVersion(version)) return { error: "Unknown version" };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ patch_notes_seen_version: version })
+    .eq("id", user.id);
+
+  // Before the column SQL runs this is PGRST204. It can't happen in practice —
+  // the same missing column reads back `undefined`, which stops the modal from
+  // ever opening — but it stays best-effort either way: the caller ignores the
+  // result and the note simply returns on the next load.
+  if (error) return { error: "Couldn't save that." };
+  revalidatePatchNoteSurfaces();
+  return { ok: true };
+}
+
+// Starts a brand-new account current, so the release note that is already live
+// isn't their welcome message.
+//
+// Its OWN statement, never folded into completeOnboarding's UPDATE above: this
+// ships ahead of the column SQL, and PostgREST rejects the whole statement when
+// a column is missing — folded in, it would take onboarding down for every new
+// user until the SQL ran. Errors swallowed for seedDefaultCategories' reason.
+//
+// No revalidation: the caller is about to hard-navigate to "/", and the only
+// reader is the layout gate, which re-reads the profile there.
+async function stampPatchNotesCurrent(userId: string): Promise<void> {
+  if (LATEST_PATCH_VERSION == null) return;
+  const supabase = await createClient();
+  await supabase
+    .from("profiles")
+    .update({ patch_notes_seen_version: LATEST_PATCH_VERSION })
+    .eq("id", userId);
 }

@@ -73,6 +73,19 @@ export type Profile = {
   // degrades to "nobody consented" rather than throwing.
   interview_consent?: boolean | null;
   interview_consent_at?: string | null;
+  // The newest "What's new" entry this user has been shown (lib/patch-notes.ts).
+  // Null = never stamped, so they see the newest note. New accounts are stamped
+  // CURRENT by completeOnboarding, so the note that's already live isn't their
+  // welcome message.
+  //
+  // OPTIONAL for seat_no's reason, but with the POLARITY FLIPPED. seat_no fails
+  // OPEN because the alternative locks people out of their account. This one
+  // must fail CLOSED: before the column SQL is run PostgREST omits the key and
+  // it reads `undefined`, and in that same world the dismiss write fails too
+  // (PGRST204) — so treating undefined as "never seen" would give all ~57 users
+  // an undismissable modal on every page load. patchNoteToShow() tests strict
+  // `=== undefined` and shows nothing. Worst case here is one missed note.
+  patch_notes_seen_version?: string | null;
   created_at: string;
   updated_at: string;
 };

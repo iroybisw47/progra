@@ -141,3 +141,17 @@ export function revalidateFriendSurfaces() {
   revalidatePath("/");
   revalidatePath("/profile/[username]", "page");
 }
+
+// The "What's new" modal is decided in the ROOT LAYOUT, from
+// profiles.patch_notes_seen_version — so the stamp has to re-render the layout,
+// not just the page.
+//
+// NOT the markNotificationsSeen/touchLastSeen exception, despite looking like
+// one. Those stamps skip revalidation because nothing server-rendered reads
+// them: the bell and nav own their dot state from a client poll. This column's
+// only reader is a server component, and a stale layout payload still says
+// "show the modal" — which is the one failure a modal can't have. Called once
+// per user per release, so the tree refetch is free.
+export function revalidatePatchNoteSurfaces() {
+  revalidatePath("/", "layout");
+}
