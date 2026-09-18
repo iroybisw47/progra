@@ -3,7 +3,7 @@
 // out of the client component so they're testable and so the shell reads as
 // a state machine rather than a pile of string templates.
 
-import { CATEGORY_COLORS } from "@/lib/category-colors";
+import { PALETTE } from "@/lib/palette";
 
 export const STEPS = [
   "welcome",
@@ -33,15 +33,15 @@ export function eyebrowFor(step: Step, steps: readonly Step[]): string | null {
   return `Step ${numbered.indexOf(step) + 1} of ${numbered.length}${practice ? " · Practice" : ""}`;
 }
 
-export const DEFAULT_GOAL_COLOR = CATEGORY_COLORS[6].value; // Blue
+export const DEFAULT_GOAL_COLOR = PALETTE[7].fill; // Dark blue
 
 export type HabitPick = { name: string; color: string };
 
 export const HABIT_PRESETS: readonly HabitPick[] = [
-  { name: "Journaling", color: "#6B639C" },
-  { name: "Meditation", color: "#46808A" },
-  { name: "Stretching", color: "#4E7A5F" },
-  { name: "Drinking water", color: "#4A6FA5" },
+  { name: "Journaling", color: PALETTE[9].fill },
+  { name: "Meditation", color: PALETTE[6].fill },
+  { name: "Stretching", color: PALETTE[5].fill },
+  { name: "Drinking water", color: PALETTE[7].fill },
 ];
 
 // The colour a custom habit gets: the presets' palette, cycling.

@@ -9,7 +9,7 @@ import { ReportButton } from "@/components/report-button";
 import { BackButton } from "@/components/v2/back-button";
 import { CommentRow } from "@/components/v2/comment-row";
 import { CommentThreads } from "@/components/v2/comment-threads";
-import { entityColor, tint } from "@/lib/colors";
+import { entityColor, entityInk, tint } from "@/lib/colors";
 import type { CommentItem } from "@/lib/db/comments";
 import type { SessionDetail } from "@/lib/db/session-detail";
 import { formatRelativeTime } from "@/lib/dates";
@@ -39,6 +39,7 @@ export function SessionDetailView({
 }) {
   const a = detail.attribution;
   const accent = entityColor(a?.color ?? null);
+  const accentInk = entityInk(a?.color ?? null);
   const durationLabel = formatDuration(detail.workedMs);
 
   return (
@@ -139,7 +140,7 @@ export function SessionDetailView({
         <div className="flex items-center gap-3.5 px-5 pt-4">
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[11px] font-semibold whitespace-nowrap tabular-nums"
-            style={{ backgroundColor: tint(accent), color: accent }}
+            style={{ backgroundColor: tint(accent), color: accentInk }}
           >
             <span
               aria-hidden

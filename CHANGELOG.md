@@ -6,6 +6,95 @@ when it was done, not a start/stop work timer.
 
 ## 2026-09-17
 
+### 23:52 · 11-color entity palette
+
+Categories, goals, habits and avatars now draw from one canonical eleven-color
+set — maroon, red, orange, gold, light green, green, light blue, dark blue,
+purple, dark purple, pink — replacing the nine warm hues from the editorial
+rebuild. Palette-only: no layout, component or copy changes.
+
+`lib/palette.ts` is the single source of truth: `PALETTE[]`, indexed 0-10, with
+two values per color. `fill` is for dots, bars, donut arcs, borders, selected
+fills and avatar chips; `ink` is the darker twin used *only* where the color is
+itself text on white — a checked habit label, the duration chip on a session
+card and in session detail, initials avatars, the onboarding goal preview. The
+old `lib/category-colors.ts` and the duplicate `PALETTE` array that `lib/colors.ts`
+kept "in sync" by hand are both gone; `entityColor`/`entityInk`/`goalColorOf`/
+`userColor` all read from the one constant now.
+
+**No migration ran against prod.** Entity colors are stored as hex, not an
+index, so instead of touching three live tables the `rowTo*` mappers in
+`lib/db/{goals,habits,categories}.ts` normalize on read: `normalizeFill()` maps
+the retired nine hues *and* the 12-swatch set before them onto their nearest
+replacement, and the next save persists the new value. Brick → maroon, burnt
+orange → orange, mustard → gold, olive → light green, forest → green, deep teal
+→ light blue, blue → dark blue, indigo → dark purple, plum → pink; red and
+purple are new options nothing maps onto. Deleting the map is all it takes to
+roll back.
+
+`ColorSwatches` — the one picker behind goal setup, the category editor, the
+habit editor and onboarding — now shows all eleven in palette order, maroon
+first, each with a 1.5px border in its own color when selected and `#e6e9ed`
+when not. Glyphs inside a filled chip stay white.
+
+In CSS, `--palette-0..10` and `--palette-N-ink` mirror the constant, `--chart-*`
+pulls from them, and the old `--cat-*` names survive as aliases so the
+onboarding illustrations, bottom-nav and week-pulse follow along. Brand navy,
+hairlines and the neutral greys are untouched. `--destructive` still reads
+`#9c5148` — it happens to equal the retired brick, but it's a semantic delete
+color, not an entity hue, so it was left alone.
+
+### 23:40 · Invites hand out the App Store listing, not the website
+
+Every invite surface — the onboarding `friends` step CTA, the empty-feed
+`InviteShare` and `/refer` — now shares
+`https://apps.apple.com/app/progra/id6798377328` instead of
+`progra.world/i/{username}`. Closes the 2026-09-13 bug in `buglist.md`, which
+left "App Store listing or universal link?" as an open question: the answer is
+the listing.
+
+The URL is deliberately **countryless**. `/us/app/...` pins the US storefront
+and shows a recipient registered elsewhere a "not available in your country"
+wall; Apple 301s the countryless form to the visitor's own store, and the page
+it lands on serves the same `og:` tags either way, so link previews are
+unchanged. The `progra` slug stays so the URL self-describes in plain-text
+targets with no preview card.
+
+**The knowing cost: referral attribution for new installs.** `/i/{username}` is
+the entire referral mechanism — signed-in visitors hit `claim_invite`, signed-out
+ones carry the handle through OAuth as `?ref=` into `/auth/callback`. An App
+Store URL carries no handle, so invites no longer auto-friend the pair and
+`profiles.referred_by` stops filling from shares. This was chosen over keeping
+the web link, in exchange for the shortest path to an install. Universal links
+(open the installed app, fall back to the store, keep attribution) remain the
+real fix and would need an associated-domains entitlement, an AASA file, a new
+binary and App Review.
+
+`/i/{username}` is untouched behaviourally — links already sent keep working and
+keep attributing. It gains a secondary "Get Progra on the App Store" button
+below the sign-in buttons (sign-in stays first: it is the only path that
+attributes), and the unknown-handle card gains the same as a text link.
+`AddToHomeHint` comes off that page: it renders for exactly one audience — iOS
+Safari, not installed — which is precisely who the native app serves better, and
+showing both put two conflicting install instructions on one screen. It stays on
+`/` and `/login`, which are existing-user surfaces.
+
+Three copy strings were made false by the attribution loss and changed with it:
+`/refer`'s "Anyone who joins from your link becomes a friend automatically", the
+empty-feed line, and onboarding's failure toast (which pointed at a copy-link on
+`/friends` that has never existed). `/i/{username}`'s own "you'll be friends
+automatically" is **correct** and stayed — that path still works.
+
+Mechanically: new `lib/app-store.ts` holds the constant, separate from
+`lib/invite-share.ts` because the Server Component at `app/i/[username]` needs it
+and invite-share reaches for `navigator`. `inviteBody`/`copyInvite`/`shareInvite`
+lose their `username` parameter and `SITE_HOST`/`inviteLink()` are deleted — the
+handle appears nowhere in what they produce, and a call site that wants it in the
+text has `InviteShare`'s existing `message` prop. `InviteShare` loses its
+`username` prop, which in turn removes a `getProfile()` from the feed's
+`Promise.all` and the username redirect from `/refer`. `inviteBody` is now pure
+and window-free, so `lib/invite-share.test.ts` pins it.
+
 ### 15:05 · History stops at 2026
 2026 is Progra's first year (initial commit May 2026), so every earlier period
 is guaranteed empty. All three scopes now floor there: the back chevron greys

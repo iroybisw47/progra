@@ -1,9 +1,12 @@
 // Helpers for painting with an entity's own color.
 //
-// Every category / goal / habit owns one of the nine palette hues and keeps it
-// everywhere it appears. Filled states (a checked habit pill, a selected
-// picker row) use a wash of that same hue rather than a separate grey, which is
-// what keeps the screens reading as one system instead of nine.
+// Every category / goal / habit owns one of the eleven palette colors
+// (lib/palette.ts) and keeps it everywhere it appears. Filled states (a checked
+// habit pill, a selected picker row) use a wash of that same color rather than
+// a separate grey, which is what keeps the screens reading as one system
+// instead of eleven.
+
+import { PALETTE, inkFor, normalizeFill } from "@/lib/palette";
 
 const FALLBACK = "#9fa6b0";
 
@@ -30,9 +33,17 @@ export function tint(hex: string | null, alpha = 0.12): string {
   return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
 }
 
-// An entity's color, or the neutral grey used for uncategorized time.
+// An entity's color, or the neutral grey used for uncategorized time. Hues
+// stored under an earlier palette normalize forward (lib/palette.ts).
 export function entityColor(hex: string | null | undefined): string {
-  return hex ?? FALLBACK;
+  return normalizeFill(hex) ?? FALLBACK;
+}
+
+// The same color for use as text on white. Every place a palette color is the
+// `color` of a label rather than the fill behind one goes through this.
+export function entityInk(hex: string | null | undefined): string {
+  const fill = normalizeFill(hex);
+  return fill ? inkFor(fill) : FALLBACK;
 }
 
 // A goal's color: the one its owner picked, or — for goals created before the
@@ -43,17 +54,17 @@ export function goalColorOf(
   goal: { id: string; color?: string | null } | string
 ): string {
   if (typeof goal === "string") return goalColor(goal);
-  return goal.color ?? goalColor(goal.id);
+  return normalizeFill(goal.color) ?? goalColor(goal.id);
 }
 
 export function goalColor(goalId: string): string {
-  return PALETTE[hashOf(goalId) % PALETTE.length];
+  return PALETTE[hashOf(goalId) % PALETTE.length].fill;
 }
 
 // A person's color, for the initials avatar — same idea as goalColor, so a
 // friend looks the same in the feed, the leaderboard and their profile.
 export function userColor(username: string): string {
-  return PALETTE[hashOf(`u:${username}`) % PALETTE.length];
+  return PALETTE[hashOf(`u:${username}`) % PALETTE.length].fill;
 }
 
 function hashOf(s: string): number {
@@ -63,17 +74,3 @@ function hashOf(s: string): number {
   }
   return hash;
 }
-
-// Kept in sync with CATEGORY_COLORS (lib/category-colors.ts) — the values, not
-// the import, so this stays free of the picker's naming.
-const PALETTE = [
-  "#9C5148",
-  "#B0703C",
-  "#A98A38",
-  "#7D8850",
-  "#4E7A5F",
-  "#46808A",
-  "#4A6FA5",
-  "#6B639C",
-  "#91607F",
-];

@@ -1,6 +1,6 @@
 "use server";
 
-import { CATEGORY_COLORS, isCategoryColor } from "@/lib/category-colors";
+import { PALETTE, isPaletteFill } from "@/lib/palette";
 import { revalidateHabitSurfaces } from "@/lib/revalidate";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
@@ -32,7 +32,7 @@ export async function createHabit(
       .from("habits")
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id);
-    chosenColor = CATEGORY_COLORS[(count ?? 0) % CATEGORY_COLORS.length].value;
+    chosenColor = PALETTE[(count ?? 0) % PALETTE.length].fill;
   }
 
   const { data, error } = await supabase
@@ -66,7 +66,7 @@ export async function updateHabit(
     update.name = trimmed;
   }
   if (patch.color !== undefined) {
-    if (patch.color !== null && !isCategoryColor(patch.color)) {
+    if (patch.color !== null && !isPaletteFill(patch.color)) {
       return { error: "Pick a color from the palette" };
     }
     update.color = patch.color;

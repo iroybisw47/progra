@@ -5,7 +5,7 @@ import { AvatarInitials } from "@/components/avatar-initials";
 import { CategoryMarker } from "@/components/category-marker";
 import { KudosButton } from "@/components/kudos-button";
 import { ReportButton } from "@/components/report-button";
-import { entityColor, tint } from "@/lib/colors";
+import { entityColor, entityInk, tint } from "@/lib/colors";
 import type { CommentItem } from "@/lib/db/comments";
 import type { SessionCardItem } from "@/lib/db/feed";
 import type { PublicUser } from "@/lib/db/friends";
@@ -94,6 +94,8 @@ export function SessionCard({
   // The post's accent: whatever it was clocked into. Uncategorized falls back
   // to the neutral grey entityColor already returns.
   const accent = entityColor(a?.color ?? null);
+  // The chip sets the color as text on a wash of itself — ink, never the fill.
+  const accentInk = entityInk(a?.color ?? null);
 
   return (
     <article className="border-hairline flex flex-col gap-[9px] border-b px-5 py-4">
@@ -165,7 +167,7 @@ export function SessionCard({
       <div className="flex items-center gap-3.5">
         <span
           className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[11px] font-semibold whitespace-nowrap tabular-nums"
-          style={{ backgroundColor: tint(accent), color: accent }}
+          style={{ backgroundColor: tint(accent), color: accentInk }}
         >
           <span
             aria-hidden

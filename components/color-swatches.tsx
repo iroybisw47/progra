@@ -2,11 +2,13 @@
 
 import { CheckIcon } from "lucide-react";
 
-import { CATEGORY_COLORS } from "@/lib/category-colors";
+import { PALETTE } from "@/lib/palette";
 
-// The nine-swatch palette row used by the category, goal and habit editors.
-// Each swatch is a filled tile; the selected one carries a ring in its own
-// color. Tapping the selected swatch again clears the color (null).
+// The eleven-swatch palette row used by the category, goal and habit editors
+// and by onboarding — every color picker in the app shows all eleven, in
+// palette order, maroon first. Each swatch is a tile filled with its own color;
+// the selected one carries a 1.5px border in that same color and a white check.
+// Tapping the selected swatch again clears the color (null).
 export function ColorSwatches({
   value,
   onChange,
@@ -16,21 +18,22 @@ export function ColorSwatches({
 }) {
   return (
     <div className="flex gap-1.5">
-      {CATEGORY_COLORS.map((c) => {
-        const selected = value === c.value;
+      {PALETTE.map((c) => {
+        const selected = value === c.fill;
         return (
           <button
-            key={c.value}
+            key={c.fill}
             type="button"
             aria-label={c.name}
             aria-pressed={selected}
-            onClick={() => onChange(selected ? null : c.value)}
-            className="flex h-[38px] flex-1 items-center justify-center rounded-[11px] text-white transition-transform duration-150 active:scale-[.92]"
+            onClick={() => onChange(selected ? null : c.fill)}
+            className="flex h-[38px] flex-1 items-center justify-center rounded-[11px] border-[1.5px] text-white transition-transform duration-150 active:scale-[.92]"
             style={{
-              backgroundColor: c.value,
-              boxShadow: selected
-                ? `0 0 0 2px var(--screen), 0 0 0 4px ${c.value}`
-                : undefined,
+              backgroundColor: c.fill,
+              // Selected: the entity's own color. Unselected: the shared
+              // hairline. The white check is what reads as "picked" on a tile
+              // already filled with the color.
+              borderColor: selected ? c.fill : "#e6e9ed",
             }}
           >
             {selected && <CheckIcon className="size-4" strokeWidth={3.4} />}

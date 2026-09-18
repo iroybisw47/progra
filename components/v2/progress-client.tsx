@@ -35,7 +35,7 @@ import { toggleHabitCompletion } from "@/app/actions/habits";
 import type { Habit, HabitCompletion } from "@/lib/db/habits";
 import type { Goal } from "@/lib/db/goals";
 import type { Category } from "@/lib/storage";
-import { entityColor, tint } from "@/lib/colors";
+import { entityColor, entityInk, tint } from "@/lib/colors";
 import { formatDuration } from "@/lib/duration";
 import { formatTime12 } from "@/lib/dates";
 import { cn } from "@/lib/utils";
@@ -408,7 +408,7 @@ export function ProgressClient(props: {
                           "min-w-0 flex-1 truncate text-xs font-medium",
                           !h.done && "text-caption"
                         )}
-                        style={h.done ? { color } : undefined}
+                        style={h.done ? { color: entityInk(h.color) } : undefined}
                       >
                         {h.name}
                       </span>

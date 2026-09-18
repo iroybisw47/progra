@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { createClient } from "@/lib/supabase/server";
+import { normalizeFill } from "@/lib/palette";
 import type { Category } from "@/lib/storage";
 
 type CategoryRow = {
@@ -21,7 +22,7 @@ function rowToCategory(row: CategoryRow): Category {
   return {
     id: row.id,
     name: row.name,
-    color: row.color,
+    color: normalizeFill(row.color),
     rules: { titleContains },
     createdAt: new Date(row.created_at).getTime(),
   };

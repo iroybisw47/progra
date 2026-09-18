@@ -37,8 +37,8 @@ describe("steps", () => {
 
 describe("copy", () => {
   const habits = [
-    { name: "Journaling", color: "#6B639C" },
-    { name: "Drinking water", color: "#4A6FA5" },
+    { name: "Journaling", color: "#6F4E93" },
+    { name: "Drinking water", color: "#395AA0" },
   ];
 
   it("phrases habits lowercased, comma-joined, or says nothing", () => {
@@ -69,9 +69,9 @@ describe("copy", () => {
   });
 
   it("cycles custom habit colours through the presets", () => {
-    expect(nextHabitColor(0)).toBe("#6B639C");
-    expect(nextHabitColor(4)).toBe("#6B639C");
-    expect(nextHabitColor(5)).toBe("#46808A");
+    expect(nextHabitColor(0)).toBe("#6F4E93");
+    expect(nextHabitColor(4)).toBe("#6F4E93");
+    expect(nextHabitColor(5)).toBe("#77B7C6");
   });
 });
 

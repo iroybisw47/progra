@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 import { todayInTimeZone } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeFill } from "@/lib/palette";
 
 export type Habit = {
   id: string;
@@ -48,7 +49,7 @@ function rowToHabit(row: HabitRow): Habit {
   return {
     id: row.id,
     name: row.name,
-    color: row.color,
+    color: normalizeFill(row.color),
     createdAt: new Date(row.created_at).getTime(),
     archivedAt: row.archived_at ? new Date(row.archived_at).getTime() : null,
     isPrivate: row.is_private ?? false,

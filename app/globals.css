@@ -114,24 +114,42 @@
   --border: #e6e9ed; /* control border */
   --input: #e6e9ed;
   --ring: #1c3a5e;
-  /* Charts pull from the nine accent colors (no navy — navy is UI chrome). */
-  --chart-1: #4a6fa5;
-  --chart-2: #46808a;
-  --chart-3: #4e7a5f;
-  --chart-4: #91607f;
-  --chart-5: #a98a38;
+  /* Charts pull from the entity palette (no navy — navy is UI chrome). */
+  --chart-1: var(--palette-7);
+  --chart-2: var(--palette-6);
+  --chart-3: var(--palette-5);
+  --chart-4: var(--palette-10);
+  --chart-5: var(--palette-3);
   --radius: 0.9rem;
 
-  /* The nine accent colors — the only hues a category / goal / habit may take. */
-  --cat-brick: #9c5148;
-  --cat-burnt: #b0703c;
-  --cat-mustard: #a98a38;
-  --cat-olive: #7d8850;
-  --cat-forest: #4e7a5f;
-  --cat-teal: #46808a;
-  --cat-blue: #4a6fa5;
-  --cat-indigo: #6b639c;
-  --cat-plum: #91607f;
+  /* The entity palette — the eleven colors a category / goal / habit / avatar
+     may take, in picker order. Mirrors PALETTE in lib/palette.ts; change both
+     together, and index by the same number in either place. `-ink` is the
+     text-on-white twin, used only when the color IS the text. */
+  --palette-0: #8E3A44;  --palette-0-ink: #6E2530;  /* Maroon */
+  --palette-1: #DE5148;  --palette-1-ink: #BE362D;  /* Red */
+  --palette-2: #E07042;  --palette-2-ink: #C24E14;  /* Orange */
+  --palette-3: #D6A728;  --palette-3-ink: #8F6C0A;  /* Gold */
+  --palette-4: #7CBE6D;  --palette-4-ink: #356B2F;  /* Light green */
+  --palette-5: #2E8B50;  --palette-5-ink: #175E33;  /* Green */
+  --palette-6: #77B7C6;  --palette-6-ink: #22758C;  /* Light blue */
+  --palette-7: #395AA0;  --palette-7-ink: #33518F;  /* Dark blue */
+  --palette-8: #A084B3;  --palette-8-ink: #7A57A0;  /* Purple */
+  --palette-9: #6F4E93;  --palette-9-ink: #533672;  /* Dark purple */
+  --palette-10: #D06DA1; --palette-10-ink: #BA4485; /* Pink */
+
+  /* Retired hue names, aliased onto their palette replacements so the
+     illustrations and chrome that still reference them (onboarding, bottom-nav,
+     week-pulse) pick up the new colors. Prefer --palette-N in new work. */
+  --cat-brick: var(--palette-0);
+  --cat-burnt: var(--palette-2);
+  --cat-mustard: var(--palette-3);
+  --cat-olive: var(--palette-4);
+  --cat-forest: var(--palette-5);
+  --cat-teal: var(--palette-6);
+  --cat-blue: var(--palette-7);
+  --cat-indigo: var(--palette-9);
+  --cat-plum: var(--palette-10);
 
   /* Extended Progra tokens */
   --brand: #1c3a5e;

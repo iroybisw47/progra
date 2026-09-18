@@ -1,6 +1,6 @@
 "use server";
 
-import { isCategoryColor } from "@/lib/category-colors";
+import { isPaletteFill } from "@/lib/palette";
 import { revalidateCategorySurfaces } from "@/lib/revalidate";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
@@ -40,7 +40,7 @@ export async function createCategory(
 
   const insert: Record<string, unknown> = { name: trimmed };
   if (opts?.color !== undefined && opts.color !== null) {
-    if (!isCategoryColor(opts.color)) {
+    if (!isPaletteFill(opts.color)) {
       return { error: "Pick a color from the palette" };
     }
     insert.color = opts.color;
@@ -90,7 +90,7 @@ export async function updateCategory(
     update.name = trimmed;
   }
   if (patch.color !== undefined) {
-    if (patch.color !== null && !isCategoryColor(patch.color)) {
+    if (patch.color !== null && !isPaletteFill(patch.color)) {
       return { error: "Pick a color from the palette" };
     }
     update.color = patch.color;

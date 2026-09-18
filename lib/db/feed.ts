@@ -10,6 +10,7 @@ import {
 import { hydrateSessionPhotoUrls } from "@/lib/db/session-photos";
 import { isOverSessionCap, sessionWorkedMs } from "@/lib/session";
 import { goalColorOf } from "@/lib/colors";
+import { normalizeFill } from "@/lib/palette";
 
 // The goal or category a session is filed under. isGoal drives the goal star vs
 // category dot; color is the category's dot color (null for goals, which use the
@@ -237,7 +238,7 @@ export async function hydrateCategoryNames(
     name: string;
     color: string | null;
   }[]) {
-    map.set(row.id, { name: row.name, color: row.color ?? null });
+    map.set(row.id, { name: row.name, color: normalizeFill(row.color) });
   }
   return map;
 }

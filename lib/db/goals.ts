@@ -4,6 +4,7 @@ import { cache } from "react";
 
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeFill } from "@/lib/palette";
 
 export type GoalStatus = "active" | "archived";
 
@@ -44,7 +45,7 @@ function rowToGoal(row: GoalRow): Goal {
     status: row.status === "archived" ? "archived" : "active",
     createdAt: new Date(row.created_at).getTime(),
     isPrivate: row.is_private ?? false,
-    color: row.color ?? null,
+    color: normalizeFill(row.color),
   };
 }
 

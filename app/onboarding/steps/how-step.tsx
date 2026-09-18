@@ -44,8 +44,8 @@ export function HowStep({ eyebrow }: { eyebrow: string | null }) {
           <FriendColumn
             initials="MP"
             name="Maya"
-            avatarBg="rgba(145,96,127,.14)"
-            avatarColor="var(--cat-plum)"
+            avatarBg="rgba(208,109,161,.14)"
+            avatarColor="var(--palette-10-ink)"
             tracked="7.5h"
             segments={[
               { color: "var(--cat-plum)", value: 4.0, name: "Thesis", hours: "4.0h" },

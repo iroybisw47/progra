@@ -35,7 +35,7 @@ export function FriendsStep({
         <div className="flex items-center gap-2.5">
           <span
             className="flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-            style={{ backgroundColor: "rgba(145,96,127,.14)", color: "var(--cat-plum)" }}
+            style={{ backgroundColor: "rgba(208,109,161,.14)", color: "var(--palette-10-ink)" }}
           >
             MP
           </span>

@@ -1,3 +1,4 @@
+import { inkFor } from "@/lib/palette";
 import { tint, userColor } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 
@@ -53,7 +54,7 @@ export function AvatarInitials({
         "flex items-center justify-center rounded-full font-semibold",
         className
       )}
-      style={{ backgroundColor: tint(color, 0.16), color }}
+      style={{ backgroundColor: tint(color, 0.16), color: inkFor(color) }}
     >
       {initialsOf(name, username)}
     </span>

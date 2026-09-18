@@ -52,7 +52,7 @@ function goal(over: Partial<Goal> = {}): Goal {
     weeklyQuotaHours: 5,
     status: "active",
     createdAt: Date.parse("2020-01-01T00:00:00Z"),
-    color: "#4A6FA5",
+    color: "#395AA0",
     isPrivate: false,
     ...over,
   };
@@ -62,7 +62,7 @@ function habit(over: Partial<Habit> = {}): Habit {
   return {
     id: "h1",
     name: "Wake by 7",
-    color: "#A98A38",
+    color: "#D6A728",
     createdAt: Date.parse("2020-01-01T00:00:00Z"),
     archivedAt: null,
     isPrivate: false,

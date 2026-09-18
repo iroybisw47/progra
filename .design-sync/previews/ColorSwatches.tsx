@@ -5,7 +5,7 @@ const noop = () => {};
 export function Selected() {
   return (
     <div className="w-full max-w-sm">
-      <ColorSwatches value="#4f9b8c" onChange={noop} />
+      <ColorSwatches value="#2E8B50" onChange={noop} />
     </div>
   );
 }

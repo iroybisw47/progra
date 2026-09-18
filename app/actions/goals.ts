@@ -4,7 +4,7 @@ import { revalidateGoalSurfaces } from "@/lib/revalidate";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { capText } from "@/lib/validate";
-import { isCategoryColor } from "@/lib/category-colors";
+import { isPaletteFill } from "@/lib/palette";
 import { requireSeat } from "@/lib/auth/require-seat";
 
 type Result = { ok: true } | { error: string };
@@ -41,7 +41,7 @@ export async function createGoal(
 
   // null clears the color (back to the id-derived fallback); an unrecognised
   // value is rejected outright so freehand hexes can't drift in.
-  if (input.color != null && !isCategoryColor(input.color)) {
+  if (input.color != null && !isPaletteFill(input.color)) {
     return { error: "Unknown color" };
   }
 
@@ -94,7 +94,7 @@ export async function updateGoal(
     update.weekly_quota_hours = patch.weeklyQuotaHours;
   }
   if (patch.color !== undefined) {
-    if (patch.color != null && !isCategoryColor(patch.color)) {
+    if (patch.color != null && !isPaletteFill(patch.color)) {
       return { error: "Unknown color" };
     }
     update.color = patch.color;
