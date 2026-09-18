@@ -6,6 +6,26 @@ when it was done, not a start/stop work timer.
 
 ## 2026-09-18
 
+### 01:14 · Patch 1.1 is live
+
+`PATCH_NOTES` gains its first entry, so the "What's new" modal goes from inert to
+showing. Every existing account sees it once on their next `/` load and never
+again after dismissing.
+
+Deploy 1 did its job first: a real signup on prod completed onboarding cleanly,
+which is the only path that writes `patch_notes_seen_version`, and nothing
+appeared for anyone while the array was empty.
+
+Copy is the owner's, with "Everytime" corrected to "Every time". The intro ends
+on "This patch includes:" so it runs straight into the bullets, and the title
+carries the greeting the intro no longer does.
+
+One known consequence of the two-deploy split: accounts created between the two
+deploys were never stamped (`LATEST_PATCH_VERSION` was null, so
+`stampPatchNotesCurrent` returned early), so they see 1.1 even though its
+features were already live when they joined. One stale note for a handful of
+accounts at most.
+
 ### 01:08 · Patch notes: patch 1.1 written, shipping in two deploys
 
 The column SQL ran clean (STEP 2 verified, `stamped = 0`), and `PATCH_NOTES` now

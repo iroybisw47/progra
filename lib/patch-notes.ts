@@ -24,11 +24,21 @@ export type PatchNote = {
   items: string[];
 };
 
-// Deploy 1 ships this EMPTY on purpose. The plumbing goes out inert so the
-// layout gate, the stamp action and onboarding can all be verified against prod
-// with nobody seeing anything; patch 1.1's entry lands in the immediate
-// follow-up deploy. The array is the off switch — see LATEST_PATCH_VERSION.
-export const PATCH_NOTES: readonly PatchNote[] = [];
+export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: "1.1",
+    title: "Welcome to Progra patch notes!",
+    intro:
+      "Every time a huge bundle of features is available I'll have a window explaining what they are. This patch includes:",
+    items: [
+      "History tab: look at your stats for the month or year",
+      "A new color palette, courtesy of Head of Design at Progra, Jillian Growney",
+      "Revamped settings",
+      "Edit your goals and habits on the You page",
+      "Share Progra with your friends — go to Settings and press Share",
+    ],
+  },
+];
 
 // Null when there is nothing to announce — which is also this feature's off
 // switch: an empty PATCH_NOTES shows nobody anything and stamps nobody. There is
