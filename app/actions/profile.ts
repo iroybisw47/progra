@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 
 import { getProfile } from "@/lib/auth/profile";
 import {
+  DEFAULT_CATEGORIES,
+  SEEDED_SYSTEM_FILLS,
+} from "@/lib/default-categories";
+import {
   revalidateCalendarSurfaces,
+  revalidateCategorySurfaces,
   revalidateIdentitySurfaces,
 } from "@/lib/revalidate";
 import { checkUsername } from "@/lib/social/username";
@@ -234,15 +239,87 @@ export async function completeOnboarding(): Promise<
   const seat = await requireSeat();
   if ("error" in seat) return seat;
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .update({ onboarded_at: new Date().toISOString() })
     .eq("id", user.id)
-    .is("onboarded_at", null);
+    .is("onboarded_at", null)
+    .select("id");
 
   if (error) return { error: error.message };
+
+  // Only the FIRST completion seeds — `.select()` returns the stamped row, and
+  // the write-once filter above means a replay matches nothing. A replayer has
+  // had an account for a while; handing them four categories again (or
+  // resurrecting ones they deleted) would be a surprise.
+  if (data && data.length > 0) await seedDefaultCategories(user.id);
+
   revalidatePath("/");
   return { ok: true };
+}
+
+// Puts the four starter categories on a palette color. Two halves, because
+// handle_new_user has usually already created them by the time this runs:
+//
+//   INSERT  a default the account doesn't have at all (case-insensitive match).
+//   UPDATE  one that exists but still carries the off-palette hex that trigger
+//           stamps — which renders as the neutral grey, indistinguishable from
+//           the other three. See SEEDED_SYSTEM_FILLS.
+//
+// Never destructive. The update is gated on an exact match against the known
+// system-default hex for that name, so a color the user picked themselves — or
+// one a future trigger writes that we haven't measured — is left alone. Nothing
+// here renames, and nothing recreates a category someone deleted.
+//
+// Errors are swallowed on purpose. Onboarding completing is the load-bearing
+// part; a failed seed just leaves the categories where they already were.
+async function seedDefaultCategories(userId: string): Promise<void> {
+  const supabase = await createClient();
+  const { data: existing, error: readError } = await supabase
+    .from("categories")
+    .select("id, name, color");
+  if (readError) return;
+
+  const byName = new Map(
+    (existing ?? []).map((c: { id: string; name: string; color: string | null }) => [
+      c.name.trim().toLowerCase(),
+      c,
+    ])
+  );
+
+  const missing: { user_id: string; name: string; color: string }[] = [];
+  const recolor: { id: string; color: string }[] = [];
+
+  for (const def of DEFAULT_CATEGORIES) {
+    const key = def.name.toLowerCase();
+    const row = byName.get(key);
+    if (!row) {
+      missing.push({ user_id: userId, name: def.name, color: def.color });
+      continue;
+    }
+    const systemDefault = SEEDED_SYSTEM_FILLS[key];
+    if (
+      systemDefault &&
+      row.color &&
+      row.color.trim().toLowerCase() === systemDefault.toLowerCase()
+    ) {
+      recolor.push({ id: row.id, color: def.color });
+    }
+  }
+
+  if (missing.length === 0 && recolor.length === 0) return;
+
+  if (missing.length > 0) {
+    const { error } = await supabase.from("categories").insert(missing);
+    if (error) return;
+  }
+  // One statement per row: these are four rows at most, and a bulk upsert would
+  // need the full row shape (name, rules) just to change one column.
+  for (const r of recolor) {
+    await supabase.from("categories").update({ color: r.color }).eq("id", r.id);
+  }
+
+  revalidateCategorySurfaces();
 }
 
 // Records "this person opened the app" for the admin analytics roster. Called
