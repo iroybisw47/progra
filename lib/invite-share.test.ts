@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { APP_STORE_URL } from "@/lib/app-store";
-import { DEFAULT_INVITE_TEXT, inviteBody } from "@/lib/invite-share";
+import {
+  ACCOUNTABILITY_INVITE_TEXT,
+  DEFAULT_INVITE_TEXT,
+  inviteBody,
+} from "@/lib/invite-share";
 
 // inviteBody is the only pure part of invite-share (copy/share need navigator).
 // It's also the part that decides what every invite hands out, so it's the part
@@ -15,6 +19,16 @@ describe("inviteBody", () => {
   // website any more.
   it("never hands out a progra.world link", () => {
     expect(inviteBody(DEFAULT_INVITE_TEXT)).not.toContain("progra.world");
+  });
+});
+
+describe("ACCOUNTABILITY_INVITE_TEXT", () => {
+  // It deliberately trails off into the link on the next line. A trailing
+  // period or the link inlined would both break that reading.
+  it("runs straight into the link", () => {
+    expect(inviteBody(ACCOUNTABILITY_INVITE_TEXT)).toBe(
+      `I'm getting 1% better every day on Progra, and I need you to hold me accountable! Join me at\n${APP_STORE_URL}`
+    );
   });
 });
 

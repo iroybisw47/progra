@@ -27,6 +27,7 @@ import {
   setUsername,
 } from "@/app/actions/profile";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
+import { ACCOUNTABILITY_INVITE_TEXT, shareInvite } from "@/lib/invite-share";
 import { track } from "@/lib/analytics";
 import {
   CALENDAR_CONNECT,
@@ -162,6 +163,14 @@ export function SettingsClient({
     });
   }
 
+  // Mirrors InviteShare's outcomes: "shared" and "dismissed" are both silent
+  // (the sheet already told the user), "copied" is the clipboard fallback.
+  async function shareApp() {
+    const outcome = await shareInvite(ACCOUNTABILITY_INVITE_TEXT);
+    if (outcome === "copied") toast.success("Invite copied");
+    if (outcome === "failed") toast.error("Couldn't share the invite. Try again.");
+  }
+
   function openIdentity() {
     setDnDraft(displayName ?? "");
     setUnDraft(username ?? "");
@@ -289,14 +298,12 @@ export function SettingsClient({
           </Inset>
         ) : null}
 
-        <Band />
-
-        {/* Your data */}
-        <SectionLabel>Your data</SectionLabel>
-        <Row href="/goals" label="Goals" />
-        <Row href="/categories" label="Categories & rules" />
-        <Row href="/habits" label="Habits" />
-        <Row href="/sessions" label="Past sessions" />
+        {/* No <Band /> here. "Your data" (removed 2026-09-18) used to open with
+            one; every section that follows brings its own, so leaving it behind
+            stacked two bands with nothing between them — a dead 12px stripe
+            whichever branch rendered next. Goals and Habits are managed from
+            their section headers on Progress, sessions there and on /clock;
+            those routes still work by URL, they're just no longer linked. */}
 
         {/* Notifications — native app only, so it simply doesn't exist on the
             website. `null` (not read yet) and "unavailable" (no plugin) both
@@ -316,6 +323,11 @@ export function SettingsClient({
           </p>
           <ReplayOnboardingButton />
         </div>
+        {/* Same shareInvite() the empty feed and /refer call, so Settings hands
+            out the identical App Store link and text. Native sheet where there
+            is one, clipboard otherwise — the helper reads navigator only inside
+            the handler, so this stays hydration-safe. */}
+        <Row label="Share with friends" onClick={shareApp} />
         {/* Gated on NUDGES only, NOT on push permission: this controls whether
             friends can nudge you at all, and a nudge still lands in the
             notifications panel on a phone that never granted notifications. */}

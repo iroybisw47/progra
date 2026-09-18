@@ -22,6 +22,14 @@ type ShareCapableNavigator = Navigator & {
 export const DEFAULT_INVITE_TEXT =
   "Join me on Progra — we track our study time and keep each other honest.";
 
+// The Settings → "Share with friends" message. First person and asking for
+// something, where DEFAULT_INVITE_TEXT describes the app — a share you go to
+// Settings to send is aimed at people you already know. Ends mid-sentence on
+// purpose: inviteBody() puts the App Store link on the next line, so the two
+// read as one message ("...Join me at" / link).
+export const ACCOUNTABILITY_INVITE_TEXT =
+  "I'm getting 1% better every day on Progra, and I need you to hold me accountable! Join me at";
+
 // Message AND link, as one block. Every share path sends exactly this, so what
 // gets pasted into a chat can't depend on which button was tapped. Pure and
 // window-free now that the link is a constant — hence unit-tested.

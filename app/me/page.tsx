@@ -4,8 +4,8 @@ import { HeartIcon, SettingsIcon } from "lucide-react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { Dashboard } from "@/components/dashboard";
-import { GoalQuotaRows } from "@/components/v2/goal-quota-rows";
-import { HabitWeekGrid } from "@/components/v2/habit-week-grid";
+import { GoalsSection } from "./goals-section";
+import { HabitsSection } from "./habits-section";
 import { requireUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
@@ -16,6 +16,7 @@ import {
   listActiveHabitsForUser,
   listCompletionsForUserInRange,
 } from "@/lib/db/habits";
+import { HABIT_HISTORY_WEEKS } from "@/lib/db/progress";
 import { listRecentSessionsForUser } from "@/lib/db/sessions";
 import {
   countProfileSessions,
@@ -26,7 +27,7 @@ import { LIKE_EMOJI } from "@/lib/social/reactions";
 import { entityColor } from "@/lib/colors";
 import { formatDuration } from "@/lib/duration";
 import { aggregateWeekByGoal } from "@/lib/aggregate";
-import { todayInTimeZone, weekRangeInTimeZone } from "@/lib/dates";
+import { addDaysISO, todayInTimeZone, weekRangeInTimeZone } from "@/lib/dates";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -52,6 +53,10 @@ export default async function MePage() {
   const { startDate, endDate } = weekRangeInTimeZone(tz);
   const today = todayInTimeZone(tz);
   const now = Date.now();
+  // The habits editor pages back to backfill missed days, so it needs more than
+  // this week. One wider read serves both it and the week grid (which ignores
+  // out-of-week dates); the week's own count is sliced back out below.
+  const minWeekStart = addDaysISO(startDate, -7 * (HABIT_HISTORY_WEEKS - 1));
 
   // Reactions are session-keyed, so they chain off the sessions read alone
   // rather than the whole wave — same pattern as FeedV2, so they resolve
@@ -69,7 +74,7 @@ export default async function MePage() {
     goals,
     sessions,
     habits,
-    completions,
+    habitHistory,
     pastSessions,
     reactionsBySession,
     sessionCount,
@@ -77,11 +82,17 @@ export default async function MePage() {
     listActiveGoalsForUser(user.id),
     listRecentSessionsForUser(user.id),
     listActiveHabitsForUser(user.id),
-    listCompletionsForUserInRange(user.id, startDate, endDate),
+    listCompletionsForUserInRange(user.id, minWeekStart, endDate),
     pastSessionsPromise,
     reactionsPromise,
     sessionCountPromise,
   ]);
+
+  // "Habits done" and the section count are this-week numbers; habitHistory
+  // spans the editor's whole backfill window.
+  const weekCompletions = habitHistory.filter(
+    (c) => c.completedOn >= startDate && c.completedOn <= endDate
+  );
 
   const goalWeekly = aggregateWeekByGoal(sessions, now);
   const goalBreakdown = goals
@@ -149,46 +160,23 @@ export default async function MePage() {
         <div className="flex px-5 pt-[18px]">
           <Stat value={formatHours(weekTotalMs)} label="This week" />
           <Stat value={String(sessionCount)} label="Sessions" />
-          <Stat value={String(completions.length)} label="Habits done" />
+          <Stat value={String(weekCompletions.length)} label="Habits done" />
         </div>
 
         <div className="bg-track border-hairline mt-5 h-1.5 border-t" />
 
-        {/* Goal quotas — the same rows as Progress. */}
-        {goalBreakdown.length > 0 && (
-          <section className="flex flex-col">
-            <div className="flex items-center gap-[7px] px-5 pt-4 pb-2">
-              <span className="section-label">Goal quotas</span>
-              <span className="flex-1" />
-              <span className="text-caption text-[10px] font-semibold tracking-[0.06em]">
-                {goalBreakdown.length} active
-              </span>
-            </div>
-            <div className="px-5">
-              <GoalQuotaRows goals={goalBreakdown} />
-            </div>
-            <div className="bg-hairline mx-5 mt-4 h-px" />
-          </section>
-        )}
+        {/* Goal quotas and Habits — the same rows and grid as Progress, and
+            the same tap-the-header-to-manage editors behind them. */}
+        <GoalsSection goals={goalBreakdown} />
 
-        {/* Habits this week — the same grid as Progress. */}
-        <section className="flex flex-col">
-          <div className="flex items-center gap-[7px] px-5 pt-3.5 pb-2">
-            <span className="section-label">Habits</span>
-            <span className="flex-1" />
-            <span className="text-caption text-[10px] font-semibold tracking-[0.06em]">
-              {completions.length} of {habits.length * 7}
-            </span>
-          </div>
-          <div className="px-5">
-            <HabitWeekGrid
-              habits={habits}
-              completions={completions}
-              weekStart={startDate}
-              today={today}
-            />
-          </div>
-        </section>
+        <HabitsSection
+          habits={habits}
+          completions={habitHistory}
+          weekStart={startDate}
+          today={today}
+          minWeekStart={minWeekStart}
+          doneThisWeek={weekCompletions.length}
+        />
 
         <div className="bg-track border-hairline mt-[18px] h-1.5 border-t" />
 
