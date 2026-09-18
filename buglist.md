@@ -36,17 +36,30 @@ decision.
 
 ## 2026-09-13 — Share-invite link points at the website, not the app
 
-**Status:** open, not investigated
+**Status:** FIXED 2026-09-17
 
 **Repro:** Use the share/invite flow. The link it hands out goes to the
 progra.world website.
 
 **Expected:** It should send the recipient to the app.
 
-**Open question:** "App link" could mean the App Store listing (so a new
-person installs) or a universal/deep link that opens the installed app and
-falls back to the store. Confirm which before implementing — it may need to
-be both, branching on whether the app is installed.
+**Resolution — answering this entry's own open question:** the **App Store
+listing**, not a universal link. All three invite surfaces now share
+`https://apps.apple.com/app/progra/id6798377328` (countryless, so it resolves to
+the recipient's own storefront).
+
+**The price, accepted deliberately:** `/i/{username}` was the entire referral
+mechanism — it carries the inviter's handle into `claim_invite`, directly when
+signed in and via `?ref=` through OAuth when signed out. An App Store URL carries
+no handle, so new installs are **not** auto-friended with the inviter and
+`profiles.referred_by` stops filling from shares. `/i/{username}` itself is
+unchanged, so links already sent keep working and keep attributing; it also
+gained a secondary App Store button.
+
+**Still open as a future migration:** universal links — open the installed app,
+fall back to the store, keep attribution. Needs an associated-domains
+entitlement, an `apple-app-site-association` file, a new binary and App Review,
+none of which exist today.
 
 ---
 

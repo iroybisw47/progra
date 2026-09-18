@@ -6,7 +6,6 @@ import { FeedLivePoll } from "@/components/feed-live-poll";
 import { InviteShare } from "@/components/v2/invite-share";
 import { RecapFeedCard } from "@/components/v2/recap-feed-card";
 import { SessionCard } from "@/components/v2/session-card";
-import { getProfile } from "@/lib/auth/profile";
 import {
   listClockedInNow,
   listFriendFeed,
@@ -54,7 +53,6 @@ export async function FeedV2() {
     reactionsBySession,
     recapKudosById,
     recapCommentsById,
-    viewerProfile,
   ] = await Promise.all([
     feedPromise,
     listClockedInNow(),
@@ -64,8 +62,6 @@ export async function FeedV2() {
     reactionsPromise,
     recapKudosPromise,
     recapCommentsPromise,
-    // Own handle for the empty-state invite link (cache()-wrapped — free).
-    getProfile(),
   ]);
   const now = Date.now();
 
@@ -97,12 +93,10 @@ export async function FeedV2() {
           clockedIn.length === 0 && (
             <div className="flex flex-col gap-3 px-5 py-10">
               <p className="text-caption text-center text-sm text-pretty">
-                Your feed&rsquo;s quiet — invite a friend and you&rsquo;ll see
-                each other show up.
+                Your feed&rsquo;s quiet — send a friend the app, then add each
+                other once they&rsquo;re in.
               </p>
-              {viewerProfile?.username && (
-                <InviteShare username={viewerProfile.username} />
-              )}
+              <InviteShare />
               <Link
                 href="/friends"
                 className="text-caption hover:text-ink self-center text-xs font-medium"

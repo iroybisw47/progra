@@ -292,13 +292,13 @@ export function OnboardingClientV2({
     });
   }
 
-  const usernameForLink = username.trim() || initialUsername || "you";
   const invite = inviteMessage({ hours, goalTitle, habits: picked });
 
   async function share() {
-    const outcome = await shareInvite(invite, usernameForLink);
+    const outcome = await shareInvite(invite);
     if (outcome === "copied") toast.success("Invite copied — paste it to a friend");
-    if (outcome === "failed") toast.error("Couldn't share — copy the link from Friends later.");
+    if (outcome === "failed")
+      toast.error("Couldn't share — you can invite friends any time from your feed.");
     if (outcome === "shared" || outcome === "copied") setShared(true);
   }
 

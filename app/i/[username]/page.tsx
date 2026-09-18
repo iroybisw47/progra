@@ -1,8 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 
-import { AddToHomeHint } from "@/components/add-to-home-hint";
 import { AvatarInitials } from "@/components/avatar-initials";
 import { SignInButtons } from "@/app/login/sign-in-buttons";
+import { APP_STORE_URL } from "@/lib/app-store";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { getPublicProfileByUsername } from "@/lib/db/profiles";
 import { createClient } from "@/lib/supabase/server";
@@ -16,6 +16,11 @@ export const metadata = {
 // getOptionalUser, never requireUser. A stranger taps /i/{username}, signs up
 // with Google, and lands already friends with the inviter (the referrer rides
 // through OAuth as `?ref=`, consumed by /auth/callback → claim_invite).
+//
+// Since 2026-09-17 a new share hands out the App Store link instead of this
+// route, so what arrives here is a link already in the wild. It keeps working —
+// and keeps attributing, which an App Store install can't — so the sign-in path
+// below stays the primary action, with the store offered alongside it.
 export default async function InvitePage({
   params,
 }: {
@@ -57,6 +62,15 @@ export default async function InvitePage({
             Progra to sign in.
           </p>
           <SignInButtons next="/" />
+          {/* A dead end otherwise: they tapped a Progra link and the handle
+              doesn't exist. The store is the best recovery, but a text link so
+              it doesn't compete with sign-in. */}
+          <a
+            href={APP_STORE_URL}
+            className="text-caption text-xs underline underline-offset-2"
+          >
+            Or get Progra on the App Store
+          </a>
         </main>
       </div>
     );
@@ -87,7 +101,22 @@ export default async function InvitePage({
         </p>
 
         <SignInButtons referrer={target.username} next="/" />
-        <AddToHomeHint />
+
+        {/* Replaces AddToHomeHint, which rendered for exactly one audience —
+            iOS Safari, not installed — that the native app now serves better.
+            Showing both would put two conflicting install instructions on one
+            screen. Sign-in stays first: it's the only path that attributes. */}
+        <div className="flex flex-col items-center gap-2">
+          <a
+            href={APP_STORE_URL}
+            className="border-hairline text-body flex h-12 w-full items-center justify-center rounded-[15px] border-[1.5px] text-sm font-semibold"
+          >
+            Get Progra on the App Store
+          </a>
+          <span className="text-faint text-center text-[11px]">
+            On iPhone, the app is the full experience.
+          </span>
+        </div>
       </main>
     </div>
   );
