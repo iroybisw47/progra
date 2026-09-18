@@ -6,6 +6,20 @@ when it was done, not a start/stop work timer.
 
 ## 2026-09-18
 
+### 15:34 · "Share with friends" gets its own Settings section
+
+It sat under **Sharing**, directly beneath the privacy paragraph and the replay
+button, so it read as part of that block rather than as its own thing. The cause
+is a word collision: that section's "Sharing" means PRIVACY — what friends can
+see of your goals, habits and sessions — while this row means handing someone the
+app. Two senses of one word in a single run of hairline rows read as one setting.
+
+Now its own band + **Invite** label. The nudges row moved up to sit directly under
+Sharing, where it belongs: it controls whether friends can nudge you, which is
+visibility, not invitation. Band order re-traced afterwards — every section is
+still preceded by exactly one band, in both the Notifications-renders and
+Notifications-null branches.
+
 ### 01:14 · Patch 1.1 is live
 
 `PATCH_NOTES` gains its first entry, so the "What's new" modal goes from inert to

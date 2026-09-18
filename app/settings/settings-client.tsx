@@ -323,15 +323,24 @@ export function SettingsClient({
           </p>
           <ReplayOnboardingButton />
         </div>
+        {/* Gated on NUDGES only, NOT on push permission: this controls whether
+            friends can nudge you at all, and a nudge still lands in the
+            notifications panel on a phone that never granted notifications. */}
+        {NUDGES && <NudgesRow initialEnabled={nudgesEnabled} />}
+
+        {/* Its own section, not part of "Sharing" above. That label means
+            PRIVACY — what friends can see of your goals, habits and sessions —
+            while this means handing someone the app. Two senses of the same
+            word, and in one run of rows they read as one setting: the invite
+            looked like another privacy toggle sitting under the replay
+            button. */}
+        <Band />
+        <SectionLabel>Invite</SectionLabel>
         {/* Same shareInvite() the empty feed and /refer call, so Settings hands
             out the identical App Store link and text. Native sheet where there
             is one, clipboard otherwise — the helper reads navigator only inside
             the handler, so this stays hydration-safe. */}
         <Row label="Share with friends" onClick={shareApp} />
-        {/* Gated on NUDGES only, NOT on push permission: this controls whether
-            friends can nudge you at all, and a nudge still lands in the
-            notifications panel on a phone that never granted notifications. */}
-        {NUDGES && <NudgesRow initialEnabled={nudgesEnabled} />}
 
         {/* Admin — only ever rendered for the is_admin() account */}
         {isAdmin && (
