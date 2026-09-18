@@ -14,15 +14,19 @@ import {
   startOfMonth,
   startOfYear,
 } from "@/lib/dates";
+import { goalColorOf } from "@/lib/colors";
 import { categorizeEvents, fetchEventsRaw } from "@/lib/db/calendar-events";
 import { listCategories } from "@/lib/db/categories";
-import { listActiveGoals } from "@/lib/db/goals";
+import { listAllGoals } from "@/lib/db/goals";
 import { listSessionsInRange } from "@/lib/db/sessions";
 
 export type RollupGoalRow = {
   id: string;
   title: string;
   actualMs: number;
+  // The goal's own hue, resolved once here so the History lists don't need a
+  // second goals read to paint a dot.
+  color: string;
 };
 
 export type Rollup = {
@@ -41,14 +45,6 @@ export type Rollup = {
   // Keyed by category id, or "uncategorized" for the null bucket. Items in each
   // list sum to that category's `ms` in categoryRows.
   categoryItems: Record<string, CategoryItem[]>;
-  // How many calendar events in the window are still Uncategorized (no manual
-  // override, no rule match, no prior AI assignment) and have a title to
-  // classify. Drives the History "Auto-categorize" button and its label.
-  uncategorizedEventCount: number;
-  // How many calendar events in the window the AI has already labeled
-  // (source "ai"). Lets the History button switch to a "Review" affordance so
-  // past AI decisions stay reviewable even when nothing new is left to sort.
-  aiCategorizedEventCount: number;
   // Sum of per-goal hours (sessions attributed to an active goal). Mirrors the
   // weekly recap's `totalFocusedMs` definition so summing the weekly recaps
   // inside this window reconciles with this number. Subset of totalTrackedMs.
@@ -78,31 +74,19 @@ async function computeRollup(startMs: number, endMs: number): Promise<Rollup> {
   // All four reads are independent (categorization is applied in JS after the
   // raw event fetch), so they fire in one parallel wave. Each is per-request
   // cached, so other composers sharing a window reuse these round-trips.
+  // Archived goals included: a past window can hold hours from a goal the user
+  // has since archived. Excluding them left those hours in `untrackedMs` and
+  // their `goal:<id>` breakdown row nameless.
   const [goals, categories, sessions, rawEvents] = await Promise.all([
-    listActiveGoals(),
+    listAllGoals(),
     listCategories(),
     listSessionsInRange(startMs, endMs),
     fetchEventsRaw(startMs, endMs),
   ]);
   // Categorized calendar events overlapping the window. Excluded events are
   // already filtered out by categorizeEvents; uncategorized ones flow into the
-  // null bucket via aggregateRange. (Future: parse a category from the event
-  // title with Claude instead of leaving title-only events Uncategorized.)
+  // null bucket via aggregateRange.
   const events = categorizeEvents(rawEvents, categories);
-
-  // Events still in the Uncategorized bucket that the AI could label (need a
-  // title). Reuses the events already fetched above — no extra query.
-  const uncategorizedEventCount = events.filter(
-    (e) =>
-      e.source === "uncategorized" &&
-      e.title != null &&
-      e.title.trim().length > 0
-  ).length;
-
-  // Events already labeled by the AI — powers the "Review" button state.
-  const aiCategorizedEventCount = events.filter(
-    (e) => e.source === "ai" && e.title != null && e.title.trim().length > 0
-  ).length;
 
   // For past windows, cap aggregate's "now" at the window end so a session
   // still running into the window counts up to the end, not artificially
@@ -140,7 +124,12 @@ async function computeRollup(startMs: number, endMs: number): Promise<Rollup> {
   );
 
   const goalRows: RollupGoalRow[] = goals
-    .map((g) => ({ id: g.id, title: g.title, actualMs: perGoal.get(g.id) ?? 0 }))
+    .map((g) => ({
+      id: g.id,
+      title: g.title,
+      actualMs: perGoal.get(g.id) ?? 0,
+      color: goalColorOf(g),
+    }))
     .filter((r) => r.actualMs > 0)
     .sort((a, b) => b.actualMs - a.actualMs);
 
@@ -156,8 +145,6 @@ async function computeRollup(startMs: number, endMs: number): Promise<Rollup> {
     totalTrackedMs,
     categoryRows,
     categoryItems,
-    uncategorizedEventCount,
-    aiCategorizedEventCount,
     totalFocusedMs,
     untrackedMs: untracked,
     goalRows,

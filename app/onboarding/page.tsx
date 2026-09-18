@@ -10,7 +10,6 @@ import { listCategories } from "@/lib/db/categories";
 import { listEventsInRange } from "@/lib/db/calendar-events";
 import { listActiveGoals } from "@/lib/db/goals";
 import { listActiveHabits, listCompletionsInRange } from "@/lib/db/habits";
-import { computeMonthRollup } from "@/lib/db/rollups";
 import { listRecentSessions } from "@/lib/db/sessions";
 import { REDESIGN } from "@/lib/flags";
 import {
@@ -55,17 +54,13 @@ export default async function OnboardingPage() {
   const weekStartMs = startOfWeek(now).getTime();
   const weekEndMs = endOfWeek(now).getTime();
 
-  const [categories, sessions, habits, completions, goals, monthRollup] =
-    await Promise.all([
-      listCategories(),
-      listRecentSessions(),
-      listActiveHabits(),
-      listCompletionsInRange(startDate, endDate),
-      listActiveGoals(),
-      // Current-month rollup for the History tour step — real numbers, and the
-      // live Sync button's router.refresh() updates them mid-tour.
-      computeMonthRollup(now),
-    ]);
+  const [categories, sessions, habits, completions, goals] = await Promise.all([
+    listCategories(),
+    listRecentSessions(),
+    listActiveHabits(),
+    listCompletionsInRange(startDate, endDate),
+    listActiveGoals(),
+  ]);
   const events = await listEventsInRange(
     weekStartMs - DAY_MS,
     weekEndMs + DAY_MS,
@@ -103,10 +98,6 @@ export default async function OnboardingPage() {
       weekStart={startDate}
       today={today}
       weekRangeLabel={formatRange(startOfWeek(now), endOfWeek(now))}
-      monthStartMs={monthRollup.startMs}
-      monthTotalMs={monthRollup.totalTrackedMs}
-      monthCategoryRows={monthRollup.categoryRows}
-      monthUncategorizedCount={monthRollup.uncategorizedEventCount}
       activeSession={
         active
           ? {

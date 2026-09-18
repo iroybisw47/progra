@@ -83,6 +83,12 @@ export type HabitToday = { id: string; name: string; color: string | null; done:
 
 type Tab = "today" | "week";
 
+// The period switcher's pill. Shared so the History link is pixel-identical to
+// the two sub-tab buttons beside it despite being a different element.
+const CHIP =
+  "rounded-full px-[13px] py-[5px] text-[11px] font-semibold uppercase tracking-[0.06em] transition-colors";
+const CHIP_ON = "bg-brand text-primary-foreground";
+
 export function ProgressClient(props: {
   dateLabel: string;
   todayTotalMs: number;
@@ -146,7 +152,7 @@ export function ProgressClient(props: {
   return (
     <div className="flex flex-1 flex-col items-center px-5 pt-7 pb-28">
       <main className="flex w-full max-w-md flex-col">
-        {/* Period label + Today/Week chips */}
+        {/* Period label + Today/Week/History chips */}
         <div className="flex items-center justify-between">
           <span className="section-label whitespace-nowrap">{periodLabel}</span>
           <div className="bg-track flex gap-0.5 rounded-full p-[3px]">
@@ -161,16 +167,20 @@ export function ProgressClient(props: {
                 type="button"
                 onClick={() => setTab(key)}
                 aria-pressed={tab === key}
-                className={cn(
-                  "rounded-full px-[13px] py-[5px] text-[11px] font-semibold uppercase tracking-[0.06em] transition-colors",
-                  tab === key
-                    ? "bg-brand text-primary-foreground"
-                    : "text-faint"
-                )}
+                className={cn(CHIP, tab === key ? CHIP_ON : "text-faint")}
               >
                 {label}
               </button>
             ))}
+            {/* History is a LINK, not a third sub-tab: the long view lives on
+                its own route, which owns the Year/Month scope in its URL. It
+                sits in the switcher because that's where you look for "a
+                different span of time" — before this, /history was reachable
+                only by tapping the Week tab's "Sessions" header. Never renders
+                active; you're never on Progress while looking at it. */}
+            <Link href="/history" className={cn(CHIP, "text-faint")}>
+              History
+            </Link>
           </div>
         </div>
 

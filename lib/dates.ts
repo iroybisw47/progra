@@ -94,16 +94,22 @@ export function formatTime12(d: Date): string {
   return `${h12}:${pad2(d.getMinutes())} ${ampm}`;
 }
 
-// Returns YYYY-MM-DD (ISO-style) for the current moment in the given IANA
-// timezone. Used by the habits server actions to verify the client's
-// claimed "today" matches the user's stored timezone.
-export function todayInTimeZone(tz: string): string {
+// Returns YYYY-MM-DD (ISO-style) for the instant `ms` as it reads in the given
+// IANA timezone. en-CA formats as YYYY-MM-DD natively, so no re-assembly.
+export function isoDateInTimeZone(ms: number, tz: string): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: tz,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date());
+  }).format(new Date(ms));
+}
+
+// Returns YYYY-MM-DD (ISO-style) for the current moment in the given IANA
+// timezone. Used by the habits server actions to verify the client's
+// claimed "today" matches the user's stored timezone.
+export function todayInTimeZone(tz: string): string {
+  return isoDateInTimeZone(Date.now(), tz);
 }
 
 // Returns {startDate, endDate} as YYYY-MM-DD for the Mon–Sun week containing

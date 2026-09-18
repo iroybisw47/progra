@@ -43,7 +43,7 @@ Sheet / AlertDialog overlay).
 | R08 | `/goals` | route | Settings "Your data"; Progress goal cards | ungated in page; RLS in loaders | app/goals/page.tsx:9-14 |
 | R09 | `/habits` | route | Settings "Your data" | ungated in page; RLS in loaders | app/habits/page.tsx:10-22 |
 | R10 | `/categories` | route | Settings "Your data"; clock category tools | `!REDESIGN`→`notFound`; `requireUser` | app/categories/page.tsx:12-14 |
-| R11 | `/history` | route | Settings "Your data"; Dashboard; Progress "History" | ungated in page; RLS in loaders | app/history/page.tsx:26-31 |
+| R11 | `/history` | route | **Progress "History" chip** (third pill in the Today/Week switcher — a `Link`, not a sub-tab; added 2026-09-17), and the Progress "Sessions" header on the Week tab → `?view=week&w=`. (`components/dashboard.tsx:119` also links here but Dashboard is the pre-REDESIGN home, so it's unreachable in the live config. Settings "Your data" does **not** link here — the older claim in this row was wrong.) | ungated in page; RLS in loaders. 2026-09-17: month/year scopes rebuilt from the `handoff-history/` design (Year/Month toggle + stepper, Time / Goal completion / Habit completion). `?view=week` unchanged — it's the Progress deep link and the way into `/recap` | app/history/page.tsx · history-client.tsx |
 | R12 | `/sessions` | route | Settings "Your data"; clock-client link | ungated in page; RLS in loaders | app/sessions/page.tsx:7-15 |
 | R13 | `/recap` | route | History scrubber; Dashboard | ungated in page; RLS in loaders | app/recap/page.tsx:14-19 |
 | R24 | `/recap/[weekStart]` | route | Full-screen weekly recap **story** (5 panels: The number · Where it went · Goals · Your rank · Shareable card) | `requireUser`; `force-dynamic`; window via `weekWindow`; `getWeekLeaderboard` | app/recap/[weekStart]/page.tsx · recap-story.tsx (motion) |
@@ -93,7 +93,7 @@ falls through to the Next.js default.
 | D03 | Edit goal | dialog | goals-client | /goals | app/goals/goals-client.tsx:384 |
 | D04 | Archive goal confirm | dialog | goals-client | /goals | app/goals/goals-client.tsx:440 |
 | D05 | Edit habit | dialog | habits-client | /habits | app/habits/habits-client.tsx:264 |
-| D06 | Delete session / remove event confirm | dialog | history-client | /history | app/history/history-client.tsx:433 |
+| D06 | ~~Delete session / remove event confirm~~ | — | — | — | **Gone.** The per-item delete was dropped from History before 2026-09-17 (see the note in the pre-rebuild `RollupBody`); this row was stale. Session deletion lives on `/sessions`. |
 | D07 | Edit profile (identity) | sheet | settings-client | /settings (identity block) | app/settings/settings-client.tsx (BottomSheet) |
 | D08 | Time-zone picker | sheet | settings-client | /settings → Time zone row | app/settings/settings-client.tsx (BottomSheet; search + list, current zone pinned first) |
 | D09 | Edit profile | dialog | profile-actions | /profile/[username] (self) | app/profile/[username]/profile-actions.tsx:148 |
@@ -106,7 +106,7 @@ falls through to the Next.js default.
 | D16 | Delete session confirm (nested) | alert | SessionDialog | /clock | components/session-dialog.tsx:389 |
 | D17 | Categorize event | dialog | EventCategoryDialog (dynamic) | /clock | components/event-category-dialog.tsx:41 (mount clock-client.tsx:1117) |
 | D18 | Add a photo | dialog | SessionPhotoStep (dynamic) | /clock, /clock/live | components/session-photo-step.tsx:82 (mounts clock-client.tsx:1126, live-timer-client.tsx:555) |
-| D19 | Categorization review | dialog | CategorizationReviewDialog (dynamic) | /history | components/categorization-review-dialog.tsx:116 (mount categorize-period-button.tsx:104) |
+| D19 | ~~Categorization review~~ | — | — | — | **Gone 2026-09-17.** The AI auto-categorize feature was deleted with the calendar affordances on /history; the dialog, its button and the server action no longer exist. |
 | D20 | Frame your photo (crop) | dialog | AvatarCropDialog (dynamic) | /settings, /onboarding | components/avatar-crop-dialog.tsx:41 (mount avatar-picker.tsx:140) |
 | D21 | Manage habits | dialog | ManageHabits (dynamic) | `/` (Progress) | components/v2/manage-habits.tsx:199 (mount progress-client.tsx:117) |
 | D22 | Delete habit confirm (nested) | alert | ManageHabits | `/` (Progress) | components/v2/manage-habits.tsx:349 |
@@ -139,7 +139,7 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S15 | onboarding Done splash | overlay | "Ready. / Set. / GO!" (rise 0/.45/.95s), `WeekPulse`, summary line; `completeOnboarding` runs alongside a 3.2s hold, then `router.push("/")`; an error toasts and drops back to the step | `done` | app/onboarding/done-splash.tsx |
 | S16 | onboarding-client (legacy, !REDESIGN) | step | 9-step machine incl. tour-home/history/habits early-returns | `useState<Step>("welcome")` | app/onboarding/onboarding-client.tsx:151; :262,280,292,315,330,367,392,442,531 |
 | S17 | onboarding-client (legacy) | sub-machine | practice: idle / running / done | `practicePhase` | app/onboarding/onboarding-client.tsx:168,461,485,516 |
-| S18 | onboarding-client (legacy) | sub-machine | tour spotlights (home recap/history, history sync/categorize) | `homeTour`,`historyTour` | app/onboarding/onboarding-client.tsx:152,735,755,840,881,892 |
+| S18 | onboarding-client (legacy) | sub-machine | tour spotlights (home recap/history). The `tour-history` step and its `historyTour` sub-machine went with the auto-categorize deletion (2026-09-17) — they taught Sync and Auto-categorize, both now gone. Legacy/pre-REDESIGN only. | `homeTour` | app/onboarding/onboarding-client.tsx (TourHome) |
 | S19 | friends-client | search | "Searching…" / "No users found." / results, when query≥2 | `searching`; `results.length===0` | app/friends/friends-client.tsx:181-193 |
 | S20 | friends-client | empty | people-on-Progra empty ("added everyone 🎉" vs "No one else") | `people.length === 0` | app/friends/friends-client.tsx:209-211 |
 | S21 | friends-client | empty | "No friends yet — search above…" | `friends.length === 0` | app/friends/friends-client.tsx:296 |
@@ -150,15 +150,19 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S26 | habits-client | empty | "No habits yet. Add one below." | `optimisticItems.length === 0` | app/habits/habits-client.tsx:159 |
 | S27 | categories-client | empty | "No categories yet…" vs. list | `categories.length === 0` | app/categories/categories-client.tsx:115 |
 | S28 | categories-client | mode | dialog "Edit category" vs "New category" | `editing.mode` | app/categories/categories-client.tsx:167,237 |
-| S29 | history-client | view | week summary vs. month/year rollup | `props.view === "week"` | app/history/history-client.tsx:182 |
-| S30 | history-client | nav | scrubber "Next" vs. current-period label | `isCurrentPeriod || isFuturePeriod` | app/history/history-client.tsx:167 |
-| S31 | history-client | empty | "Nothing logged in {label}." | `categoryCount > 0` else | app/history/history-client.tsx:364 |
+| S29 | history-client | view | week summary (original chrome + shared `WeekSummary`) vs. the 2026-09-17 month/year design | `props.view === "week"` | app/history/history-client.tsx:139 |
+| S30 | history-client | nav | week scrubber "Next" vs. current-period label; month/year stepper's › greys out | `isCurrentPeriod \|\| isFuturePeriod` | app/history/history-client.tsx:152,229 |
+| S31 | history-client | empty | "Nothing logged in {label}." | `rollup.categoryRows.length === 0` | app/history/history-client.tsx:467 |
+| S54 | history-client | scope | Year vs. Month pill toggle — URL-driven (`?view=`), server re-render, no client fetch | `props.view` | app/history/history-client.tsx:198-232 |
+| S55 | history-client | view | habit completion: per-habit rate rows (Year) vs. per-day navy calendar (Month) | `monthName != null` | app/history/history-client.tsx (HabitCompletionSection) |
+| S56 | history-client | empty | Goal- and Habit-completion sections omitted entirely | `perGoal.length === 0` / `perHabit.length === 0` | app/history/history-client.tsx (GoalCompletionSection, HabitCompletionSection) |
+| S57 | history-client | expand | a Time row opens its audit list (the sessions/events behind it) — read-only; carried over from the donut this section replaced | `openKey === key`, rows with `categoryItems` only | app/history/history-client.tsx (TimeSection, AuditList) |
 | S32 | sessions-client | empty | "No past sessions[ in this category] yet." | `groups.length === 0` | app/sessions/sessions-client.tsx:158 |
 | S33 | sessions-client | paging | "Load older" / "Loading…" | `hasMore`; `loading` | app/sessions/sessions-client.tsx:258,265 |
 | S34 | recap-client | nav | scrubber "Next" vs "This week" (RecapCard always renders) | `isCurrentWeek || isFutureWeek` | app/recap/recap-client.tsx:110 |
 | S35 | settings-client | connection | calendar "Disconnect" vs "Connect" (+ unverified warning) vs. **absent entirely** while `CALENDAR_CONNECT` is dark and the user isn't already connected | `calendarConnected ?`; `CALENDAR_CONNECT`; `SHOW_UNVERIFIED_WARNING` | app/settings/settings-client.tsx:239,250,267 |
 | S36 | settings-client | role | "Admin" section + row (→ /admin, badge = open reports + open bugs) only for admins | `isAdmin &&` | app/settings/settings-client.tsx |
-| S37 | progress-client (home) | tabs | Today / Week / History views | `useState<Tab>("today")` | components/v2/progress-client.tsx:82,112-114 |
+| S37 | progress-client (home) | tabs | Today / Week views. The third "History" pill beside them is a `Link` to `/history`, **not** a third tab — it never renders active and `Tab` stays `"today" \| "week"` | `useState<Tab>("today")` | components/v2/progress-client.tsx (Tab, switcher) |
 | S50 | progress-client (home) | nudge | "Your week is ready" recap banner (above the tabs) → opens `/recap/{weekStart}` | `props.recapNudge` (set in `loadProgressData` when the week unlocked Sun 6pm local & is unopened) | components/v2/recap-nudge.tsx · components/v2/progress-client.tsx |
 | S38 | progress-client | empty | "Nothing tracked yet today." | `sessionsToday.length === 0` | components/v2/progress-client.tsx:209 |
 | S39 | progress-client | empty | "No goals yet — tap to add one." | `goals.length === 0` | components/v2/progress-client.tsx:259 |

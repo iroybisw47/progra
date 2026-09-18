@@ -4,6 +4,113 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-09-17
+
+### 15:05 · History stops at 2026
+2026 is Progra's first year (initial commit May 2026), so every earlier period
+is guaranteed empty. All three scopes now floor there: the back chevron greys
+out on 2026, on January 2026 and on the week containing 1 Jan, and an
+out-of-range param (`?y=2019`, `?m=2025-11`, `?w=2025-06-10`) is clamped to the
+floor rather than rendering an empty period with no explanation. The week floor
+is the Monday of the week containing 1 Jan — not 1 Jan itself — so no day of the
+first year is unreachable.
+
+### 15:00 · History is a reading surface; AI auto-categorize deleted
+The auto-categorize button, the "Sync Google Calendar" button and the Connect
+entry point are gone from `/history`, along with the `?calendar=` return toast.
+What remains of the calendar lives in Settings: connection status and
+Disconnect. With sync gone from History there is no manual sync anywhere in the
+live app (there is no automatic sync either) — deliberate, with
+`CALENDAR_CONNECT` already dark.
+
+Auto-categorize is deleted outright, not just unmounted — `/history` was its
+only live entry point. Gone: `components/categorize-period-button.tsx`,
+`components/categorization-review-dialog.tsx`,
+`components/categorize-events-button.tsx` (already orphaned),
+`app/actions/categorize-events.ts`, and `lib/anthropic/` — which held the app's
+**only** Anthropic API call. `Rollup` loses `uncategorizedEventCount` and
+`aiCategorizedEventCount`; `HomeActions` (pre-REDESIGN home) loses its
+auto-categorize card; the legacy onboarding's `tour-history` step is removed
+entirely, since it existed only to teach Sync and Auto-categorize.
+
+**`lib/db/calendar-events.ts` is deliberately untouched.** Rows in
+`event_categorizations` with `source = 'ai'` still exist for connected users and
+still drive where those hours land. Its provenance split is
+`if (source === "ai") … else manual` — an `else` catch-all, so deleting the `ai`
+branch would silently **promote** every legacy AI guess to a manual override,
+which outranks the user's own keyword rules. Reading them stays as-is (manual >
+rule > ai); only the ability to create new ones is gone. Purging or migrating
+those rows is a separate, deliberate decision.
+
+### 14:30 · History rebuilt from the design handoff
+`/history`'s month and year scopes are rebuilt to the `handoff-history/`
+design: a Year/Month pill toggle with a period stepper, a big Newsreader title
+over the period's hours and session count, then three sections — Time, Goal
+completion, Habit completion. The handoff asked for a third Progress sub-tab,
+but that sub-tab was deliberately removed earlier in favour of this route, so
+the design landed here rather than re-splitting the surface in two.
+
+Progress does get the third chip back — as a **link**, not a tab. `/history`
+had exactly one live entry point (the Week tab's "Sessions" header, which lands
+on the week scope), so the rebuilt Year/Month screen was two taps deep behind a
+screen that doesn't look like it. The chip sits in the Today/Week switcher,
+pixel-identical to the two buttons beside it, and navigates; `Tab` stays
+`"today" | "week"`. Two stale rows in `docs/SCREENS.md` are corrected with it:
+Settings → "Your data" never linked to History, and `components/dashboard.tsx`
+still does but is the pre-REDESIGN home, so it's unreachable in the live config.
+
+**Time** renders `categoryRows` as one list, goals first. The mock drew goals
+and categories as two separate 100% breakdowns; a session here belongs to
+exactly one of the two axes, so the shares sum to a single 100% instead. Bars
+scale to the largest row, not to the total.
+
+**Goal completion** is new aggregation (`lib/history-stats.ts`): sessions
+bucketed into Mon–Sun weeks and scored against each goal's quota. Scoring is
+**partial** — a week earns `min(1, hours / quota)` and a goal's rate is the mean
+of its eligible weeks. An all-or-nothing first pass made 10h of a 20h quota
+worth exactly as much as not showing up, which read as broken. The per-week cap
+is what keeps the mean honest: without it a single 40h week would cancel four
+empty ones and a mostly-idle month would score 100%.
+
+The row prints counted hours against quota × weeks ("20/40h") beside the
+percentage, and those hours are capped the same way the rate is — otherwise
+40h-then-nothing would read "40/40h · 50%" and contradict itself. The section
+note is "averaging N% of quota", not "N% of quotas met": nothing is being met,
+it's a mean. Sessions
+bucket by their attribution **end**, matching `lib/aggregate.ts`, so these
+numbers reconcile with `/recap` — the handoff specced start-based bucketing,
+which would have disagreed for any session crossing midnight. Quotas have no
+history, so a goal is only measured from the week it was created rather than
+being marked down for months it didn't exist for.
+
+**Habit completion** is per-habit rates in Year scope and a per-day navy
+calendar in Month scope. Habits carry no schedule in this schema, so the
+handoff's "checks ÷ scheduled days" isn't computable; the rate is checks ÷ the
+days the habit actually existed in the window, capped at today.
+
+**Both completion sections count active items only.** "Delete" in the goal and
+habit UIs doesn't delete — it sets `status = 'archived'` / stamps `archived_at`.
+So a first pass that followed the handoff's "archived items still appear in past
+ranges" scored goals and habits the user thought they'd deleted, and dragged the
+headline rates down with them. Archived items are now excluded from Goal
+completion and Habit completion outright — including the calendar's per-day
+totals and its "of N" caption. They still appear in **Time**, which is about
+where the hours went, not about who's hitting quota: those hours are real and
+dropping them would break the breakdown's 100%.
+
+The `?view=week` scope is deliberately unchanged — it's the deep link the
+Progress Sessions header opens and the way into `/recap`, and it renders the
+shared `WeekSummary` that Progress itself uses.
+
+Also: `listAllGoals` / `listAllHabits` (archived-inclusive reads, so a past
+window still shows a goal or habit since archived), `isoDateInTimeZone` in
+`lib/dates.ts`, and `goal:<id>` rollup rows now resolve archived goals to a
+real title and hue instead of a bare "Goal" — which also moves their hours out
+of `untrackedMs` and into `totalFocusedMs` for past windows.
+
+No new dependency, no API route: scope stays in the URL and the page
+re-renders server-side, the same way the route already worked.
+
 ## 2026-09-15
 
 ### 15:19 · Login and onboarding redesigned

@@ -66,6 +66,29 @@ export const listActiveGoals = cache(async (): Promise<Goal[]> => {
   return (data as GoalRow[]).map(rowToGoal);
 });
 
+// Every goal, archived included, oldest first. History looks at past windows,
+// where a goal the user has since archived still owned real hours — excluding
+// it would silently drop that time from the breakdown and leave its synthetic
+// `goal:<id>` row nameless. Cached per request alongside listActiveGoals.
+//
+// This is for RESOLVING past time only (the History "Time" breakdown). Goal
+// completion filters back down to active goals: the UI calls archiving
+// "Delete", so a deleted goal must not keep being scored against its quota.
+export const listAllGoals = cache(async (): Promise<Goal[]> => {
+  const me = await getCurrentUser();
+  if (!me) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("goals")
+    .select(
+      "id, title, description, weekly_quota_hours, status, created_at, is_private, color"
+    )
+    .eq("user_id", me.id)
+    .order("created_at", { ascending: true });
+  if (!data) return [];
+  return (data as GoalRow[]).map(rowToGoal);
+});
+
 // Returns goals by id regardless of status. Used by the "needs reslotting"
 // surface to backfill titles for missed blocks pointing at goals the user
 // has since archived (which `listActiveGoals` correctly excludes).

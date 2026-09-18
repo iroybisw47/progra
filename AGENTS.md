@@ -118,9 +118,10 @@ params are `Promise<{...}>` and must be `await`ed.
 ## Known, accepted lint debt — do not "fix" casually
 
 `Date.now()` react-hooks/purity errors in a few server components;
-`set-state-in-effect` warnings in `onboarding-client`, `manage-habits`,
-`categorization-review-dialog`. These are pre-existing and known, not
-regressions — leave them unless the task is specifically about them.
+`set-state-in-effect` warnings in `onboarding-client` and `manage-habits`.
+These are pre-existing and known, not regressions — leave them unless the task
+is specifically about them. (`categorization-review-dialog` was on this list
+until 2026-09-17, when the AI auto-categorize feature was deleted.)
 
 ## Local notification patterns (on-device, no server)
 
