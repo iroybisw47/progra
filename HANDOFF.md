@@ -240,6 +240,20 @@ signed in; its center FAB live-ticks while a session runs.
   consented, every read is `?? false`, and `admin_list_interview_consents`
   filters `where interview_consent is true`. Withdrawal clears the stamp.
   `public_profiles` is column-explicit and does not expose either.
+- `profiles.patch_notes_seen_version` (text, nullable, added 2026-09-18) — the
+  newest "What's new" entry this user has been shown. Compared for EQUALITY
+  against `PATCH_NOTES[0].version` (`lib/patch-notes.ts`), never ordered, so the
+  format is free. **Four states, and one of them is counter-intuitive:**
+  `undefined` (column absent — PostgREST omits the key) must show NOTHING, not
+  everything: in that world the dismiss write fails too (PGRST204), so the modal
+  would be undismissable for every user until a deploy. `null` (column present,
+  never stamped) DOES show. The test is `=== undefined`, never `== null`. This is
+  the opposite polarity to `seat_no`, which fails open. Client-writable under the
+  owner UPDATE policy, so it carries a `length <= 64` CHECK as well as
+  app-side validation against the authored list. New accounts are stamped current
+  by `completeOnboarding` — via a separate, error-swallowed statement, because
+  folding it into the `onboarded_at` UPDATE would break onboarding entirely if the
+  column were missing.
 
 **Beta capacity (250-seat cap):**
 - `profiles.seat_no` (int, **partial unique index** `profiles_seat_no_key` where not null) —

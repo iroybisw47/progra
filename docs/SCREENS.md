@@ -38,13 +38,13 @@ Sheet / AlertDialog overlay).
 | R03 | `/onboarding` | route | `/` redirect when `onboarded_at` null; replay button | `requireUser`; REDESIGN→v2 wizard else legacy | app/onboarding/page.tsx |
 | R04 | `/feed` | route | BottomNav "Feed"; `/session/[id]` back-link | `!REDESIGN`→`notFound`; `requireUser` | app/feed/page.tsx:9-12 |
 | R05 | `/friends` | route | BottomNav "Friends"; feed/dashboard/profile links | `!SOCIAL_ENABLED`→`notFound`; `requireUser` | app/friends/page.tsx:18-20 |
-| R06 | `/me` (You) | route | BottomNav "You" | `!SOCIAL_ENABLED`→`notFound`; `requireUser`; REDESIGN inline profile, else Dashboard | app/me/page.tsx:36-44 |
+| R06 | `/me` (You) | route | BottomNav "You" | `!SOCIAL_ENABLED`→`notFound`; `requireUser`; REDESIGN inline profile, else Dashboard. Since 2026-09-18 the "Goal quotas" and "Habits" headers open D28 / D21, same as Progress | app/me/page.tsx:41-49 |
 | R07 | `/search` | route | beta nav "Search" only (no V2 inbound) | ungated placeholder (no auth/flag call) | app/search/page.tsx:4-23 |
-| R08 | `/goals` | route | Settings "Your data"; Progress goal cards | ungated in page; RLS in loaders | app/goals/page.tsx:9-14 |
-| R09 | `/habits` | route | Settings "Your data" | ungated in page; RLS in loaders | app/habits/page.tsx:10-22 |
-| R10 | `/categories` | route | Settings "Your data"; clock category tools | `!REDESIGN`→`notFound`; `requireUser` | app/categories/page.tsx:12-14 |
+| R08 | `/goals` | route | **ORPHANED 2026-09-18** — Settings "Your data" was its only link and is gone; URL-only now. Goals are managed by the `ManageGoals` sheet off the Progress "Goals" **or** You "Goal quotas" header, which has **no privacy toggle and no description field**, so those two are currently unreachable | ungated in page; RLS in loaders | app/goals/page.tsx:9-14 |
+| R09 | `/habits` | route | **ORPHANED 2026-09-18** — URL-only. No loss: the `ManageHabits` sheet off the Progress **or** You "Habits" header is a strict superset (adds color-on-create and an editable back-week grid) | ungated in page; RLS in loaders | app/habits/page.tsx:10-22 |
+| R10 | `/categories` | route | **ORPHANED 2026-09-18** — URL-only. `/clock`'s category tools cover name/color/delete but **not** `rules.titleContains` keywords, so keyword rules are uneditable in the UI (they still apply; `CALENDAR_CONNECT` is dark, so they only affect users who connected before) | `!REDESIGN`→`notFound`; `requireUser` | app/categories/page.tsx:12-14 |
 | R11 | `/history` | route | **Progress "History" chip** (third pill in the Today/Week switcher — a `Link`, not a sub-tab; added 2026-09-17), and the Progress "Sessions" header on the Week tab → `?view=week&w=`. (`components/dashboard.tsx:119` also links here but Dashboard is the pre-REDESIGN home, so it's unreachable in the live config. Settings "Your data" does **not** link here — the older claim in this row was wrong.) | ungated in page; RLS in loaders. 2026-09-17: month/year scopes rebuilt from the `handoff-history/` design (Year/Month toggle + stepper, Time / Goal completion / Habit completion). `?view=week` unchanged — it's the Progress deep link and the way into `/recap` | app/history/page.tsx · history-client.tsx |
-| R12 | `/sessions` | route | Settings "Your data"; clock-client link | ungated in page; RLS in loaders | app/sessions/page.tsx:7-15 |
+| R12 | `/sessions` | route | `clock-client.tsx:962` only (Settings row removed 2026-09-18). Read-only list; nothing was lost | ungated in page; RLS in loaders | app/sessions/page.tsx:7-15 |
 | R13 | `/recap` | route | History scrubber; Dashboard | ungated in page; RLS in loaders | app/recap/page.tsx:14-19 |
 | R24 | `/recap/[weekStart]` | route | Full-screen weekly recap **story** (5 panels: The number · Where it went · Goals · Your rank · Shareable card) | `requireUser`; `force-dynamic`; window via `weekWindow`; `getWeekLeaderboard` | app/recap/[weekStart]/page.tsx · recap-story.tsx (motion) |
 | R25 | `/recap/[weekStart]/card` | route (OG) | 1080×1080 recap PNG (`next/og` ImageResponse) — shared as a File by the story's Share button | `getCurrentUser` (401 if none); `force-dynamic`; Node runtime | app/recap/[weekStart]/card/route.tsx |
@@ -109,13 +109,18 @@ falls through to the Next.js default.
 | D18 | Add a photo | dialog | SessionPhotoStep (dynamic) | /clock, /clock/live | components/session-photo-step.tsx:82 (mounts clock-client.tsx:1126, live-timer-client.tsx:555) |
 | D19 | ~~Categorization review~~ | — | — | — | **Gone 2026-09-17.** The AI auto-categorize feature was deleted with the calendar affordances on /history; the dialog, its button and the server action no longer exist. |
 | D20 | Frame your photo (crop) | dialog | AvatarCropDialog (dynamic) | /settings, /onboarding | components/avatar-crop-dialog.tsx:41 (mount avatar-picker.tsx:140) |
-| D21 | Manage habits | dialog | ManageHabits (dynamic) | `/` (Progress) | components/v2/manage-habits.tsx:199 (mount progress-client.tsx:117) |
-| D22 | Delete habit confirm (nested) | alert | ManageHabits | `/` (Progress) | components/v2/manage-habits.tsx:349 |
-| D23 | Edit habit (nested) | dialog | ManageHabits | `/` (Progress) | components/v2/manage-habits.tsx:421 |
+| D21 | Manage habits | dialog | ManageHabits (dynamic) | `/` (Progress), `/me` (You) | components/v2/manage-habits.tsx:199 (mounts progress-client.tsx:117, me/habits-section.tsx:58) |
+| D22 | Delete habit confirm (nested) | alert | ManageHabits | `/` (Progress), `/me` (You) | components/v2/manage-habits.tsx:349 |
+| D23 | Edit habit (nested) | dialog | ManageHabits | `/` (Progress), `/me` (You) | components/v2/manage-habits.tsx:421 |
 | D24 | Report content | dialog | ReportButton | /profile/[username], /session/[id], feed cards | components/report-button.tsx:79 |
 | D25 | Delete account confirm | alert | DeleteAccountButton | Dashboard only (beta/social `/`, `/me`) — legacy | components/delete-account-button.tsx:49 (mount dashboard.tsx:233) |
 | D26 | Notifications panel | sheet | NotificationsBell | /friends | components/notifications-bell.tsx:69 (mount friends-client.tsx:163) |
 | D27 | Report a bug | sheet | Settings → Help → "Report a bug" | /settings | components/v2/report-bug-sheet.tsx:16 (lazy via next/dynamic, mount settings-client.tsx:332) |
+| D28 | Manage goals | sheet | ManageGoals (dynamic) | `/` (Progress), `/me` (You) | components/v2/manage-goals.tsx:106 (mounts progress-client.tsx:461, me/goals-section.tsx:48) |
+| D29 | Edit/new goal (nested) | sheet | ManageGoals | `/` (Progress), `/me` (You) | components/v2/manage-goals.tsx:177 |
+| D30 | Delete goal confirm (nested) | alert | ManageGoals | `/` (Progress), `/me` (You) | components/v2/manage-goals.tsx:250 |
+| D31 | Session finished (unattended) | modal | root layout, when a timed session hit its target with nobody watching | anywhere | components/v2/plan-complete-modal.tsx:19 (mount app/layout.tsx). Both buttons stamp `sessions.plan_reviewed_at`; a dismiss that didn't write would reopen it every load. *(Row added 2026-09-18 — it had never been listed.)* |
+| D32 | What's new | modal | root layout, once per release | `/` only | components/v2/whats-new-modal.tsx (mount app/layout.tsx). Content is `lib/patch-notes.ts`, newest entry only. Gated on `user && onboarded_at != null && !planComplete && patchNote` — D31 outranks it, and suppression never stamps, so the note just waits. Every close path stamps `profiles.patch_notes_seen_version`. Route **allowlist** (`pathname !== "/"` → null), not a denylist |
 
 ### Whole-surface conditional states
 
@@ -174,8 +179,9 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S51 | feed-v2 | entry kind | **recap post** card ("{name} uploaded their weekly recap!" + navy summary) | `entry.kind === "recap"` | components/v2/recap-feed-card.tsx · feed-v2.tsx |
 | S52 | recap-story (final panel) | post | caption box + "Post to feed" → `postRecap`; button flips to "Posted ✓" | `posted` state | app/recap/[weekStart]/recap-story.tsx (ShareableCardPanel) |
 | S43 | feed-v2 | other | comment preview vs. "Add a comment" | `preview ?` | components/v2/feed-v2.tsx:258 |
-| S44 | /me (You, server) | empty | "Your finished sessions show up here." | `pastSessions.length === 0` | app/me/page.tsx:177 |
-| S45 | /me (You) | role | REDESIGN inline profile vs. Dashboard vs. 404 | `SOCIAL_ENABLED`, `REDESIGN` | app/me/page.tsx:37,40 |
+| S44 | /me (You, server) | empty | "Your finished sessions show up here." | `pastSessions.length === 0` | app/me/page.tsx:195 |
+| S45 | /me (You) | role | REDESIGN inline profile vs. Dashboard vs. 404 | `SOCIAL_ENABLED`, `REDESIGN` | app/me/page.tsx:42,45 |
+| S68 | /me (You) | empty | "No goals yet — tap to add one." (opens D28) | `goals.length === 0` | app/me/goals-section.tsx:35 |
 | S46 | profile/[username] (server) | relationship | notFound: flag off / no user / blocked | `!SOCIAL_ENABLED`,`!target`,`blocked` | app/profile/[username]/page.tsx:40,45,52 |
 | S47 | profile/[username] | relationship | full content vs. "Add @X as a friend…" private card | `canSeeContent` (self/friends) | app/profile/[username]/page.tsx:78,83 |
 | S48 | profile/[username] | empty | "No shared sessions yet." | `pastSessions.length === 0` | app/profile/[username]/page.tsx:180 |
@@ -293,6 +299,8 @@ flowchart TD
   me -->|social, not REDESIGN| dash["Dashboard"]
   me -->|beta| x404["notFound()"]
   you -->|empty| es["Your finished sessions show up here"]
+  you -->|"Goal quotas" header| mg["ManageGoals sheet: edit / new / delete-confirm"]
+  you -->|"Habits" header| mh2["ManageHabits sheet: edit / delete-confirm"]
   you -->|Settings icon / Edit| settings["/settings"]
   dash --> recap["/recap"]
   dash --> history["/history"]
@@ -314,6 +322,7 @@ flowchart TD
   settings -->|admins only| admin["/admin"]
   admin --> analytics["/admin/analytics"]
   settings --> replay["Replay onboarding → /onboarding"]
+  settings --> shareapp["Share with friends → native share sheet / clipboard"]
   settings --> editid["Edit identity dialog"]
   settings --> tz["Time-zone dialog"]
   settings --> hold["HoldToDelete → /login?deleted=1"]

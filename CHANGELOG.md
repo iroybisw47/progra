@@ -6,6 +6,213 @@ when it was done, not a start/stop work timer.
 
 ## 2026-09-18
 
+### 01:08 · Patch notes: patch 1.1 written, shipping in two deploys
+
+The column SQL ran clean (STEP 2 verified, `stamped = 0`), and `PATCH_NOTES` now
+carries its first entry — a welcome note explaining what the window is, then the
+five user-visible changes from this batch.
+
+Two shape changes the copy forced, both worth having:
+
+- **`version` is now a patch number (`major.minor`), not a date.** The note says
+  "This is patch 1.1" in its own text, so a date key would be a second thing to
+  keep in sync with the copy. The ordering guardrail became a **numeric**
+  comparison rather than a string sort — `"1.10"` sorts before `"1.9"`
+  lexicographically, so the old assertion would have started lying at the tenth
+  patch of a major version, and done it silently.
+- **`intro?: string`** — optional prose above the bullets, rendered in the
+  dialog's description slot so it's announced with the title. Body-sized rather
+  than caption: three sentences of 13px caption type is a wall. Entries with
+  nothing to preface omit the field; a test rejects an empty string, since
+  omitting is how you say "none".
+
+Typos in the source copy were corrected ("Every time", "palette"); the voice is
+otherwise untouched.
+
+**Shipping in two deploys, as planned.** `PATCH_NOTES` goes out EMPTY first, so
+the layout gate, the stamp action and onboarding are all exercised against prod
+with nobody seeing anything; 1.1's entry lands in the follow-up. Worth the extra
+cycle because the fail-closed path is gone: until the SQL ran, a broken gate read
+`undefined` and showed nothing, but every profile now reads `null`, so the empty
+array is the only thing between a logic bug and ~57 people getting a modal.
+
+One edge the split introduces: anyone who signs up *between* the two deploys is
+never stamped (`LATEST_PATCH_VERSION` is null, so `stampPatchNotesCurrent`
+returns early), and will see 1.1 even though its features were already live when
+they joined. The window is minutes and the cost is one stale note, so it isn't
+worth engineering around.
+
+### 01:05 · "Share with friends" in Settings
+
+A one-line row in Settings → Sharing that opens the native share sheet with the
+standard invite (message + App Store link), falling back to the clipboard where
+there's no `navigator.share`.
+
+No new sharing code: it calls the same `shareInvite()` from `lib/invite-share.ts`
+that the empty feed, `/refer` and the onboarding footer CTA call, and mirrors
+`InviteShare`'s toast handling — `shared`/`dismissed`
+silent, `copied` confirms, `failed` errors. So the link Settings hands out can't
+drift from the one every other surface sends, and it stays the countryless App
+Store URL (with the known trade-off that App Store installs carry no referrer,
+so no auto-friending).
+
+The message is its own constant, `ACCOUNTABILITY_INVITE_TEXT` — first person and
+asking for something ("I'm getting 1% better every day on Progra, and I need you
+to hold me accountable! Join me at"), where `DEFAULT_INVITE_TEXT` describes the
+app to a stranger. It ends mid-sentence on purpose: `inviteBody()` puts the link
+on the next line, so the two read as one message. A unit test pins that seam.
+
+### 00:50 · In-app patch notes ("What's new"), plumbing only
+
+A repeatable release-note modal. Write an entry in `lib/patch-notes.ts`, deploy,
+and every existing user sees it **once** on their next `/` load. Nothing is live
+yet: this ships `PATCH_NOTES = []`, which shows nobody anything and stamps
+nobody — a safety valve made of data, with a shorter blast radius than a flag
+(and a `NEXT_PUBLIC_` flag would need the same redeploy the array does, so it
+would buy no agility).
+
+Built on `PlanCompleteModal`, the app's only other unprompted once-only modal:
+the server decides it should exist, it opens at mount, and **every** close path
+stamps. Its comment is the rule the whole design turns on — "a dismiss path that
+didn't write would reopen this on every single page load".
+
+**The counter-intuitive part is the `undefined` case.** `patch_notes_seen_version`
+is typed optional, because PostgREST omits a key whose column doesn't exist yet.
+It would be natural to read that as "never seen" and show the note — but in that
+same world the dismiss write fails too (PGRST204), so the modal would be
+**undismissable for every user until a deploy**. So `undefined` fails CLOSED and
+shows nothing; `null` (column present, never stamped) is what shows the note. The
+check is `=== undefined`, never `== null`, which collapses the two states that
+have to differ. Opposite polarity to `seat_no`, which fails open — the reasoning
+is recorded at all three sites.
+
+Three gates in the layout beyond `user`, all free (the profile is already in the
+`Promise.all`):
+- **`onboarded_at != null`** — not cosmetic. `completeOnboarding` revalidates the
+  *page*, not the layout, and onboarding then `router.push("/")`s, so the layout
+  payload built during the wizard can survive that navigation. Suppressing by
+  pathname alone could leak a stale note to a brand-new account; a server-side
+  gate bakes the decision into the payload and fails closed.
+- **`!planComplete`** — that modal outranks this one, and two Base UI dialogs
+  would stack backdrops and fight over the focus trap. Yielding is free:
+  suppression never stamps, so the note waits for the next load.
+- **`patchNote`** — null when there's nothing to announce.
+
+New accounts are stamped current at onboarding so a live note isn't their welcome
+message — as a **separate, error-swallowed statement**, never folded into the
+`onboarded_at` UPDATE: a missing column makes PostgREST reject the whole
+statement, which would take onboarding down for every new user. It sits *inside*
+the first-completion branch, so a replay can't rob an existing user of a note
+they haven't seen.
+
+`markPatchNotesSeen` **does** call a revalidate helper, unlike the sibling
+`markNotificationsSeen`. That one skips revalidation because nothing
+server-rendered reads it — the bell owns its dot from a client poll. Here the only
+reader is a server component, so a stale layout payload still says "show it". The
+helper carries that reasoning so nobody "fixes" it back.
+
+Route handling is an **allowlist** (`pathname !== "/"` → null), not a list of
+screens to dodge: a denylist would have to be right about `/clock/live`,
+`/clock/finish`'s unsaved wizard, the recap story and every route added later.
+Deferral comes free — open `/clock/live` and nothing shows; go to `/` and it does.
+
+Twelve tests. Six pin the selector (including `undefined` → nothing *with notes
+present*, the case that matters); six are authoring guardrails on the live array.
+The highest-value one asserts **newest-first ordering** — index 0 is the only
+entry ever shown, so an entry appended to the bottom would ship and reach nobody.
+Confirmed it isn't vacuous against an empty array: with a deliberately
+out-of-order list the suite fails on exactly that test, and passes once corrected.
+
+`.claude/plans/patch-notes.sql` adds the column (nullable, `length <= 64` CHECK
+because it's client-writable under the owner policy), with the adversarial-JWT
+test AGENTS.md requires. **Not run yet** — and the code is written so either
+order is safe.
+
+*(Housekeeping: the two entries below stamped 01:15 and 01:05 were my guesses and
+were ahead of the clock; corrected to 00:46 and 00:44. They now sit out of
+newest-first order relative to the 00:23 entry above them — left in place rather
+than reshuffling a file being edited concurrently.)*
+
+### 00:23 · Goals and habits are editable from You
+
+The You tab's "Goal quotas" and "Habits" headers are now tappable and open the
+same `ManageGoals` / `ManageHabits` sheets Progress opens — rename, requota,
+recolor, add, delete, and page back up to `HABIT_HISTORY_WEEKS` weeks to
+backfill a missed day. Previously You rendered both sections read-only, so the
+only way to edit from there was to leave for Progress. This matters more now
+that Settings no longer links `/goals` and `/habits` (see below): You is a
+second entry point to the editors, not just a mirror of them.
+
+Both headers moved from hand-rolled `<span>` rows onto the shared
+`SectionHeader`, whose own comment ("one component so Progress, You and the
+friend profile can't drift apart") had quietly stopped being true here. The
+goals section also stops hiding itself when empty and shows Progress's
+tappable "No goals yet — tap to add one." instead — otherwise a user with no
+goals had no way to add one from You.
+
+Two client islands, `app/me/goals-section.tsx` and `app/me/habits-section.tsx`,
+hold the open/close state; the page stays a server component and keeps all its
+reads. Both editors are `next/dynamic` lazy, verified out of the `/me` initial
+payload. No changes to the editors themselves — they carry no route
+assumptions, and `revalidateGoalSurfaces()` already listed `/me` while
+`revalidateHabitSurfaces()` revalidates the root layout.
+
+One read widened: `listCompletionsForUserInRange` now spans the editor's
+`HABIT_HISTORY_WEEKS` backfill window instead of just this week, since the
+editor pages back through it. It's still a single round-trip — the week grid
+ignores out-of-week dates (same as on Progress), and the "Habits done" stat and
+the section count slice this week back out so both numbers are unchanged.
+
+### 00:46 · Fix the double band left where "Your data" was
+
+Removing the section left its opening `<Band />` behind. `Band` is a visible
+6px `bg-track` strip with a hairline, and every section that follows brings its
+own — `NotificationsSection` emits one as its first element, and `Sharing` has
+one before it — so the orphan stacked directly against the next one. That is the
+gap: a dead ~12px double stripe, in every branch. On the website and on any
+device where notification permission is `null`/`unavailable`,
+`NotificationsSection` returns null, so it was Account → band → band → Sharing
+with nothing in between.
+
+Deleted the orphan. Every section is now preceded by exactly one band in both
+branches: Account (`Band mt-5`), Notifications (its own), Sharing, Admin (its
+own, inside the `isAdmin` fragment), Research, Help. Account's content is still
+terminated by a band either way.
+
+### 00:44 · Settings loses the "Your data" section
+
+The four rows — Goals, Categories & rules, Habits, Past sessions — are gone from
+`/settings`. Goals and Habits are managed from their section headers on
+Progress, sessions from there and on `/clock`.
+
+**Three of those four routes are now orphaned.** Settings held the only link to
+`/goals`, `/categories` and `/habits`; `/sessions` keeps one from
+`clock-client.tsx:962`. All four still build and still work by URL — nothing was
+deleted — they are simply unreachable by tapping. `docs/SCREENS.md` R08-R12 are
+marked accordingly so this doesn't read as a bug later.
+
+What that costs, measured rather than assumed:
+
+- **Goal privacy is now unsettable.** `goals-client.tsx:152` is the only
+  `updateGoal(id, { isPrivate })` call in the app; `ManageGoals` passes just
+  `{ title, weeklyQuotaHours, color }`. Settings' own Sharing copy, two sections
+  further down, still says "Mark any item private to keep it off your profile
+  and the feed" — true for habits (`ManageHabits` has an inline eye toggle) and
+  sessions (`SessionDialog`), no longer true for goals. **This one wants
+  fixing**: the toggle needs porting into `ManageGoals`.
+- **Goal `description` is unreachable** — `/goals` was the only editor with the
+  field. Existing descriptions are untouched and still render.
+- **Category keyword rules are uneditable.** `/clock`'s category tools do
+  name/color/delete but never read or write `rules.titleContains`. Low impact:
+  they only auto-file imported calendar events, `CALENDAR_CONNECT` is dark and
+  sync was removed from History on 2026-09-17, so they affect only users who
+  connected before. Existing rules keep applying — `lib/categorize.ts` still
+  reads them; `updateCategory` omits rather than clears the column, so editing a
+  category on `/clock` can't destroy them.
+- **`/habits` and `/sessions` lose nothing.** `ManageHabits` is a strict superset
+  of `/habits` (adds color-on-create and an editable previous-week grid), and
+  `/sessions` was always read-only — no edit, no delete.
+
 ### 00:35 · STEP 5 ran: 221 category rows off the grey
 
 Applied to prod. Verified after:
