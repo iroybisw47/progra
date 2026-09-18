@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
+import { CHIP, CHIP_OFF, CHIP_ON, ChipRail } from "@/components/v2/period-chips";
 import { cn } from "@/lib/utils";
 import {
   WeekSummary,
@@ -122,9 +123,9 @@ function WeekView(props: WeekViewProps) {
     props;
   const label = weekLabel(props.weekStartMs, props.weekEndMs);
   return (
-      <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24 sm:pt-12">
+      <div className="flex flex-1 flex-col items-center px-5 pt-7 pb-24">
         <main className="flex w-full max-w-md flex-col gap-6">
-          <BackLink />
+          <PeriodRail />
           <div className="flex items-center justify-between">
             {isEarliestPeriod ? (
               <span
@@ -201,9 +202,9 @@ function RollupView(props: RollupViewProps) {
       : null;
 
   return (
-    <div className="flex flex-1 flex-col items-center px-5 pt-8 pb-24 sm:pt-12">
+    <div className="flex flex-1 flex-col items-center px-5 pt-7 pb-24">
       <main className="flex w-full max-w-md flex-col">
-        <BackLink />
+        <PeriodRail />
 
         {/* Scope toggle + period stepper */}
         <div className="flex items-center pt-4">
@@ -281,16 +282,28 @@ function RollupView(props: RollupViewProps) {
   );
 }
 
-function BackLink() {
+// The same Today / Week / History rail Progress renders, with History lit.
+// Replaces the old "Back to progress" link: History reads as the third tab of
+// that switcher, so leaving it should be the same gesture as entering it —
+// tapping a chip — rather than a back-arrow that makes this a sub-page. All
+// three are <Link>s here (Progress's two are buttons over client state); the
+// chip classes are shared so the rail doesn't move or restyle across the jump.
+function PeriodRail() {
   return (
-    // Back to Progress, which is where this view is entered from (the Sessions
-    // section header). The period type is switched below.
-    <Link
-      href="/"
-      className="text-muted-foreground hover:text-foreground -ml-1 flex items-center gap-1 self-start text-sm"
-    >
-      <ChevronLeftIcon className="size-4" /> Back to progress
-    </Link>
+    <div className="flex items-center justify-between">
+      <span className="section-label whitespace-nowrap">History</span>
+      <ChipRail>
+        <Link href="/" className={cn(CHIP, CHIP_OFF)}>
+          Today
+        </Link>
+        <Link href="/?tab=week" className={cn(CHIP, CHIP_OFF)}>
+          Week
+        </Link>
+        <span aria-current="page" className={cn(CHIP, CHIP_ON)}>
+          History
+        </span>
+      </ChipRail>
+    </div>
   );
 }
 

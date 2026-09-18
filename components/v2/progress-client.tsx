@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Donut } from "@/components/v2/donut";
 import { HabitWeekGrid } from "@/components/v2/habit-week-grid";
 import { GoalQuotaRows } from "@/components/v2/goal-quota-rows";
+import { CHIP, CHIP_OFF, CHIP_ON, ChipRail } from "@/components/v2/period-chips";
 import { SectionHeader } from "@/components/v2/section-header";
 import { AutoEndNudge } from "@/components/v2/auto-end-nudge";
 import { RecapNudge } from "@/components/v2/recap-nudge";
@@ -83,12 +84,6 @@ export type HabitToday = { id: string; name: string; color: string | null; done:
 
 type Tab = "today" | "week";
 
-// The period switcher's pill. Shared so the History link is pixel-identical to
-// the two sub-tab buttons beside it despite being a different element.
-const CHIP =
-  "rounded-full px-[13px] py-[5px] text-[11px] font-semibold uppercase tracking-[0.06em] transition-colors";
-const CHIP_ON = "bg-brand text-primary-foreground";
-
 export function ProgressClient(props: {
   dateLabel: string;
   todayTotalMs: number;
@@ -155,7 +150,7 @@ export function ProgressClient(props: {
         {/* Period label + Today/Week/History chips */}
         <div className="flex items-center justify-between">
           <span className="section-label whitespace-nowrap">{periodLabel}</span>
-          <div className="bg-track flex gap-0.5 rounded-full p-[3px]">
+          <ChipRail>
             {(
               [
                 ["today", "Today"],
@@ -167,7 +162,7 @@ export function ProgressClient(props: {
                 type="button"
                 onClick={() => setTab(key)}
                 aria-pressed={tab === key}
-                className={cn(CHIP, tab === key ? CHIP_ON : "text-faint")}
+                className={cn(CHIP, tab === key ? CHIP_ON : CHIP_OFF)}
               >
                 {label}
               </button>
@@ -177,11 +172,12 @@ export function ProgressClient(props: {
                 sits in the switcher because that's where you look for "a
                 different span of time" — before this, /history was reachable
                 only by tapping the Week tab's "Sessions" header. Never renders
-                active; you're never on Progress while looking at it. */}
-            <Link href="/history" className={cn(CHIP, "text-faint")}>
+                active here; /history renders the same rail with History lit and
+                these two as links back. */}
+            <Link href="/history" className={cn(CHIP, CHIP_OFF)}>
               History
             </Link>
-          </div>
+          </ChipRail>
         </div>
 
         {/* Hero: donut + the period total in serif + the top categories. */}
