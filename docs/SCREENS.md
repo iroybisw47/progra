@@ -60,9 +60,10 @@ Sheet / AlertDialog overlay).
 | R21 | `/privacy` | route | footer links (`/`, `/terms`, login) | public | app/privacy/page.tsx:8 |
 | R22 | `/terms` | route | footer links (`/`, `/privacy`) | public | app/terms/page.tsx:8 |
 | R24 | `/support` | route | landing footer; /privacy and /terms footers; App Store Connect Support URL | public (no auth helpers) | app/support/page.tsx:15 |
-| R23 | `/i/[username]` | route | shared invite link (external) | `!SOCIAL_ENABLED`→`notFound`; else **public** (`getOptionalUser`) | app/i/[username]/page.tsx:17-25 |
+| R23 | `/i/[username]` | route | invite links already in the wild — a **new** share hands out the App Store listing instead (2026-09-17) | `!SOCIAL_ENABLED`→`notFound`; else **public** (`getOptionalUser`) | app/i/[username]/page.tsx:17-29 |
+| R28 | `/refer` | route | nothing links it — `ReferFriendButton` is imported nowhere, so URL-only | `!REFER_ENABLED`→`notFound`; else `requireUser` | app/refer/page.tsx |
 
-R23 states: signed-out + valid handle → invite landing (avatar/name/bio + Continue with Google, carries `?ref=`); signed-in **other** user → `claim_invite` then `redirect(/profile/{username})`; signed-in **self** → `redirect(/me)`; unknown handle → inline "Invite not found" card (not `notFound()`). Loader: `app/i/[username]/loading.tsx` (`PrograLoader`).
+R23 states: signed-out + valid handle → invite landing (avatar/name/bio + Continue with Google, carries `?ref=`, then a secondary **Get Progra on the App Store** button — sign-in stays first because it is the only path that attributes); signed-in **other** user → `claim_invite` then `redirect(/profile/{username})`; signed-in **self** → `redirect(/me)`; unknown handle → inline "Invite not found" card (not `notFound()`) + an "Or get Progra on the App Store" text link. `AddToHomeHint` was removed from both branches on 2026-09-17 (it targets exactly the audience the native app now serves). Loader: `app/i/[username]/loading.tsx` (`PrograLoader`).
 
 ### Route-level states (loading)
 
@@ -162,12 +163,13 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S34 | recap-client | nav | scrubber "Next" vs "This week" (RecapCard always renders) | `isCurrentWeek || isFutureWeek` | app/recap/recap-client.tsx:110 |
 | S35 | settings-client | connection | calendar "Disconnect" vs "Connect" (+ unverified warning) vs. **absent entirely** while `CALENDAR_CONNECT` is dark and the user isn't already connected | `calendarConnected ?`; `CALENDAR_CONNECT`; `SHOW_UNVERIFIED_WARNING` | app/settings/settings-client.tsx:239,250,267 |
 | S36 | settings-client | role | "Admin" section + row (→ /admin, badge = open reports + open bugs) only for admins | `isAdmin &&` | app/settings/settings-client.tsx |
-| S37 | progress-client (home) | tabs | Today / Week views. The third "History" pill beside them is a `Link` to `/history`, **not** a third tab — it never renders active and `Tab` stays `"today" \| "week"` | `useState<Tab>("today")` | components/v2/progress-client.tsx (Tab, switcher) |
+| S37 | progress-client (home) | tabs | Today / Week views. The third "History" pill beside them is a `Link` to `/history`, **not** a third tab — it never renders active here and `Tab` stays `"today" \| "week"`. `/history` renders the same rail with History lit and Today/Week as links back (`/` and `/?tab=week`), so the three read as one switcher across the route boundary; the chip classes live in `components/v2/period-chips.tsx` so they can't drift | `useState<Tab>("today")` | components/v2/progress-client.tsx (Tab, switcher) |
+| S58 | history-client | nav | `PeriodRail` — the Today/Week/History rail with History active, on **both** the week and month/year scopes. Replaced the "← Back to progress" link 2026-09-17; the page's top padding was matched to Progress's `pt-7` so the rail doesn't shift on the jump | always | app/history/history-client.tsx (PeriodRail) |
 | S50 | progress-client (home) | nudge | "Your week is ready" recap banner (above the tabs) → opens `/recap/{weekStart}` | `props.recapNudge` (set in `loadProgressData` when the week unlocked Sun 6pm local & is unopened) | components/v2/recap-nudge.tsx · components/v2/progress-client.tsx |
 | S38 | progress-client | empty | "Nothing tracked yet today." | `sessionsToday.length === 0` | components/v2/progress-client.tsx:209 |
 | S39 | progress-client | empty | "No goals yet — tap to add one." | `goals.length === 0` | components/v2/progress-client.tsx:259 |
 | S40 | progress-client | empty | "No habits yet — tap to add one." | `optimisticHabits.length === 0` | components/v2/progress-client.tsx:326 |
-| S41 | feed-v2 (server) | empty | "Your feed's quiet…" + **InviteShare** (share/copy invite link) + "find people already on Progra" link | `entries.length===0 && clockedIn.length===0` | components/v2/feed-v2.tsx |
+| S41 | feed-v2 (server) | empty | "Your feed's quiet…" + **InviteShare** (share/copy the App Store invite) + "find people already on Progra" link | `entries.length===0 && clockedIn.length===0` | components/v2/feed-v2.tsx |
 | S42 | feed-v2 | entry kind | join-announcement card vs. session card | `entry.kind === "join"` | components/v2/feed-v2.tsx:95 |
 | S51 | feed-v2 | entry kind | **recap post** card ("{name} uploaded their weekly recap!" + navy summary) | `entry.kind === "recap"` | components/v2/recap-feed-card.tsx · feed-v2.tsx |
 | S52 | recap-story (final panel) | post | caption box + "Post to feed" → `postRecap`; button flips to "Posted ✓" | `posted` state | app/recap/[weekStart]/recap-story.tsx (ShareableCardPanel) |

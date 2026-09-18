@@ -4,7 +4,199 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-09-18
+
+### 00:35 · STEP 5 ran: 221 category rows off the grey
+
+Applied to prod. Verified after:
+
+    category  | color   | rows
+    class     | #395AA0 |   57
+    meetings  | #E07042 |   55
+    meetings  | #4A6FA5 |    1
+    personal  | #A084B3 |   55
+    study     | #2E8B50 |   54
+    study     | #58a3b4 |    1
+
+221 rows moved (57 + 55 + 55 + 54), exactly the dry-run count. Not one row is
+left on a Tailwind hex, so Class / Study / Meetings / Personal now render as
+Dark blue / Green / Orange / Purple instead of four identical greys. The two
+re-picks were skipped by the guard, as designed — `#4A6FA5` and `#58a3b4` are
+retired app hues that `normalizeFill` maps forward to Dark blue and Light blue,
+so those two users keep the colors they chose.
+
+`.claude/plans/category-base-colors.sql` is marked DONE and is not to be re-run
+(a second run matches nothing, since no row carries a system-default hex any
+more). It keeps the guard's shape for reference.
+
+**Correction to that file:** its `begin;` / `commit;` framing doesn't work in the
+Supabase SQL editor, where each run is its own transaction — a `commit` in a
+separate run has nothing to commit, and pasting the whole block commits before
+you can read the `returning` rows. What was actually run: a dry-run SELECT
+counting the rows the WHERE clause matches, read first, then the
+`update ... returning` as one self-committing statement. The file now says so.
+
+New signups are still stamped with the old hexes by `handle_new_user`; that is
+handled in app code by `seedDefaultCategories` correcting the color at
+onboarding, not by this SQL.
+
+### 00:25 · Class / Study / Meetings / Personal were all rendering grey
+
+STEP 0's distribution came back decisive:
+
+    category  | color   | rows | pct
+    class     | #a855f7 |   57 | 100.0
+    meetings  | #3b82f6 |   55 |  98.2
+    meetings  | #4A6FA5 |    1 |   1.8
+    personal  | #10b981 |   55 | 100.0
+    study     | #f59e0b |   54 |  98.2
+    study     | #58a3b4 |    1 |   1.8
+
+One hex per category at 98-100% — a system default nobody chose, so a mass
+update is fair game. But the hexes themselves are the real finding: all four are
+**Tailwind defaults** (purple-500, amber-500, blue-500, emerald-500), which are
+off-palette *and* absent from `LEGACY_FILLS`. Verified against the actual code
+rather than by eye: `normalizeFill()` returns `null` for every one, so
+`entityColor()` falls through to `#9fa6b0`.
+
+**So on all ~57 accounts these four categories are currently the SAME GREY** —
+on the Progress donut, in the feed, on session cards — and `CategoryMarker`
+draws nothing at all for them. Setting base colors turns out to be a bug fix,
+not a preference. The 2% outliers (`#4A6FA5`, `#58a3b4`) are people who
+re-picked in the color editor; both are retired app hues that `normalizeFill`
+maps forward correctly, and both must survive.
+
+`.claude/plans/category-base-colors.sql` STEP 5 now carries the measured hexes
+instead of placeholders and is ready to run: ~221 rows (57 + 55 + 55 + 54, minus
+the two re-picks). Its guard keys on the system-default hex per name, so the
+re-picks are skipped by construction.
+
+New signups needed fixing too — `handle_new_user` keeps stamping Tailwind hexes,
+so without this every new account would arrive grey again. Rather than edit a
+trigger whose body isn't in the repo (an architectural preference recorded in
+ARCHITECTURE.md), `seedDefaultCategories` gained a second half: it now INSERTs a
+default the account lacks *and* UPDATEs one that exists but still carries its
+known system-default hex, gated on an exact match via the new
+`SEEDED_SYSTEM_FILLS`. Same guard as the SQL, same protection for anyone who
+picked their own. This is also what makes yesterday's seed stop being inert.
+
+The harness now seeds the mock with the real per-category hexes plus two
+re-pickers, and asserts STEP 5 hits the defaults on both users while leaving the
+picks and the near-miss `Classroom` alone. Four new unit tests pin the map:
+every default covered, all four off-palette (if one ever became a palette fill
+the row would already be fine and rewriting it would be meddling), none equal to
+the color it corrects to, and no two sharing a hex.
+
+### 00:20 · The four categories are seeded by handle_new_user, not the app
+
+Running STEP 1 of `.claude/plans/category-base-colors.sql` against prod came
+back with the same shape four times:
+
+    category  | total | uncolored | other_color | already_right
+    class     |    57 |         0 |          57 |             0
+    meetings  |    56 |         0 |          56 |             0
+    personal  |    55 |         0 |          55 |             0
+    study     |    55 |         0 |          55 |             0
+
+Two findings, both of which undercut yesterday's assumptions.
+
+**`rows_uncolored = 0`, so STEP 2 is dead.** It only paints rows with no color;
+there are none. It stays in the file as the shape of a safe backfill, marked
+as a no-op against today's data.
+
+**Essentially every account has all four, so something seeds them.** Nothing in
+this repo does — `createCategory` has exactly two call sites, both explicit user
+actions — which leaves the Supabase-side `handle_new_user`, whose body isn't in
+the repo. That trigger fires at signup, long before `completeOnboarding`, so
+**the seed added yesterday inserts nothing**: it skips names that already exist,
+and all four always will. `lib/default-categories.ts` and `seedDefaultCategories`
+now say so at the top rather than claiming the category list starts empty. The
+code stays as a safety net for an account that somehow arrives without them;
+it is not the live path, and those hexes currently reach nobody.
+
+Added **STEP 0** (read-only): the color distribution per category name. It
+answers the only question that decides whether a mass update is acceptable — one
+dominant color per name means those 57 rows carry a system default nobody chose
+and can be overwritten; a long tail means people have been re-picking in the
+color editor and must not be touched. Added **STEP 5** (forced, everyone) for
+the first case only. Its `where` clause keys on the system-default hex rather
+than on the name alone, so a row whose color differs is read as a deliberate
+pick and left alone — that guard is the entire safety of the step.
+
+The harness (`.claude/plans/nudges-harness/category-colors.mjs`) now covers
+STEP 5 against a mock shaped like prod: every row on the system default plus two
+users who re-picked. It caught two real defects before either reached Supabase —
+its step extractor matched a prose line in the file header instead of the
+section banner (now anchored on the banner's em dash), and STEP 5's own prose
+block was single-commented, so un-commenting the step turned English into SQL.
+Both fixed; all four steps pass.
+
 ## 2026-09-17
+
+### 23:59 · Four starter categories with base colors
+
+New accounts now finish onboarding with **Class** (dark blue `#395AA0`),
+**Study** (green `#2E8B50`), **Meetings** (orange `#E07042`) and **Personal**
+(purple `#A084B3`). Before this the category list started empty, so the first
+clock-in had nothing to file time under — and `/clock`'s add path calls
+`createCategory(name)` with no color at all, which is why hand-made categories
+came out on the neutral grey.
+
+The four colors are spaced roughly evenly around the wheel because these are the
+categories that sit next to each other as **adjacent donut arcs** more than any
+other set in the app; two near-neighbours would read as one slice on the
+Progress hero and as identical 8px dots on a session card.
+
+`lib/default-categories.ts` holds the list, with a dev-only assertion that every
+color is a current `PALETTE` fill — a palette edit that stranded one would make
+that category read back as `null` through `normalizeFill()` and render grey.
+`lib/default-categories.test.ts` pins the same invariant plus distinctness.
+
+Seeding happens in `completeOnboarding` and is **first-completion only**: the
+profile stamp already carries a write-once `.is(onboarded_at, null)` filter, and
+it now `.select()`s the stamped row so a replay (which matches nothing) doesn't
+re-seed or resurrect categories someone deleted. It is additive and never
+destructive — it reads existing names first and inserts only the ones missing,
+matched case-insensitively, so a category created during onboarding keeps its
+own casing, color and keyword rules. Its errors are swallowed on purpose:
+onboarding completing is the load-bearing part, and a failed seed just leaves
+the user where they were before this existed.
+
+**Existing users are not touched by any of the above.** `.claude/plans/
+category-base-colors.sql` is the other half, for the ~50 live accounts: STEP 1
+reports what would change, STEP 2 colors only rows that have **no** color today
+(everyone, cannot overwrite a chosen color), STEP 3 force-sets all four for a
+single pasted user id. There is deliberately no "force, everyone" variant —
+category color is a choice made in a picker, it is stored nowhere else, and
+there is no undo. Proven before it goes near prod:
+`.claude/plans/nudges-harness/category-colors.mjs` runs the file against a
+PGlite mock seeded with mixed casing, padded names, an already-correct row, a
+deliberately-different color and a near-miss name (`Classroom`) — asserting
+STEP 1 mutates nothing, STEP 2 leaves chosen colors alone, and STEP 3 touches
+one user only. All pass.
+
+### 23:58 · History keeps the Today/Week/History rail instead of a back link
+
+`/history` opened with "← Back to progress", which made it read as a sub-page of
+Progress even though you enter it by tapping the third chip of Progress's period
+switcher. It now renders that **same three-chip rail** with History lit and
+Today/Week as links back (`/` and `/?tab=week`), on both the week and the
+month/year scopes — so leaving is the same gesture as entering, and the rail
+stays put across the route boundary instead of being swapped for different
+chrome.
+
+The chip classes moved out of `progress-client` into
+`components/v2/period-chips.tsx` (`CHIP`, `CHIP_ON`, `CHIP_OFF`, `ChipRail`) so
+the two surfaces can't drift. They still render different elements — Progress's
+Today/Week are `<button>`s over client state, History's are all `<Link>`s — which
+is precisely why the look has to be shared deliberately rather than by
+copy-paste.
+
+`/history`'s top padding changed from `pt-8 sm:pt-12` to Progress's `pt-7`:
+without it the rail dropped 4px on phones and 20px on desktop when you crossed
+over, which is exactly the jump this change exists to remove. The left-hand slot
+of the row carries a `History` section-label, where Progress carries the period
+label.
 
 ### 23:52 · 11-color entity palette
 
