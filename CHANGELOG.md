@@ -6,6 +6,64 @@ when it was done, not a start/stop work timer.
 
 ## 2026-09-18
 
+### 17:17 · Fix the stuck pinch-zoom (the cause was the zoom-disable itself)
+
+You could pinch in and then never pinch back out — stuck until a force-quit. The
+open buglist entry guessed "the viewport meta / Capacitor webview config allowing
+user scaling." That was backwards: **the setting meant to prevent zoom is what
+caused the stuck zoom.**
+
+`capacitor.config.ts` never set `ios.zoomEnabled`, so Capacitor's default stood
+(`CAPInstanceDescriptor.m:40`, `_zoomingEnabled = NO`). *Because* zooming was
+"disabled", `CAPBridgeViewController.swift:322-324` installed Capacitor as the
+scroll view's delegate — and that delegate's entire zoom handling is
+`WebViewDelegationHandler.swift:337-340`:
+
+    scrollViewWillBeginZooming { scrollView.pinchGestureRecognizer?.isEnabled = false }
+
+`scrollViewWillBeginZooming` fires **after** zooming has begun, so a scale > 1 is
+already applied; disabling an in-flight recognizer cancels it and freezes
+`zoomScale` there. `pinchGestureRecognizer` appears exactly **once** in all of
+Capacitor iOS, so nothing ever re-enables it — dead for the webview's lifetime.
+"Sometimes" is just how much scale accumulated before the callback fired.
+
+**A trigger the repro never mentions:** `UIScrollView` fires the same callback for
+*programmatic* zoom, including iOS auto-zooming a sub-16px input on focus. The app
+has 14 of those, so a small field may have been killing the recognizer before
+anyone pinched at all — which fits "sometimes" better than pinch alone does.
+
+Fixed in two layers. `app/layout.tsx`'s viewport gains
+`maximumScale: 1, userScalable: false`: with no pinch possible the broken handler
+never runs, **and this reaches every installed app on an ordinary deploy**, because
+the iOS shell is a thin webview over progra.world — no App Store round trip. It
+also suppresses the focus-zoom above, so the 14 small inputs stop mattering in the
+app without the visible type change that fixing them would have cost.
+
+Then `ios.zoomEnabled: true` for the next binary. **Not a request for zoom** — the
+viewport prevents it anyway. It stops Capacitor stealing the scroll view delegate,
+so any zoom that slips through stays *recoverable* rather than stuck; turning an
+unrecoverable failure into a recoverable one is the whole point. Nothing else is
+lost: `scrollViewWillBeginZooming` is the only `UIScrollViewDelegate` method
+Capacitor implements. It also stops reassigning `WKWebView.scrollView.delegate`,
+which Apple documents you shouldn't do. `npx cap sync ios` picked the key up;
+`ios/App/App/capacitor.config.json` is gitignored (`ios/.gitignore:12`) and
+regenerated at build time from the tracked `capacitor.config.ts`, so there's
+nothing to commit there.
+
+**Accepted cost: no user zoom inside the native app.** That's what the buglist
+entry asked for, but it's an accessibility loss and is recorded as a deliberate
+trade rather than a side effect. iOS Safari ignores `user-scalable=no`, so
+progra.world in a browser tab stays zoomable. Whether a standalone Home Screen PWA
+also ignores it is **unverified** — reports differ by iOS version and it needs a
+device check.
+
+Rendered tag went from `width=device-width, initial-scale=1, viewport-fit=cover`
+to `width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no,
+viewport-fit=cover`, confirmed by curl against a local build.
+
+**An install already stuck is not un-stuck by the deploy** — that recognizer is
+dead in the running process. Force-quit and reopen once.
+
 ### 15:34 · "Share with friends" gets its own Settings section
 
 It sat under **Sharing**, directly beneath the privacy paragraph and the replay

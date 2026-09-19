@@ -72,6 +72,32 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
+  // No user zoom — and this is the half of the pinch-zoom fix that actually
+  // reaches the installed apps, because the iOS shell is a thin webview over
+  // this URL (capacitor.config.ts `server.url`), so it ships on a normal deploy
+  // with no App Store round trip.
+  //
+  // What it defuses: Capacitor ships zoom "disabled" (CAPInstanceDescriptor.m:40,
+  // `_zoomingEnabled = NO`), which makes CAPBridgeViewController.swift:322-324
+  // install Capacitor as the scroll view's delegate — and that delegate's ENTIRE
+  // zoom handling is WebViewDelegationHandler.swift:337-340:
+  //     scrollViewWillBeginZooming { scrollView.pinchGestureRecognizer?.isEnabled = false }
+  // That callback fires AFTER a scale is already applied, so it freezes the page
+  // mid-zoom, and `pinchGestureRecognizer` appears exactly once in all of
+  // Capacitor iOS — nothing re-enables it. The page is then stuck zoomed for the
+  // webview's lifetime. With no pinch possible, that handler never runs.
+  //
+  // It also suppresses iOS's automatic zoom when a sub-16px input takes focus —
+  // which matters more than it looks: UIScrollView fires the same
+  // scrollViewWillBeginZooming for PROGRAMMATIC zoom, so a small field may have
+  // been killing the recognizer before anyone pinched at all.
+  //
+  // WKWebView honours these limits (Capacitor never sets
+  // `ignoresViewportScaleLimits`); iOS Safari deliberately ignores them, so
+  // progra.world in a browser tab stays zoomable and only the app gives up user
+  // zoom. That accessibility cost is deliberate — see buglist.md.
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
 };
 

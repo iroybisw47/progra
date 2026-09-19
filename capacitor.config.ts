@@ -27,6 +27,26 @@ const config: CapacitorConfig = {
     // a list, which is the black space users reported. The page itself is always
     // light (Progra has no dark mode), so the webview backdrop should be too.
     backgroundColor: '#ffffff',
+    // Defence in depth for the stuck-zoom bug, NOT a request for zoom — the
+    // viewport meta in app/layout.tsx is what actually prevents it.
+    //
+    // Capacitor's default here is false (CAPInstanceDescriptor.m:40), and
+    // "false" is implemented as CAPBridgeViewController.swift:322-324 handing
+    // the webview's scroll view delegate to Capacitor purely so
+    // WebViewDelegationHandler.swift:337-340 can disable the pinch recognizer
+    // inside `scrollViewWillBeginZooming` — i.e. after zooming has already
+    // begun, freezing zoomScale, with nothing anywhere re-enabling it. The
+    // failure mode is therefore UNRECOVERABLE: force-quit is the only cure.
+    //
+    // True means WebKit keeps its own scroll view delegate, so any zoom that
+    // slips through stays reversible. Nothing else is lost:
+    // `scrollViewWillBeginZooming` is the ONLY UIScrollViewDelegate method
+    // WebViewDelegationHandler implements. It also stops reassigning
+    // WKWebView.scrollView.delegate, which Apple documents you shouldn't do.
+    //
+    // Native config: needs `npx cap sync ios` and a rebuild, so this only takes
+    // effect in the next binary. Not worth cutting one for on its own.
+    zoomEnabled: true,
   },
   plugins: {
     PushNotifications: {

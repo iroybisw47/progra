@@ -65,15 +65,52 @@ none of which exist today.
 
 ## 2026-09-13 — Pinch-zoom is possible inside the app
 
-**Status:** open, not investigated
+**Status:** FIXED 2026-09-18
 
 **Repro:** Pinch or double-tap anywhere in the app — the whole page scales in
-and out like a web page.
+and out like a web page. The worse version, reported later: you zoom IN and then
+cannot zoom back OUT, permanently, until the app is force-quit.
 
 **Expected:** The app should feel native — no user zoom at all.
 
-**Notes:** Almost certainly the viewport meta / Capacitor webview config
-allowing user scaling. Check both the web and native shells.
+**This entry's original guess was wrong, and backwards.** It assumed the config
+was *allowing* user scaling. In fact the setting meant to PREVENT zoom is what
+caused the stuck zoom:
+
+1. `capacitor.config.ts` never set `ios.zoomEnabled`, so Capacitor's default
+   stood — `CAPInstanceDescriptor.m:40`, `_zoomingEnabled = NO`.
+2. *Because* zooming was "disabled", `CAPBridgeViewController.swift:322-324`
+   installed Capacitor as the webview scroll view's delegate.
+3. That delegate's entire zoom handling is
+   `WebViewDelegationHandler.swift:337-340`:
+   `scrollViewWillBeginZooming { scrollView.pinchGestureRecognizer?.isEnabled = false }`
+4. That callback fires AFTER zooming has begun, so a scale > 1 is already
+   applied; disabling an in-flight recognizer cancels it and freezes `zoomScale`
+   there. `pinchGestureRecognizer` appears exactly ONCE in all of Capacitor iOS,
+   so nothing ever re-enables it — the recognizer is dead for the webview's
+   lifetime. "Sometimes" is how much scale accumulated before the callback fired.
+
+**Likely dominant trigger:** `UIScrollView` fires the same
+`scrollViewWillBeginZooming` for PROGRAMMATIC zoom, including iOS auto-zooming a
+sub-16px input on focus. The app has 14 such inputs, so a small field may have
+been killing the recognizer before anyone pinched at all.
+
+**Fix, in two layers.** `app/layout.tsx`'s viewport gained
+`maximumScale: 1, userScalable: false` — with no pinch possible the broken
+handler never runs, and this ships to every installed app on a normal deploy
+because the shell is a thin webview over progra.world. Then
+`ios.zoomEnabled: true` in `capacitor.config.ts` for the next binary: not a
+request for zoom, but it stops Capacitor stealing the scroll view delegate, so
+any zoom that slips through stays *recoverable* instead of stuck.
+
+**Accepted cost:** no user zoom inside the native app — an accessibility loss,
+taken deliberately per this entry's "Expected". iOS Safari ignores
+`user-scalable=no`, so progra.world in a browser tab stays zoomable. Whether a
+standalone Home Screen PWA also ignores it is **unverified** — reports differ by
+iOS version, and it needs a device check.
+
+**Note:** a webview already stuck zoomed is not un-stuck by the deploy — that
+recognizer is dead in the running process. Force-quit and reopen once.
 
 ---
 
