@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { XIcon } from "lucide-react";
+import { UserPlusIcon, XIcon } from "lucide-react";
 
 import { track } from "@/lib/analytics";
+import { ACCOUNTABILITY_INVITE_TEXT, shareInvite } from "@/lib/invite-share";
 import { FeedLivePoll } from "@/components/feed-live-poll";
 import { FriendsLeaderboard } from "@/components/v2/friends-leaderboard";
 import type { FriendsLeaderboardRow } from "@/lib/leaderboard";
@@ -115,6 +116,16 @@ export function FriendsClient({
     });
   }
 
+  // The same shareInvite() Settings and the empty feed call, so every invite
+  // surface hands out one message and one link (the App Store listing since
+  // 2026-09-17). "shared"/"dismissed" are silent — the share sheet already
+  // spoke. invite_sent is tracked inside shareInvite, so there's none here.
+  async function shareApp() {
+    const outcome = await shareInvite(ACCOUNTABILITY_INVITE_TEXT);
+    if (outcome === "copied") toast.success("Invite copied");
+    if (outcome === "failed") toast.error("Couldn't share the invite. Try again.");
+  }
+
   // The right-hand action button for a user, by our relationship to them.
   // Shared by search results and the "People on Progra" section.
   const chip =
@@ -170,8 +181,22 @@ export function FriendsClient({
           <NotificationsBell initialUnseen={initialUnseen} />
         </header>
 
-        {/* Search */}
+        {/* Invite — the top action on this page on purpose: searching only
+            finds people already on Progra, so the way to get a friend here is
+            to bring one. Same handler as Settings > Share with friends. */}
         <div className="px-5 pt-3.5">
+          <button
+            type="button"
+            onClick={shareApp}
+            className="bg-brand text-primary-foreground flex h-12 w-full items-center justify-center gap-2 rounded-[15px] text-sm font-semibold shadow-[0_10px_22px_-10px_rgba(28,58,94,.55)] transition-transform active:scale-[.98]"
+          >
+            <UserPlusIcon className="size-[17px]" strokeWidth={2.2} />
+            Invite friends to Progra
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="px-5 pt-2.5">
           <input
             aria-label="Search people"
             className="border-control-border text-ink focus:border-brand h-[42px] w-full rounded-[13px] border-[1.5px] px-3.5 text-sm outline-none placeholder:text-disabled"
