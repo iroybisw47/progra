@@ -4,6 +4,25 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-09-25
+
+### 10:25 · History month scope shows per-habit rates under the calendar
+
+The month view rendered the habit calendar *instead of* the per-habit rows —
+`{monthName ? <HabitCalendar/> : rows}` — so the one scope with the richest habit
+data was the only one that couldn't tell you which habit was carrying it.
+
+Now it renders both: the calendar answers "which days", the rows under it answer
+"which habit". That's additive rather than a restatement, because a calendar cell's
+fill is a ratio across **every** habit alive that day, so an evenly patchy month can
+hide one habit at 20% and another at 95%.
+
+No data change — `computeHabitCompletion` already returned `perHabit` unconditionally
+(`lib/history-stats.ts`); month scope simply never rendered it. Each rate is days
+checked ÷ days that habit existed inside the window, clipped to today, so a habit
+created mid-month isn't punished for the days before it existed and a running month
+reads "so far". Sorted best-first, matching the year view.
+
 ## 2026-09-24
 
 ### 10:10 · Positive nudge — cheer a friend who finished (requires SQL)

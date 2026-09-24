@@ -613,14 +613,22 @@ function HabitCompletionSection({
       <Hairline />
       <div className="flex flex-col pt-3">
         <SectionHead title="Habit completion" note={note} />
-        {monthName ? (
+        {/* Month scope shows BOTH: the calendar answers "which days", the rows
+            under it answer "which habit". The calendar's per-day fill is a
+            ratio across every habit alive that day, so a month that looks
+            evenly patchy can still hide one habit at 20% and another at 95%.
+            Year/week scope has no calendar and shows the rows alone. */}
+        {monthName && (
           <HabitCalendar
             days={completion.calendar}
             daysInMonth={daysInMonth}
             habitCount={completion.perHabit.length}
           />
-        ) : (
-          completion.perHabit.map((h) => (
+        )}
+        {/* In month scope these sit under the calendar's caption, so they need
+            a gap or the caption reads as a heading for them. */}
+        <div className={`flex flex-col ${monthName ? "pt-2.5" : ""}`}>
+          {completion.perHabit.map((h) => (
             <StatRow
               key={h.id}
               color={h.color}
@@ -628,8 +636,8 @@ function HabitCompletionSection({
               barPct={h.rate * 100}
               value={pct(h.rate)}
             />
-          ))
-        )}
+          ))}
+        </div>
       </div>
     </>
   );
