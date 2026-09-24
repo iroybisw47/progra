@@ -11,6 +11,7 @@ import { getProfile } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
 import { NUDGES, SOCIAL_ENABLED } from "@/lib/flags";
 import { getPublicProfileByUsername, getRelationship } from "@/lib/db/profiles";
+import { countFriendsForUser } from "@/lib/db/friends";
 import { listActiveGoalsForUser } from "@/lib/db/goals";
 import { getNudgeState } from "@/lib/db/nudges";
 import { NUDGE_HIDDEN } from "@/lib/social/nudges";
@@ -21,6 +22,7 @@ import {
 import { listRecentSessionsForUser } from "@/lib/db/sessions";
 import {
   countProfileSessions,
+  sumProfileTrackedMs,
   listProfileSessions,
 } from "@/lib/db/profile-sessions";
 import { listReactionsForSessions } from "@/lib/db/reactions";
@@ -156,6 +158,10 @@ async function ProfileContent({
   // Counted in the database, not from the array above — the array is capped, so
   // deriving the stat from it pins a heavy user's profile at the cap forever.
   const sessionCountPromise = countProfileSessions(userId);
+  // Both are totals, not windows, so they ride the same wave rather than
+  // chaining off the capped session array above.
+  const trackedMsPromise = sumProfileTrackedMs(userId);
+  const friendCountPromise = countFriendsForUser(userId);
   const reactionsPromise = pastSessionsPromise.then((items) =>
     listReactionsForSessions(items.map((i) => i.sessionId))
   );
@@ -167,6 +173,8 @@ async function ProfileContent({
     pastSessions,
     reactionsBySession,
     sessionCount,
+    trackedMs,
+    friendCount,
   ] =
     await Promise.all([
       listActiveGoalsForUser(userId),
@@ -176,6 +184,8 @@ async function ProfileContent({
       pastSessionsPromise,
       reactionsPromise,
       sessionCountPromise,
+      trackedMsPromise,
+      friendCountPromise,
     ]);
 
   const goalWeekly = aggregateWeekByGoal(sessions, now);
@@ -194,9 +204,19 @@ async function ProfileContent({
     <>
       {/* Stats */}
       <div className="flex px-5 pt-[18px]">
-        <Stat value={formatHours(weekTotalMs)} label="This week" />
+        {/* Lifetime totals, not this week — the week already has its own
+            section below, with a segmented bar and quota rows. Both numbers are
+            RLS-scoped, so a friend sees the total of what they may see, which
+            is legitimately smaller than the owner's own. */}
+        <Stat value={formatHours(trackedMs)} label="Hours" />
         <Stat value={String(sessionCount)} label="Sessions" />
-        <Stat value={String(goalBreakdown.length)} label="Goals" />
+        {/* Falls back to Goals until friend_count() exists in the database
+            (.claude/plans/profile-stats.sql), so this is safe to deploy first. */}
+        {friendCount === null ? (
+          <Stat value={String(goalBreakdown.length)} label="Goals" />
+        ) : (
+          <Stat value={String(friendCount)} label="Friends" />
+        )}
       </div>
 
       <div className="bg-track border-hairline mt-5 h-1.5 border-t" />

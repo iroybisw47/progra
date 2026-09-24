@@ -6,6 +6,38 @@ when it was done, not a start/stop work timer.
 
 ## 2026-09-25
 
+### 10:38 · Profile stats are lifetime totals now — Hours, Sessions, Friends
+
+Both profile surfaces led with **This week**, which the page already shows in full
+right below it (segmented bar + quota rows), and filled the third slot with
+something incidental — Goals on `/profile/[username]`, Habits done on `/me`. The
+identity block wasn't saying anything the rest of the page didn't.
+
+Now both read **Hours · Sessions · Friends**, the same three in the same order: it's
+the same profile, so it should read the same.
+
+**Hours needs no SQL.** `sumProfileTrackedMs` selects four narrow timing columns and
+sums through `sessionWorkedMs` — the one definition of worked time (banked pauses
+excluded, auto-ended sessions worth zero). A `sum()` in Postgres would have been a
+second implementation of that rule and would have drifted from the leaderboard,
+recaps and rollups, which is the trap `week_leaderboard` already documents. No render
+cap either: it's a total, and capping it would recreate the bug
+`countProfileSessions` exists to fix.
+
+**Friends needs an RPC, and that's not optional.** `friendships` RLS only exposes rows
+the caller is part of — `listFriends` relies on exactly that, selecting with no user
+filter — so counting someone *else's* friends from the client returns at most 1: the
+row between the two of you. `friend_count()` is a `security definer`, granted to
+`authenticated` only, in `.claude/plans/profile-stats.sql`.
+
+**Safe to deploy before the SQL runs**, unlike the nudge SQL: `countFriendsForUser`
+returns null on any error and each page falls back to the stat it showed before, so
+the number is never broken on screen — it just appears once the function exists.
+
+Both totals are RLS-scoped, so a friend sees the total of what *they* may see, which
+is legitimately smaller than the owner's own. That was already true of the Sessions
+count, so it's consistent rather than new.
+
 ### 10:25 · History month scope shows per-habit rates under the calendar
 
 The month view rendered the habit calendar *instead of* the per-habit rows —

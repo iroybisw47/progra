@@ -11,6 +11,7 @@ import { getProfile } from "@/lib/auth/profile";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { createClient } from "@/lib/supabase/server";
 import { REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
+import { countFriendsForUser } from "@/lib/db/friends";
 import { listActiveGoalsForUser } from "@/lib/db/goals";
 import {
   listActiveHabitsForUser,
@@ -20,6 +21,7 @@ import { HABIT_HISTORY_WEEKS } from "@/lib/db/progress";
 import { listRecentSessionsForUser } from "@/lib/db/sessions";
 import {
   countProfileSessions,
+  sumProfileTrackedMs,
   listProfileSessions,
 } from "@/lib/db/profile-sessions";
 import { listReactionsForSessions } from "@/lib/db/reactions";
@@ -67,6 +69,10 @@ export default async function MePage() {
   // Counted in the database: the list above is capped, so counting it pins the
   // stat at the cap once you pass it.
   const sessionCountPromise = countProfileSessions(user.id);
+  // Lifetime totals, matching /profile/[username]. Both ride the same wave
+  // rather than chaining off the capped session list above.
+  const trackedMsPromise = sumProfileTrackedMs(user.id);
+  const friendCountPromise = countFriendsForUser(user.id);
   const reactionsPromise = pastSessionsPromise.then((items) =>
     listReactionsForSessions(items.map((i) => i.sessionId))
   );
@@ -78,6 +84,8 @@ export default async function MePage() {
     pastSessions,
     reactionsBySession,
     sessionCount,
+    trackedMs,
+    friendCount,
   ] = await Promise.all([
     listActiveGoalsForUser(user.id),
     listRecentSessionsForUser(user.id),
@@ -86,6 +94,8 @@ export default async function MePage() {
     pastSessionsPromise,
     reactionsPromise,
     sessionCountPromise,
+    trackedMsPromise,
+    friendCountPromise,
   ]);
 
   // "Habits done" and the section count are this-week numbers; habitHistory
@@ -105,7 +115,6 @@ export default async function MePage() {
       isPrivate: g.isPrivate,
     }))
     .sort((a, b) => b.actualMs - a.actualMs);
-  const weekTotalMs = goalBreakdown.reduce((s, r) => s + r.actualMs, 0);
 
   // Date-grouped session list ("Today" / "Yesterday" / "Mon 6 Jul").
   const groups: { label: string; items: typeof pastSessions }[] = [];
@@ -158,9 +167,18 @@ export default async function MePage() {
 
         {/* Stats */}
         <div className="flex px-5 pt-[18px]">
-          <Stat value={formatHours(weekTotalMs)} label="This week" />
+          {/* Lifetime totals, the same three as /profile/[username] — this is
+              the same profile, so it should read the same. The week still has
+              its own section below. */}
+          <Stat value={formatHours(trackedMs)} label="Hours" />
           <Stat value={String(sessionCount)} label="Sessions" />
-          <Stat value={String(weekCompletions.length)} label="Habits done" />
+          {/* Falls back until friend_count() exists in the database
+              (.claude/plans/profile-stats.sql). */}
+          {friendCount === null ? (
+            <Stat value={String(weekCompletions.length)} label="Habits done" />
+          ) : (
+            <Stat value={String(friendCount)} label="Friends" />
+          )}
         </div>
 
         <div className="bg-track border-hairline mt-5 h-1.5 border-t" />

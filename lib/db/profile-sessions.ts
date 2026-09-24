@@ -49,6 +49,51 @@ const DEFAULT_LIMIT = 200;
 // capped — so anyone past the cap showed exactly that number and it never moved
 // again. head+exact does the count in the database, and the same RLS applies,
 // so a viewer is counted exactly the sessions they are allowed to see.
+// Total worked time across every finished session a viewer may see, for the
+// profile's "Hours" stat.
+//
+// Summed here rather than in SQL on purpose: sessionWorkedMs is the one
+// definition of worked time (banked pauses excluded, auto-ended sessions worth
+// ZERO, ended rows read back exactly as stored). A sum() in Postgres would be a
+// second implementation of that rule and would silently disagree with the
+// leaderboard, recaps and rollups the moment either side changed — which is the
+// same trap week_leaderboard already documents.
+//
+// Only four narrow columns, and no render cap: this is a total, so capping it
+// would repeat the bug countProfileSessions exists to fix. RLS scopes the rows
+// (owner → all incl. private; accepted friend → non-private), so a friend's
+// total is legitimately smaller than the owner's own.
+export async function sumProfileTrackedMs(userId: string): Promise<number> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sessions")
+    .select("started_at, ended_at, paused_ms, auto_ended_at")
+    .eq("user_id", userId)
+    .not("ended_at", "is", null);
+  if (!data) return 0;
+
+  const now = Date.now();
+  let total = 0;
+  for (const row of data as {
+    started_at: string;
+    ended_at: string | null;
+    paused_ms: number | null;
+    auto_ended_at: string | null;
+  }[]) {
+    total += sessionWorkedMs(
+      {
+        startedAt: Date.parse(row.started_at),
+        endedAt: row.ended_at === null ? null : Date.parse(row.ended_at),
+        pausedMs: row.paused_ms ?? 0,
+        pausedSince: null,
+        autoEndedAt: row.auto_ended_at === null ? null : Date.parse(row.auto_ended_at),
+      },
+      now
+    );
+  }
+  return total;
+}
+
 export async function countProfileSessions(userId: string): Promise<number> {
   const supabase = await createClient();
   const { count } = await supabase

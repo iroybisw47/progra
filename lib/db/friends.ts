@@ -5,6 +5,7 @@ import { cache } from "react";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { createClient } from "@/lib/supabase/server";
+import { isUuid } from "@/lib/validate";
 
 // The only shape of another user we ever expose to the client: the public
 // identity columns, read through the public_profiles view (never token
@@ -71,6 +72,27 @@ export async function hydrateUsers(
 // Accepted friendships. RLS returns only rows I'm a participant in.
 // Cached per request — the feed's three composers (feed, clocked-in strip,
 // joins) each need the friend list; they share one friendships+hydrate read.
+// How many accepted friends someone has, for the profile's "Friends" stat.
+//
+// Must be an RPC: friendships RLS only exposes rows the caller is part of (see
+// listFriends below, which relies on exactly that), so counting someone else's
+// friends from the client returns at most 1 — the row between the two of you.
+//
+// Returns null when the RPC isn't installed or errors, and the profile falls
+// back to the stat it showed before. That's what makes the code safe to deploy
+// before .claude/plans/profile-stats.sql has been run.
+export const countFriendsForUser = cache(
+  async (userId: string): Promise<number | null> => {
+    if (!isUuid(userId)) return null;
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("friend_count", {
+      p_user: userId,
+    });
+    if (error || typeof data !== "number") return null;
+    return data;
+  }
+);
+
 export const listFriends = cache(async (): Promise<FriendEntry[]> => {
   const me = await getCurrentUser();
   if (!me) return [];
