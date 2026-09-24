@@ -29,6 +29,8 @@ import { PrivacyToggle } from "@/components/privacy-toggle";
 import { type Category, type Session } from "@/lib/storage";
 import { SOCIAL_ENABLED } from "@/lib/flags";
 import type { Goal } from "@/lib/db/goals";
+import { PhotoField } from "@/components/photo-field";
+import { uploadSessionPhoto } from "@/app/actions/session-photos";
 import {
   createSession,
   deleteSession,
@@ -131,6 +133,9 @@ function SessionForm({
     defaultEnd ? formatTime(defaultEnd) : ""
   );
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Held here, not uploaded on pick: the session doesn't exist yet, and
+  // uploadSessionPhoto needs an id. Create mode only.
+  const [photo, setPhoto] = useState<File | null>(null);
   const [isPrivate, setIsPrivate] = useState(
     isCreate ? false : session!.isPrivate
   );
@@ -192,6 +197,11 @@ function SessionForm({
 
     if (isCreate) {
       startTransition(async () => {
+        // With a photo this is a three-step sequence, and the order is
+        // load-bearing. uploadSessionPhoto REFUSES a session that is ended and
+        // public (session-photos.ts) — a photo added after posting would become
+        // friend-visible with no privacy step. So: create it private, attach,
+        // then publish if that's what the user asked for.
         const r = await createSession({
           taskName: trimmed,
           description,
@@ -199,12 +209,34 @@ function SessionForm({
           goalId,
           startedAt: startTs,
           endedAt: endTs,
-          isPrivate,
+          isPrivate: photo ? true : isPrivate,
         });
         if ("error" in r) {
           toast.error(r.error);
           return;
         }
+
+        if (photo) {
+          const fd = new FormData();
+          fd.append("photo", photo);
+          const up = await uploadSessionPhoto(r.sessionId, fd);
+          if ("error" in up) {
+            // Fail SAFE: the session exists and stays private. Never publish a
+            // session the user believed had a photo on it.
+            toast.error(`Saved privately — ${up.error}`);
+            onClose();
+            return;
+          }
+          if (!isPrivate) {
+            const pub = await updateSession(r.sessionId, { isPrivate: false });
+            if ("error" in pub) {
+              toast.error("Saved privately — couldn't post it. Edit the session to post.");
+              onClose();
+              return;
+            }
+          }
+        }
+
         toast.success("Added");
         onClose();
       });
@@ -274,6 +306,10 @@ function SessionForm({
             onChange={(e) => setDescription(e.target.value)}
           />
         </div>
+        {/* Create only. Editing an existing session can't attach a photo: once
+            a session is ended AND public, uploadSessionPhoto refuses it, and
+            there's no replace/remove surface anywhere in the app. */}
+        {isCreate && <PhotoField onChange={setPhoto} disabled={pending} />}
         <div className="flex flex-col gap-2">
           <div className="flex gap-2">
             <Button

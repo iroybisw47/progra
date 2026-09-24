@@ -700,7 +700,14 @@ type CreateSessionInput = {
   isPrivate?: boolean;
 };
 
-export async function createSession(input: CreateSessionInput): Promise<Result> {
+// Returns the new row's id, like clockIn above. A past session with a photo is
+// created PRIVATE first, then the photo is attached, then it's flipped public —
+// uploadSessionPhoto refuses an ended+public session on purpose, since a photo
+// added after posting would become friend-visible with no privacy step. The
+// caller needs the id to run that sequence.
+export async function createSession(
+  input: CreateSessionInput
+): Promise<{ ok: true; sessionId: string } | { error: string }> {
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
@@ -710,20 +717,24 @@ export async function createSession(input: CreateSessionInput): Promise<Result> 
   const axis = resolveAxis(input.categoryId, input.goalId);
   if ("error" in axis) return axis;
 
-  const { error } = await supabase.from("sessions").insert({
-    user_id: user.id,
-    category_id: axis.categoryId,
-    goal_id: axis.goalId,
-    task_name: capText(input.taskName, TASK_MAX),
-    description: capText(input.description, SESSION_DESC_MAX),
-    started_at: new Date(input.startedAt).toISOString(),
-    ended_at: new Date(input.endedAt).toISOString(),
-    is_private: input.isPrivate ?? false,
-  });
+  const { data, error } = await supabase
+    .from("sessions")
+    .insert({
+      user_id: user.id,
+      category_id: axis.categoryId,
+      goal_id: axis.goalId,
+      task_name: capText(input.taskName, TASK_MAX),
+      description: capText(input.description, SESSION_DESC_MAX),
+      started_at: new Date(input.startedAt).toISOString(),
+      ended_at: new Date(input.endedAt).toISOString(),
+      is_private: input.isPrivate ?? false,
+    })
+    .select("id")
+    .single();
 
-  if (error) return { error: error.message };
+  if (error || !data) return { error: error?.message ?? "Couldn't save that session." };
   revalidateSessionSurfaces();
-  return { ok: true };
+  return { ok: true, sessionId: (data as { id: string }).id };
 }
 
 type UpdateSessionPatch = {

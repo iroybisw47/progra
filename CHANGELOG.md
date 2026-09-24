@@ -4,6 +4,48 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-09-23
+
+### 18:10 · Attach a photo when adding a past session
+
+A session's photo could only be taken **while the session ran**, or on the finish
+screen before Post. `session-photo-step.tsx` says so outright ("a session's one photo
+is taken while it runs") and its file input carries `capture="environment"` — which
+sends iOS straight to the rear camera and **hides the Photo Library option entirely**.
+Right for a photo of what's in front of you; useless for a gym session you logged
+afterwards with the photo already in your camera roll.
+
+**The interesting part was the privacy guard.** `uploadSessionPhoto` refuses any
+session that is ended AND public, because `can_see_session_photo` is *owner OR admin OR
+(accepted friend AND not private AND ended)* — so attaching a photo after posting would
+make it friend-visible with no privacy step. A past session from `createSession` is
+ended and public by default, so a photo could never attach to one, even by calling the
+action directly. The guard is right and stays.
+
+So the create path now borrows the finish flow's shape: **create private → attach →
+publish.** `createSession` returns the new `sessionId` (the `{ ok: true, sessionId }`
+shape `clockIn` already uses), the photo uploads against the still-private row, and the
+session is flipped public only if that's what was asked for. **Failure is safe by
+construction**: a failed upload leaves the session saved and *private*, never published
+minus the photo it was supposed to carry.
+
+- New `components/photo-field.tsx` — an inline picker that hands back a `File` without
+  uploading, since there's no session id at pick time. **No `capture` attribute**; that
+  one omission is what gives the full iOS sheet (Photo Library / Take Photo / Choose
+  File), same as `avatar-picker.tsx`. Runs picks through `downscaleImage`, which also
+  normalises an iPhone HEIC to JPEG and keeps it under the server's 8 MB cap. It owns
+  the preview URL in its handlers rather than an effect — setState in an effect body is
+  a lint error here — and the parent owns the `File`.
+- Not a Dialog, deliberately: it renders inside the open form. Two Base UI dialogs
+  stack backdrops and fight over the focus trap.
+- **`next.config.ts` untouched, and that was checked, not assumed.** Sharp's ~18MB of
+  natives are traced only onto the five routes that mount a picker; this form lives on
+  `/clock`, already on the list. (The Progress → Sessions sheet is on `/`, which isn't —
+  a reason it stayed out of scope, along with having no privacy toggle to flip.)
+- `SessionPhotoStep` is untouched, so the live clock flow stays camera-first.
+- No new tests: the change is client orchestration plus an action's return shape, with
+  no new pure function to cover. 369 existing tests still pass.
+
 ## 2026-09-18
 
 ### 17:17 · Fix the stuck pinch-zoom (the cause was the zoom-disable itself)
