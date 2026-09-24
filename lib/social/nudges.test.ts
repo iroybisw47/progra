@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   NUDGE_PRESETS,
+  PRAISE_PRESETS,
+  PRAISE_PRESET_KEYS,
+  isPraisePreset,
+  presetCopy,
+  toneOfPreset,
   NUDGE_PRESET_KEYS,
   formatCooldownLeft,
   isNudgePreset,
@@ -29,6 +34,34 @@ describe("presets", () => {
     ]);
   });
 
+  // Same second-copy discipline as above: the CHECK holds all EIGHT keys now.
+  it("matches the praise keys the SQL CHECK constraint allows", () => {
+    expect(PRAISE_PRESET_KEYS).toEqual(["lets_go", "locked_in", "goated"]);
+  });
+
+  it("keeps the two halves disjoint", () => {
+    // One key in both sets would make toneOfPreset — and the cooldown split
+    // that depends on it — ambiguous.
+    for (const key of PRAISE_PRESET_KEYS) {
+      expect(isNudgePreset(key)).toBe(false);
+    }
+    for (const key of NUDGE_PRESET_KEYS) {
+      expect(isPraisePreset(key)).toBe(false);
+    }
+  });
+
+  it("reads a stored key back as its tone and its copy", () => {
+    expect(toneOfPreset("lock_in")).toBe("nudge");
+    expect(toneOfPreset("goated")).toBe("praise");
+    // Unknown keys read as a nudge — the conservative half. A stray key must
+    // never make a prod render as congratulations.
+    expect(toneOfPreset("whatever")).toBe("nudge");
+
+    expect(presetCopy("miss_you")).toBe(NUDGE_PRESETS.miss_you);
+    expect(presetCopy("lets_go")).toBe(PRAISE_PRESETS.lets_go);
+    expect(presetCopy("whatever")).toBe(null);
+  });
+
   it("says nothing about pods — the app has none", () => {
     expect(Object.values(NUDGE_PRESETS).join(" ")).not.toMatch(/pod/i);
   });
@@ -54,6 +87,8 @@ describe("parseNudgeState", () => {
       status: "ok",
       goals: [{ goalId: "g1", title: "Thesis", color: "#aabbcc" }],
       habits: { left: 2, total: 3 },
+      praise: null,
+      praiseCooldownUntil: null,
     });
   });
 
@@ -67,6 +102,8 @@ describe("parseNudgeState", () => {
       status: "ok",
       goals: [{ goalId: "g1", title: "Thesis", color: null }],
       habits: null,
+      praise: null,
+      praiseCooldownUntil: null,
     });
   });
 
@@ -133,6 +170,8 @@ describe("parseNudgeState", () => {
       status: "ok",
       goals: [{ goalId: "g1", title: "Keep", color: null }],
       habits: null,
+      praise: null,
+      praiseCooldownUntil: null,
     });
   });
 });
@@ -186,11 +225,103 @@ describe("parseSendNudgeResult", () => {
   });
 });
 
+describe("parseNudgeState — the praise half", () => {
+  it("reads praise alongside nudge targets", () => {
+    const state = parseNudgeState({
+      status: "ok",
+      goals: [{ goal_id: "g1", title: "Gym", color: null }],
+      habits: { left: 1, total: 4 },
+      praise: {
+        habits_done: null,
+        goals: [{ goal_id: "g2", title: "Thesis", color: "#395AA0", band: "hit" }],
+      },
+    });
+    expect(state).toEqual({
+      status: "ok",
+      goals: [{ goalId: "g1", title: "Gym", color: null }],
+      habits: { left: 1, total: 4 },
+      praise: {
+        habitsDone: null,
+        goals: [{ goalId: "g2", title: "Thesis", color: "#395AA0", band: "hit" }],
+      },
+      praiseCooldownUntil: null,
+    });
+  });
+
+  it("stays ok when there is ONLY praise", () => {
+    // The whole point of the feature: all caught up used to be a dead end.
+    const state = parseNudgeState({
+      status: "ok",
+      goals: [],
+      habits: null,
+      praise: { habits_done: 4, goals: [] },
+    });
+    expect(state.status).toBe("ok");
+    if (state.status !== "ok") return;
+    expect(state.praise).toEqual({ habitsDone: 4, goals: [] });
+    expect(state.goals).toEqual([]);
+    expect(state.habits).toBe(null);
+  });
+
+  it("carries a live praise cooldown", () => {
+    const state = parseNudgeState({
+      status: "ok",
+      goals: [{ goal_id: "g1", title: "Gym", color: null }],
+      habits: null,
+      praise: null,
+      praise_cooldown_until: "2026-09-24T18:00:00Z",
+    });
+    expect(state.status).toBe("ok");
+    if (state.status !== "ok") return;
+    expect(state.praise).toBe(null);
+    expect(state.praiseCooldownUntil).toBe(Date.parse("2026-09-24T18:00:00Z"));
+  });
+
+  it("drops a goal whose band it doesn't recognise", () => {
+    // Coercing an unknown band would tell someone they hit a quota they didn't.
+    const state = parseNudgeState({
+      status: "ok",
+      goals: [],
+      habits: null,
+      praise: {
+        habits_done: null,
+        goals: [
+          { goal_id: "g1", title: "Keep", color: null, band: "close" },
+          { goal_id: "g2", title: "Drop", color: null, band: "under" },
+          { goal_id: "g3", title: "Drop too", color: null },
+        ],
+      },
+    });
+    expect(state.status).toBe("ok");
+    if (state.status !== "ok") return;
+    expect(state.praise?.goals).toEqual([
+      { goalId: "g1", title: "Keep", color: null, band: "close" },
+    ]);
+  });
+
+  it("collapses to hidden when nothing is left after parsing", () => {
+    expect(
+      parseNudgeState({
+        status: "ok",
+        goals: [],
+        habits: null,
+        praise: { habits_done: 0, goals: [] },
+      })
+    ).toEqual({ status: "hidden" });
+  });
+});
+
 describe("nudgeStateRefusal", () => {
   it("is null only for a nudgeable friend", () => {
-    expect(nudgeStateRefusal({ status: "ok", goals: [], habits: { left: 1, total: 1 } })).toBe(
-      null
-    );
+    expect(
+      nudgeStateRefusal({
+        status: "ok",
+        goals: [],
+        habits: { left: 1, total: 1 },
+        praise: null,
+        praiseCooldownUntil: null,
+      })
+    ).toBe(null);
     expect(nudgeStateRefusal({ status: "hidden" })).toBe(null);
   });
 

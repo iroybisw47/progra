@@ -78,6 +78,12 @@ export function NudgeButton({
 
   if (state.status !== "ok") return null;
 
+  // When the only thing on offer is congratulations, "Nudge" is the wrong word
+  // — you'd be pressing a prod button to say well done. The sheet's own title
+  // follows the same rule.
+  const praiseOnly =
+    state.praise !== null && state.goals.length === 0 && state.habits === null;
+
   return (
     <>
       <button
@@ -88,7 +94,7 @@ export function NudgeButton({
           setOpen(true);
         }}
       >
-        Nudge
+        {praiseOnly ? "Cheer" : "Nudge"}
       </button>
       {open && (
         <NudgeSheet

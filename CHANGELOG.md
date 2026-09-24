@@ -4,6 +4,53 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+## 2026-09-24
+
+### 10:10 · Positive nudge — cheer a friend who finished (requires SQL)
+
+Nudges only ever fired when a friend was **behind**. `nudge_targets` returned `ok`
+solely when something was unfinished, so the moment actually worth reacting to — they
+did the thing — was a dimmed chip reading *"Sam is all caught up today."* The app's one
+social prod was silent at the finish line.
+
+**Praise is the same chip, with the targets flipped by state.** Finished all your habits
+today, hit a weekly quota, or landed in the 75% band, and a friend gets rows to cheer
+instead of prod. Both halves can appear at once.
+
+**No new column.** A nudge and a cheer differ only in which preset was chosen, so
+`preset_key` carries the tone and `target_kind` stays `('goal','habits')`.
+`is_praise_preset()` in SQL is the single authority; `toneOfPreset()` mirrors it, and
+`nudges.test.ts` keeps the deliberate second copy of the key list pinned to the CHECK.
+
+**The rules are deliberately NOT identical.** Separate 6h cooldowns per half, so
+cheering never spends the prod. `in_session` suppresses prods only — it exists so you
+don't poke someone mid-session, which has nothing to do with congratulating them.
+Everything else is shared: friendship, blocking, `nudges_enabled`, the 09:00 floor.
+
+**A regression the suite caught before prod.** Splitting the cooldown meant a re-sent
+prod fell back to a bare `unavailable` instead of the explained *"you already nudged
+them — 4h left"*. The cooldown is the one refusal this design always explains (it's the
+sender's own history, safe to reveal), so both halves now report their own
+`*_cooldown_until` and `send_nudge` answers with it.
+
+**And a hole in the tests themselves.** Rewriting the cooldown query moved the text one
+of the 14 mutants targeted, so `--mutants` silently mutated STEP 7's dead copy and
+reported a pass. It's re-pointed at the live function, plus four new mutants for the
+praise paths. Suite is **62/62 with all 19 mutants caught** (was 54/54 / 14).
+
+- **Requires SQL:** `nudges.sql` STEP 8 — the CHECK swap, `is_praise_preset()`, and
+  `create or replace` of all three functions. STEP 2 was extended in place.
+  **Run it before deploying**, same as the 09:00 floor change: old SQL plus new app
+  means the sheet offers praise the database refuses.
+- Privacy is unchanged and was verified, not assumed: praise reads only visible rows,
+  private sessions never push a goal into a band, and a private goal at quota is
+  byte-identical to one that doesn't exist (T55/T56).
+- Push copy is still system-generated — the preset never reaches a lock screen — and
+  praise deep-links to `/`, never `/clock`, which would invite clocking in.
+- Coalescing is scoped per tone, or a cheer folds into a "nudged you to lock in" banner.
+- Settings copy fixed: it still said nudges arrive "in the afternoon", stale since the
+  floor moved to 09:00 on 2026-09-15.
+
 ## 2026-09-23
 
 ### 18:10 · Attach a photo when adding a past session

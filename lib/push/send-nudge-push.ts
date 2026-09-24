@@ -7,7 +7,7 @@ import {
   nudgeCollapseId,
   nudgeDedupeKey,
 } from "@/lib/push/nudge-push";
-import { isNudgeTargetKind } from "@/lib/social/nudges";
+import { isNudgeTargetKind, toneOfPreset } from "@/lib/social/nudges";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // The nudge-push orchestrator. Called ONLY inside next/server's after(), so it
@@ -28,6 +28,7 @@ type NudgeRow = {
   sender_id: string;
   recipient_id: string;
   target_kind: string;
+  preset_key: string;
   goal_id: string | null;
   target_label: string;
   pushed: boolean;
@@ -46,7 +47,7 @@ export async function sendNudgePush(event: {
 
     const { data: row, error: rowErr } = await admin
       .from("nudges")
-      .select("sender_id, recipient_id, target_kind, goal_id, target_label, pushed, created_at")
+      .select("sender_id, recipient_id, target_kind, goal_id, target_label, preset_key, pushed, created_at")
       .eq("id", event.nudgeId)
       .maybeSingle();
     if (rowErr) {
@@ -126,6 +127,10 @@ export async function sendNudgePush(event: {
     // a second buzz. The anchor's id is the shared collapse id, and the count
     // is of DISTINCT senders in the window — three nudges from one friend is
     // still one person caring.
+    // Which half this is. The body stays system-generated either way — the
+    // sender's preset never reaches a lock screen, praise included.
+    const tone = toneOfPreset(nudge.preset_key);
+
     let content;
     let collapseAnchor = event.nudgeId;
     if (!nudge.pushed && event.coalescedWith) {
@@ -135,23 +140,29 @@ export async function sendNudgePush(event: {
         .eq("id", event.coalescedWith)
         .maybeSingle();
       const since = (anchorRow as { created_at: string } | null)?.created_at;
+      // Scoped to the same tone, mirroring send_nudge's anchor query — a cheer
+      // must never be counted into a "nudged you to lock in" banner.
       const { data: windowRows } = await admin
         .from("nudges")
-        .select("sender_id")
+        .select("sender_id, preset_key")
         .eq("recipient_id", recipient)
         .gte("created_at", since ?? nudge.created_at)
         .lte("created_at", nudge.created_at);
       const senders = new Set(
-        (windowRows ?? []).map((r) => (r as { sender_id: string }).sender_id)
+        (windowRows ?? [])
+          .map((r) => r as { sender_id: string; preset_key: string })
+          .filter((r) => toneOfPreset(r.preset_key) === tone)
+          .map((r) => r.sender_id)
       );
       const others = senders.size - 1;
       collapseAnchor = event.coalescedWith;
       content =
         others > 0
-          ? composeNudgePush({ mode: "coalesced", senderName, othersCount: others })
+          ? composeNudgePush({ mode: "coalesced", tone, senderName, othersCount: others })
           : // Only one distinct sender after all — the plain copy is truer.
             composeNudgePush({
               mode: "single",
+              tone,
               senderName,
               targetKind: isNudgeTargetKind(nudge.target_kind) ? nudge.target_kind : "habits",
               targetLabel: nudge.target_label,
@@ -160,6 +171,7 @@ export async function sendNudgePush(event: {
     } else {
       content = composeNudgePush({
         mode: "single",
+        tone,
         senderName,
         targetKind: isNudgeTargetKind(nudge.target_kind) ? nudge.target_kind : "habits",
         targetLabel: nudge.target_label,

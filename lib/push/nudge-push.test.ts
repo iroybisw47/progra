@@ -92,6 +92,90 @@ describe("composeNudgePush", () => {
   });
 });
 
+describe("composeNudgePush — praise", () => {
+  it("congratulates finished habits and lands on Progress, not the clock", () => {
+    expect(
+      composeNudgePush({
+        mode: "single",
+        tone: "praise",
+        senderName: "Sam",
+        targetKind: "habits",
+        targetLabel: "Habits",
+        goalId: null,
+      })
+    ).toEqual({
+      title: "Sam",
+      body: "cheered you on for finishing your habits.",
+      url: "/",
+    });
+  });
+
+  it("never sends praise to /clock, even with a goal id", () => {
+    // /clock opens the clock-in picker. Telling someone who just hit their
+    // quota to clock in is the opposite of congratulating them.
+    const push = composeNudgePush({
+      mode: "single",
+      tone: "praise",
+      senderName: "Sam",
+      targetKind: "goal",
+      targetLabel: "Thesis",
+      goalId: UUID,
+    });
+    expect(push.url).toBe("/");
+    expect(push.body).toBe("cheered you on for Thesis.");
+  });
+
+  it("coalesces praise without borrowing the nudge's words", () => {
+    const push = composeNudgePush({
+      mode: "coalesced",
+      tone: "praise",
+      senderName: "Sam",
+      othersCount: 2,
+    });
+    expect(push).toEqual({
+      title: "Sam and 2 others",
+      body: "cheered you on.",
+      url: "/",
+    });
+    expect(push.body).not.toMatch(/lock in/i);
+  });
+
+  it("still carries nothing the sender chose", () => {
+    // The same invariant the nudge half holds: the preset is in-app only.
+    const bodies = [
+      composeNudgePush({
+        mode: "single",
+        tone: "praise",
+        senderName: "Sam",
+        targetKind: "habits",
+        targetLabel: "Habits",
+        goalId: null,
+      }),
+      composeNudgePush({
+        mode: "coalesced",
+        tone: "praise",
+        senderName: "Sam",
+        othersCount: 1,
+      }),
+    ];
+    for (const push of bodies) {
+      expect(`${push.title} ${push.body}`).not.toMatch(/GOOO|goated|locked in/i);
+    }
+  });
+
+  it("defaults to the nudge half when no tone is given", () => {
+    // Existing callers pass no tone; they must keep prodding, not praising.
+    const push = composeNudgePush({
+      mode: "single",
+      senderName: "Sam",
+      targetKind: "habits",
+      targetLabel: "Habits",
+      goalId: null,
+    });
+    expect(push.body).toBe("nudged you to finish your habits.");
+  });
+});
+
 describe("push keys", () => {
   it("dedupes per nudge and collapses per window anchor", () => {
     expect(nudgeDedupeKey(UUID)).toBe(`nudge:${UUID}`);

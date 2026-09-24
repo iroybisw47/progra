@@ -25,6 +25,47 @@ export const NUDGE_PRESETS = {
 
 export type NudgePresetKey = keyof typeof NUDGE_PRESETS;
 
+// The praise half. Same table, same CHECK constraint — the KEY carries the
+// tone, which is why no column was added: a nudge and a cheer differ only in
+// which preset was chosen. Keys are frozen by that CHECK exactly like the five
+// above; reword freely, rename never.
+//
+// Tone is louder here on purpose. A prod has to stay gentle because it lands on
+// someone already behind; congratulations have no such risk, and this is how the
+// people using it actually text.
+export const PRAISE_PRESETS = {
+  lets_go: "LET'S GOOO 🔥",
+  locked_in: "you're locked in 💪",
+  goated: "goated behaviour 🐐",
+} as const;
+
+export type PraisePresetKey = keyof typeof PRAISE_PRESETS;
+
+export const PRAISE_PRESET_KEYS = Object.keys(
+  PRAISE_PRESETS
+) as PraisePresetKey[];
+
+export function isPraisePreset(value: string): value is PraisePresetKey {
+  return Object.prototype.hasOwnProperty.call(PRAISE_PRESETS, value);
+}
+
+// Which half a stored preset_key belongs to. Mirrors is_praise_preset() in the
+// database — that function is the authority; this is the client's copy, and
+// lib/social/nudges.test.ts pins the two lists together.
+export type NudgeTone = "nudge" | "praise";
+
+export function toneOfPreset(value: string): NudgeTone {
+  return isPraisePreset(value) ? "praise" : "nudge";
+}
+
+// The copy for any stored key, whichever half it came from. One lookup for the
+// notifications panel and the admin report arm, which see keys, not tones.
+export function presetCopy(value: string): string | null {
+  if (isPraisePreset(value)) return PRAISE_PRESETS[value];
+  if (isNudgePreset(value)) return NUDGE_PRESETS[value];
+  return null;
+}
+
 // Render order for the preset picker.
 export const NUDGE_PRESET_KEYS = Object.keys(NUDGE_PRESETS) as NudgePresetKey[];
 
@@ -42,6 +83,20 @@ export type NudgeGoalTarget = {
   goalId: string;
   title: string;
   color: string | null;
+};
+
+// A goal worth congratulating this week. `band` mirrors statusForGoal() in
+// lib/db/recap.ts — "hit" is at or past the weekly quota, "close" is the 75%
+// band. "under" never reaches here.
+export type NudgePraiseBand = "hit" | "close";
+
+export type NudgePraiseGoal = NudgeGoalTarget & { band: NudgePraiseBand };
+
+// What there is to celebrate. `habitsDone` is the TOTAL number of visible
+// habits, present only when every one of them is done today; null otherwise.
+export type NudgePraise = {
+  habitsDone: number | null;
+  goals: NudgePraiseGoal[];
 };
 
 // Why a friend can't be nudged right now. Shown to the sender when they tap the
@@ -84,8 +139,13 @@ export type NudgeState =
   | { status: "locked"; reason: NudgeLockReason; opensAt: number | null }
   | {
       status: "ok";
+      // The prod half — empty while a nudge cooldown is live, or mid-session.
       goals: NudgeGoalTarget[];
       habits: { left: number; total: number } | null;
+      // The praise half — null while a praise cooldown is live. The two halves
+      // have SEPARATE 6h cooldowns, so cheering someone never spends the nudge.
+      praise: NudgePraise | null;
+      praiseCooldownUntil: number | null;
     };
 
 export const NUDGE_HIDDEN: NudgeState = { status: "hidden" };
@@ -143,10 +203,54 @@ export function parseNudgeState(json: unknown): NudgeState {
       ? { left, total }
       : null;
 
-  // The RPC never returns "ok" with nothing to nudge, but if it somehow did,
-  // an empty sheet is worse than no button.
-  if (goals.length === 0 && habits === null) return NUDGE_HIDDEN;
-  return { status: "ok", goals, habits };
+  const praise = parsePraise(row.praise);
+
+  // The RPC never returns "ok" with nothing at all, but if it somehow did, an
+  // empty sheet is worse than no button. Praise counts as something.
+  if (goals.length === 0 && habits === null && praise === null) {
+    return NUDGE_HIDDEN;
+  }
+  return {
+    status: "ok",
+    goals,
+    habits,
+    praise,
+    praiseCooldownUntil: asMs(row.praise_cooldown_until),
+  };
+}
+
+// Same defensiveness as the goals list above: junk entries are dropped, and a
+// praise block with nothing left in it becomes null rather than an empty sheet.
+function parsePraise(value: unknown): NudgePraise | null {
+  const row = asRecord(value);
+  if (!row) return null;
+
+  const habitsDone =
+    typeof row.habits_done === "number" && row.habits_done > 0
+      ? row.habits_done
+      : null;
+
+  const goals: NudgePraiseGoal[] = (Array.isArray(row.goals) ? row.goals : [])
+    .map((entry) => {
+      const goal = asRecord(entry);
+      if (!goal) return null;
+      const goalId = goal.goal_id;
+      const title = goal.title;
+      // An unrecognized band is dropped, not coerced: showing "hit" for
+      // something that wasn't would be a lie about a friend's week.
+      if (typeof goalId !== "string" || typeof title !== "string") return null;
+      if (goal.band !== "hit" && goal.band !== "close") return null;
+      return {
+        goalId,
+        title,
+        color: typeof goal.color === "string" ? goal.color : null,
+        band: goal.band,
+      };
+    })
+    .filter((goal): goal is NudgePraiseGoal => goal !== null);
+
+  if (habitsDone === null && goals.length === 0) return null;
+  return { habitsDone, goals };
 }
 
 export type NudgeRejection = "cooldown" | NudgeLockReason;

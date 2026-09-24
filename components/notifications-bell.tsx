@@ -20,7 +20,7 @@ import {
 import { formatRelativeTime } from "@/lib/dates";
 import { NUDGES } from "@/lib/flags";
 import { commentAnchorId } from "@/lib/social/comment-threads";
-import { NUDGE_PRESETS, isNudgePreset } from "@/lib/social/nudges";
+import { presetCopy, toneOfPreset } from "@/lib/social/nudges";
 import { cn } from "@/lib/utils";
 import type {
   NotificationItem,
@@ -159,6 +159,9 @@ function likeSummary(item: LikeNotification): string {
 // preselected, or home for habits — so acting on it is one tap either way.
 function hrefFor(item: NotificationItem): string {
   if (item.kind === "nudge") {
+    // Praise lands on Progress. /clock opens the clock-in picker, which is the
+    // wrong thing to put in front of someone who just finished.
+    if (toneOfPreset(item.presetKey) === "praise") return "/";
     if (item.targetKind === "habits") return "/";
     return item.goalId === null ? "/clock" : `/clock?goal=${item.goalId}`;
   }
@@ -230,13 +233,13 @@ function NotificationRow({
             <>
               <p className="text-sm leading-snug">
                 <span className="font-semibold">{nameOf(item.sender)}</span>{" "}
-                nudged you
+                {toneOfPreset(item.presetKey) === "praise"
+                  ? "cheered you on"
+                  : "nudged you"}
               </p>
               {/* The preset copy lives in the app, never on the lock screen. */}
               <p className="text-ink/80 mt-0.5 text-sm leading-snug">
-                {isNudgePreset(item.presetKey)
-                  ? NUDGE_PRESETS[item.presetKey]
-                  : item.presetKey}
+                {presetCopy(item.presetKey) ?? item.presetKey}
               </p>
             </>
           )}

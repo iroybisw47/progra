@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionPhotoUrl } from "@/lib/db/session-photos";
 import { SOCIAL_ENABLED } from "@/lib/flags";
-import { NUDGE_PRESETS, isNudgePreset } from "@/lib/social/nudges";
+import { presetCopy } from "@/lib/social/nudges";
 
 import { AdminReports, type AdminReport } from "./admin-reports";
 import {
@@ -242,8 +242,7 @@ export default async function AdminPage() {
             nudgeId: row.target_id,
             senderUsername: t.sender_username ?? null,
             recipientUsername: t.recipient_username ?? null,
-            presetLabel:
-              preset && isNudgePreset(preset) ? NUDGE_PRESETS[preset] : preset,
+            presetLabel: preset ? (presetCopy(preset) ?? preset) : preset,
             targetLabel: t.target_label ?? null,
             gone: t.gone === true || preset == null,
           },

@@ -10,6 +10,7 @@ import { revalidateNudgeSurfaces } from "@/lib/revalidate";
 import {
   isNudgePreset,
   isNudgeTargetKind,
+  isPraisePreset,
   nudgeRejectionFallback,
   parseSendNudgeResult,
   type NudgeRefusal,
@@ -52,7 +53,13 @@ export async function sendNudge(input: {
   }
 
   const { recipientId, kind, goalId, preset } = input;
-  if (!isUuid(recipientId) || !isNudgeTargetKind(kind) || !isNudgePreset(preset)) {
+  // Either half's presets are valid here; send_nudge decides which list the
+  // target must appear in, so a praise preset can't be spent on a prod target.
+  if (
+    !isUuid(recipientId) ||
+    !isNudgeTargetKind(kind) ||
+    !(isNudgePreset(preset) || isPraisePreset(preset))
+  ) {
     return { error: "Couldn't send that nudge.", ...UNAVAILABLE };
   }
   // The RPC enforces this too; mirroring it keeps the shapes honest here.

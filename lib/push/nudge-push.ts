@@ -1,4 +1,4 @@
-import type { NudgeTargetKind } from "@/lib/social/nudges";
+import type { NudgeTargetKind, NudgeTone } from "@/lib/social/nudges";
 
 // WHAT a nudge push says and where a tap lands — pure, so the copy is testable
 // without touching APNs. Mirrors lib/push/social-push.ts; the orchestrator
@@ -11,6 +11,9 @@ import type { NudgeTargetKind } from "@/lib/social/nudges";
 export type NudgePushInput =
   | {
       mode: "single";
+      // Which half sent it. The body is system-generated either way — the
+      // sender's chosen preset never reaches a lock screen, praise included.
+      tone?: NudgeTone;
       // display_name ?? username ?? fallback — resolved by the caller.
       senderName: string;
       targetKind: NudgeTargetKind;
@@ -21,7 +24,12 @@ export type NudgePushInput =
       // falls back to the clock picker.
       goalId: string | null;
     }
-  | { mode: "coalesced"; senderName: string; othersCount: number };
+  | {
+      mode: "coalesced";
+      senderName: string;
+      othersCount: number;
+      tone?: NudgeTone;
+    };
 
 export type NudgePushContent = {
   title: string;
@@ -41,6 +49,33 @@ export function nudgeLabelSnippet(label: string): string {
 }
 
 export function composeNudgePush(input: NudgePushInput): NudgePushContent {
+  // Praise never deep-links to /clock. That URL opens the clock-in picker,
+  // which is the wrong thing to put in front of someone who just finished —
+  // Progress is where their goals and habits actually live.
+  if (input.tone === "praise") {
+    if (input.mode === "coalesced") {
+      const others =
+        input.othersCount === 1 ? "1 other" : `${input.othersCount} others`;
+      return {
+        title: `${input.senderName} and ${others}`,
+        body: "cheered you on.",
+        url: "/",
+      };
+    }
+    if (input.targetKind === "habits") {
+      return {
+        title: input.senderName,
+        body: "cheered you on for finishing your habits.",
+        url: "/",
+      };
+    }
+    return {
+      title: input.senderName,
+      body: `cheered you on for ${nudgeLabelSnippet(input.targetLabel)}.`,
+      url: "/",
+    };
+  }
+
   if (input.mode === "coalesced") {
     const others =
       input.othersCount === 1 ? "1 other" : `${input.othersCount} others`;
