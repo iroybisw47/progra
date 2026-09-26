@@ -9,11 +9,17 @@ export function ToggleSwitch({
   checked,
   onCheckedChange,
   ariaLabel,
+  disabled,
 }: {
   id?: string;
   checked: boolean;
   onCheckedChange: (value: boolean) => void;
   ariaLabel?: string;
+  // A real `disabled` attribute, not just dimming: the state has to be
+  // announced to a screen reader and the control has to stop taking taps.
+  // The finish screen uses it for an auto-ended session, which is worth 0
+  // hours and so has nothing to share either way.
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -22,10 +28,12 @@ export function ToggleSwitch({
       id={id}
       aria-checked={checked}
       aria-label={ariaLabel}
+      disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
       className={cn(
         "relative h-[26px] w-11 shrink-0 rounded-full transition-colors",
-        checked ? "bg-brand" : "bg-track"
+        checked ? "bg-brand" : "bg-track",
+        disabled && "cursor-not-allowed"
       )}
     >
       <span

@@ -558,9 +558,17 @@ durably.
   friendship, blocking, opt-in, the local 09:00 floor, mid-session state and the
   6h cooldown and wrote the row. Two things it deliberately does not trust: the
   recipient comes from the **nudge row**, never the caller, and the caller's id
-  must equal that row's `sender_id`. The key lives in
-  `SUPABASE_SERVICE_ROLE_KEY` (server env only, never `NEXT_PUBLIC_`, never in a
-  client bundle).
+  must equal that row's `sender_id`.
+  **(4)** the scheduled recap sender (`lib/push/send-recap-push.ts`): the odd
+  one out, because it has **no caller at all** — a clock triggers it, so there
+  is no identity to check and no prior RLS-passing write to inherit a warrant
+  from. Its authorization is the `CRON_SECRET` bearer match in
+  `app/api/cron/recap-ready/route.ts` plus `recap_push_candidates()`, a definer
+  RPC revoked from anon+authenticated that selects the due users itself; the
+  sender acts only on that RPC's rows, never on a user id taken off a request,
+  and re-reads the opt-out rather than trusting the RPC did.
+  The key lives in `SUPABASE_SERVICE_ROLE_KEY` (server env only, never
+  `NEXT_PUBLIC_`, never in a client bundle).
 - **Take-down = hide.** `admin_take_down_story` nulls `sessions.photo_path`, so
   `can_see_session_photo` no longer matches the object and stops serving the blob;
   `admin_delete_comment` deletes the row. Blob purge from Storage is deferred
@@ -710,8 +718,9 @@ durably.
   loop on that route; swapping children also denies a waitlisted user any app shell to
   soft-navigate from. Cost: `/privacy` and `/terms` are unreachable while signed in and
   seat-less. Accepted — reaching them means signing out.
-- **No cron exists in this repo**, so admission is lazy: raising `beta_config.seat_cap`
-  seats waitlisted users on their next page load. This extends the `EnsureSessionCap`
+- **No cron covers this**, so admission is lazy: raising `beta_config.seat_cap`
+  seats waitlisted users on their next page load. (The repo has exactly one
+  scheduled job — the weekly-recap push — and it is not wired to seating.) This extends the `EnsureSessionCap`
   precedent from client leaves to a server-side gate.
 - The cap lives in a DB row, not `lib/flags.ts`. This is a deliberate exception to the
   "flags are build-time, a reviewable switch not a live toggle" rule recorded in §9 —

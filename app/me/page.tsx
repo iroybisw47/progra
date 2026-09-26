@@ -8,6 +8,7 @@ import { GoalsSection } from "./goals-section";
 import { HabitsSection } from "./habits-section";
 import { requireUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
+import { isJohnUser } from "@/lib/john/cohort";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { createClient } from "@/lib/supabase/server";
 import { REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
@@ -113,6 +114,8 @@ export default async function MePage() {
       quotaHours: g.weeklyQuotaHours,
       actualMs: goalWeekly.perGoal.get(g.id) ?? 0,
       isPrivate: g.isPrivate,
+      deadlineOn: g.deadlineOn,
+      targetOutcome: g.targetOutcome,
     }))
     .sort((a, b) => b.actualMs - a.actualMs);
 
@@ -185,7 +188,7 @@ export default async function MePage() {
 
         {/* Goal quotas and Habits — the same rows and grid as Progress, and
             the same tap-the-header-to-manage editors behind them. */}
-        <GoalsSection goals={goalBreakdown} />
+        <GoalsSection goals={goalBreakdown} john={isJohnUser(profile)} />
 
         <HabitsSection
           habits={habits}

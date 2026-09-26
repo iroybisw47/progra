@@ -18,7 +18,14 @@ const ManageGoals = dynamic(
 // The You tab's "Goal quotas" section. Read-only rows plus the same tap-header-
 // to-manage affordance Progress has, so a goal can be renamed, requotaed,
 // recolored or deleted without bouncing to another tab.
-export function GoalsSection({ goals }: { goals: ManageGoal[] }) {
+export function GoalsSection({
+  goals,
+  john = false,
+}: {
+  goals: ManageGoal[];
+  // John cohort (two users) — forwarded to the goal editor only.
+  john?: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -45,7 +52,7 @@ export function GoalsSection({ goals }: { goals: ManageGoal[] }) {
       </div>
       <div className="bg-hairline mx-5 mt-4 h-px" />
 
-      <ManageGoals open={open} onOpenChange={setOpen} goals={goals} />
+      <ManageGoals open={open} onOpenChange={setOpen} goals={goals} john={john} />
     </section>
   );
 }

@@ -75,6 +75,7 @@ import {
 } from "@/lib/session";
 import { useNowMinute } from "@/lib/hooks";
 import { REDESIGN, TIMED_SESSIONS } from "@/lib/flags";
+import { INTENTION_MAX } from "@/lib/john/instrumentation";
 import { primeTimerSound } from "@/lib/timer-sound";
 import {
   BREAK_PRESETS,
@@ -160,6 +161,9 @@ type ClockClientProps = {
   activePhotoUrl: string | null;
   // ?goal=<id> from a Progress "Goals today" tap — pre-selects the goal picker.
   initialGoalId?: string | null;
+  // John cohort (two users). Adds one optional "intention" field above the
+  // Clock in button; everyone else renders exactly what they always have.
+  john?: boolean;
 };
 
 export function ClockClient({
@@ -169,6 +173,7 @@ export function ClockClient({
   goals,
   activePhotoUrl,
   initialGoalId = null,
+  john = false,
 }: ClockClientProps) {
   const router = useRouter();
   // Minute-quantized tick: totals and week/day boundaries only need minute
@@ -193,6 +198,10 @@ export function ClockClient({
   const [noteOpen, setNoteOpen] = useState(false);
   const [pickPanelOpen, setPickPanelOpen] = useState(false);
   const [modePanelOpen, setModePanelOpen] = useState(false);
+  // John: what you sat down to do. NOT part of canClockIn — a required field
+  // here would suppress clocking in, and the session count is one of the things
+  // John is meant to read.
+  const [intention, setIntention] = useState("");
   // Timed sessions (behind TIMED_SESSIONS). "open" is the default, so with the
   // flag off — and for every user who never touches the control — this is the
   // open-ended clock-in the app has always had, writing no plan columns.
@@ -339,6 +348,7 @@ export function ClockClient({
         goalId,
         taskName: name,
         description,
+        ...(john && intention.trim() ? { intention } : {}),
         // Omitted entirely in open mode, so that path writes the same row it
         // always has. Break columns ride along only when a preset is chosen.
         ...(timerMode === "timed" && plannedMinutes !== null
@@ -357,6 +367,7 @@ export function ClockClient({
       }
       setTaskName("");
       setDescription("");
+      setIntention("");
       setSelectedCategoryId(null);
       setSelectedGoalId(null);
       setTimerMode("open");
@@ -857,6 +868,24 @@ export function ClockClient({
                   onPlannedMinutesChange={setPlannedMinutes}
                   breakPreset={breakPreset}
                   onBreakPresetChange={setBreakPreset}
+                />
+              </div>
+            )}
+
+            {/* John (cohort only): the "before" half of the before/after pair.
+                Deliberately NOT the notes field — that one is written after the
+                fact on the finish screen, and folding the two together destroys
+                the planned-vs-actual signal this whole test exists to capture. */}
+            {john && (
+              <div className="border-control-border bg-card rounded-[13px] border-[1.5px]">
+                <input
+                  id="session-intention"
+                  aria-label="What are you here to do?"
+                  className="text-ink h-[46px] w-full min-w-0 bg-transparent px-3.5 text-[15px] font-medium outline-none placeholder:text-disabled"
+                  placeholder="What are you here to do? (optional)"
+                  value={intention}
+                  maxLength={INTENTION_MAX}
+                  onChange={(e) => setIntention(e.target.value)}
                 />
               </div>
             )}

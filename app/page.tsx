@@ -9,6 +9,9 @@ import { ProgressClient } from "@/components/v2/progress-client";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 import { REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
+import { isJohnUser } from "@/lib/john/cohort";
+import { listUnansweredHabits } from "@/lib/db/habits";
+import { addDaysISO, todayInTimeZone } from "@/lib/dates";
 import {
   currentWeekStart,
   loadProgressData,
@@ -41,10 +44,16 @@ export default async function Page({
     // The week start is derivable from the profile alone, so both loaders run
     // in parallel instead of habits waiting on the full progress read.
     const weekStart = currentWeekStart(profile.timezone ?? "UTC");
-    const [data, { habits, completions, minWeekStart }] = await Promise.all([
-      loadProgressData(),
-      loadWeekHabits(weekStart),
-    ]);
+    // John: yesterday in the user's own timezone, and the habits from it that
+    // were neither ticked nor already explained. listUnansweredHabits returns []
+    // with the flag off, so this costs the other ~50 users nothing.
+    const missDate = addDaysISO(todayInTimeZone(profile.timezone ?? "UTC"), -1);
+    const [data, { habits, completions, minWeekStart }, missHabits] =
+      await Promise.all([
+        loadProgressData(),
+        loadWeekHabits(weekStart),
+        listUnansweredHabits(missDate),
+      ]);
     return (
       <ProgressClient
         {...data}
@@ -52,6 +61,9 @@ export default async function Page({
         completions={completions}
         minWeekStart={minWeekStart}
         initialTab={initialTab}
+        john={isJohnUser(profile)}
+        missHabits={missHabits}
+        missDate={missDate}
       />
     );
   }

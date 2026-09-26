@@ -6,12 +6,48 @@ import { createClient } from "@/lib/supabase/server";
 import { capText } from "@/lib/validate";
 import { isPaletteFill } from "@/lib/palette";
 import { requireSeat } from "@/lib/auth/require-seat";
+import { JOHN } from "@/lib/flags";
+import { isJohnRequest } from "@/lib/john/gate";
+import { TARGET_OUTCOME_MAX } from "@/lib/john/instrumentation";
 
 type Result = { ok: true } | { error: string };
 
 // Server-side field caps (clients also cap; never trust the client).
 const TITLE_MAX = 120;
 const DESC_MAX = 500;
+
+// A deadline is a DAY in the user's own calendar, stored as a Postgres `date` —
+// the same shape and the same reason as habit_completions.completed_on. Matches
+// what <input type="date"> submits.
+const LOCAL_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Build the John half of a goal write, or an error string. Returns an EMPTY
+// object when the caller sent neither field, so the cohort round-trip is skipped
+// for the ~50 users whose UI cannot produce them.
+//
+// No "must be in the future" check, deliberately: a deadline that has passed is
+// a real state, and it is exactly the state worth measuring.
+async function johnGoalFields(input: {
+  deadlineOn?: string | null;
+  targetOutcome?: string | null;
+}): Promise<Record<string, unknown> | { error: string }> {
+  if (input.deadlineOn === undefined && input.targetOutcome === undefined) {
+    return {};
+  }
+  if (!JOHN || !(await isJohnRequest())) return { error: "Not available" };
+
+  const out: Record<string, unknown> = {};
+  if (input.deadlineOn !== undefined) {
+    if (input.deadlineOn !== null && !LOCAL_DATE_RE.test(input.deadlineOn)) {
+      return { error: "Invalid date" };
+    }
+    out.deadline_on = input.deadlineOn;
+  }
+  if (input.targetOutcome !== undefined) {
+    out.target_outcome = capText(input.targetOutcome, TARGET_OUTCOME_MAX);
+  }
+  return out;
+}
 
 type CreateGoalInput = {
   title: string;
@@ -20,6 +56,9 @@ type CreateGoalInput = {
   // Must be one of the nine palette hues; anything else is rejected rather
   // than stored, same rule categories and habits follow.
   color?: string | null;
+  // John (two-user test), both optional.
+  deadlineOn?: string | null;
+  targetOutcome?: string | null;
 };
 
 // Success carries the new id, so a caller that may save again (onboarding's
@@ -45,6 +84,9 @@ export async function createGoal(
     return { error: "Unknown color" };
   }
 
+  const john = await johnGoalFields(input);
+  if ("error" in john) return john as { error: string };
+
   const { data, error } = await supabase
     .from("goals")
     .insert({
@@ -53,6 +95,7 @@ export async function createGoal(
       description: capText(input.description, DESC_MAX),
       weekly_quota_hours: input.weeklyQuotaHours,
       color: input.color ?? null,
+      ...john,
     })
     .select("id")
     .single();
@@ -69,6 +112,9 @@ type UpdateGoalPatch = {
   color?: string | null;
   // Social v2: true = owner-only, false = visible to accepted friends (Aspect 4).
   isPrivate?: boolean;
+  // John (two-user test), both optional.
+  deadlineOn?: string | null;
+  targetOutcome?: string | null;
 };
 
 export async function updateGoal(
@@ -102,6 +148,9 @@ export async function updateGoal(
   if (patch.isPrivate !== undefined) {
     update.is_private = patch.isPrivate;
   }
+  const john = await johnGoalFields(patch);
+  if ("error" in john) return john as { error: string };
+  Object.assign(update, john);
 
   const supabase = await createClient();
   const { error } = await supabase.from("goals").update(update).eq("id", id);

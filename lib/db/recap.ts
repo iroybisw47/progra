@@ -26,6 +26,11 @@ export type RecapGoalRow = {
   quotaHours: number;
   actualMs: number;
   status: GoalRecapStatus;
+  // John (two-user test), carried through untouched so the goal manager can
+  // seed its editor from whichever surface opened it. Nothing in the recap
+  // reads or renders these — a deadline drives no band, color or status.
+  deadlineOn?: string | null;
+  targetOutcome?: string | null;
 };
 
 export type WeekRecap = {
@@ -126,6 +131,8 @@ export async function computeWeekRecap(
         quotaHours: g.weeklyQuotaHours,
         actualMs,
         status: statusForGoal(actualMs, g.weeklyQuotaHours),
+        deadlineOn: g.deadlineOn,
+        targetOutcome: g.targetOutcome,
       };
     })
     .sort((a, b) => b.actualMs - a.actualMs);

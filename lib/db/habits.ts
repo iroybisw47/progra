@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 import { todayInTimeZone } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/server";
+import { JOHN } from "@/lib/flags";
 import { normalizeFill } from "@/lib/palette";
 
 export type Habit = {
@@ -219,3 +220,65 @@ export async function listCompletionsForUserInRange(
   if (!data) return [];
   return (data as CompletionRow[]).map(rowToCompletion);
 }
+
+// ---------------------------------------------------------------------------
+// John (two-user instrumentation test). A "miss" has no completion row to hang
+// itself on — the ABSENCE is the miss — so misses live in their own table,
+// habit_misses, with owner-only RLS (deliberately narrower than
+// habit_completions, which friends can read: a reason for missing is a
+// confession, not a stat).
+// ---------------------------------------------------------------------------
+
+export type UnansweredHabit = {
+  id: string;
+  name: string;
+  color: string | null;
+};
+
+// Habits on `localDate` that were neither completed nor already explained.
+// Returns [] with the flag off, so the column and table are never named before
+// the SQL has run.
+//
+// Called with YESTERDAY. Asking at 3pm why you missed something you intend to
+// do at 9pm produces noise; yesterday is settled. A habit created after that
+// day is excluded — it cannot have been missed before it existed.
+export const listUnansweredHabits = cache(async (
+  localDate: string
+): Promise<UnansweredHabit[]> => {
+  if (!JOHN) return [];
+  const me = await getCurrentUser();
+  if (!me) return [];
+  const habits = await listActiveHabits();
+  if (habits.length === 0) return [];
+
+  const alive = habits.filter(
+    (h) => new Date(h.createdAt).toISOString().slice(0, 10) <= localDate
+  );
+  if (alive.length === 0) return [];
+  const ids = alive.map((h) => h.id);
+
+  const supabase = await createClient();
+  const [done, explained] = await Promise.all([
+    supabase
+      .from("habit_completions")
+      .select("habit_id")
+      .eq("user_id", me.id)
+      .eq("completed_on", localDate)
+      .in("habit_id", ids),
+    supabase
+      .from("habit_misses")
+      .select("habit_id")
+      .eq("user_id", me.id)
+      .eq("missed_on", localDate)
+      .in("habit_id", ids),
+  ]);
+
+  const answered = new Set<string>();
+  for (const r of done.data ?? []) answered.add((r as { habit_id: string }).habit_id);
+  for (const r of explained.data ?? [])
+    answered.add((r as { habit_id: string }).habit_id);
+
+  return alive
+    .filter((h) => !answered.has(h.id))
+    .map((h) => ({ id: h.id, name: h.name, color: h.color }));
+});

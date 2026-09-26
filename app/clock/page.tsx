@@ -1,3 +1,5 @@
+import { getProfile } from "@/lib/auth/profile";
+import { isJohnUser } from "@/lib/john/cohort";
 import { categorizeEvents, fetchEventsRaw } from "@/lib/db/calendar-events";
 import { listCategories } from "@/lib/db/categories";
 import { listActiveGoals } from "@/lib/db/goals";
@@ -30,11 +32,13 @@ export default async function ClockPage({
 
   // One parallel wave — the raw event fetch no longer depends on categories
   // (categorization is applied in JS afterwards).
-  const [categories, sessions, goals, rawEvents] = await Promise.all([
+  const [categories, sessions, goals, rawEvents, profile] = await Promise.all([
     listCategories(),
     listRecentSessions(),
     listActiveGoals(),
     fetchEventsRaw(weekStart - day, weekEnd + day),
+    // cache()-wrapped, already awaited by the root layout this render.
+    getProfile(),
   ]);
   const events = categorizeEvents(rawEvents, categories);
 
@@ -53,6 +57,7 @@ export default async function ClockPage({
       goals={goals}
       activePhotoUrl={activePhotoUrl}
       initialGoalId={goal ?? null}
+      john={isJohnUser(profile)}
     />
   );
 }

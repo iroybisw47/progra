@@ -21,6 +21,7 @@ import { ColorSwatches } from "@/components/color-swatches";
 import { archiveGoal, createGoal, updateGoal } from "@/app/actions/goals";
 import { goalColorOf } from "@/lib/colors";
 import { formatDuration } from "@/lib/duration";
+import { TARGET_OUTCOME_MAX } from "@/lib/john/instrumentation";
 
 const HOUR_MS = 60 * 60 * 1000;
 const fmtH = (ms: number) => `${(ms / HOUR_MS).toFixed(1)}h`;
@@ -31,6 +32,10 @@ export type ManageGoal = {
   color: string | null;
   quotaHours: number;
   actualMs: number;
+  // John (two-user test). Absent for everyone else — the read that supplies
+  // them is flag- and cohort-gated.
+  deadlineOn?: string | null;
+  targetOutcome?: string | null;
 };
 
 // The goals manager: a bottom sheet listing this week's goals as cards, and a
@@ -41,10 +46,15 @@ export function ManageGoals({
   open,
   onOpenChange,
   goals,
+  john = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   goals: ManageGoal[];
+  // John cohort (two users): adds an optional deadline and a definition of
+  // done. NOTE these drive nothing — no nudge, no recap band, no color. The
+  // goal model is a weekly quota; this is instrumentation, not a feature.
+  john?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   // null = closed; { id: null } = the new-goal form.
@@ -53,10 +63,19 @@ export function ManageGoals({
     title: string;
     quota: number;
     color: string | null;
+    deadlineOn: string;
+    targetOutcome: string;
   } | null>(null);
 
   function openNew() {
-    setEditing({ id: null, title: "", quota: 5, color: null });
+    setEditing({
+      id: null,
+      title: "",
+      quota: 5,
+      color: null,
+      deadlineOn: "",
+      targetOutcome: "",
+    });
   }
 
   function openEdit(goal: ManageGoal) {
@@ -65,6 +84,8 @@ export function ManageGoals({
       title: goal.title,
       quota: goal.quotaHours,
       color: goal.color,
+      deadlineOn: goal.deadlineOn ?? "",
+      targetOutcome: goal.targetOutcome ?? "",
     });
   }
 
@@ -76,10 +97,29 @@ export function ManageGoals({
       return;
     }
     const { id, quota, color } = editing;
+    // Only sent for the cohort. An empty string means "no deadline" / "not
+    // said", which is null in the column — not the empty string.
+    const johnFields = john
+      ? {
+          deadlineOn: editing.deadlineOn === "" ? null : editing.deadlineOn,
+          targetOutcome:
+            editing.targetOutcome.trim() === "" ? null : editing.targetOutcome,
+        }
+      : {};
     startTransition(async () => {
       const r = id
-        ? await updateGoal(id, { title, weeklyQuotaHours: quota, color })
-        : await createGoal({ title, weeklyQuotaHours: quota, color });
+        ? await updateGoal(id, {
+            title,
+            weeklyQuotaHours: quota,
+            color,
+            ...johnFields,
+          })
+        : await createGoal({
+            title,
+            weeklyQuotaHours: quota,
+            color,
+            ...johnFields,
+          });
       if ("error" in r) {
         toast.error(r.error);
         return;
@@ -233,6 +273,42 @@ export function ManageGoals({
                 setEditing((s) => (s ? { ...s, color } : s))
               }
             />
+
+            {john && (
+              <div className="flex flex-col gap-2.5">
+                <label
+                  htmlFor="goal-deadline"
+                  className="text-caption text-[13px] font-semibold tracking-[0.04em] uppercase"
+                >
+                  Deadline — optional
+                </label>
+                <input
+                  id="goal-deadline"
+                  type="date"
+                  value={editing?.deadlineOn ?? ""}
+                  disabled={pending}
+                  onChange={(e) =>
+                    setEditing((s) =>
+                      s ? { ...s, deadlineOn: e.target.value } : s
+                    )
+                  }
+                  className="border-control-border text-ink h-12 w-full rounded-[15px] border-[1.5px] bg-transparent px-3.5 text-[15px] outline-none disabled:opacity-50"
+                />
+                <input
+                  aria-label="What does done look like?"
+                  value={editing?.targetOutcome ?? ""}
+                  placeholder="What does done look like?"
+                  maxLength={TARGET_OUTCOME_MAX}
+                  disabled={pending}
+                  onChange={(e) =>
+                    setEditing((s) =>
+                      s ? { ...s, targetOutcome: e.target.value } : s
+                    )
+                  }
+                  className="border-control-border text-ink h-12 w-full rounded-[15px] border-[1.5px] bg-transparent px-3.5 text-[15px] outline-none placeholder:text-disabled disabled:opacity-50"
+                />
+              </div>
+            )}
 
             <div className="flex gap-2.5">
               {editing?.id && (

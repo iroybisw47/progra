@@ -4,7 +4,105 @@ A running log of changes, grouped by date (newest first). Section headings are
 prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
+
 ## 2026-09-25
+
+### 23:08 · John instrumentation — the app half (SP4–SP7), export written (SP9)
+
+The write paths, the UI and the export for the two-user test. Still dark:
+`NEXT_PUBLIC_JOHN` is off, so no reader selects a new column.
+
+**Sessions.** An optional intention above Clock in — deliberately outside
+`canClockIn`, because a required field at clock-in suppresses clocking in, and
+the session count is one of the things John is meant to read. At clock-out, one
+debrief card (not three blocks — the finish sheet is already dense) carrying the
+intention echoed back, an outcome, focus 1–5 and a phone-distraction tap.
+**Focus and phone gate Post; the typed fields don't** — a tap after the work is
+done can't discourage the work. The chevron, Delete and auto-ended sessions stay
+unblocked, and dismissing now SAVES a filled-in debrief instead of discarding it.
+
+`pause_count` increments on the update `pauseSession` already performs, off the
+select it already makes — zero extra round-trips — and sits after the
+already-paused guard so a double-tap can't inflate it. `startBreak` deliberately
+doesn't increment: a scheduled break is the plan running, not a person deciding
+to stop, and telling those apart is the entire point of the counter.
+
+**Goals.** An optional deadline and definition of done, in the edit sheet only.
+`GOAL_COLUMNS` was extracted on the way past — the select list was duplicated
+verbatim across five readers. The new columns are appended in `listActiveGoals`
+ONLY; `listActiveGoalsForUser` reads a friend's goals and a friend's deadline is
+not theirs to see. Threaded through both mount points (Progress and /me),
+because otherwise opening the sheet from the wrong one would show blank fields
+and **wipe an existing deadline on save**.
+
+**Habits.** A "Yesterday" card listing habits that were neither ticked nor
+explained, with four reason taps and a "Did it actually" escape. Yesterday, not
+today: asking at 3pm why you missed something you plan to do at 9pm produces
+noise. No backlog queue — a chore in a one-week test gets ignored, which is
+worse data than an honest gap. `toggleHabitCompletion` clears any miss row,
+keeping done XOR missed true.
+
+**Export.** Four read-only queries, written now and validated against seeded
+rows rather than merely syntax-checked. Friend overlap is DERIVED at export
+time, not stamped at clock-out: a friend's private sessions are invisible to the
+client's RLS view, so an app-side computation would record "nobody" exactly
+where that's false. The harness proves it — two friends overlapping 30 minutes
+both read 30, while a non-friend whose session fully overlaps contributes zero.
+
+Every cohort round-trip is lazy: it fires only when a John field was actually
+sent, and no non-cohort client can produce one. Clock-in, the notes-only save
+and habit toggles are unchanged for the other ~50 users.
+
+### 22:53 · John instrumentation — schema, adversarial tests, flag and pure TS (SP0–SP3)
+
+Groundwork for **John**, a future AI backend that reads Progra data and returns
+weekly insights. This is instrumentation only — no AI, no insights, no backend.
+The inputs it will need have to exist first, and for a one-week test they must be
+visible to **exactly two users** (`ishaanroybiswas`, `zack`) while the other ~50
+beta users see zero change.
+
+**Two orthogonal gates, because one wouldn't do.** Every flag in `lib/flags.ts`
+is a `NEXT_PUBLIC_*` env var inlined at build time — global, not per-user. So
+`JOHN` answers "have the columns been created?" and `profiles.john_enabled`
+answers "is this person in the test?". The cohort is widened, narrowed or ended
+with one `UPDATE` in the SQL editor; no redeploy. `isJohnUser()` is
+`JOHN && john_enabled === true` — strict, so an absent key fails CLOSED.
+
+`john_enabled` is guarded by `guard_profiles_john_enabled`, a **copy** of the
+existing `seat_no` guard: keyed off `current_user`, plain `plpgsql`, no
+`security definer`. The draft used `auth.uid()` + `security definer` and was
+wrong on both counts — the SP0 pre-flight query existed precisely to catch that,
+and did.
+
+**Three things the spec assumed already existed.** Pause count doesn't —
+`paused_ms` is banked duration and `breaks_taken` counts only scheduled breaks,
+so `sessions.pause_count` is new and has no history. A habit "miss" isn't a
+record at all — it's the absence of a completion row — hence a new
+`habit_misses` table. But habit completion **time** turned out to exist after
+all: `habit_completions.created_at` was already there, undocumented, with full
+history, so that column was deleted from the plan.
+
+**The gate is not in RLS, deliberately.** `sessions_update_own` has no
+`WITH CHECK`, so an owner can PATCH any column on their own row through
+PostgREST. Adding one would mean rewriting a policy all 52 users write through
+on every clock-in — the blast radius of getting that wrong is the whole product,
+versus one junk integer in a column nothing but a `user_id`-filtered export
+reads. So the cohort check lives in the action layer, and the DB carries CHECK
+constraints on every new column instead.
+
+**`habit_misses` RLS is narrower than `habit_completions`.** That table has a
+`friend_read` policy; this one doesn't. A reason for missing is a confession,
+not a stat.
+
+Schema proved locally before it touched prod:
+`.claude/plans/nudges-harness/john.mjs` applies STEP 1 to a PGlite mock and runs
+STEP 2 — **38/38, with all 11 planted mutants caught**. It found three real bugs
+in the SQL first: `call` on what are functions not procedures; a truncate test
+that wasn't valid SQL and would have gone green for the wrong reason; and a
+cascade test that deleted a habit with no rows attached. Prod run: 38/38.
+
+Nothing is user-visible. `NEXT_PUBLIC_JOHN` stays off until SP8.
+
 
 ### 10:38 · Profile stats are lifetime totals now — Hours, Sessions, Friends
 
@@ -143,6 +241,107 @@ minus the photo it was supposed to carry.
 - `SessionPhotoStep` is untouched, so the live clock flow stays camera-first.
 - No new tests: the change is client orchestration plus an action's return shape, with
   no new pure function to cover. 369 existing tests still pass.
+
+## 2026-09-20
+
+### 10:15 · "Your week is ready" — the recap push (requires SQL, ships inert)
+
+The weekly recap has had its unlock ritual since July: `isRecapReady` gates it to
+Sunday 6pm in the user's own timezone, and `recap-nudge.tsx` shows a banner on
+Progress once it opens. **But that banner only ever reached someone who had
+already opened the app** — the retention ritual depended on remembering it
+existed. This is the off-app half: an APNs push at Sunday 6pm local, deep-linking
+to `/recap/[weekStart]`, which stamps `markRecapOpened` on mount so the tap also
+clears the in-app banner.
+
+**This is the first scheduled job in the repo**, and that was the real decision.
+Everything else time-based here is lazy — `<EnsureSessionCap/>` and friends fire
+on the next page load — and that substitute cannot work when the entire point is
+reaching someone who is *not* opening the app. It runs on Supabase **`pg_cron` +
+`pg_net`**, not Vercel Cron: the Hobby plan allows 2 jobs at daily granularity,
+and "Sunday 6pm local" is a ~27-hour smear across UTC offsets. `vercel.json` is
+untouched.
+
+**Hourly, matching a whole evening rather than an instant.** Local 18:00 lands at
+~27 distinct UTC instants and the :30/:45 zones (India, Nepal, Chatham) never
+align to the hour at all, so `recap_push_candidates()` matches *Sunday, hour >=
+18* local and `push_log`'s primary key makes the repeat runs no-ops. That doubles
+as a catch-up window if a run fails, bounded by local midnight.
+
+**A bug the PGlite harness caught before prod.** The first draft guarded the
+timezone conversion with `exists (select 1 from pg_timezone_names …)` in the same
+`WHERE`. Postgres does not promise to evaluate that guard *before* the `at time
+zone`, and it didn't — one profile with a junk tz string raised and took down the
+**entire result set**, meaning nobody would have got a recap push that week. Now
+`local_now_or_null(tz, at)` swallows the error and returns null, so a bad row
+excludes only itself. The nudge RPCs get away with a plpgsql exception block
+because they're per-recipient; this one is a set, so the blast radius was
+everyone.
+
+- **New:** `lib/push/recap-push.ts` (pure compose + `recapDedupeKey` /
+  `recapCollapseId`, 7 tests), `lib/push/send-recap-push.ts` (third orchestrator,
+  same opt-out → `push_log` claim → tokens → send → prune shape as the other
+  two), `app/api/cron/recap-ready/route.ts` (first file under `app/api/`;
+  `runtime = "nodejs"` is load-bearing — `apns.ts` uses `node:http2`), and
+  `.claude/plans/recap-push.sql` + `nudges-harness/recap.mjs`.
+- **Copy is generic on purpose.** No emptiness check (product call: a standing
+  Sunday ritual reminder, not a report), so the body can't quote hours — a user
+  who tracked nothing would read "You logged 0h".
+- **No new profiles column.** Opting out is the existing `social_pushes_enabled`.
+  Consequently the Settings row's gate widened to `SOCIAL_PUSH || RECAP_PUSH` —
+  otherwise the row could vanish while recap pushes still sent, with no way out —
+  and its label/description now name whichever senders are live.
+- `proxy.ts` excludes `api/cron` (no cookies to refresh, and `updateSession`
+  would build a Supabase client on every scheduled invocation).
+- **Ships inert** behind `NEXT_PUBLIC_RECAP_PUSH`, so the schedule can be created
+  and watched in `net._http_response` before anyone is buzzed. Flag off, the
+  route returns `{due:0,…,flag:"off"}` with a 200.
+
+## 2026-09-19
+
+### 15:44 · Remove the research-interview consent from Settings
+
+Onboarding stopped asking on 2026-09-15, which left the Settings toggle as the
+only surface. It's gone now — but **it was the withdrawal path, not the ask**,
+and three things depended on that.
+
+`app/privacy/page.tsx` promised it in writing: *"You can withdraw at any time
+from Settings."* The component's own comment said why it existed: *"Consent that
+can't be taken back isn't consent, so this row exists even though the ask happens
+in onboarding."* And `/admin` exports consented users as CSV. Deleting the row on
+its own would have left everyone who had already opted in permanently consented,
+still in that export, with no way out, while the published policy pointed at a
+toggle that no longer existed.
+
+So it's a clean break rather than a deletion:
+
+- **The section is gone** from Settings, along with `InterviewConsentRow`, the
+  `interviewConsent` prop and its read in `app/settings/page.tsx`.
+- **The stored consents get cleared** —
+  `.claude/plans/interview-consent-clear.sql`, which lists who is consented
+  first (once it runs there's no record of who said yes), then clears both the
+  flag and the stamp. `interview_consent_at` must never outlive the consent it
+  records, which is `setInterviewConsent`'s own rule.
+- **The privacy policy was rewritten**, not just trimmed. The Research paragraph
+  now says the opt-in no longer exists and prior consent has been cleared; the
+  data-collected bullet about interview opt-in is gone; and a stale cross-
+  reference under "How Google user data is used" — *"The one exception is
+  described under Research and product interviews below"* — was removed, since
+  there is no longer an exception.
+
+Kept deliberately: `profiles.interview_consent`/`_at`, `setInterviewConsent`
+(now with no caller, and a comment saying so) and the /admin panel, which simply
+shows its empty state from here. Restarting interviews is then a UI change rather
+than a migration — with the standing note that a withdrawal surface has to come
+back at the same time, because the policy needs somewhere to point.
+
+Band order re-traced after removing the section, the way it should have been the
+first time: Account, Notifications, Sharing, Invite, Admin and Help each still
+have exactly one band in front of them.
+
+**The app ships the reworded policy immediately; the SQL has not run yet.** Until
+it does, the policy's claim that prior consent was cleared is ahead of the data —
+worth running promptly rather than at leisure.
 
 ## 2026-09-18
 

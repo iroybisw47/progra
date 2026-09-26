@@ -101,6 +101,20 @@ export const HABIT_REMINDERS = envFlag(process.env.NEXT_PUBLIC_HABIT_REMINDERS);
 // the APNS_* server env vars, so flipping this without them is a logged no-op.
 export const SOCIAL_PUSH = envFlag(process.env.NEXT_PUBLIC_SOCIAL_PUSH);
 
+// Master switch for the weekly-recap push ("Your week is ready", Sunday 6pm in
+// the user's own timezone). Read by app/api/cron/recap-ready/route.ts, which
+// no-ops when it's off — so the schedule can be created and observed in
+// production before a single buzz reaches anyone. Delivery additionally needs
+// the APNS_* env vars, like SOCIAL_PUSH.
+//
+// NEXT_PUBLIC_ per this file's convention even though nothing client-side reads
+// it: every flag here is inlined at build time, and a bare process.env read in
+// a route handler would diverge from how the rest of the file behaves.
+//
+// Opting out is the SOCIAL_PUSH switch, not a second column — see
+// lib/push/send-recap-push.ts.
+export const RECAP_PUSH = envFlag(process.env.NEXT_PUBLIC_RECAP_PUSH);
+
 // Master switch for nudges: the button on a friend's profile, the target/preset
 // sheet, the rows in the notifications panel and the Settings opt-out. Implies
 // SOCIAL_ENABLED — a nudge is friends-only, so it can't mean anything with the
@@ -117,6 +131,26 @@ export const NUDGES =
 // break comments if it's flipped before the hand-run SQL has been applied.
 export const COMMENT_REPLIES =
   envFlag(process.env.NEXT_PUBLIC_COMMENT_REPLIES) && SOCIAL_ENABLED;
+
+// Master switch for John: the instrumentation that collects the inputs a weekly
+// AI insights backend will need — an intention at clock-in, an outcome + focus
+// rating + phone-distraction tap at clock-out, a pause counter, an optional goal
+// deadline, and a reason for a missed habit.
+//
+// THIS FLAG MEANS "THE SQL HAS RUN", NOT "WHO CAN SEE IT". Who sees it is
+// profiles.john_enabled, a per-user column flipped with one UPDATE in the SQL
+// editor — which is how a two-person test is possible at all, since every flag
+// in this file is a build-time global.
+//
+// Flipping this ON before .claude/plans/john-instrumentation.sql STEP 1 has run
+// is the one dangerous ordering: the flagged selects would 42703, PostgREST
+// would return nothing, and the finish screen plus the goals read would break
+// for ALL users, not just the cohort. Off, no reader selects a new column, so
+// the app is safe to deploy ahead of the SQL.
+//
+// Off is also the kill switch: isJohnUser() is `JOHN && john_enabled === true`,
+// so flipping this false ends the test for everyone without touching the DB.
+export const JOHN = envFlag(process.env.NEXT_PUBLIC_JOHN);
 
 // How long an "hour" is for the hourly nudge. Only ever anything else in test
 // mode; lib/clock-reminders.ts stays pure and takes this as an argument rather

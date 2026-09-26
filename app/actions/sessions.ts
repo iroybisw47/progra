@@ -19,6 +19,16 @@ import {
 } from "@/lib/session";
 import { capText } from "@/lib/validate";
 import { requireSeat } from "@/lib/auth/require-seat";
+import { JOHN } from "@/lib/flags";
+import { isJohnRequest } from "@/lib/john/gate";
+import {
+  INTENTION_MAX,
+  OUTCOME_MAX,
+  isFocusRating,
+  isPhoneLevel,
+  type FocusRating,
+  type PhoneLevel,
+} from "@/lib/john/instrumentation";
 
 type Result = { ok: true } | { error: string };
 
@@ -37,6 +47,10 @@ export async function loadSessionHistory(opts: {
 }
 
 type ClockInInput = {
+  // John: a short "what am I here to do?" typed at clock-in. Never required —
+  // a required field at clock-in suppresses clocking in, which would corrupt
+  // the session count this test exists to measure.
+  intention?: string | null;
   categoryId?: string | null;
   goalId?: string | null;
   taskName: string;
@@ -133,6 +147,12 @@ export async function clockIn(
   const plan = resolvePlan(input.plan);
   if ("error" in plan) return plan;
 
+  // John: what you sat down to do, captured BEFORE the work rather than after.
+  // Only ever sent by the cohort's clock screen, so the cohort round-trip is
+  // skipped entirely for everyone else — see lib/john/gate.ts.
+  const intention = JOHN ? capText(input.intention, INTENTION_MAX) : null;
+  const john = intention !== null ? await isJohnRequest() : false;
+
   const { data, error } = await supabase
     .from("sessions")
     .insert({
@@ -145,6 +165,11 @@ export async function clockIn(
       ended_at: null,
       // All null for an open-ended session, which is every caller today.
       ...plan,
+      ...(john ? { intention } : {}),
+      // Seeded for EVERYONE under the flag, not just the cohort: null means
+      // "predates this feature", 0 means "started under it and never paused".
+      // Without the seed those two are indistinguishable forever.
+      ...(JOHN ? { pause_count: 0 } : {}),
     })
     .select("id")
     .single();
@@ -541,7 +566,14 @@ export async function pauseSession(): Promise<Result> {
 
   const { data: active } = await supabase
     .from("sessions")
-    .select("id, paused_since, on_break")
+    // pause_count rides along on a select this action already makes, so
+    // counting pauses costs zero extra round-trips. Flag-gated so the column is
+    // never named while the SQL might not have run.
+    .select(
+      JOHN
+        ? "id, paused_since, on_break, pause_count"
+        : "id, paused_since, on_break"
+    )
     .eq("user_id", user.id)
     .is("ended_at", null)
     .maybeSingle();
@@ -550,6 +582,7 @@ export async function pauseSession(): Promise<Result> {
     id: string;
     paused_since: string | null;
     on_break: boolean | null;
+    pause_count?: number | null;
   } | null;
   if (!row) return { error: "No active session" };
   // A break is already a pause, and the two mean different things to the timer.
@@ -560,9 +593,18 @@ export async function pauseSession(): Promise<Result> {
   }
   if (row.paused_since) return { ok: true }; // already paused
 
+  // The increment sits AFTER the already-paused guard on purpose: a double-tap
+  // (or two tabs) would otherwise inflate the count without a second real pause.
+  //
+  // Counted for EVERYONE under the flag, not just the cohort — it is derived,
+  // has no UI, and gating it would mean a profile round-trip on every pause for
+  // all 52 users.
   const { error } = await supabase
     .from("sessions")
-    .update({ paused_since: new Date().toISOString() })
+    .update({
+      paused_since: new Date().toISOString(),
+      ...(JOHN ? { pause_count: (row.pause_count ?? 0) + 1 } : {}),
+    })
     .eq("id", row.id);
   if (error) return { error: error.message };
 
@@ -575,6 +617,10 @@ export async function pauseSession(): Promise<Result> {
 // excludes it for free. `on_break` is what distinguishes the two, and
 // breaks_taken is what makes the NEXT break land a full interval later even if
 // this one is ended early.
+//
+// DELIBERATELY DOES NOT TOUCH pause_count. A scheduled break is the plan
+// running, not a person deciding to stop — and telling those two apart is the
+// entire reason John collects a pause count. breaks_taken already counts these.
 export async function startBreak(): Promise<Result> {
   const supabase = await createClient();
   const user = await getCurrentUser();
@@ -748,6 +794,13 @@ type UpdateSessionPatch = {
   endedAt?: number | null;
   // Social v2: true = owner-only, false = visible to accepted friends (Aspect 4).
   isPrivate?: boolean;
+  // John debrief, written from the finish screen. Every one is optional and
+  // nullable: a session that ends with nobody present (autoClockOut,
+  // completePlannedSession, a finish screen closed without posting) legitimately
+  // has none of them, and null is the honest record rather than a default.
+  outcome?: string | null;
+  focusRating?: FocusRating | null;
+  phoneDistraction?: PhoneLevel | null;
 };
 
 export async function updateSession(
@@ -779,6 +832,40 @@ export async function updateSession(
   }
   if (patch.isPrivate !== undefined) {
     update.is_private = patch.isPrivate;
+  }
+
+  // John debrief. The cohort round-trip happens ONLY when a debrief field was
+  // actually sent, so the notes-only save every other user makes is unchanged.
+  //
+  // The guards below are defense-in-depth, not the authority: an action is a
+  // POST endpoint reachable directly, and sessions_update_own has no WITH CHECK,
+  // so the DB's CHECK constraints are the real backstop. These exist to return a
+  // readable error instead of a raw 23514.
+  if (
+    patch.outcome !== undefined ||
+    patch.focusRating !== undefined ||
+    patch.phoneDistraction !== undefined
+  ) {
+    if (!(await isJohnRequest())) return { error: "Not available" };
+
+    if (patch.outcome !== undefined) {
+      update.outcome = capText(patch.outcome, OUTCOME_MAX);
+    }
+    if (patch.focusRating !== undefined) {
+      if (patch.focusRating !== null && !isFocusRating(patch.focusRating)) {
+        return { error: "Pick a focus rating from 1 to 5" };
+      }
+      update.focus_rating = patch.focusRating;
+    }
+    if (patch.phoneDistraction !== undefined) {
+      if (
+        patch.phoneDistraction !== null &&
+        !isPhoneLevel(patch.phoneDistraction)
+      ) {
+        return { error: "Pick how distracting your phone was" };
+      }
+      update.phone_distraction = patch.phoneDistraction;
+    }
   }
 
   // Explicit ownership filter + row check: RLS already blocks foreign writes,

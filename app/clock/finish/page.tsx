@@ -1,7 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 
+import { getProfile } from "@/lib/auth/profile";
 import { requireUser } from "@/lib/auth/require-user";
-import { REDESIGN } from "@/lib/flags";
+import { JOHN, REDESIGN } from "@/lib/flags";
+import { isJohnUser } from "@/lib/john/cohort";
 import { createClient } from "@/lib/supabase/server";
 import {
   SESSION_COLUMNS,
@@ -34,23 +36,32 @@ export default async function FinishPage({
   if (!sid) redirect("/");
 
   const supabase = await createClient();
+  // `intention` is appended only under the flag, so with John off this reader is
+  // byte-identical to before — and it stays OUT of SESSION_COLUMNS, which the
+  // cross-user feed shares.
   const { data } = await supabase
     .from("sessions")
-    .select(`${SESSION_COLUMNS}, user_id`)
+    .select(`${SESSION_COLUMNS}, user_id${JOHN ? ", intention" : ""}`)
     .eq("id", sid)
     .maybeSingle();
 
-  const row = data as (SessionRow & { user_id: string }) | null;
+  const row = data as
+    | (SessionRow & { user_id: string; intention?: string | null })
+    | null;
   // Own, ended session only — otherwise there's nothing to finish here.
   if (!row || row.user_id !== me.id) redirect("/");
   const session = rowToSession(row);
   if (session.endedAt == null) redirect("/clock/live");
 
-  const [categories, goals, photoUrl] = await Promise.all([
+  const [categories, goals, photoUrl, profile] = await Promise.all([
     listCategories(),
     listActiveGoals(),
     getSessionPhotoUrl(session),
+    // cache()-wrapped and already awaited by the root layout this render, so
+    // the cohort check costs nothing here.
+    getProfile(),
   ]);
+  const john = isJohnUser(profile);
   const attribution = resolveAttribution(session, categories, goals);
   const workedMs = sessionWorkedMs(session, session.endedAt);
 
@@ -63,6 +74,10 @@ export default async function FinishPage({
       workedMs={workedMs}
       photoUrl={photoUrl}
       autoEnded={session.autoEndedAt !== null}
+      john={john}
+      // Echoed above the outcome field. Without it "what actually happened?" has
+      // nothing to be measured against and decays into a second notes box.
+      intention={john ? (row.intention ?? null) : null}
     />
   );
 }

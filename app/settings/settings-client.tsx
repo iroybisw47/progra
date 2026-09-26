@@ -19,7 +19,6 @@ import { ReplayOnboardingButton } from "@/components/replay-onboarding-button";
 import { ToggleSwitch } from "@/components/v2/toggle-switch";
 import {
   disconnectGoogleCalendar,
-  setInterviewConsent,
   setNudgesEnabled,
   setProfileIdentity,
   setProfileTimezone,
@@ -34,6 +33,7 @@ import {
   CLOCK_REMINDERS,
   HABIT_REMINDERS,
   NUDGES,
+  RECAP_PUSH,
   SOCIAL_PUSH,
 } from "@/lib/flags";
 import {
@@ -108,7 +108,6 @@ export function SettingsClient({
   nudgesEnabled,
   isAdmin,
   openReports,
-  interviewConsent,
 }: {
   email: string;
   username: string | null;
@@ -124,9 +123,6 @@ export function SettingsClient({
   nudgesEnabled: boolean;
   isAdmin: boolean;
   openReports: number;
-  // Research-interview opt-IN. false is the honest default: null (never
-  // asked) and false (declined) are the same thing here.
-  interviewConsent: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [bugOpen, setBugOpen] = useState(false);
@@ -355,11 +351,15 @@ export function SettingsClient({
           </>
         )}
 
-        <Band />
-
-        {/* Research */}
-        <SectionLabel>Research</SectionLabel>
-        <InterviewConsentRow initialConsent={interviewConsent} />
+        {/* "Research" (the interview-consent toggle) was removed 2026-09-19,
+            with onboarding no longer asking. It was the WITHDRAWAL surface, not
+            the ask — so removing it alone would have stranded everyone who had
+            already opted in, permanently consented and still in the admin
+            export. The stored consents were cleared in the same change
+            (.claude/plans/interview-consent-clear.sql) and the privacy policy's
+            Research paragraph reworded, so nothing promises a toggle that isn't
+            there. The columns, setInterviewConsent and the /admin panel are all
+            kept: the panel simply returns nothing now. */}
 
         <Band />
 
@@ -711,7 +711,7 @@ function NotificationsSection({
       {/* Account-level (the server sends these, and servers know accounts,
           not phones) — but only shown once granted, like the rows above: a
           toggle for notifications that can't arrive here is noise. */}
-      {SOCIAL_PUSH && permission === "granted" && (
+      {(SOCIAL_PUSH || RECAP_PUSH) && permission === "granted" && (
         <SocialPushRow initialEnabled={socialPushesEnabled !== false} />
       )}
 
@@ -810,46 +810,6 @@ function HabitReminderRow() {
   );
 }
 
-// Server-sent likes/comments pushes, account-level. Optimistic: flip locally,
-// revert on a failed save — the pattern the identity sheet uses, minus the
-// sheet.
-// Where interview consent is withdrawn. Consent that can't be taken back
-// isn't consent, so this row exists even though the ask happens in onboarding.
-// Same optimistic-then-revert shape as SocialPushRow below.
-function InterviewConsentRow({ initialConsent }: { initialConsent: boolean }) {
-  const [consent, setConsent] = useState(initialConsent);
-
-  return (
-    <>
-      <ToggleRow
-        label="Open to an interview"
-        ariaLabel="Open to a research interview"
-        checked={consent}
-        onCheckedChange={(next) => {
-          setConsent(next);
-          track("interview_consent_set", {
-            enabled: next,
-            source: "settings",
-          });
-          void setInterviewConsent(next).then((r) => {
-            if ("error" in r) {
-              setConsent(!next);
-              toast.error("Couldn't save — try again.");
-            }
-          });
-        }}
-      />
-      <Inset>
-        <p className="text-caption text-xs leading-relaxed text-pretty">
-          Lets us email you at your sign-in address to ask for a short chat
-          about how you use Progra — around 20 minutes, and never more than
-          that. Turning this off stops it, and deleting your account withdraws
-          it entirely.
-        </p>
-      </Inset>
-    </>
-  );
-}
 
 // Whether friends may nudge you. Distinct from the push toggle above it: this
 // one decides whether the nudge happens at all, that one only decides whether
@@ -876,12 +836,23 @@ function NudgesRow({ initialEnabled }: { initialEnabled: boolean }) {
       />
       <Inset>
         <p className="text-caption text-xs leading-relaxed text-pretty">
-          Let friends nudge you in the afternoon when a goal or habit is still
-          open. They can nudge you at most once every six hours.
+          Let friends nudge you from 9am your time when a goal or habit is
+          still open, and cheer you on when you&rsquo;ve finished. Each friend
+          can do either at most once every six hours.
         </p>
       </Inset>
     </>
   );
+}
+
+// One switch, several senders — the weekly recap deliberately shares
+// social_pushes_enabled rather than adding a second column. So the label has to
+// name whichever senders are actually live, or someone turning this off can't
+// tell what they're losing.
+function pushRowLabel(): string {
+  if (SOCIAL_PUSH && RECAP_PUSH) return "Social & weekly recap";
+  if (RECAP_PUSH) return "Weekly recap";
+  return NUDGES ? "Likes, comments & nudges" : "Likes & comments";
 }
 
 function SocialPushRow({ initialEnabled }: { initialEnabled: boolean }) {
@@ -890,8 +861,8 @@ function SocialPushRow({ initialEnabled }: { initialEnabled: boolean }) {
   return (
     <>
       <ToggleRow
-        label={NUDGES ? "Likes, comments & nudges" : "Likes & comments"}
-        ariaLabel="Like, comment and nudge notifications"
+        label={pushRowLabel()}
+        ariaLabel="Server-sent notifications"
         checked={enabled}
         onCheckedChange={(next) => {
           setEnabled(next);
@@ -906,8 +877,15 @@ function SocialPushRow({ initialEnabled }: { initialEnabled: boolean }) {
       />
       <Inset>
         <p className="text-caption text-xs leading-relaxed text-pretty">
-          When a friend likes or comments on your session
-          {NUDGES ? ", or nudges you" : ""}. Applies to all your devices.
+          {SOCIAL_PUSH && (
+            <>
+              When a friend likes or comments on your session
+              {NUDGES ? ", or nudges you" : ""}.
+            </>
+          )}
+          {SOCIAL_PUSH && RECAP_PUSH ? " " : ""}
+          {RECAP_PUSH && "Plus your weekly recap, Sunday evening."}{" "}
+          Applies to all your devices.
         </p>
       </Inset>
     </>

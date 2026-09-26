@@ -86,6 +86,14 @@ export type Profile = {
   // an undismissable modal on every page load. patchNoteToShow() tests strict
   // `=== undefined` and shows nothing. Worst case here is one missed note.
   patch_notes_seen_version?: string | null;
+  // Whether this user is in the John instrumentation test (see lib/john/cohort.ts).
+  // NOT user-writable — guard_profiles_john_enabled rejects the column from
+  // `authenticated` and `anon`, the same way the seat_no guard does.
+  //
+  // Optional for seat_no's reason, and fails CLOSED like patch_notes_seen_version:
+  // isJohnUser() tests strict `=== true`, so an absent key means "not in the
+  // test" rather than showing ~50 beta users UI built for two.
+  john_enabled?: boolean | null;
   created_at: string;
   updated_at: string;
 };

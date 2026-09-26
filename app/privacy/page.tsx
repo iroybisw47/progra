@@ -36,10 +36,6 @@ export default function PrivacyPage() {
               photos you attach to them.
             </li>
             <li>Basic usage data needed to operate and improve the app.</li>
-            <li>
-              Whether you have opted in to being contacted for a product
-              interview, and the date you did so. Off unless you turn it on.
-            </li>
           </ul>
         </section>
 
@@ -51,9 +47,7 @@ export default function PrivacyPage() {
             Google user data is used only to provide user-facing features
             inside Progra &mdash; signing you in, showing your calendar events
             alongside your tracked time, and building your personal summaries.
-            The one exception is described under Research and product interviews
-            below, and it happens only if you opt in. We do not use it for
-            advertising, and we never sell it.
+            We do not use it for advertising, and we never sell it.
           </p>
         </section>
 
@@ -62,12 +56,11 @@ export default function PrivacyPage() {
             Research and product interviews
           </h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            If you opt in, we may email you at your sign-in address to ask for a
-            short conversation about how you use Progra. This is off by default
-            and never happens without your explicit opt-in. You can withdraw at
-            any time from Settings, and deleting your account withdraws it
-            entirely. We do not use your email for advertising or newsletters,
-            and we never share it with anyone for their own purposes.
+            Progra no longer asks to contact you for product interviews, and
+            there is nothing to opt in to. Any opt-in previously given has been
+            cleared, so no one is on that list. We do not use your email for
+            advertising or newsletters, and we never share it with anyone for
+            their own purposes.
           </p>
         </section>
 

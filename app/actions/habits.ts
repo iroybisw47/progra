@@ -6,6 +6,9 @@ import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { todayInTimeZone } from "@/lib/dates";
 import { requireSeat } from "@/lib/auth/require-seat";
+import { JOHN } from "@/lib/flags";
+import { isJohnRequest } from "@/lib/john/gate";
+import { isMissReason } from "@/lib/john/instrumentation";
 
 type Result = { ok: true } | { error: string };
 
@@ -149,7 +152,74 @@ export async function toggleHabitCompletion(
       completed_on: localDate,
     });
     if (error) return { error: error.message };
+
+    // John: done XOR missed. A day cannot be both completed and explained away,
+    // and the "Did it actually" escape on the Yesterday card routes through
+    // here. Enforced in the action rather than by a constraint — a cross-table
+    // exclusion needs a trigger, which is disproportionate for two users and one
+    // week. Best-effort: the completion is the truth either way, and a stale
+    // miss row only means the card stays quiet.
+    if (JOHN) {
+      await supabase
+        .from("habit_misses")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("habit_id", habitId)
+        .eq("missed_on", localDate);
+    }
   }
+
+  revalidateHabitSurfaces();
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// John (two-user instrumentation test): why a habit was missed.
+// ---------------------------------------------------------------------------
+
+// Record a reason for a habit-day with no completion. Upserts on
+// (habit_id, missed_on) so tapping a different reason corrects the first answer
+// rather than failing on the unique constraint.
+export async function recordHabitMiss(
+  habitId: string,
+  localDate: string,
+  reason: string
+): Promise<Result> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(localDate)) return { error: "Invalid date" };
+  if (!isMissReason(reason)) return { error: "Unknown reason" };
+
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+  if (!JOHN || !(await isJohnRequest())) return { error: "Not available" };
+
+  const supabase = await createClient();
+
+  // Never explain away a day that was actually done. The card only offers
+  // unanswered days, but an action is a POST endpoint reachable directly.
+  const { data: done } = await supabase
+    .from("habit_completions")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("habit_id", habitId)
+    .eq("completed_on", localDate)
+    .maybeSingle();
+  if (done) return { error: "That day is already checked off" };
+
+  const { error } = await supabase
+    .from("habit_misses")
+    .upsert(
+      {
+        user_id: user.id,
+        habit_id: habitId,
+        missed_on: localDate,
+        reason,
+      },
+      { onConflict: "habit_id,missed_on" }
+    );
+  // RLS refuses a habit that isn't the caller's (habit_misses_insert_own checks
+  // the habit's owner too), which surfaces here as an error rather than a
+  // silent no-op.
+  if (error) return { error: error.message };
 
   revalidateHabitSurfaces();
   return { ok: true };

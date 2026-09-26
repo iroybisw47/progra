@@ -213,6 +213,8 @@ export async function loadProgressData(): Promise<ProgressData> {
     quotaHours: g.quotaHours,
     actualMs: g.actualMs,
     status: g.status,
+    deadlineOn: g.deadlineOn,
+    targetOutcome: g.targetOutcome,
   }));
 
   // --- Habits today ---

@@ -13,6 +13,12 @@ import { CHIP, CHIP_OFF, CHIP_ON, ChipRail } from "@/components/v2/period-chips"
 import { SectionHeader } from "@/components/v2/section-header";
 import { AutoEndNudge } from "@/components/v2/auto-end-nudge";
 import { RecapNudge } from "@/components/v2/recap-nudge";
+// Lazy + cohort-only, so the other ~50 users never download the chunk.
+const HabitMissCard = dynamic(
+  () =>
+    import("@/components/john/habit-miss-card").then((m) => m.HabitMissCard),
+  { ssr: false }
+);
 
 // The manage-habits editor (485 lines) only matters after tapping the Habits
 // header — load it as a lazy chunk after hydration instead of shipping it in
@@ -58,6 +64,9 @@ export type GoalRow = {
   quotaHours: number;
   actualMs: number;
   status: "hit" | "close" | "under";
+  // John (two-user test) — seeds the goal editor; rendered nowhere on Progress.
+  deadlineOn?: string | null;
+  targetOutcome?: string | null;
 };
 export type SessionToday = {
   // "session" = clocked in Progra; "event" = imported Google Calendar event
@@ -109,6 +118,13 @@ export function ProgressClient(props: {
   autoEndNudge: { sessionId: string } | null;
   // When set (via `/?tab=week`), opens on that sub-tab instead of "today".
   initialTab?: Tab;
+  // John cohort (two users). Forwarded to ManageGoals, and gates the Yesterday
+  // habit-miss card below.
+  john?: boolean;
+  // Yesterday's habits that were neither completed nor already explained, and
+  // the local day they belong to. Empty for everyone outside the cohort.
+  missHabits?: { id: string; name: string; color: string | null }[];
+  missDate?: string;
 }) {
   const [tab, setTab] = useState<Tab>(props.initialTab ?? "today");
   const [manageOpen, setManageOpen] = useState(false);
@@ -234,6 +250,19 @@ export function ProgressClient(props: {
             <AutoEndNudge sessionId={props.autoEndNudge.sessionId} />
           </div>
         )}
+        {/* John: yesterday's unexplained habits. Sits with the other nudges
+            because it is one — something waiting on an answer, gone once
+            answered. */}
+        {props.john &&
+          props.missDate &&
+          (props.missHabits?.length ?? 0) > 0 && (
+            <div className="-mx-5 pt-3">
+              <HabitMissCard
+                habits={props.missHabits ?? []}
+                date={props.missDate}
+              />
+            </div>
+          )}
         <Hairline className="mt-4" />
 
         {/* Sessions — today's rows open the manage sheet; the week's header
@@ -462,6 +491,7 @@ export function ProgressClient(props: {
         open={goalsOpen}
         onOpenChange={setGoalsOpen}
         goals={props.goals}
+        john={props.john}
       />
 
       <ManageSessions
