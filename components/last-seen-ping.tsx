@@ -17,7 +17,17 @@ function ping() {
   // Fire-and-forget. Server actions are dispatched one at a time, so this can
   // delay a tap made in the same instant by one short round trip — acceptable
   // at once per ten minutes, and the reason for the throttle above.
-  void touchLastSeen();
+  //
+  // The catch is load-bearing. The action returns its errors, so the only
+  // rejection is the transport itself — and in the iOS shell that is routine:
+  // WebKit fails in-flight fetches when the app resumes from the background or
+  // a hard navigation starts (native sign-in, Next's reload fallback). Left
+  // unhandled, each one reached error tracking as a stackless
+  // "TypeError: Load failed". Silent, like EnsureProfileSync, and the throttle
+  // is released so the next resume tries again.
+  touchLastSeen().catch(() => {
+    lastSentAt = 0;
+  });
 }
 
 // Feeds profiles.last_seen_at — "last opened" on the admin analytics roster.

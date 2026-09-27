@@ -81,6 +81,11 @@ export function useBreakSchedule({
           playTimerCue(onBreak ? "breakEnd" : "breakStart");
           router.refresh();
         }
+      } catch {
+        // Offline, or the fetch was cut off by a resume or reload. Silent, like
+        // an error result — every caller is `void fire()`, so a rethrow would
+        // only become an unhandled "Load failed". The next visibility check
+        // retries.
       } finally {
         inFlight = false;
       }
