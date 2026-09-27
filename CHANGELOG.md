@@ -5,6 +5,23 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-09-27
+
+### 14:30 · Stop background server actions from leaking "Load failed"
+
+Error tracking had a recurring, stackless `TypeError: Load failed`, only from
+the iOS shell (WKWebView user agent). Every one fires just before a full-page
+navigation: native sign-in's `window.location.assign`, or a same-path reload,
+which is Next's fallback when an RSC fetch fails. WebKit fails in-flight
+fetches at those moments, and two fire-and-forget server actions had no
+rejection handler: `touchLastSeen` (`LastSeenPing`, on every route, on mount
+and on each resume after 10 minutes) and `startBreak`/`endBreak`
+(`useBreakSchedule`, on `/clock/live`, on resume). Both now swallow transport
+failures. `LastSeenPing` also releases its throttle so the next resume retries.
+No user-visible change: neither call blocks a tap, and the reloads are Next's
+own behavior, not caused by these rejections.
+
+
 ## 2026-09-25
 
 ### 23:08 · John instrumentation — the app half (SP4–SP7), export written (SP9)
