@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { isBugStatus } from "@/lib/bug-reports";
+import { isSuggestionStatus } from "@/lib/suggestions";
 
 type Result = { ok: true } | { error: string };
 type ServerClient = Awaited<ReturnType<typeof createClient>>;
@@ -120,6 +121,25 @@ export async function resolveBugReport(
     p_status: status,
   });
   if (error) return { error: "Couldn't update the report." };
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+// Triage a suggestion. Same shape as resolveBugReport above, including the
+// reopen path — the status set is the only difference.
+export async function resolveSuggestion(
+  id: string,
+  status: string
+): Promise<Result> {
+  if (!isSuggestionStatus(status)) return { error: "Unknown status." };
+  const supabase = await createClient();
+  const gate = await requireAdmin(supabase);
+  if ("error" in gate) return gate;
+  const { error } = await supabase.rpc("admin_resolve_suggestion", {
+    p_id: id,
+    p_status: status,
+  });
+  if (error) return { error: "Couldn't update the suggestion." };
   revalidatePath("/admin");
   return { ok: true };
 }

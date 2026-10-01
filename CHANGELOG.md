@@ -5,6 +5,104 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-09-30
+
+### 17:37 · Make a suggestion — Settings → Help, landing in /admin
+**Requires SQL (run by hand: `.claude/plans/suggestions.sql`) — RUN AND
+CONFIRMED, STEP 1V all green.** The app degrades to "Suggestions unavailable —
+the admin RPCs aren't installed" until it is run, so deploy order doesn't matter;
+with the SQL in and the code not yet pushed, prod has an empty table and two
+RPCs nothing calls.
+
+Settings → Help now has a second row under Report a bug. It opens a sheet, the
+text lands in a new `suggestions` table, and `/admin` grows a **Suggestions**
+panel with the suggester's handle, display name and email beside what they wrote.
+Accept / Decline / Reopen, same triage shape as the bug queue.
+
+**Its own table, not a `kind` column on `bug_reports`.** A bug needs reproduction
+context — route, platform, user agent, viewport, build sha — and a suggestion
+needs none of it, so sharing the table would mean five permanently-null columns
+and a `kind` filter on every read. The verbs differ too: a bug is resolved or
+dismissed, an idea is accepted or declined.
+
+**Security is `bug_reports`' shape, copied deliberately.** INSERT-only RLS
+(`suggester_id = auth.uid()`, no select policy at all), `revoke select, update,
+delete` from `authenticated` on top so the default Supabase grant can't combine
+with a future stray policy, and admin reads through `admin_list_suggestions()` —
+`SECURITY DEFINER` because it joins `auth.users` for the email. No service-role
+key anywhere near it.
+
+**STEP 1V caught something the behavioural test didn't.** Supabase's default
+privileges hand `anon` an INSERT grant on every new table. RLS already stopped it
+(the policy is `to authenticated`), so every "anon cannot insert" assertion
+passed while the grant sat there anyway — `revoke all ... from anon` now removes
+it and 1V fails if it comes back. Caught by mocking prod in PGlite
+(`.claude/plans/nudges-harness/suggestions.mjs`, 32 assertions) before running
+anything against ~50 live users.
+
+**The sheet has no disclosure line, and that's the point.** The bug sheet names
+the screen and the device details it captures silently; a suggestion captures
+nothing but the idea, so there is nothing to disclose — it says only that your
+name is attached, which is the honest version of "includes the user".
+
+The Admin row badge in Settings now counts open suggestions alongside open bug
+reports and reports, via a shared `countOpen()` that degrades to 0 — a missing
+RPC means no badge, not a crash.
+
+Analytics gets `suggestion_submitted` with `length` only. The body stays in the
+database behind an admin RPC; it has no business in PostHog.
+
+`requireSeat()` applies, so waitlisted users can't file — and they can't reach
+Settings either (the wall replaces the app shell), so there is no dead entry
+point.
+
+New: `lib/suggestions.ts`, `app/actions/suggestions.ts`,
+`components/v2/suggest-sheet.tsx`, `app/admin/admin-suggestions.tsx`,
+`.claude/plans/suggestions.sql`. The sheet is `next/dynamic` lazy, per the rule.
+
+**Not written: a patch note.** Releases ship in bulk and get one note between
+them; this is one feature in an uncommitted tree, so `PATCH_NOTES` gets its entry
+when the batch goes out.
+
+Verified: SQL green in PGlite (32/32), `tsc` clean, `eslint` clean on the nine
+touched files, `vitest` 395/395, `npm run build` clean, signed-out `/settings`
+and `/admin` both still redirect to login.
+
+### 17:25 · The last interview surface — /admin consents panel removed
+
+Settings → Admin still led to an "Interview consents" panel, so from inside the
+app there was still an interview feature to see. The user-facing ask went
+2026-09-15 and the Settings toggle 2026-09-19 (stored consents cleared in the
+same change); this removes the admin end.
+
+- **Deleted `app/admin/admin-interviews.tsx`** and unwired it from
+  `app/admin/page.tsx` — the import, `RawConsentRow`, the
+  `admin_list_interview_consents` leg of the `Promise.all`, the `consents` /
+  `consentsInstalled` mapping and the `<AdminInterviews/>` render. /admin is now
+  three panels: Bug reports, Beta capacity, Moderation.
+- **Deleted `setInterviewConsent`** (`app/actions/profile.ts`) — callerless since
+  2026-09-19 and kept only so the panel had something that could refill it. The
+  comment left in its place records the opt-IN polarity trap and the rule that
+  any future ask ships with a withdrawal surface, because the privacy policy has
+  to point somewhere.
+- **Dropped `interview_consent_set`** from the `lib/analytics.ts` event union and
+  the two column keys from the `Profile` type. Nothing read them.
+
+**No SQL.** `profiles.interview_consent`, `interview_consent_at` and
+`admin_list_interview_consents()` stay in the database, now with no reader or
+writer at all — the RPC can only return zero rows, since the consents were
+cleared and nothing can set one. Dropping them is a production migration on ~50
+live users that buys nothing.
+
+**App Privacy label changed, and that one matters.** `docs/app-privacy-label.md`
+declared **Other Purposes** on Email Address *for* the interview outreach. With
+no way left to collect a consent or send such a mail, that answer now overstates
+what the app does, so Email Address is App Functionality only. The privacy
+policy's "Research and product interviews" section already said there is nothing
+to opt in to; it and the label now agree.
+
+Verified: `tsc` clean, `eslint` clean on the five touched files.
+
 ## 2026-09-25
 
 ### 23:08 · John instrumentation — the app half (SP4–SP7), export written (SP9)

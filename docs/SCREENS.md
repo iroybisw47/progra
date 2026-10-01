@@ -116,6 +116,7 @@ falls through to the Next.js default.
 | D25 | Delete account confirm | alert | DeleteAccountButton | Dashboard only (beta/social `/`, `/me`) — legacy | components/delete-account-button.tsx:49 (mount dashboard.tsx:233) |
 | D26 | Notifications panel | sheet | NotificationsBell | /friends | components/notifications-bell.tsx:69 (mount friends-client.tsx:163) |
 | D27 | Report a bug | sheet | Settings → Help → "Report a bug" | /settings | components/v2/report-bug-sheet.tsx:16 (lazy via next/dynamic, mount settings-client.tsx:332) |
+| D33 | Make a suggestion | sheet | Settings → Help → "Make a suggestion" | /settings | components/v2/suggest-sheet.tsx:17 (lazy via next/dynamic, mount settings-client.tsx) |
 | D28 | Manage goals | sheet | ManageGoals (dynamic) | `/` (Progress), `/me` (You) | components/v2/manage-goals.tsx:106 (mounts progress-client.tsx:461, me/goals-section.tsx:48) |
 | D29 | Edit/new goal (nested) | sheet | ManageGoals | `/` (Progress), `/me` (You) | components/v2/manage-goals.tsx:177 |
 | D30 | Delete goal confirm (nested) | alert | ManageGoals | `/` (Progress), `/me` (You) | components/v2/manage-goals.tsx:250 |
@@ -187,7 +188,7 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S48 | profile/[username] | empty | "No shared sessions yet." | `pastSessions.length === 0` | app/profile/[username]/page.tsx:180 |
 | S49 | profile-actions | relationship | none→Add / outgoing→Cancel / incoming→Accept+Decline / friends→Remove+Block / self→Edit | `relationship.kind` | app/profile/[username]/profile-actions.tsx:59,63,74,84,106,132 |
 | S53 | RootLayout (every route) | capacity | **beta-full wall** in place of the entire app tree — no children, no BottomNav, no session/push leaves — vs. the normal app shell | `isWaitlisted(profile)` AND `claim_beta_seat_self()` returns null | app/layout.tsx:99-132, components/beta-full.tsx:7 |
-| S57 | ~~research-interview opt-in~~ | — | **Gone entirely 2026-09-19.** The onboarding ask went 2026-09-15, leaving the Settings toggle as the only surface; that toggle was the *withdrawal* path the privacy policy promised, so removing it alone would have stranded everyone already opted in. Removed together with a clear of the stored consents and a rewrite of the privacy policy's Research paragraph. `profiles.interview_consent`/`_at`, `setInterviewConsent` (no caller) and the /admin panel are all kept | — | — |
+| S57 | ~~research-interview opt-in~~ | — | **Gone entirely 2026-09-19.** The onboarding ask went 2026-09-15, leaving the Settings toggle as the only surface; that toggle was the *withdrawal* path the privacy policy promised, so removing it alone would have stranded everyone already opted in. Removed together with a clear of the stored consents and a rewrite of the privacy policy's Research paragraph. The last traces — the /admin panel (S56) and the callerless `setInterviewConsent` — went 2026-09-30; only the unread `profiles.interview_consent`/`_at` columns remain | — | — |
 | S58 | /admin/analytics | dashboard | Retention stats (active 7d / 30d, never came back, each with n/m) · 30-day DAU bars · cohort table (blank = window not elapsed) · roster cards with Opened / Did something, 30-day sparkline, goals ("+N private"), tags (excluded · waitlisted · not onboarded · opening, not doing); "analytics RPCs aren't installed" line when either RPC errors | `admin_list_users()` / `admin_activity_days()` | app/admin/analytics/page.tsx, user-card.tsx, cohort-table.tsx, charts.tsx |
 | S59 | profile/[username] (Nudge chip) | role | Nudge chip beside the gear for a **friend** only. `ok` → chip opens S60. `cooldown` → dimmed "Nudged · 4h"; `locked` → dimmed 🔒 "Nudge". A tap on either toasts the reason (turned off · before 9am their time + wait · in a session · all caught up · nothing to nudge · can't right now). `hidden` (not a friend) renders nothing. Private sessions are ignored, never a reason | `getNudgeState()` · `nudgeRefusalMessage` | app/profile/[username]/nudge-button.tsx |
 | S60 | Nudge sheet | step | Step 1 targets (one row per behind-today visible goal, `Goal · {title}` + color marker; `Habits` row "{n} of {m} left today") → step 2 the five presets; a preset tap sends | local `target` state | app/profile/[username]/nudge-sheet.tsx |
@@ -200,7 +201,8 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S62 | settings-client (Nudges) | toggle | "Nudges" row in **Sharing** (gated on `NUDGES`, not push permission) — whether friends may nudge you at all. The push row above it becomes "Likes, comments & nudges" | `nudges_enabled` | app/settings/settings-client.tsx |
 | S54 | /admin (Beta capacity) | capacity | seated-of-cap + waiting counts, editable seat cap, one Grant-a-seat card per waitlisted user; "RPCs aren't installed" line when the overview RPC errors | `admin_beta_overview()` / `admin_list_waitlist()` | app/admin/admin-waitlist.tsx:28, app/admin/page.tsx |
 | S55 | /admin (Bug reports) | queue | open-first list of user bug reports with device/route/build context; Resolve · Dismiss · Reopen; "RPCs aren't installed" line vs. "Nothing reported yet" | `admin_list_bug_reports()` | app/admin/admin-bug-reports.tsx:29, app/admin/page.tsx |
-| S56 | /admin (Interview consents) | list | opted-in users with email, name and consent date, plus a CSV download; "Nobody has opted in yet" vs. "RPCs aren't installed" | `admin_list_interview_consents()` | app/admin/admin-interviews.tsx:36, app/admin/page.tsx. **Since 2026-09-19 this always shows the empty state** — consents were cleared and nothing can set one (see S57); kept so restarting interviews needs no migration |
+| S69 | /admin (Suggestions) | queue | open-first list of user suggestions with the suggester's handle · display name · email; Accept · Decline · Reopen; "RPCs aren't installed" line vs. "No suggestions yet." | `admin_list_suggestions()` | app/admin/admin-suggestions.tsx:24, app/admin/page.tsx |
+| S56 | ~~/admin (Interview consents)~~ | — | **Gone 2026-09-30.** Always showed its empty state after the consents were cleared (see S57), and Settings → Admin still led to it, so it read as a live interview feature. `admin-interviews.tsx` deleted, panel unwired from `app/admin/page.tsx`; `admin_list_interview_consents()` left in the DB with no caller | — | — |
 
 ---
 
@@ -327,7 +329,13 @@ flowchart TD
   settings --> tz["Time-zone dialog"]
   settings --> hold["HoldToDelete → /login?deleted=1"]
   settings --> signout["POST /auth/signout"]
+  settings --> bug["Report a bug sheet → bug_reports"]
+  settings --> suggest["Make a suggestion sheet → suggestions"]
+  bug --> admin
+  suggest --> admin
   admin --> queue["Report queue"]
+  admin --> bugq["Bug report queue"]
+  admin --> sugq["Suggestion queue"]
   admin --> repaction["Report action alert"]
   admin --> prof["/profile/[username]"]
 ```

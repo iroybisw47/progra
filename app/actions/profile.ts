@@ -65,40 +65,15 @@ export async function setNudgesEnabled(
   return { ok: true };
 }
 
-// Opt-IN to research interview contact. Unlike setSocialPushesEnabled above
-// this is an opt-in, so there is no "null means yes" decoding anywhere — null and false are both
-// "no" and the admin RPC filters on `is true`.
-//
-// Withdrawing clears the timestamp as well as the flag, so interview_consent_at
-// can never describe a consent that no longer exists.
-//
-// NO CALLER since 2026-09-19: onboarding stopped asking and the Settings toggle
-// went with it, and the stored consents were cleared
-// (.claude/plans/interview-consent-clear.sql). Kept, with the columns and the
-// /admin panel, so restarting interviews is a UI change rather than a migration.
-// If you wire it up again, restore a withdrawal surface at the same time — the
-// privacy policy has to be able to point somewhere.
-export async function setInterviewConsent(
-  enabled: boolean
-): Promise<{ ok: true } | { error: string }> {
-  const supabase = await createClient();
-  const user = await getCurrentUser();
-  if (!user) return { error: "Not authenticated" };
-  const seat = await requireSeat();
-  if ("error" in seat) return seat;
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      interview_consent: enabled,
-      interview_consent_at: enabled ? new Date().toISOString() : null,
-    })
-    .eq("id", user.id);
-
-  if (error) return { error: "Couldn't save that — try again." };
-  revalidatePath("/settings");
-  return { ok: true };
-}
+// setInterviewConsent lived here until 2026-09-30, when the last interview
+// surface (the /admin consents panel) went too. It had had no caller since
+// 2026-09-19 — onboarding stopped asking, the Settings toggle went with it, and
+// the stored consents were cleared
+// (.claude/plans/interview-consent-clear.sql). The columns
+// profiles.interview_consent/_at and admin_list_interview_consents() are still
+// in the database, unread by anything; restarting interviews means writing the
+// ask, the WITHDRAWAL surface the privacy policy has to point at, and the
+// opt-IN polarity (null and false both mean "no") from scratch.
 
 export async function setProfileTimezone(
   timezone: string

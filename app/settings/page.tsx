@@ -7,6 +7,12 @@ import { REDESIGN } from "@/lib/flags";
 
 import { SettingsClient } from "./settings-client";
 
+function countOpen(data: unknown): number {
+  return Array.isArray(data)
+    ? data.filter((r) => (r as { status?: string }).status === "open").length
+    : 0;
+}
+
 // The Settings hub (V2). Consolidates account/identity/timezone/calendar, links
 // to the user's data (goals/categories/habits/past sessions), sharing controls,
 // the admin page (admin only), sign out, and account deletion. Flag-gated.
@@ -24,19 +30,20 @@ export default async function SettingsPage({
   const { data: isAdmin } = await supabase.rpc("is_admin");
   let openReports = 0;
   if (isAdmin === true) {
-    // Both feed the one badge on the Admin row — the row is a link to
-    // /admin, and /admin is where both queues live. Bug reports are filtered to
-    // open ones because the RPC returns resolved and dismissed too, and a badge
-    // counting settled work would never clear.
-    const [reportsRes, bugsRes] = await Promise.all([
+    // All three feed the one badge on the Admin row — the row is a link to
+    // /admin, and /admin is where all three queues live. Bug reports and
+    // suggestions are filtered to open ones because their RPCs return the
+    // settled rows too, and a badge counting settled work would never clear.
+    // Each count degrades to 0 on error (missing RPC = no badge, not a crash).
+    const [reportsRes, bugsRes, suggestionsRes] = await Promise.all([
       supabase.rpc("admin_list_reports"),
       supabase.rpc("admin_list_bug_reports"),
+      supabase.rpc("admin_list_suggestions"),
     ]);
     const reports = Array.isArray(reportsRes.data) ? reportsRes.data.length : 0;
-    const bugs = Array.isArray(bugsRes.data)
-      ? bugsRes.data.filter((r: { status: string }) => r.status === "open").length
-      : 0;
-    openReports = reports + bugs;
+    const bugs = countOpen(bugsRes.data);
+    const suggestions = countOpen(suggestionsRes.data);
+    openReports = reports + bugs + suggestions;
   }
 
   return (

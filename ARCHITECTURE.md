@@ -123,7 +123,7 @@ unaffected.
 | `/me` | `app/me/page.tsx` | — | **You** tab (social on only): the personal dashboard, relocated off Home. Shares `components/dashboard.tsx`. |
 | `/friends` | `friends/page.tsx` | `friends-client.tsx` | Friend search / requests / blocked (social on only). |
 | `/profile/[username]` | `profile/[username]/page.tsx` | `profile-actions.tsx` | Public profile: identity + a friend's non-private goals/habits + photo **stories** (social on only). |
-| `/admin` | `admin/page.tsx` | `admin-bug-reports.tsx`, `admin-waitlist.tsx`, `admin-interviews.tsx`, `admin-reports.tsx` | Moderation queue (social on + `is_admin()` only): open reports with target preview, take-down / dismiss. Now four stacked panels, in order: **Bug reports** (open-first triage), **Beta capacity** (seated/cap/waiting, editable cap, grant-a-seat), **Interview consents** (opt-in list + CSV), **Moderation**. Ordering is deliberate — actionable queues first, and Moderation stays last because it owns the page's bottom padding. |
+| `/admin` | `admin/page.tsx` | `admin-bug-reports.tsx`, `admin-waitlist.tsx`, `admin-suggestions.tsx`, `admin-reports.tsx` | Moderation queue (social on + `is_admin()` only): open reports with target preview, take-down / dismiss. Four stacked panels, in order: **Bug reports** (open-first triage), **Beta capacity** (seated/cap/waiting, editable cap, grant-a-seat), **Suggestions** (open-first, Accept / Decline / Reopen, suggester's handle + name + email), **Moderation**. Ordering is deliberate — a bug or a blocked signup can't wait and an idea can; Moderation stays last because it owns the page's bottom padding. (**Interview consents** was a panel here until 2026-09-30, always empty since the consents were cleared 2026-09-19; it and `admin-interviews.tsx` are gone.) |
 | `/login` | `app/login/page.tsx` | `google-sign-in-button.tsx` | Google OAuth entry. |
 | `/auth/callback` | `route.ts` | — | OAuth code exchange → session. |
 | `/auth/signout` | `route.ts` | — | Sign out. |
@@ -248,14 +248,24 @@ outside Vercel. Client-supplied diagnostics (route, platform, user agent,
 viewport) are length-capped but not otherwise validated — they are diagnostic,
 not authorization, so they need to be bounded rather than trustworthy.
 
-**Interview consent.** `profiles.interview_consent` + `interview_consent_at`.
-**The polarity is the opposite of `social_pushes_enabled`** and that is the one
-thing to remember: `social_pushes_enabled` is an opt-OUT documenting "null =
-on"; `interview_consent` is an opt-IN where null and false both mean *not
-consented*. Every read is `?? false`, and `admin_list_interview_consents()`
-filters `where interview_consent is true`, which null does not match. The stamp
-is cleared on withdrawal so it can never describe a consent that no longer
-exists. `public_profiles` is column-explicit and exposes neither.
+**Suggestions.** `suggestions` + `admin_list_suggestions()` /
+`admin_resolve_suggestion()`, added 2026-09-30. Write-only for users and
+definer-read for the admin, i.e. `bug_reports`' shape — see §5 and `HANDOFF.md`.
+It is a SEPARATE table from `bug_reports` on purpose: a bug carries reproduction
+context (route, platform, user agent, viewport, commit sha) and a suggestion
+carries none, so one table would mean five always-null columns and a `kind`
+filter on every read; and the triage verbs differ (resolved/dismissed vs
+accepted/declined). Entry point is Settings → Help, one row below Report a bug.
+
+**Interview consent — removed.** `profiles.interview_consent` +
+`interview_consent_at` and `admin_list_interview_consents()` are still in the
+database but nothing reads or writes them. The onboarding ask went 2026-09-15,
+the Settings toggle 2026-09-19 (with the stored consents cleared), and the
+/admin panel plus `setInterviewConsent` on 2026-09-30. If interviews restart,
+note the polarity trap that made this worth writing down: `social_pushes_enabled`
+is an opt-OUT where null means "on", while `interview_consent` was an opt-IN
+where null and false both mean *not consented* — every read was `?? false`, and
+getting it backwards emails people who never agreed.
 
 **Weekly recap added these definer RPCs:** `week_leaderboard(p_week_start_ms,
 p_week_end_ms)` (ranks caller + accepted friends by **clocked** session time —
@@ -481,10 +491,11 @@ durably.
 - **One active session per user**, DB-enforced (error `23505`).
 - **Opt-in and opt-out flags are not interchangeable, and the codebase has one
   of each.** `social_pushes_enabled` is an opt-OUT: null means on, read it
-  `?? true`. `interview_consent` is an opt-IN: null and false both mean no, read
-  it `?? false`, and query it `is true` in SQL so null cannot match. They sit
-  three lines apart in the same type. Any new consent flag must state its
-  polarity in the column comment, the type comment and the query.
+  `?? true`. `interview_consent` was an opt-IN: null and false both mean no,
+  read it `?? false`, and query it `is true` in SQL so null cannot match. They
+  sat three lines apart in the same type until the interview surfaces were
+  removed (2026-09-30). Any new consent flag must state its polarity in the
+  column comment, the type comment and the query.
 - **Diagnostic context is bounded, not trusted.** Client-supplied route /
   platform / user agent on a bug report is length-capped and stored as given; it
   informs a human, it never authorizes anything. Anything that *does* authorize
@@ -630,25 +641,21 @@ durably.
 ## 10. Open questions / things to verify when touched
 
 - Authoritative Supabase DDL is not in-repo — §5 is reconstructed from queries.
-- **Nobody has verified the CSV export works on device.** `/admin`'s interview
-  export uses a page-initiated `a.download`, which is unreliable inside the iOS
-  WebView. The catch falls back to a toast telling you to use a desktop browser,
-  but the failure may not throw at all — it may simply do nothing.
 - **`AdminReports` owns the page's bottom padding** (`pb-28`) because it was
   once the only panel. Every panel added since sits *above* it for that reason
-  alone. A fifth panel appended after it will inherit a ~7rem gap; the real fix
+  alone. A new panel appended after it will inherit a ~7rem gap; the real fix
   is moving the padding to the page.
-- **`interview_consent` records consent but nothing records the ask.** A user
-  who saw the onboarding toggle and left it off is indistinguishable from one
-  who skipped onboarding entirely. Fine today; if consent ever needs an audit
-  trail, that distinction has to be stored at the point of asking.
+- **If consent flags come back, record the ask, not just the answer.**
+  `interview_consent` stored a yes and nothing else, so a user who saw the
+  onboarding toggle and left it off was indistinguishable from one who skipped
+  onboarding. Any future consent needing an audit trail has to store the ask.
 - **Admission is silent.** Granting a seat notifies nobody: there is no transactional
   email sender in the repo, and a waitlisted user has never registered an APNs token
   (`PushRegistration` mounts only inside the app shell, which they never receive). They
   find out by returning. Adding email means a new dependency — an explicit decision, not
   a fill-in.
-- **`requireSeat()` covers 20 of ~60 actions** (the 18 from the cap work, plus
-  `submitBugReport` and `setInterviewConsent`), chosen as the content-creating and
+- **`requireSeat()` covers 19 of ~60 actions** (the 18 from the cap work, plus
+  `submitBugReport`; `setInterviewConsent` was the 20th until 2026-09-30), chosen as the content-creating and
   outward-facing set. Downstream mutations are argued to be covered transitively (their
   rows can't exist unless a guarded action created them), but that reasoning is not
   enforced anywhere — a future action that creates a *new* kind of row needs the guard

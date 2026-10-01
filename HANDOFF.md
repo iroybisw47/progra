@@ -224,9 +224,22 @@ signed in; its center FAB live-ticks while a session runs.
   `admin_resolve_report`, `admin_take_down_story`, `admin_delete_comment`, `delete_own_account`.
   See **Beta capacity** below for the seat-cap RPCs.
   Plus `admin_list_bug_reports`, `admin_resolve_bug_report`,
-  `admin_list_interview_consents` — see **Bug reports & interview consent**.
+  `admin_list_suggestions`, `admin_resolve_suggestion` — see **Bug reports and
+  suggestions** below. `admin_list_interview_consents` still exists but has no
+  caller since 2026-09-30.
 
-**Bug reports & interview consent (pre-submission surfaces):**
+**Bug reports and suggestions (pre-submission surfaces):**
+- `suggestions` (added 2026-09-30, `.claude/plans/suggestions.sql`, **SQL run and
+  verified in prod**) — the
+  Settings → Help suggestion box. `bug_reports`' security shape exactly:
+  INSERT-only RLS (`suggester_id = auth.uid()`, no select policy), plus
+  `revoke all from anon` / `revoke select, update, delete from authenticated`.
+  Columns `id, suggester_id, body, status, created_at`; status is
+  `open|accepted|declined` (CHECK), body is CHECK'd 1..1000 to match
+  `SUGGESTION_BODY_MAX`. RPCs `admin_list_suggestions` (definer, joins
+  `auth.users` for the email and `profiles` for handle/display name, orders open
+  first) and `admin_resolve_suggestion(p_id, p_status)`. Its own table, NOT a
+  `kind` on `bug_reports` — no diagnostic columns, different triage verbs.
 - `bug_reports` — INSERT-only RLS (`reporter_id = auth.uid()`, no select policy)
   plus `revoke select, update, delete`; `commit_sha` stamped server-side from
   `VERCEL_GIT_COMMIT_SHA`. RPCs `admin_list_bug_reports` (definer, joins
@@ -235,10 +248,14 @@ signed in; its center FAB live-ticks while a session runs.
   during render by `<RouteMemory/>`. Exists because `usePathname()` at submit
   time is always `/settings`; `getReportRoute()` substitutes the previous route
   there so a report names the screen the bug actually happened on.
-- `profiles.interview_consent` + `interview_consent_at` — an opt-**IN**, the
-  OPPOSITE polarity to `social_pushes_enabled`: null and false both mean NOT
-  consented, every read is `?? false`, and `admin_list_interview_consents`
-  filters `where interview_consent is true`. Withdrawal clears the stamp.
+- `profiles.interview_consent` + `interview_consent_at` — **dead columns.** Was
+  an opt-**IN**, the OPPOSITE polarity to `social_pushes_enabled`: null and
+  false both mean NOT consented, every read was `?? false`, and
+  `admin_list_interview_consents` filters `where interview_consent is true`.
+  Every surface is gone (onboarding 2026-09-15, Settings 2026-09-19 with the
+  stored consents cleared, /admin panel + `setInterviewConsent` 2026-09-30), so
+  nothing reads or writes them and the RPC can only return zero rows. Columns
+  and RPC left in place — dropping them is a prod migration nothing needs.
   `public_profiles` is column-explicit and does not expose either.
 - `profiles.patch_notes_seen_version` (text, nullable, added 2026-09-18) — the
   newest "What's new" entry this user has been shown. Compared for EQUALITY

@@ -45,9 +45,10 @@ export type AnalyticsEvent =
   // comment ("root") or another reply ("reply").
   | "comment_reply_opened"
   | "comment_reply_posted" // { depth }
-  // Research interview opt-in. `source` is "onboarding" | "settings" — the
-  // consent rate at each is the only read available on whether the copy works.
-  | "interview_consent_set"; // { enabled, source }
+  // Suggestion box (Settings → Help). `length` only — the body itself is in the
+  // database behind an admin RPC, and it has no business in a third-party
+  // analytics tool.
+  | "suggestion_submitted"; // { length }
 
 type Props = Record<string, string | number | boolean | null>;
 

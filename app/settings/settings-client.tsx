@@ -56,6 +56,11 @@ const ReportBugSheet = dynamic(
   { ssr: false }
 );
 
+const SuggestSheet = dynamic(
+  () => import("@/components/v2/suggest-sheet").then((m) => m.SuggestSheet),
+  { ssr: false }
+);
+
 // Flipped to "0" once Google's app verification clears (build-time inlined).
 const SHOW_UNVERIFIED_WARNING =
   process.env.NEXT_PUBLIC_SHOW_UNVERIFIED_WARNING === "1";
@@ -126,6 +131,7 @@ export function SettingsClient({
 }) {
   const [pending, startTransition] = useTransition();
   const [bugOpen, setBugOpen] = useState(false);
+  const [suggestOpen, setSuggestOpen] = useState(false);
 
   // Toast-only effect (no state) — doesn't add to the set-state-in-effect debt.
   const calendarToastFired = useRef(false);
@@ -358,14 +364,19 @@ export function SettingsClient({
             export. The stored consents were cleared in the same change
             (.claude/plans/interview-consent-clear.sql) and the privacy policy's
             Research paragraph reworded, so nothing promises a toggle that isn't
-            there. The columns, setInterviewConsent and the /admin panel are all
-            kept: the panel simply returns nothing now. */}
+            there. The /admin consents panel, which Settings → Admin still led
+            to, and setInterviewConsent went on 2026-09-30; only the unread
+            columns remain. */}
 
         <Band />
 
         {/* Help */}
         <SectionLabel>Help</SectionLabel>
         <Row label="Report a bug" onClick={() => setBugOpen(true)} />
+        {/* Second, under the bug row: someone arriving at Help with something
+            broken is in a hurry, and someone with an idea isn't. Both land in
+            /admin queues; neither sends mail. */}
+        <Row label="Make a suggestion" onClick={() => setSuggestOpen(true)} />
 
         {/* Account actions */}
         <div className="flex flex-col gap-2.5 px-5 pt-7">
@@ -382,6 +393,7 @@ export function SettingsClient({
       </main>
 
       <ReportBugSheet open={bugOpen} onOpenChange={setBugOpen} />
+      <SuggestSheet open={suggestOpen} onOpenChange={setSuggestOpen} />
 
       {/* Edit profile */}
       <BottomSheet open={editing} onOpenChange={setEditing}>

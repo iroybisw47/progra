@@ -60,19 +60,9 @@ export type Profile = {
   // `=== null`, so the app shipping ahead of the SQL fails OPEN rather than
   // locking every user out of their own account.
   seat_no?: number | null;
-  // Opt-IN to being contacted for a product interview, and when it was given.
-  //
-  // NOTE THE POLARITY — it is the opposite of social_pushes_enabled above.
-  // That one is an opt-OUT and reads null as "on". This is an opt-IN: null and
-  // false BOTH mean not consented, so every read site is `?? false`, never
-  // `?? true`. Getting it backwards emails people who never agreed.
-  //
-  // The stamp is cleared when consent is withdrawn, so it never outlives the
-  // consent it records. Both are optional keys for the same reason seat_no is:
-  // before the column SQL runs PostgREST omits them, and `?? false` then
-  // degrades to "nobody consented" rather than throwing.
-  interview_consent?: boolean | null;
-  interview_consent_at?: string | null;
+  // interview_consent / interview_consent_at were typed here until 2026-09-30.
+  // The columns still exist (and `select("*")` still returns them), but no code
+  // reads or writes them any more — the last interview surface is gone.
   // The newest "What's new" entry this user has been shown (lib/patch-notes.ts).
   // Null = never stamped, so they see the newest note. New accounts are stamped
   // CURRENT by completeOnboarding, so the note that's already live isn't their

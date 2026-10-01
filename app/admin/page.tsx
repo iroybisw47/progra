@@ -9,13 +9,13 @@ import { presetCopy } from "@/lib/social/nudges";
 
 import { AdminReports, type AdminReport } from "./admin-reports";
 import {
-  AdminInterviews,
-  type InterviewConsent,
-} from "./admin-interviews";
-import {
   AdminBugReports,
   type AdminBugReport,
 } from "./admin-bug-reports";
+import {
+  AdminSuggestions,
+  type AdminSuggestion,
+} from "./admin-suggestions";
 import {
   AdminWaitlist,
   type BetaOverview,
@@ -59,13 +59,14 @@ type RawReport = {
   } | null;
 };
 
-type RawConsentRow = {
-  user_id: string;
-  email: string | null;
-  username: string | null;
-  display_name: string | null;
-  consented_at: string | null;
-  seat_no: number | null;
+type RawSuggestionRow = {
+  id: string;
+  suggester_email: string | null;
+  suggester_username: string | null;
+  suggester_display_name: string | null;
+  body: string;
+  status: "open" | "accepted" | "declined";
+  created_at: string;
 };
 
 type RawBugRow = {
@@ -107,11 +108,11 @@ export default async function AdminPage() {
   // Beta capacity. Both RPCs are read-only and both degrade to null/empty on
   // error, so a missing Stage 7 migration can't take the moderation queue down
   // with it.
-  const [overviewRes, waitlistRes, bugRes, consentRes] = await Promise.all([
+  const [overviewRes, waitlistRes, bugRes, suggestionRes] = await Promise.all([
     supabase.rpc("admin_beta_overview"),
     supabase.rpc("admin_list_waitlist"),
     supabase.rpc("admin_list_bug_reports"),
-    supabase.rpc("admin_list_interview_consents"),
+    supabase.rpc("admin_list_suggestions"),
   ]);
 
   const rawOverview = overviewRes.error
@@ -129,16 +130,17 @@ export default async function AdminPage() {
       }
     : null;
 
-  const consentsInstalled = !consentRes.error;
-  const consents: InterviewConsent[] = (
-    (consentsInstalled ? (consentRes.data ?? []) : []) as RawConsentRow[]
+  const suggestionsInstalled = !suggestionRes.error;
+  const suggestions: AdminSuggestion[] = (
+    (suggestionsInstalled ? (suggestionRes.data ?? []) : []) as RawSuggestionRow[]
   ).map((row) => ({
-    userId: row.user_id,
-    email: row.email,
-    username: row.username,
-    displayName: row.display_name,
-    consentedAt: row.consented_at,
-    seatNo: row.seat_no,
+    id: row.id,
+    suggesterEmail: row.suggester_email,
+    suggesterUsername: row.suggester_username,
+    suggesterDisplayName: row.suggester_display_name,
+    body: row.body,
+    status: row.status,
+    createdAt: row.created_at,
   }));
 
   // Same degrade-on-error discipline as the capacity panel: a missing
@@ -298,10 +300,16 @@ export default async function AdminPage() {
       {/* Bug reports first — the most actionable thing on this page. */}
       <AdminBugReports reports={bugReports} installed={bugsInstalled} />
       <AdminWaitlist overview={overview} entries={waitlist} />
-      {/* A mailing list, not a queue — nothing here needs action today, so it
-          sits below the two that do. Moderation stays last: it owns the page's
-          bottom padding. */}
-      <AdminInterviews consents={consents} installed={consentsInstalled} />
+      {/* Suggestions are a queue you answer, not a mailing list, so they sit
+          with the other two rather than at the bottom — but below them, because
+          an idea can wait and a bug or a blocked signup can't. Moderation stays
+          last: it owns the page's bottom padding. (An "Interview consents"
+          panel sat on this line until 2026-09-30, showing nothing but its empty
+          state since the consents were cleared.) */}
+      <AdminSuggestions
+        suggestions={suggestions}
+        installed={suggestionsInstalled}
+      />
       <AdminReports reports={reports} />
     </>
   );

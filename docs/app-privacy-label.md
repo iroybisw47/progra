@@ -5,7 +5,7 @@ the interview-consent feature rather than at submission time, because the label
 has to match what the app actually collects and the in-app consent copy has to
 match the label — reconstructing that later is how the two drift apart.
 
-_Last updated: 2026-08-20. Re-check before every submission._
+_Last updated: 2026-09-30. Re-check before every submission._
 
 ---
 
@@ -25,17 +25,24 @@ neither, so **every answer to "used for tracking" is No.**
 - **Collected:** Yes
 - **Linked to identity:** Yes
 - **Used for tracking:** No
-- **Purposes:** App Functionality; Other Purposes
+- **Purposes:** App Functionality
 
-Comes from Google or Apple sign-in. App Functionality covers authentication.
-**"Other Purposes" is the interview outreach** — it is opt-in, off by default,
-revocable in Settings, and disclosed under "Research and product interviews" in
-the privacy policy. Do not claim Customer Support: that means responding to a
-user who contacted you, not you contacting them.
+Comes from Google or Apple sign-in, and App Functionality covers authentication
+— which is now the only thing the email is used for.
 
-Note: Sign in with Apple users may be on Hide My Email relay addresses. To send
-to those at all, the sending domain must be registered in the Apple Developer
-portal — otherwise mail is dropped silently.
+**"Other Purposes" came off this answer on 2026-09-30.** It was there for the
+research-interview outreach, and that is gone end to end: the onboarding ask
+(2026-09-15), the Settings toggle (2026-09-19, with every stored consent
+cleared), and the /admin list (2026-09-30). Nothing in the app can collect a
+consent or send such an email, so declaring the purpose would overstate what
+Progra does. The policy's "Research and product interviews" section says the
+same. If interviews ever restart, this answer and that section move together
+with the feature. Do not claim Customer Support: that means responding to a user
+who contacted you, not you contacting them.
+
+Note, if outreach ever comes back: Sign in with Apple users may be on Hide My
+Email relay addresses. To send to those at all, the sending domain must be
+registered in the Apple Developer portal — otherwise mail is dropped silently.
 
 ### Contact Info → Name
 - **Collected:** Yes · **Linked:** Yes · **Tracking:** No
@@ -71,7 +78,7 @@ it.
 
 PostHog events — the closed union in `lib/analytics.ts`. Session completions,
 habit checks, friend adds, invites sent, onboarding completion, notification
-permission outcomes, bug reports, interview consent.
+permission outcomes, bug reports.
 
 ### Diagnostics → Crash Data / Performance Data
 - **Collected:** No
