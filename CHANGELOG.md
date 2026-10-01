@@ -7,6 +7,10 @@ when it was done, not a start/stop work timer.
 
 ## 2026-09-30
 
+### 19:16 · Categories section says what categories are for
+One caption line under the **Categories** header on /clock: "Things you want
+tracked with no quota" — the distinction from goals, which do have one.
+
 ### 17:37 · Make a suggestion — Settings → Help, landing in /admin
 **Requires SQL (run by hand: `.claude/plans/suggestions.sql`) — RUN AND
 CONFIRMED, STEP 1V all green.** The app degrades to "Suggestions unavailable —

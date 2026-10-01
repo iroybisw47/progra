@@ -1149,7 +1149,7 @@ export function ClockClient({
           </button>
 
           <div className="bg-hairline mt-3.5 h-px" />
-          <div className="flex items-center gap-[7px] pt-3.5 pb-2">
+          <div className="flex items-center gap-[7px] pt-3.5 pb-1.5">
             <span className="section-label">Categories</span>
             <span className="flex-1" />
             <button
@@ -1160,6 +1160,9 @@ export function ClockClient({
               {addCategoryOpen ? "Close" : "+ Add"}
             </button>
           </div>
+          <p className="text-caption pb-2 text-[11px] leading-snug">
+            Things you want tracked with no quota
+          </p>
           {addCategoryOpen && (
             <div className="flex gap-2 pt-0.5 pb-2.5">
               <input
