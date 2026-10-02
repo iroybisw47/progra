@@ -13,7 +13,13 @@ import { cn } from "@/lib/utils";
 // known at navigation time, and Next's loading.js guidance is to prerender the
 // meaningful part (title, chrome) rather than blur everything.
 
-type Variant = "feed" | "friends" | "profile" | "clock" | "rows";
+type Variant =
+  | "feed"
+  | "friends"
+  | "profile"
+  | "clock"
+  | "rows"
+  | "onboarding";
 
 // Shimmer fill. `bg-track` is the same pale grey the progress tracks use, so a
 // loading screen never introduces a colour the design doesn't already have.
@@ -275,6 +281,57 @@ function RowsBody({ rows }: { rows: number }) {
   );
 }
 
+// Onboarding is the one route whose shell is NOT the tab frame: no section
+// label, no bottom nav, a 420px column centred vertically. Before this existed
+// it inherited app/loading.tsx — PrograLoader, a wordless mark on a 6-second
+// rotation inside pb-24 of padding reserved for a nav that bottom-nav.tsx
+// already hides here. Over a one-second hold the hands move 60°, so it read as
+// a static logo floating above empty space.
+//
+// Shapes mirror the welcome step (app/onboarding/steps/welcome-step.tsx): the
+// 58px mark, the two-line 40px headline, the tagline, then the name/username
+// fields and the avatar. Seven dots is the web step count
+// (activeSteps(false, false)); the exact number doesn't matter here, the
+// position of the row does.
+function OnboardingBody() {
+  return (
+    <>
+      <div className="flex h-16 flex-none items-center gap-2.5 px-5">
+        <span className="size-8 shrink-0" />
+        <span className="flex flex-1 justify-center gap-[5px]">
+          {Array.from({ length: 7 }, (_, i) => (
+            <span
+              key={i}
+              aria-hidden
+              className={cn(PULSE, "h-[5px] rounded-full")}
+              style={{ width: i === 0 ? 18 : 5 }}
+            />
+          ))}
+        </span>
+        <span className="w-8 shrink-0" />
+      </div>
+      <div className="mx-auto flex w-full max-w-[420px] flex-1 flex-col justify-center gap-[22px] px-6 pb-10">
+        <span
+          aria-hidden
+          className={cn(PULSE, "block size-[58px] shrink-0 rounded-[18px]")}
+        />
+        <div className="flex flex-col gap-2.5">
+          <Bar w="68%" h={32} className="rounded-[10px]" />
+          <Bar w="44%" h={32} className="rounded-[10px]" />
+        </div>
+        <Bar w="84%" h={13} />
+        <div className="flex flex-col gap-[18px] pt-1">
+          <Bar w="30%" h={9} />
+          <Frame h={38} />
+          <Bar w="34%" h={9} />
+          <Frame h={38} />
+          <Circle size={56} />
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function PageSkeleton({
   title,
   variant = "rows",
@@ -285,6 +342,20 @@ export function PageSkeleton({
   // `rows` variant only: how many list rows to draw.
   rows?: number;
 }) {
+  // The wizard shell, not the tab frame — see OnboardingBody.
+  if (variant === "onboarding") {
+    return (
+      <div
+        className="relative flex flex-1 flex-col overflow-hidden"
+        role="status"
+        aria-busy="true"
+      >
+        <span className="sr-only">Loading {title}…</span>
+        <OnboardingBody />
+      </div>
+    );
+  }
+
   return (
     <div
       className="flex flex-1 flex-col items-center pt-7 pb-28"

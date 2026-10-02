@@ -5,6 +5,268 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-01
+
+### 20:18 · The onboarding error flash, fixed — the gate renders instead of redirecting
+**Closes the `buglist.md` entry from 2026-09-13** ("flash of 'page doesn't load'
+on first app open", open and uninvestigated for three weeks).
+
+The prod console gave it up: **Minified React error #310** — "Rendered more
+hooks than during the previous render" — thrown from Next's own router chunk
+with `useMemo` in the frame. Not our hook code: ESLint's `rules-of-hooks` is
+clean across `app/`, `components/` and `lib/`, and a brace-aware scan (verified
+against deliberately-broken code first) finds zero hook calls inside any `if`,
+loop, `try` or `.map()` in any client component.
+
+It is a known Next.js bug — vercel/next.js#78396, closed as a duplicate of
+ #63121 — that fires when three things meet: a `redirect()` from a Server
+Component, a Suspense boundary (any `loading.tsx` is one), and a server read
+during render. This app had all three on one path. The decisive test: loading
+`/onboarding` **directly** was always clean; only signing in fresh — which goes
+`/` → `redirect()` → `/onboarding` — threw.
+
+`app/page.tsx` now **renders** `<OnboardingClientV2/>` in place of
+`redirect("/onboarding")`. Removing any one of the three ingredients fixes it,
+and the redirect is the one that was never needed. `/onboarding` stays a real
+route for Settings → Replay, which is a soft navigation and was never affected.
+
+Two things fall out of it:
+
+- **The cold open gets materially faster.** The redirect made the browser fetch
+  a second document and ran the root layout's ~13 queries **twice**, throwing
+  the first set away — `cache()` is per-request and cannot span a 307.
+- `finish()` and `skipAll()` now call `router.refresh()` alongside
+  `router.push("/")`. The wizard renders at `/` on the common path, so pushing
+  to the URL you are already on must not be the only thing between a new user
+  and their first screen; the failure mode would be being stranded on the Done
+  splash.
+
+`BottomNav` is hidden until `onboarded_at` is set. It used to hide itself by
+checking for the `/onboarding` pathname, which no longer exists on this path.
+
+### 16:05 · Error boundaries, and a crash log that survives the crash
+Chasing the cold-open error flash (`buglist.md`, open since 2026-09-13) turned
+up why it went three weeks without a cause: **the app had no error boundary at
+all.** Every throw fell through to Next's built-in `DefaultGlobalError` — "This
+page couldn't load", two unlabelled buttons, no stack, no digest. Worse, Next
+clears that boundary the moment the router's pathname changes, and the document
+navigation clears the browser console at the same time. The error was real,
+reproducible, and unreadable: by the time you looked, both the screen and the
+log were gone.
+
+- `app/error.tsx` — covers every segment below the root layout. Says something
+  in the product's voice, offers `reset()`, and shows whether the throw was
+  server-side or client-side. A `digest` is set only for server errors, so its
+  absence is itself the diagnosis.
+- `app/global-error.tsx` — the root layout itself, which `error.tsx` sits inside
+  and cannot catch. Renders its own `<html>`/`<body>` with inline styles,
+  because the layout that would have supplied the fonts and tokens is the thing
+  that failed. Matters here specifically: the root layout mounts ~12 client
+  leaves, several of which only run on a cold open.
+- `lib/error-log.ts` — `recordError()` writes the last 5 crashes to
+  localStorage; `readErrors()` reads them back from the console long after the
+  fact. Every access is wrapped, because a blocked-storage browser must never
+  turn a crash report into a second crash. This is the piece that turns a
+  one-second flash into something readable.
+
+Read them with:
+
+```js
+JSON.parse(localStorage.getItem("progra:client-errors"))
+```
+
+Not a fix for the flash — the cause is still unknown. This is the instrument
+that will name it on the next reproduction.
+
+### 16:02 · /onboarding gets its own loading state
+Onboarding was the only main route with no `loading.tsx`, so it inherited the
+root one: `PrograLoader`, a wordless 72px mark whose hands sweep on a
+**6-second** rotation, inside `pb-24` of padding reserved for a bottom nav that
+`bottom-nav.tsx` has already hidden on this route. Over a one-second hold the
+hands move 60° — it reads as a static logo floating above empty space, not as a
+spinner.
+
+`PageSkeleton` gains an `onboarding` variant that mirrors the welcome step
+instead: the dot row, the 58px mark, the two-line headline, the tagline, the two
+fields and the avatar. Same shimmer language as every other route.
+
+Scope, honestly: this covers **soft** navigation only — Settings → Replay
+onboarding. The sign-in path is a server `redirect()` from `app/page.tsx`, which
+makes the browser fetch a second document, and there is no React boundary to
+fall back to there. It also does **not** fix the cold-open error flash
+(`buglist.md`, logged 2026-09-13): that is a client-side throw which beats the
+loader rather than replacing it.
+
+### 15:45 · Goals match on meaning, and the goal opt-out actually opts out
+**SQL APPLIED TO PROD (`.claude/plans/uw-cohort.sql` STEP 4)** — STEP 4V all 12
+rows ok = true, and a live check on real rows returned `shared_goals = 1` with
+`goal_titles = {"CSE 143 problem sets"}` against a caller whose own goal is
+"Study for CSE 143": matched on meaning, count equal to the titles shown.
+
+Two changes, one product and one privacy, both in one function.
+
+**Goals now match on shared words, not on an identical string.** Finding
+someone working on the same thing is the point of the cohort, and exact title
+equality almost never fired — "Study for CSE 143" and "CSE 143 problem sets" are
+the same goal and matched on nothing. `uw_goal_tokens()` reduces a title to its
+subject the way the club matcher does, with a stop list aimed at how people
+write goals: the verbs (`study`, `learn`, `work`, `practice` — the most common
+words in the goal table and the least informative), the units (`hr`, `week`,
+`daily`) and bare numbers, which are how a goal's *size* is written. "Read 10
+books" and "Study 10 hours" must not match on `10`. A course number goes with
+the numbers, so "CSE 143" reduces to `cse` and finds "CSE 142" — which two
+students a quarter apart would want. `read` is deliberately not a stop word.
+
+**The returned titles are now the ones that matched, and the count is exactly
+their number.** This came out of the security review. Before, a row showed a
+peer's 3 *oldest* goals while `shared_goals` counted *all* matches — so the
+count could confirm a title that was never shown, and for a peer with
+`uw_share_goals = false` the count was returned even though every title was
+withheld. A caller could create a goal named as a guess, read the count, and
+confirm another student's exact goal title without ever being shown it — a
+guessing-game oracle over the data the switch exists to withhold.
+
+Now `shared_goals` IS `array_length(goal_titles)`, so the number can never
+describe anything the caller wasn't also shown, and `uw_share_goals = false`
+removes that student's goals from matching entirely — no titles, no count, no
+contribution to score, never surfaced on the strength of a goal. STEP 4V asserts
+the invariant; the harness asserts it per row and a mutant breaks it on purpose.
+The row now reads "Both on: MCAT" — the goals you share, which is the actual
+hook, where the old line was the peer's three newest goals regardless.
+
+Worth recording plainly: the old behaviour was **pinned by my own test** named
+"uw_share_goals = false withholds titles but still scores". I reasoned about the
+titles and never followed the count to where it gets printed on screen. The test
+wasn't evidence the behaviour was right, it was evidence I'd locked in my own
+mistake.
+
+Also found by the review and fixed: each later SQL step does a
+`create or replace` of `uw_peers`, so four mutants had gone silently toothless —
+their patterns lived in text a later step overwrote, and they were reading as
+MISSED-but-green. Retargeted, plus a sloppily-typed major and two new goals in
+the fixture so the stop list, the number rule and `uw_norm`'s whitespace folding
+are each observable. 11 mutants, all caught, exit 0. Suite 441.
+
+### 14:16 · UW clubs are free text, matched on meaning — no list shown
+**SQL APPLIED TO PROD (`.claude/plans/uw-cohort.sql` STEP 3)** — STEP 3V all 12
+rows ok = true, and a live check confirmed "Husky Robotics" matching "UW
+Robotics Club" (`shared_clubs = 1`) on real rows.
+
+The clubs field **offers nothing**. UW has on the order of a thousand student
+orgs; a field that suggests thirty of them is mostly wrong and quietly teaches a
+student that the one they're actually in doesn't count. They type it, press
+Enter (or comma, or the Add button — Enter is invisible on a phone keyboard),
+and it becomes a removable chip. Up to 5, stored exactly as they wrote it.
+
+Matching then has to do the work, because the database now holds "UW Robotics
+Club", "Husky Robotics" and "robotics team" for one room:
+
+- `uw_club_tokens()` reduces a name to its significant words — lowercase,
+  hyphens/apostrophes/dots **joined** (so "pre-med" is one word and can't share
+  "pre" with "pre-law"), one-letter words dropped, and a stop list removed: the
+  school, the mascot, and the furniture (`club`, `society`, `team`, `student`,
+  `of`, `the`…). What survives is the thing itself: `robotics`.
+- `uw_clubs_match()` counts any shared significant word, treating one word as
+  shared with another when either is a prefix of the other from four characters
+  up — which absorbs plurals and truncations ("robotic"/"robotics",
+  "ultimate"/"ultimate frisbee").
+- A name whose every word is furniture ("UW Student Club") reduces to nothing
+  and matches nobody. Correct, not a gap — it is not evidence two people know
+  each other. Same for sharing only the mascot: "Husky Sailing" and "Husky
+  Marching Band" are not the same club.
+- `clubTokens()` / `clubsMatch()` in `lib/uw.ts` mirror both functions, with the
+  stop list and the prefix rule unit-tested.
+
+**No `pg_trgm`, deliberately.** Neither it nor `fuzzystrmatch` is available in
+PGlite, so a similarity threshold could not be proven by the harness before
+running against ~50 real users. Token overlap is testable, so token overlap
+ships; the cost is typo tolerance ("Dubstech"/"Dubtech" won't match).
+
+`UW_CLUBS` and `isUwClub` are gone. `cleanClubs` no longer rewrites anyone's
+spelling — it trims, collapses inner whitespace, caps each name at `CLUB_MAX`
+(60), dedupes case-insensitively and caps the count.
+
+Harness: fixtures for two names for one org, a pre-med/pre-law near miss, a
+mascot-only overlap and a furniture-only name, plus two new mutants (revert to
+byte equality; drop the mascot from the stop list). Mutations now apply to STEP
+1 **and** STEP 3 — STEP 3 redefines `uw_peers` wholesale, so a mutation planted
+only in STEP 1 was being overwritten and every mutant read as MISSED. 8 mutants,
+all caught, exit 0. Suite 431.
+
+### 13:57 · UW cohort, phases 3–6 — the onboarding funnel and the way in from Settings
+**SQL APPLIED TO PROD (`.claude/plans/uw-cohort.sql`) — STEP 1V all 15 rows
+ok = true, STEP 2 adversarial all zeros.** Still dark: `NEXT_PUBLIC_UW` is
+unset, so the welcome tick, the UW step and the Settings block don't render and
+`fetchUwPeers` returns `[]`.
+
+A UW student now ticks "I'm a UW student" on the onboarding welcome step, picks
+a major and clubs one step before the end, and finishes by adding real peers who
+share their major, clubs or goals.
+
+- **The step machine** grows its second conditional step. `activeSteps(native,
+  uw)` filters `STEPS`; `uw` sits after `post` and before `friends`, so the goal
+  exists before anything is matched on it. The question is asked on `welcome`
+  for a structural reason, not a copy one: the list may only change length while
+  the user is still on index 0, or the "Step N of M" eyebrow and the progress
+  dots renumber underneath them. 9 steps native / 8 web for a UW student, 8 / 7
+  otherwise — asserted in `lib/onboarding.test.ts` (suite now 419).
+- **`components/uw-fields.tsx`** — major, clubs and the goal-sharing switch, one
+  implementation shared by onboarding and Settings, because two pickers whose
+  values must match exactly to score a match is how a cohort quietly stops
+  matching. The major is a typeahead over `UW_MAJORS`, which covers both the
+  list and the free-text tail in one control — and avoids the 40-row native
+  wheel the timezone picker was rewritten to get away from.
+- **The final step is no longer a rehearsal** for UW students. It lists peers
+  with the reason in words ("Same major · 2 clubs in common", never a score),
+  Add sends a real `sendFriendRequest`, and the invite share sheet sits
+  underneath. With no matches it says "You're early at UW" rather than padding
+  the list with strangers. Non-UW students keep the practice nudge unchanged.
+- **Settings → Edit profile** gets the same block, which is the whole reason it
+  exists: `completeOnboarding` is write-once and Replay deliberately doesn't
+  clear `onboarded_at`, so without this every user who onboarded before today —
+  all ~50 — could never join the cohort.
+- `lib/db/uw.ts` reads the `uw_peers` RPC (empty on any error, so a flag-on /
+  SQL-not-run state degrades quietly); `app/actions/uw.ts` owns the only write,
+  and `fetchUwPeers` is a read-shaped action for `searchUsers`' reason — the
+  input is picked mid-flow, so no page render knows the answer.
+
+Known gap, deliberate: Settings is a way *into* the cohort, but onboarding is
+the only place you *see* it. A UW section on `/friends` is the next pass.
+
+### 13:42 · UW cohort, phases 1–2 — matching vocabulary and the migration
+**SQL APPLIED TO PROD (`.claude/plans/uw-cohort.sql` STEP 1) — STEP 1V all 15
+rows ok = true, STEP 2 adversarial all zeros.**
+Nothing is reachable yet: `NEXT_PUBLIC_UW` is unset, and while it is off no
+reader names a new column and nothing calls the new RPC, so this is safe to
+deploy ahead of the SQL. The one dangerous ordering is flag-on *before* the SQL.
+
+Groundwork for launching at UW: a student will be able to say they're a UW
+student during onboarding and be shown other UW students who share their major,
+their clubs, or what they're working on.
+
+- `lib/uw.ts` — the matching vocabulary: ~40 UW majors (plus an "Other" free-text
+  escape hatch), 30 clubs, `cleanMajor`/`cleanClubs` validation, the
+  `normalizeMatchText` fold, and `matchReason` ("Same major · 2 clubs in
+  common"). 21 tests; suite is 416.
+- `lib/flags.ts` — `UW`, which means *the SQL has run*, in the `JOHN` mould.
+- `.claude/plans/uw-cohort.sql` — four defaulted columns on `profiles`
+  (`is_uw`, `uw_major`, `uw_clubs`, `uw_share_goals`), two bounds CHECKs, a
+  partial index, and two functions: `uw_norm` (the SQL mirror of the TS fold,
+  callable by nobody but the owner) and `uw_peers`, a DEFINER RPC that returns
+  scored suggestions. No existing policy is touched — `profiles` stays
+  owner-only and `public_profiles` stays six columns, which is what keeps the UW
+  fields invisible to strangers. The cohort gate is inside the RPC: a caller who
+  isn't `is_uw` gets zero rows.
+- `.claude/plans/nudges-harness/uw.mjs` — 44 assertions and 6 planted mutants
+  against a PGlite mock, all passing. It caught two bugs before they could reach
+  ~50 real users: a CHECK constraint may not contain a subquery, and
+  `= any ((select <array>))` parses as `text = text[]`.
+
+Known and deliberate: a UW student can read other UW students' active,
+non-private goal titles (max 3 each), where today those are friends-only.
+`uw_share_goals` is the opt-out, private goals are never returned, and the cap
+is enforced in SQL.
+
 ## 2026-09-30
 
 ### 19:16 · Categories section says what categories are for

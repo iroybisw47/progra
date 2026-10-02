@@ -176,7 +176,11 @@ export default async function RootLayout({
         username={profile?.username ?? null}
         signupDate={profile?.created_at ?? null}
       />
-      {user && (
+      {/* Hidden until onboarding is finished: the wizard owns the whole
+          viewport and now renders at `/` rather than behind a redirect to
+          /onboarding, so the pathname check inside BottomNav can no longer see
+          it. A user mid-onboarding has nothing to navigate to anyway. */}
+      {user && profile?.onboarded_at != null && (
         <BottomNav
           activeSession={
             activeSession

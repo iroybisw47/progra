@@ -6,6 +6,8 @@ import { SignInButtons } from "@/app/login/sign-in-buttons";
 import { Dashboard } from "@/components/dashboard";
 import { Feed } from "@/components/feed";
 import { ProgressClient } from "@/components/v2/progress-client";
+import { OnboardingClientV2 } from "@/app/onboarding/onboarding-client-v2";
+import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 import { REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
@@ -35,7 +37,32 @@ export default async function Page({
   // first.
   if (REDESIGN) {
     const profile = await getProfile();
-    if (!profile?.onboarded_at) redirect("/onboarding");
+    // The onboarding gate RENDERS the wizard rather than redirecting to it.
+    //
+    // `redirect("/onboarding")` here was the cause of the React #310 flash
+    // ("Rendered more hooks than during the previous render") that every new
+    // user saw for about a second on their first sign-in — a known Next.js bug
+    // (vercel/next.js#78396, dup of #63121) that fires when a Server Component
+    // redirect, a Suspense boundary (any loading.tsx) and a server read during
+    // render all meet. Loading /onboarding directly was always clean; only the
+    // redirect path threw. Removing any one of the three fixes it, and the
+    // redirect is the one we don't need.
+    //
+    // It also deletes real work: the redirect made the browser fetch a second
+    // document and ran the root layout's ~13 queries TWICE, throwing the first
+    // set away — cache() is per-request and cannot span a 307.
+    //
+    // /onboarding stays a real route: Settings → Replay pushes to it, which is
+    // a soft navigation with no redirect and no flash.
+    if (!profile?.onboarded_at) {
+      return (
+        <OnboardingClientV2
+          initialUsername={profile?.username ?? ""}
+          initialDisplayName={profile?.display_name ?? null}
+          avatarUrl={avatarPublicUrl(profile?.avatar_path ?? null)}
+        />
+      );
+    }
     // `?tab=week` opens the Week sub-tab directly. History is no longer a
     // sub-tab (the Sessions header links straight to /history), so an old
     // `?tab=history` link just lands on Today.

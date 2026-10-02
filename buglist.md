@@ -116,7 +116,10 @@ recognizer is dead in the running process. Force-quit and reopen once.
 
 ## 2026-09-13 — Flash of "page doesn't load" on first app open
 
-**Status:** open, not investigated
+**Status:** FIXED 2026-10-01 — React #310, caused by `redirect("/onboarding")`
+in `app/page.tsx` meeting a Suspense boundary and a server read during render
+(vercel/next.js#78396). The gate now renders the wizard instead of redirecting.
+Direct loads of /onboarding were always clean; only the sign-in redirect threw.
 
 **Repro:** Cold-open the Progra app. For roughly one second an error /
 "page doesn't load" state shows, then the app resolves to the normal screen.

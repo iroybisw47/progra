@@ -67,8 +67,21 @@ R23 states: signed-out + valid handle → invite landing (avatar/name/bio + Cont
 
 ### Route-level states (loading)
 
-No `error.tsx` or `not-found.tsx` boundaries exist anywhere in `app/` — `notFound()`
-falls through to the Next.js default.
+`app/error.tsx` (every segment below the root layout) and `app/global-error.tsx`
+(the root layout itself) were added 2026-10-01; both call `recordError()` from
+`lib/error-log.ts`, which persists the last 5 crashes to localStorage — read
+them with `JSON.parse(localStorage.getItem("progra:client-errors"))`. No
+`not-found.tsx` boundary exists, so `notFound()` still falls through to the
+Next.js default.
+
+Before those existed, any THROW also fell through to Next's built-in
+`DefaultGlobalError` renders "This page couldn't load" with Reload/Back buttons,
+and it shows **two** buttons only when `error.digest` is absent, i.e. the throw
+was client-side (a server throw carries a digest and renders one button plus an
+`ERROR <digest>` footer). That two-button shape is the quickest way to classify a
+reported flash — see buglist.md's cold-open entry. Next also clears that boundary
+as soon as the router's pathname changes, which is why such a flash can appear to
+heal by itself.
 
 | Screen ID | Route | Kind | Renders | File:line |
 |---|---|---|---|---|
@@ -84,6 +97,7 @@ falls through to the Next.js default.
 | L10 | `/sessions` | state | `<PageSkeleton title="Session history" />` | app/sessions/loading.tsx:4-10 |
 | L11 | `/categories` | state | `<PageSkeleton title="Categories" />` | app/categories/loading.tsx:4-10 |
 | L12 | `/admin/analytics` | state | `<PageSkeleton title="Analytics" />` | app/admin/analytics/loading.tsx |
+| L13 | `/onboarding` | state | `<PageSkeleton title="Welcome" variant="onboarding" />` — the wizard shell, not the tab frame: dot row, 58px mark, two-line headline, tagline, two fields + avatar. Added 2026-10-01; before that onboarding was the only main route with no `loading.tsx` and inherited L01, a wordless mark on a 6s rotation inside `pb-24` of nav padding this route hides. **Covers soft navigation only** (Settings → Replay); the sign-in path is a server `redirect()` from `app/page.tsx`, a second document fetch with no React boundary | app/onboarding/loading.tsx |
 
 ### Dialogs / sheets / overlays
 
@@ -140,9 +154,11 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S09 | live-timer-client | status | "Paused" vs "Tracking" (timer color, Resume/Pause, glow) | `paused = pausedSince != null` | app/clock/live/live-timer-client.tsx:282-288,401 |
 | S10 | live-timer-client | other | "Photo attached" chip vs "Add photo" | `hasPhoto ?` | app/clock/live/live-timer-client.tsx:375 |
 | S11 | live-timer-client | edit sub-state | edit sheet: "Ended at" + "Finish session" vs "Save" | `!stillRunning &&` | app/clock/live/live-timer-client.tsx:504,520 |
-| S12 | onboarding-client-v2 (REDESIGN) | step | 8-step machine (7 on web): welcome→how→goal→habit→clock→*notify*→post→friends, then the Done splash. `notify` is native-only; `clock`, `post` and the friends-step nudge are deliberate practice (write nothing); the goal and habits are created for real. Header: back (hidden on welcome), 8 dots, Skip (→ `completeOnboarding` + home). Footer: `PrimaryButton size="screen"` (40% + `aria-disabled` when gated) + a quiet skip on habit/notify/friends | `stepIndex` (number) in the shell; steps are props-down components in app/onboarding/steps/ | app/onboarding/onboarding-client-v2.tsx |
+| S12 | onboarding-client-v2 (REDESIGN) | step | 8-step machine (7 on web), **9/8 for a UW student**: welcome→how→goal→habit→clock→*notify*→post→*uw*→friends, then the Done splash. TWO conditional steps, both resolved while still on `welcome` at index 0 (the list may not change length under `stepIndex`): `notify` is native-only, `uw` needs the welcome tick. `clock`, `post` and the non-UW friends-step nudge are deliberate practice (write nothing); the goal, habits, UW profile and UW friend requests are real. Header: back (hidden on welcome), one dot per active step, Skip (→ `completeOnboarding` + home). Footer: `PrimaryButton size="screen"` (40% + `aria-disabled` when gated) + a quiet skip on habit/notify/uw/friends (dropped on friends once a peer is added) | `stepIndex` (number) in the shell; steps are props-down components in app/onboarding/steps/ | app/onboarding/onboarding-client-v2.tsx · lib/onboarding.ts `activeSteps(native, uw)` |
 | S13 | onboarding step headline | other | every headline types in letter-by-letter behind a navy caret (`TypedHeadline`, 280ms then 32ms/char); an invisible ghost keeps the height stable; retypes on every step entry incl. Back; full text + no caret under reduced motion | `key={step}` remount | components/v2/typed-headline.tsx · app/onboarding/onboarding-ui.tsx (`StepTemplate`) |
-| S14 | onboarding `friends` step | state | Nudge pill (left of the gear, as on a real profile) → "Pick a message" list from `NUDGE_PRESETS` → navy bubble + "Nudge sent to Maya", pill dims to "Nudged". CTA "Share with friends" → `shareInvite` (share sheet / clipboard) → CTA becomes "Start my week"; quiet skip "Start my week without sharing" | `nudgeOpen`, `nudged`, `shared` | app/onboarding/steps/friends-step.tsx |
+| S14 | onboarding `friends` step | state | **Two variants, on `peers === null`.** NON-UW (unchanged): Nudge pill (left of the gear, as on a real profile) → "Pick a message" list from `NUDGE_PRESETS` → navy bubble + "Nudge sent to Maya", pill dims to "Nudged". CTA "Share with friends" → `shareInvite` (share sheet / clipboard) → CTA becomes "Start my week"; quiet skip "Start my week without sharing" | `nudgeOpen`, `nudged`, `shared` | app/onboarding/steps/friends-step.tsx |
+| S14b | onboarding `friends` step (UW) | state | UW variant, `UwPeersStep`: rows of `UwPeer` (avatar, name, `matchReason()` in words — never a score — and up to 3 of their goal titles), Add → real `sendFriendRequest` → "Added"; invite prompt + share CTA underneath. `peers.length === 0` is a DIFFERENT screen ("You're early at UW"), never padded with non-matching strangers. Adding a peer swaps the CTA to "Start my week" and drops the quiet skip | `peers` (null = not UW), `added`, `addPending` | app/onboarding/steps/friends-step.tsx (`UwPeersStep`) |
+| S14c | onboarding `uw` step | step | **Two typeaheads, no closed lists.** Major over `UW_MAJORS` (chips; empty field shows the first 8; off-list text is kept as free text). Clubs are **free text with NO options offered** (UW has ~1,000 orgs): type, then Enter/comma/Add button; picked ones are removable navy chips; backspace-on-empty pulls back the last; the input disappears at `MAX_UW_CLUBS` (5). Matching is `uw_clubs_match` on significant words, so "UW Robotics Club" ≡ "Husky Robotics". Plus the "Show what I'm working on" switch (default ON, copy changes with it). CTA gated on a major or one club; "Skip for now" still joins the cohort with no signals. Both paths write via `setUwProfile` then load peers | `uwMajor`, `uwClubs`, `shareGoals` in the shell | app/onboarding/steps/uw-step.tsx · components/uw-fields.tsx |
 | S15 | onboarding Done splash | overlay | "Ready. / Set. / GO!" (rise 0/.45/.95s), `WeekPulse`, summary line; `completeOnboarding` runs alongside a 3.2s hold, then `router.push("/")`; an error toasts and drops back to the step | `done` | app/onboarding/done-splash.tsx |
 | S16 | onboarding-client (legacy, !REDESIGN) | step | 9-step machine incl. tour-home/history/habits early-returns | `useState<Step>("welcome")` | app/onboarding/onboarding-client.tsx:151; :262,280,292,315,330,367,392,442,531 |
 | S17 | onboarding-client (legacy) | sub-machine | practice: idle / running / done | `practicePhase` | app/onboarding/onboarding-client.tsx:168,461,485,516 |
@@ -201,6 +217,7 @@ Grouped by surface. Only branches that swap the whole surface or a major section
 | S62 | settings-client (Nudges) | toggle | "Nudges" row in **Sharing** (gated on `NUDGES`, not push permission) — whether friends may nudge you at all. The push row above it becomes "Likes, comments & nudges" | `nudges_enabled` | app/settings/settings-client.tsx |
 | S54 | /admin (Beta capacity) | capacity | seated-of-cap + waiting counts, editable seat cap, one Grant-a-seat card per waitlisted user; "RPCs aren't installed" line when the overview RPC errors | `admin_beta_overview()` / `admin_list_waitlist()` | app/admin/admin-waitlist.tsx:28, app/admin/page.tsx |
 | S55 | /admin (Bug reports) | queue | open-first list of user bug reports with device/route/build context; Resolve · Dismiss · Reopen; "RPCs aren't installed" line vs. "Nothing reported yet" | `admin_list_bug_reports()` | app/admin/admin-bug-reports.tsx:29, app/admin/page.tsx |
+| S70 | settings-client (UW) | step | A `UW`-gated block at the foot of the **Edit profile** sheet, below a hairline: an "I'm a UW student" `ToggleSwitch`, and when on the shared `<UwFields/>` (major typeahead · clubs · "Show what I'm working on"). Saved by the sheet's existing Save, which calls `setUwProfile` after `setProfileIdentity`. **This is the only way an already-onboarded user can join the cohort** — `completeOnboarding` is write-once and Replay never clears `onboarded_at` | `uwDraft`, `majorDraft`, `clubsDraft`, `shareDraft`, reset on every open by `openIdentity()` | app/settings/settings-client.tsx · components/uw-fields.tsx |
 | S69 | /admin (Suggestions) | queue | open-first list of user suggestions with the suggester's handle · display name · email; Accept · Decline · Reopen; "RPCs aren't installed" line vs. "No suggestions yet." | `admin_list_suggestions()` | app/admin/admin-suggestions.tsx:24, app/admin/page.tsx |
 | S56 | ~~/admin (Interview consents)~~ | — | **Gone 2026-09-30.** Always showed its empty state after the consents were cleared (see S57), and Settings → Admin still led to it, so it read as a live interview feature. `admin-interviews.tsx` deleted, panel unwired from `app/admin/page.tsx`; `admin_list_interview_consents()` left in the DB with no caller | — | — |
 
