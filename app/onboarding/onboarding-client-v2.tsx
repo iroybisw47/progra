@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ChevronLeftIcon } from "lucide-react";
@@ -90,6 +90,12 @@ export function OnboardingClientV2({
   initialDone = false,
 }: Props) {
   const router = useRouter();
+  // The wizard renders at `/` on the sign-in path and at `/onboarding` on the
+  // Replay path, and finishing needs a DIFFERENT move in each case. Doing both
+  // raced: the push re-applied the route's cached payload — still the wizard,
+  // since staleTimes keeps it for 30s — over the refresh that had just fetched
+  // the finished one, so Skip looked like it did nothing.
+  const pathname = usePathname();
   const [pending, startTransition] = useTransition();
 
   // Both conditional steps resolve while the user is still on `welcome` at
@@ -378,16 +384,17 @@ export function OnboardingClientV2({
         return;
       }
       track("onboarding_completed");
-      // push() covers the /onboarding route (Settings → Replay); refresh()
-      // covers the common case, where the wizard is rendering AT `/` because
-      // app/page.tsx renders it in place of redirecting. Pushing to the URL you
-      // are already on must not be the only thing standing between a new user
-      // and their first screen — the failure mode is being stranded on the Done
-      // splash. completeOnboarding has already revalidated `/`, so the refresh
-      // re-renders it past the gate.
-      router.push("/");
-      router.refresh();
+      leave();
     });
+  }
+
+  // Exactly one navigation, chosen by where the wizard is actually mounted.
+  // At `/` there is nowhere to go: completeOnboarding has already revalidated
+  // the route, so re-rendering it is the whole job and a push would only
+  // reinstate the cached pre-completion payload.
+  function leave() {
+    if (pathname === "/") router.refresh();
+    else router.push("/");
   }
 
   function skipAll() {
@@ -398,8 +405,7 @@ export function OnboardingClientV2({
         return;
       }
       toast.success("Onboarding skipped — replay it any time from Settings.");
-      router.push("/");
-      router.refresh();
+      leave();
     });
   }
 

@@ -7,6 +7,20 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-01
 
+### 20:43 · Fix Skip (and Done) leaving you on the wizard
+Regression from the gate change an hour earlier, and mine: I had `finish()` and
+`skipAll()` call **both** `router.push("/")` and `router.refresh()`, reasoning
+that one covers each of the two places the wizard can be mounted. They race.
+With the wizard at `/`, the push re-applies the route's cached RSC payload —
+still the wizard, since `staleTimes: { dynamic: 30 }` holds it for 30s — over
+the refresh that had just fetched the finished one. Skip looked like it did
+nothing.
+
+One navigation now, chosen by where the wizard actually is: at `/` there is
+nowhere to go, so `router.refresh()` is the whole job (`completeOnboarding`
+has already revalidated the route); from `/onboarding`, the Replay path, it
+still pushes.
+
 ### 20:18 · The onboarding error flash, fixed — the gate renders instead of redirecting
 **Closes the `buglist.md` entry from 2026-09-13** ("flash of 'page doesn't load'
 on first app open", open and uninvestigated for three weeks).
