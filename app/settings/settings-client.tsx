@@ -16,6 +16,7 @@ import {
 import { PrimaryButton } from "@/components/v2/primary-button";
 import { HoldToDelete } from "@/components/v2/hold-to-delete";
 import { ReplayOnboardingButton } from "@/components/replay-onboarding-button";
+import { UwFields } from "@/components/uw-fields";
 import { ToggleSwitch } from "@/components/v2/toggle-switch";
 import {
   disconnectGoogleCalendar,
@@ -25,6 +26,7 @@ import {
   setSocialPushesEnabled,
   setUsername,
 } from "@/app/actions/profile";
+import { setUwProfile } from "@/app/actions/uw";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { ACCOUNTABILITY_INVITE_TEXT, shareInvite } from "@/lib/invite-share";
 import { track } from "@/lib/analytics";
@@ -35,6 +37,7 @@ import {
   NUDGES,
   RECAP_PUSH,
   SOCIAL_PUSH,
+  UW,
 } from "@/lib/flags";
 import {
   habitReminderPref,
@@ -111,6 +114,10 @@ export function SettingsClient({
   calendarStatus,
   socialPushesEnabled,
   nudgesEnabled,
+  isUw,
+  uwMajor,
+  uwClubs,
+  uwShareGoals,
   isAdmin,
   openReports,
 }: {
@@ -126,6 +133,13 @@ export function SettingsClient({
   // Account-level social-push opt-out; null = on (column default).
   socialPushesEnabled: boolean | null;
   nudgesEnabled: boolean;
+  // UW cohort. Self-declared, so unlike every other cohort flag in the app
+  // these are editable right here — onboarding is write-once, and without this
+  // block every user who onboarded before the feature existed is locked out.
+  isUw: boolean;
+  uwMajor: string | null;
+  uwClubs: readonly string[];
+  uwShareGoals: boolean;
   isAdmin: boolean;
   openReports: number;
 }) {
@@ -149,6 +163,10 @@ export function SettingsClient({
   const [dnDraft, setDnDraft] = useState(displayName ?? "");
   const [unDraft, setUnDraft] = useState(username ?? "");
   const [bioDraft, setBioDraft] = useState(bio ?? "");
+  const [uwDraft, setUwDraft] = useState(isUw);
+  const [majorDraft, setMajorDraft] = useState(uwMajor ?? "");
+  const [clubsDraft, setClubsDraft] = useState<string[]>([...uwClubs]);
+  const [shareDraft, setShareDraft] = useState(uwShareGoals);
 
   const [tzOpen, setTzOpen] = useState(false);
   const [tzDraft, setTzDraft] = useState(timezone ?? "UTC");
@@ -177,8 +195,13 @@ export function SettingsClient({
     setDnDraft(displayName ?? "");
     setUnDraft(username ?? "");
     setBioDraft(bio ?? "");
+    setUwDraft(isUw);
+    setMajorDraft(uwMajor ?? "");
+    setClubsDraft([...uwClubs]);
+    setShareDraft(uwShareGoals);
     setEditing(true);
   }
+
 
   function saveIdentity() {
     startTransition(async () => {
@@ -194,6 +217,20 @@ export function SettingsClient({
       if ("error" in r) {
         toast.error(r.error);
         return;
+      }
+      // Only when the flag is on: with it off the block isn't rendered, and
+      // calling this would name four columns for nothing.
+      if (UW) {
+        const u = await setUwProfile({
+          isUw: uwDraft,
+          major: majorDraft,
+          clubs: clubsDraft,
+          shareGoals: shareDraft,
+        });
+        if ("error" in u) {
+          toast.error(u.error);
+          return;
+        }
       }
       toast.success("Saved");
       setEditing(false);
@@ -434,6 +471,31 @@ export function SettingsClient({
                 onChange={(e) => setBioDraft(e.target.value)}
               />
             </Field>
+            {UW && (
+              <>
+                <div className="bg-hairline h-px" />
+                <div className="flex items-center gap-3">
+                  <span className="text-body min-w-0 flex-1 text-[13.5px] font-medium">
+                    I&apos;m a UW student
+                  </span>
+                  <ToggleSwitch
+                    ariaLabel="UW student"
+                    checked={uwDraft}
+                    onCheckedChange={setUwDraft}
+                  />
+                </div>
+                {uwDraft && (
+                  <UwFields
+                    major={majorDraft}
+                    onMajor={setMajorDraft}
+                    clubs={clubsDraft}
+                    onClubs={setClubsDraft}
+                    shareGoals={shareDraft}
+                    onShareGoals={setShareDraft}
+                  />
+                )}
+              </>
+            )}
             <PrimaryButton disabled={pending} onClick={saveIdentity}>
               {pending ? "Saving…" : "Save"}
             </PrimaryButton>

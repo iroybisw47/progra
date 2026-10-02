@@ -2,28 +2,57 @@
 
 import { CheckIcon, SettingsIcon } from "lucide-react";
 
+import { AvatarInitials } from "@/components/avatar-initials";
 import { NUDGE_PRESETS, NUDGE_PRESET_KEYS } from "@/lib/social/nudges";
+import { matchReason, type UwPeer } from "@/lib/uw";
 import { cn } from "@/lib/utils";
 
 import { CARD, StepTemplate, rise } from "../onboarding-ui";
 
-// Step 7. Try a nudge on a practice profile, laid out like the real one (the
-// Nudge pill sits left of the settings gear, as on /profile/[username]), then
-// the pinned CTA offers the share sheet. Nothing here sends anything.
+// The last step, in two versions.
+//
+// A UW student gets the REAL one: peers who share their major, clubs or goals,
+// each addable then and there, with the invite share sheet underneath. Everyone
+// else gets the practice nudge below — a mock profile laid out like the real
+// one (the Nudge pill sits left of the settings gear, as on
+// /profile/[username]), which sends nothing.
+//
+// `peers === null` is the discriminator: not a UW student, so there is no
+// cohort to show. An empty ARRAY is a UW student with no matches yet, which is
+// a different screen — we say so rather than padding the list with strangers.
 export function FriendsStep({
   eyebrow,
+  peers,
+  added,
+  onAdd,
+  addPending,
   nudgeOpen,
   onOpenNudge,
   nudged,
   onNudge,
 }: {
   eyebrow: string | null;
+  peers: readonly UwPeer[] | null;
+  added: readonly string[];
+  onAdd: (userId: string) => void;
+  addPending: string | null;
   nudgeOpen: boolean;
   onOpenNudge: () => void;
   // The chosen preset's copy, once one has been picked.
   nudged: string | null;
   onNudge: (message: string) => void;
 }) {
+  if (peers) {
+    return (
+      <UwPeersStep
+        eyebrow={eyebrow}
+        peers={peers}
+        added={added}
+        onAdd={onAdd}
+        addPending={addPending}
+      />
+    );
+  }
   return (
     <StepTemplate
       eyebrow={eyebrow}
@@ -105,6 +134,96 @@ export function FriendsStep({
             </span>
           </div>
         )}
+      </div>
+    </StepTemplate>
+  );
+}
+
+// The UW half. Rows are deliberately plain: a face, a name, the reason, and one
+// button. The reason is words from matchReason(), never a score — "Same major ·
+// 2 clubs in common" is something a student can act on; "92% match" isn't.
+function UwPeersStep({
+  eyebrow,
+  peers,
+  added,
+  onAdd,
+  addPending,
+}: {
+  eyebrow: string | null;
+  peers: readonly UwPeer[];
+  added: readonly string[];
+  onAdd: (userId: string) => void;
+  addPending: string | null;
+}) {
+  return (
+    <StepTemplate
+      eyebrow={eyebrow}
+      title={peers.length > 0 ? "Students like you." : "You're early at UW."}
+      body={
+        peers.length > 0
+          ? "These Huskies share your major, your clubs, or what you're working on. Add a few — you'll see each other's hours all week."
+          : "Nobody at UW matches your major or clubs yet. Bring someone with you and you'll both have someone watching."
+      }
+    >
+      {peers.length > 0 && (
+        <div className={`${CARD} flex flex-col p-4`}>
+          {peers.map((peer, i) => {
+            const isAdded = added.includes(peer.userId);
+            const name = peer.displayName?.trim() || `@${peer.username}`;
+            return (
+              <div
+                key={peer.userId}
+                className={cn(
+                  "flex items-center gap-2.5 py-2.5",
+                  i > 0 && "border-hairline border-t"
+                )}
+              >
+                <AvatarInitials
+                  name={peer.displayName}
+                  username={peer.username}
+                  avatarUrl={peer.avatarUrl}
+                  className="size-11 shrink-0 text-sm font-semibold"
+                />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-body truncate text-[14.5px] font-semibold">
+                    {name}
+                  </span>
+                  <span className="text-brand truncate text-[11.5px] font-semibold">
+                    {matchReason(peer)}
+                  </span>
+                  {peer.goalTitles.length > 0 && (
+                    // These are the goals that MATCHED, not their newest —
+                    // which is what makes this line the hook rather than
+                    // trivia, and is why the count beside it can't describe
+                    // anything hidden. See uw-cohort.sql STEP 4.
+                    <span className="text-faint truncate text-[11px]">
+                      Both on: {peer.goalTitles.join(" · ")}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => !isAdded && onAdd(peer.userId)}
+                  disabled={addPending === peer.userId}
+                  aria-disabled={isAdded || undefined}
+                  className={cn(
+                    "bg-brand text-primary-foreground h-8 shrink-0 rounded-full px-4 text-[12.5px] font-semibold transition-[transform,opacity] duration-200 active:scale-95 disabled:opacity-50",
+                    isAdded && "opacity-50"
+                  )}
+                >
+                  {isAdded ? "Added" : "Add"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <div className="border-hairline flex flex-col gap-1 border-t pt-3.5">
+        <span className="section-label">Already know someone here?</span>
+        <p className="text-caption text-[12px] leading-snug">
+          Invite your own friends below — UW or not, they&apos;ll see your week
+          the same way.
+        </p>
       </div>
     </StepTemplate>
   );

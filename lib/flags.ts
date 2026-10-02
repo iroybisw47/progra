@@ -152,6 +152,21 @@ export const COMMENT_REPLIES =
 // so flipping this false ends the test for everyone without touching the DB.
 export const JOHN = envFlag(process.env.NEXT_PUBLIC_JOHN);
 
+// Master switch for the UW cohort: the "I'm a UW student" toggle on the
+// onboarding welcome step, the major/clubs step behind it, the real suggestion
+// list on the final step, and the Settings block that lets an already-onboarded
+// user join.
+//
+// THIS FLAG MEANS "THE SQL HAS RUN", like JOHN. Flipping it on before
+// .claude/plans/uw-cohort.sql STEP 1 has run is the one dangerous ordering:
+// setUwProfile would 42703 on four unknown columns and uw_peers would not
+// exist. Off, no writer names a new column and no reader calls the RPC, so the
+// app is safe to deploy ahead of the SQL.
+//
+// Unlike JOHN there is no per-user column deciding who sees it: membership IS
+// the per-user column (profiles.is_uw), and the user sets it themselves.
+export const UW = envFlag(process.env.NEXT_PUBLIC_UW);
+
 // How long an "hour" is for the hourly nudge. Only ever anything else in test
 // mode; lib/clock-reminders.ts stays pure and takes this as an argument rather
 // than reading the flag itself.

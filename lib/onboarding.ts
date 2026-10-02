@@ -13,16 +13,30 @@ export const STEPS = [
   "clock",
   "notify",
   "post",
+  "uw",
   "friends",
 ] as const;
 export type Step = (typeof STEPS)[number];
 
-// `notify` is native-only — there are no notifications on the website — so the
-// live list is computed per render and is what everything reads. Never index
-// STEPS directly: on web the arrays differ in length, and the dots, the "step N
-// of M" eyebrow and the bounds clamp would all disagree with each other.
-export function activeSteps(native: boolean): readonly Step[] {
-  return native ? STEPS : STEPS.filter((s) => s !== "notify");
+// Two steps are conditional, so the live list is computed per render and is
+// what everything reads. Never index STEPS directly: the arrays differ in
+// length, and the dots, the "step N of M" eyebrow and the bounds clamp would
+// all disagree with each other.
+//
+//   notify — native-only; there are no notifications on the website.
+//   uw     — only for a student who ticked "I'm a UW student" on `welcome`.
+//
+// BOTH predicates resolve while the user is still on `welcome` at index 0,
+// which is the load-bearing reason a list that changes length underneath
+// stepIndex is safe: it can never shift a step the user is partway through.
+// `native` flips once just after hydration; the UW tick is on welcome itself.
+// Asking the UW question any later would renumber the eyebrow mid-flow.
+//
+// `uw` sits after `goal` — goal titles are one of the three match signals, so
+// the goal has to exist first — and before `friends`, which shows the peers it
+// makes findable.
+export function activeSteps(native: boolean, uw: boolean): readonly Step[] {
+  return STEPS.filter((s) => (s !== "notify" || native) && (s !== "uw" || uw));
 }
 
 // "Step 3 of 7 · Practice". Welcome isn't numbered; on the web it's "of 6".

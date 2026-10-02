@@ -22,14 +22,31 @@ import {
 
 import { OnboardingClient } from "./onboarding-client";
 import { OnboardingClientV2 } from "./onboarding-client-v2";
+import { STEPS, type Step } from "@/lib/onboarding";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // First-run wizard. The legacy (pre-redesign) tour fetches the week snapshot
 // Home renders so its steps show the user's REAL data. The redesign wizard just
 // claims a handle and creates a goal — no session, no snapshot needed.
-export default async function OnboardingPage() {
+// `?step=<name>` jumps the redesign wizard straight to one step, so a step in
+// the middle of the run can be looked at without walking the whole thing (and
+// creating a real goal on the way). NEVER in production: it would let someone
+// land on a later step having skipped the writes the earlier ones do.
+function previewStep(raw: string | string[] | undefined): Step | undefined {
+  if (process.env.NODE_ENV === "production") return undefined;
+  const name = Array.isArray(raw) ? raw[0] : raw;
+  return STEPS.includes(name as Step) ? (name as Step) : undefined;
+}
+
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  // Next 16: searchParams is a Promise and must be awaited.
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requireUser();
+  const initialStep = previewStep((await searchParams).step);
 
   const profile = await getProfile();
   const tz = profile?.timezone ?? "UTC";
@@ -43,6 +60,7 @@ export default async function OnboardingPage() {
         initialUsername={profile?.username ?? ""}
         initialDisplayName={profile?.display_name ?? null}
         avatarUrl={avatarPublicUrl(profile?.avatar_path ?? null)}
+        initialStep={initialStep}
       />
     );
   }

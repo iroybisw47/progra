@@ -7,6 +7,8 @@ import { ChevronLeftIcon } from "lucide-react";
 
 import { archiveHabit, createHabit } from "@/app/actions/habits";
 import { createGoal, updateGoal } from "@/app/actions/goals";
+import { fetchUwPeers, setUwProfile } from "@/app/actions/uw";
+import { sendFriendRequest } from "@/app/actions/friends";
 import {
   completeOnboarding,
   setProfileIdentity,
@@ -31,6 +33,7 @@ import {
   type HabitPick,
   type Step,
 } from "@/lib/onboarding";
+import { type UwPeer } from "@/lib/uw";
 import { checkUsername } from "@/lib/social/username";
 import { useIsNativeApp } from "@/lib/use-is-native-app";
 import { useNotificationPermission } from "@/lib/use-notification-permission";
@@ -44,6 +47,7 @@ import { HabitStep } from "./steps/habit-step";
 import { HowStep } from "./steps/how-step";
 import { NotifyStep } from "./steps/notify-step";
 import { PostStep } from "./steps/post-step";
+import { UwStep } from "./steps/uw-step";
 import { WelcomeStep } from "./steps/welcome-step";
 
 // How long the Done splash holds before home (long enough for GO! and the
@@ -88,18 +92,38 @@ export function OnboardingClientV2({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  // The notify step exists only in the shell. `native` flips at most once,
-  // immediately after hydration, while the user is still on `welcome` at index
-  // 0 — which is the load-bearing reason the list changing length underneath
+  // Both conditional steps resolve while the user is still on `welcome` at
+  // index 0 — the load-bearing reason the list changing length underneath
   // stepIndex is safe. It can never shift a step the user is partway through.
+  // `native` flips at most once, immediately after hydration; `isUw` is a tick
+  // on the welcome step itself. See activeSteps() in lib/onboarding.ts.
   const native = useIsNativeApp();
-  const steps = activeSteps(native);
-  // Production always starts at 0. The preview's `initialStep` is looked up in
-  // whichever list contains it — `notify` only exists in the native one.
-  const [stepIndex, setStepIndex] = useState(() =>
-    Math.max(0, activeSteps(initialStep === "notify").indexOf(initialStep ?? "welcome"))
-  );
-  const step = steps[Math.min(stepIndex, steps.length - 1)];
+  // UW cohort (welcome tick → the `uw` step → setUwProfile). Seeded from
+  // `?step=uw`, or previewing that step would land on whatever else sits at its
+  // index in the list a non-UW student gets.
+  const [isUw, setIsUw] = useState(initialStep === "uw");
+  const [uwMajor, setUwMajor] = useState("");
+  const [uwClubs, setUwClubs] = useState<string[]>([]);
+  const [shareGoals, setShareGoals] = useState(true);
+  // Suggested peers for the final step. null until the UW step has been
+  // answered — which is also what FriendsStep reads to tell "not a UW student"
+  // apart from "a UW student with no matches yet".
+  const [peers, setPeers] = useState<UwPeer[] | null>(null);
+  const [added, setAdded] = useState<string[]>([]);
+  const [addPending, setAddPending] = useState<string | null>(null);
+  const steps = activeSteps(native, isUw);
+  // -1 means "not navigated yet", so the starting point is resolved by NAME
+  // against the live list on every render until the user moves. An index
+  // captured once would be wrong the moment `steps` changes length — which it
+  // does, when `native` flips just after hydration. Production always starts on
+  // `welcome`, which is index 0 of every variant, so this is a no-op there and
+  // only earns its keep for `?step=` previews.
+  const [navIndex, setNavIndex] = useState(-1);
+  const stepIndex =
+    navIndex >= 0
+      ? Math.min(navIndex, steps.length - 1)
+      : Math.max(0, steps.indexOf(initialStep ?? "welcome"));
+  const step = steps[stepIndex];
   const [done, setDone] = useState(initialDone);
 
   const notifyPermission = useNotificationPermission();
@@ -146,7 +170,7 @@ export function OnboardingClientV2({
 
   const go = (i: number) => {
     setClockRunning(false);
-    setStepIndex(Math.max(0, Math.min(steps.length - 1, i)));
+    setNavIndex(Math.max(0, Math.min(steps.length - 1, i)));
   };
   const next = () => go(stepIndex + 1);
 
@@ -217,6 +241,47 @@ export function OnboardingClientV2({
         setSavedGoal({ id: r.id, title, hours, color: goalColor });
       }
       next();
+    });
+  }
+
+  // Joins the cohort. Validation of the major and the clubs is setUwProfile's
+  // job, not this one's — it is the only writer of those columns and the only
+  // place that knows what lib/uw.ts considers valid.
+  function saveUw(details: boolean) {
+    startTransition(async () => {
+      const r = await setUwProfile(
+        details
+          ? { isUw: true, major: uwMajor, clubs: uwClubs, shareGoals }
+          : // Skipping still joins the cohort — they said they're at UW on the
+            // welcome step, and that answer shouldn't quietly evaporate. With
+            // no major or clubs they simply match on shared goals alone.
+            { isUw: true }
+      );
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      // Loaded here rather than on the next step's render: this is already an
+      // await, and arriving at a list that pops in after a beat reads as a bug.
+      // An empty list is a real answer (nobody matches yet), not a failure.
+      const { peers: found } = await fetchUwPeers();
+      setPeers(found);
+      next();
+    });
+  }
+
+  // Add a suggested peer. A real friend request, through the same action
+  // /friends uses — the one thing on the old final step that was a rehearsal.
+  function addPeer(userId: string) {
+    setAddPending(userId);
+    startTransition(async () => {
+      const r = await sendFriendRequest(userId);
+      setAddPending(null);
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      setAdded((list) => (list.includes(userId) ? list : [...list, userId]));
     });
   }
 
@@ -313,7 +378,15 @@ export function OnboardingClientV2({
         return;
       }
       track("onboarding_completed");
+      // push() covers the /onboarding route (Settings → Replay); refresh()
+      // covers the common case, where the wizard is rendering AT `/` because
+      // app/page.tsx renders it in place of redirecting. Pushing to the URL you
+      // are already on must not be the only thing standing between a new user
+      // and their first screen — the failure mode is being stranded on the Done
+      // splash. completeOnboarding has already revalidated `/`, so the refresh
+      // re-renders it past the gate.
       router.push("/");
+      router.refresh();
     });
   }
 
@@ -326,6 +399,7 @@ export function OnboardingClientV2({
       }
       toast.success("Onboarding skipped — replay it any time from Settings.");
       router.push("/");
+      router.refresh();
     });
   }
 
@@ -360,9 +434,19 @@ export function OnboardingClientV2({
       onClick: () => (posted ? next() : toast.info("Try posting — it's just practice")),
       dim: !posted,
     },
+    uw: {
+      label: "Continue",
+      onClick: () =>
+        uwMajor.trim() || uwClubs.length > 0
+          ? saveUw(true)
+          : toast.error("Pick a major or a club — or skip"),
+      dim: !uwMajor.trim() && uwClubs.length === 0,
+    },
     friends: {
-      label: shared ? "Start my week" : "Share with friends",
-      onClick: () => (shared ? finish() : void share()),
+      // A UW student who has already added someone has done the thing this
+      // step exists for, so finishing stops being the quiet secondary option.
+      label: shared || added.length > 0 ? "Start my week" : "Share with friends",
+      onClick: () => (shared || added.length > 0 ? finish() : void share()),
     },
   };
 
@@ -389,7 +473,13 @@ export function OnboardingClientV2({
         next();
       },
     },
-    friends: { label: "Start my week without sharing", onClick: finish },
+    uw: { label: "Skip for now", onClick: () => saveUw(false) },
+    // Dropped once a peer has been added: the primary CTA already finishes, and
+    // two buttons that do the same thing is just something to parse. Left in
+    // place for the `shared` case, which behaved this way before any of this.
+    ...(added.length > 0
+      ? {}
+      : { friends: { label: "Start my week without sharing", onClick: finish } }),
   };
 
   const eyebrow = eyebrowFor(step, steps);
@@ -451,6 +541,8 @@ export function OnboardingClientV2({
             initialDisplayName={initialDisplayName}
             initialUsername={initialUsername}
             avatarUrl={avatarUrl}
+            isUw={isUw}
+            onIsUw={setIsUw}
             onSubmit={claimUsername}
             pending={pending}
           />
@@ -507,9 +599,24 @@ export function OnboardingClientV2({
             onPost={() => setPosted(true)}
           />
         )}
+        {step === "uw" && (
+          <UwStep
+            eyebrow={eyebrow}
+            major={uwMajor}
+            onMajor={setUwMajor}
+            clubs={uwClubs}
+            onClubs={setUwClubs}
+            shareGoals={shareGoals}
+            onShareGoals={setShareGoals}
+          />
+        )}
         {step === "friends" && (
           <FriendsStep
             eyebrow={eyebrow}
+            peers={peers}
+            added={added}
+            onAdd={addPeer}
+            addPending={addPending}
             nudgeOpen={nudgeOpen}
             onOpenNudge={() => setNudgeOpen(true)}
             nudged={nudged}

@@ -16,8 +16,8 @@ import {
 
 describe("steps", () => {
   it("numbers seven steps in the shell and six on the web, skipping welcome", () => {
-    const native = activeSteps(true);
-    const web = activeSteps(false);
+    const native = activeSteps(true, false);
+    const web = activeSteps(false, false);
     expect(native).toHaveLength(8);
     expect(web).toHaveLength(7);
     expect(web).not.toContain("notify");
@@ -28,10 +28,38 @@ describe("steps", () => {
   });
 
   it("marks the practice steps", () => {
-    const native = activeSteps(true);
+    const native = activeSteps(true, false);
     expect(eyebrowFor("clock", native)).toBe("Step 4 of 7 · Practice");
     expect(eyebrowFor("post", native)).toBe("Step 6 of 7 · Practice");
-    expect(eyebrowFor("post", activeSteps(false))).toBe("Step 5 of 6 · Practice");
+    expect(eyebrowFor("post", activeSteps(false, false))).toBe("Step 5 of 6 · Practice");
+  });
+
+  it("adds the UW step for a UW student, and only for them", () => {
+    const native = activeSteps(true, true);
+    const web = activeSteps(false, true);
+    expect(native).toHaveLength(9);
+    expect(web).toHaveLength(8);
+    expect(native).toContain("uw");
+    expect(web).toContain("uw");
+    expect(activeSteps(true, false)).not.toContain("uw");
+    expect(activeSteps(false, false)).not.toContain("uw");
+  });
+
+  it("renumbers the whole run when the UW step is in it", () => {
+    const native = activeSteps(true, true);
+    const web = activeSteps(false, true);
+    // uw sits after post and before friends, and is not practice.
+    expect(eyebrowFor("post", native)).toBe("Step 6 of 8 · Practice");
+    expect(eyebrowFor("uw", native)).toBe("Step 7 of 8");
+    expect(eyebrowFor("friends", native)).toBe("Step 8 of 8");
+    expect(eyebrowFor("uw", web)).toBe("Step 6 of 7");
+    expect(eyebrowFor("friends", web)).toBe("Step 7 of 7");
+  });
+
+  it("orders uw after goal, so a goal exists before it is matched on", () => {
+    const native = activeSteps(true, true);
+    expect(native.indexOf("uw")).toBeGreaterThan(native.indexOf("goal"));
+    expect(native.indexOf("uw")).toBeLessThan(native.indexOf("friends"));
   });
 });
 
