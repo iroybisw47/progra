@@ -5,6 +5,126 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-03
+
+### 21:45 · Turn a private past session public, from the session itself
+`/session/[id]`'s Private chip was read-only, so a session that ended up private
+had no way out. Clocking out through the live timer saves the row
+**draft-private** (`clockOut({ draft: true })`), and `/clock/finish`'s Post is the
+publication moment — so a dismissed finish screen stranded the session on `/me`
+tagged "· private". The only privacy control in the app lives in `SessionDialog`,
+mounted from exactly one place (`/clock`'s day strip); once a session scrolled out
+of that strip, nothing could publish it.
+
+Now the owner gets a two-segment **Private | Shared** rail there instead of the
+label (`app/session/[id]/visibility-toggle.tsx`) — the lit segment is navy, the
+other grey, optimistic, and tapping the lit one is a no-op rather than a
+round-trip. Track and chip metrics are the history scope toggle's to the pixel;
+like that one it keeps its own chip rather than importing `period-chips.tsx`,
+whose constants are scoped to the Today/Week/History switcher they document. The
+rail carries its own `bg-track`, so it sits beside the kudos pill instead of
+inside it.
+
+**No SQL, no RLS change, no new action.** `sessions.is_private` is already the
+whole of visibility — comments, reactions and the photo storage policy all read it
+through `can_see_session` / `can_see_session_photo`, so flipping one boolean
+propagates everywhere. `sessions_update_own` already permits the owner to write
+it, and `updateSession({ isPrivate })` already existed, owner-scoped and
+revalidating. The one read-path addition is `SessionDetail.autoEnded`, off the
+`auto_ended_at` already in `SESSION_COLUMNS`.
+
+**Gated to own + ended + not auto-ended**, both deliberately. A choice on an
+*active* session is silently undone minutes later, because the clock-out path
+rewrites `is_private` on the way past and `/clock/finish` then seeds its toggle
+from `autoEnded` rather than from the DB. An *auto-ended* one is worth zero worked
+time everywhere (`lib/session.ts:56`), so sharing it would post a "0m" session
+under a title claiming real work — the same reason `/clock/finish` disables its own
+privacy row for those. Both keep the read-only chip.
+
+No confirm dialog: the flag is reversible by the same tap and publishing is
+**silent** — pushes fire only from reactions/comments, and the feed is a 7-day
+window ordered by `ended_at`, so an old session neither notifies anyone nor jumps
+to the top of anything. A session that already carries a photo publishes the photo
+too (`can_see_session_photo` requires `NOT is_private`), which the success toast
+names in the finish screen's own words.
+
+## 2026-10-02
+
+### 18:20 · "Clock in or habits?" — the unit is an engagement day, not an event
+Second growth question. `.claude/plans/clock-vs-habits.sql`: Q0 pre-flight
+(which carries a finding of its own), Q1 adoption, Q2 the head-to-head, Q3 per
+user. 58 checks in `nudges-harness/clock-vs-habits.mjs`.
+
+**Counting rows would have given the wrong answer twice over.** A clock-in is
+one timed block; a habit tick is one tap, and a user with six habits emits six
+rows per visit — Q3's `ticks_per_habit_day` makes that factor visible. Worse,
+`habit_completions.completed_on` is not when the person engaged: the manager
+backfills up to 8 weeks, so one sitting can write thirty rows dated across a
+month. `created_at` is the engagement moment, and it exists with full history
+(found undocumented on 2026-09-25). So the unit is the **engagement day** — a
+distinct local day on which the user acted on that surface, dated by
+`sessions.started_at` / `habit_completions.created_at`, never by the day the row
+is about. Q0.3 measures the backfill rate directly, i.e. how wrong the naive
+`group by completed_on` version would have been.
+
+**Two populations, because the fair denominator is contested.** Over everyone,
+habits lose partly because many users never made one — which is a real answer to
+"what do people use". Over habit owners only, the surface was actually available
+— which answers "given both, which do they reach for". They will disagree; Q2
+prints both rather than picking.
+
+Q1 keeps **made a habit** apart from **ticked a habit**: habits created and
+never used is a different failure from never creating any, and
+`habits_made_never_used` names it. `has_live_habit` respects `archived_at`.
+
+`habit_misses` is in the union for correctness, but `NEXT_PUBLIC_JOHN` is off so
+it should be ~0 rows; Q0.2 prints its count so that is visible rather than
+assumed. Noted in passing: `admin_list_users()`'s `last_active_on` uses
+max(`completed_on`), so a backfiller reads as staler there than they are —
+pre-existing, not touched here.
+
+Fixture pins the backfiller (tapped today, dated 30 days back → engagement day
+is today), the miss-only user (no completion row, still a real day), the
+archived habit, the 1.5-rows-per-visit case, a NULL timezone, and the
+waitlisted / excluded / never-onboarded holdouts.
+
+### 17:05 · "Do users with more friends stay?" — the query, and why it needs two forms
+First of a series of growth questions run by hand against prod.
+`.claude/plans/friends-retention.sql`: Q0 pre-flight (friendships' real DDL —
+the schema is not in the repo), Q1 friends-now x retention-now, Q2 the
+leading-indicator version, Q3 per user.
+
+**Q1 alone cannot answer the question.** Friends held *now* against retention
+*now* is circular — staying on Progra is how you accumulate friends, so the
+arrow runs both ways, and friend count also rises with tenure. Q2 fixes the
+ordering: friends requested inside the user's first 7 days (predictor, fixed
+early) against activity strictly after day 7 (outcome, measured later). Still
+correlational — people who make friends in week 1 were keener to begin with —
+so it reads as "predicts", never "causes". Only a split onboarding gets causal.
+
+**Peer friends, not all friends.** Friend counts exclude
+`analytics_excluded_users`, because "friends with the founder" is not the tie
+being measured, and counting it would give almost everyone >= 1. Q1 reports
+`avg_excluded_friends` so the size of that choice is visible rather than buried.
+
+Definitions are reused, not reinvented: `counted` is
+`lib/admin-analytics.ts`'s `isCounted()` (onboarded + holds a seat + not
+demo/owner) and `last_active_on` is `admin_list_users()`', including the
+auto-ended-session nuance, so these reconcile with `/admin/analytics` instead
+of quietly disagreeing.
+
+Tested first, per the house rule, in `nudges-harness/friends-retention.mjs` —
+a PGlite mock of prod on a 12-person fixture whose answers are worked out by
+hand, 40 checks. It pins the waitlisted / excluded / never-onboarded holdouts,
+the habit-tick-only path, the NULL-timezone `coalesce(..,'UTC')` fallback, the
+2-day churn-eligibility floor, and the runaway auto-ended session that ends
+today but must still read as 26 days gone. The fixture was deliberately
+re-tuned after the first green run: both Q2 cohorts had landed on identical
+numbers, so a cohort-swap bug would have passed.
+
+**Not yet run against prod** — the Supabase MCP server is returning 401 ("JWT
+could not be decoded"), so the blocks are for the SQL editor.
+
 ## 2026-10-01
 
 ### 20:43 · Fix Skip (and Done) leaving you on the wizard

@@ -17,6 +17,8 @@ import { formatDuration } from "@/lib/duration";
 import { COMMENT_REPLIES } from "@/lib/flags";
 import { groupCommentThreads } from "@/lib/social/comment-threads";
 
+import { VisibilityToggle } from "./visibility-toggle";
+
 // One post, in full. The feed card (components/v2/session-card.tsx) opens into
 // this, so it speaks the same vocabulary at a larger scale — same author row,
 // same "clocked into ◈ x for 2h" sub-line, same duration pill in the session's
@@ -41,6 +43,13 @@ export function SessionDetailView({
   const accent = entityColor(a?.color ?? null);
   const accentInk = entityInk(a?.color ?? null);
   const durationLabel = formatDuration(detail.workedMs);
+
+  // Owner-only, and only on a session the user themselves finished — see the
+  // footer row for why an active or auto-ended one keeps the read-only chip.
+  const canSetVisibility =
+    detail.isOwn && detail.endedAt !== null && !detail.autoEnded;
+  // The heart is for a post other people can actually reach.
+  const showKudos = !detail.isPrivate;
 
   return (
     <div className="flex flex-1 flex-col items-center pt-7 pb-28">
@@ -134,9 +143,27 @@ export function SessionDetailView({
           </div>
         )}
 
-        {/* Duration in the session's own colour, and the one like. A private
-            post shows a Private chip instead: nobody else can see it, so there
-            is nothing to like. */}
+        {/* Duration in the session's own colour, then visibility and the one
+            like. The OWNER gets a toggle where everyone else gets a label:
+            clocking out saves the row draft-private, so a dismissed
+            /clock/finish left a session stranded on /me as "· private" with no
+            way to publish it but finding it again in /clock's day strip.
+
+            Only on a session the user finished themselves. An ACTIVE one is
+            published by clocking out, which rewrites is_private on the way past
+            (sessions.ts:232), so a choice made here would be silently undone
+            minutes later. One the 10-HOUR CAP ended is worth zero worked time
+            everywhere (lib/session.ts:56), so sharing it would post a "0m"
+            session — the same reason /clock/finish disables its own privacy row
+            for those. Both keep the read-only chip.
+
+            The rail sits OUTSIDE the kudos conditional on purpose: publishing
+            re-renders this row with the heart added, and a rail mounted inside an
+            isPrivate branch would unmount mid-transition and snap the lit segment
+            back to Private until the server payload lands. `canSetVisibility`
+            doesn't read isPrivate, so the rail never remounts. It also can't live
+            INSIDE the kudos pill the way the old single chip did — it carries its
+            own bg-track, so the two sit side by side. */}
         <div className="flex items-center gap-3.5 px-5 pt-4">
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[11px] font-semibold whitespace-nowrap tabular-nums"
@@ -150,20 +177,32 @@ export function SessionDetailView({
             {durationLabel}
           </span>
           <span className="flex-1" />
-          {detail.isPrivate ? (
-            <span className="text-caption flex items-center gap-1.5 text-[11px] font-semibold">
-              <LockIcon className="size-3.5" />
-              Private
-            </span>
-          ) : (
-            <div className="border-hairline flex items-center rounded-full border p-0.5">
-              <KudosButton
+          {/* Own gap so the three independent cases below cluster tightly and the
+              duration pill keeps the row's original spacing. */}
+          <div className="flex items-center gap-2">
+            {canSetVisibility && (
+              <VisibilityToggle
                 sessionId={detail.sessionId}
-                count={kudos.count}
-                likedByMe={kudos.mine}
+                isPrivate={detail.isPrivate}
+                hasPhoto={detail.photoUrl != null}
               />
-            </div>
-          )}
+            )}
+            {showKudos && (
+              <div className="border-hairline flex items-center rounded-full border p-0.5">
+                <KudosButton
+                  sessionId={detail.sessionId}
+                  count={kudos.count}
+                  likedByMe={kudos.mine}
+                />
+              </div>
+            )}
+            {!canSetVisibility && !showKudos && (
+              <span className="text-caption flex items-center gap-1.5 text-[11px] font-semibold">
+                <LockIcon className="size-3.5" />
+                Private
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="bg-track border-hairline mt-6 h-1.5 border-t" aria-hidden />

@@ -32,9 +32,17 @@ export type SessionDetail = {
   endedAt: number | null;
   photoUrl: string | null;
   // Owner-only in practice: RLS never surfaces a friend's private session, so
-  // this is true only on your own drafts, where the post shows a Private chip
-  // instead of a like control — nobody else can see it to like it.
+  // this is true only on your own drafts. The OWNER gets a VisibilityToggle to
+  // publish one; everyone else — and the two cases that toggle refuses, an active
+  // or an auto-ended session — still sees a read-only Private chip where the like
+  // control would be, since nobody else can see the post to like it.
   isPrivate: boolean;
+  // True when the 10-hour cap ended this session rather than the user. Such a row
+  // is worth ZERO worked time everywhere (lib/session.ts:56), so publishing one
+  // would post a "0m" session under a title claiming real work — the detail page
+  // refuses, which is also why /clock/finish disables its own privacy row for one.
+  // No query change: auto_ended_at is already in SESSION_COLUMNS.
+  autoEnded: boolean;
 };
 
 type DetailRow = SessionRow & { user_id: string };
@@ -81,5 +89,6 @@ export async function getSessionForViewer(
     endedAt: session.endedAt,
     photoUrl,
     isPrivate: session.isPrivate,
+    autoEnded: session.autoEndedAt !== null,
   };
 }
