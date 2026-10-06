@@ -7,6 +7,53 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-06
 
+### 04:40 · Live Activity layout, rebuilt — and a way to type-check the Swift
+Third attempt at the card's layout, and the first with the Swift actually
+verified rather than reasoned about.
+
+**There IS a way to type-check it.** `/Applications/Xcode.app` carries the iOS
+SDK; `xcode-select -p` just points at CommandLineTools, which has none — so a
+bare `xcrun` says "SDK iphoneos cannot be located" and it looks impossible.
+Exporting `DEVELOPER_DIR` fixes it, changes no global state, and gives a clean
+`swiftc -typecheck` against the real SDK. Documented in `AGENTS.md`. Two of the
+three layout attempts would have been caught here.
+
+**The measured cause.** `Text(timerInterval:)` sizes itself for the WIDEST string
+its range can produce, not the value it draws — and the range runs to the 10-hour
+cap, so it always reserved for `10:00:00` (~124pt) while drawing `1:24:07`
+(~108pt) or `52:18` (~70pt), without right-aligning inside. Up to 54pt of dead
+space, worst early in a session, and it stole that width from the title at the
+same moment. With no `frame` and no `layoutPriority`, the only escape valve was
+`.minimumScaleFactor(0.7)` — so the squeeze resolved by shrinking the digits
+instead of pinning them, and glyph size moved between states.
+
+**The fix.** The title gets its own row at the card's full ~305pt (~31
+characters); the sub-line shares row two with the clock, pinned at
+`.frame(width: 124, alignment: .trailing)`. Explicitly NOT `.fixedSize()`, which
+is what broke the first attempt — it lets a timerInterval Text demand its
+unbounded ideal width and overflow the card. This is the convention the web app
+already uses for a changing numeric readout (`w-[50px] shrink-0 text-right
+tabular-nums` on the friends leaderboard, `min-w-[78px]` on the history stepper),
+both sized for the longest realistic string rather than the current one.
+
+Splitting the rows also settles a Dynamic Type mismatch: the title scales
+(`.title3`) while the clock is pinned at 26pt, so sharing a row made the contest
+strictly worse at accessibility sizes. Apart, the title simply truncates later.
+
+**`stateLabel` is now null while running.** The sub-line's budget is ~25 small-caps
+characters and `GOAL · WRITING · TRACKING` is exactly 25 — the word was what
+tipped it into an ellipsis, and a ticking clock already says it. Decided in
+TypeScript because the payload owns copy; `SubLine` resolves its trailing segment
+as a value before rendering, so the `·` is conditional and there is no dangling
+`MATH ·`.
+
+**Two bugs found on the way.** `timerRangeEnd` fell back to `Date.distantFuture`
+when `capEndMs` decoded nil — a reachable path, since every `ContentState` field
+is Optional by the compatibility contract — which made the timer reserve width
+for an astronomically large counter. Clamped to `anchor + 10h`. And the button
+labels had no `.lineLimit`, so a long payload label would wrap and grow the
+card's height.
+
 ### 03:35 · Live Activity — buttons, the session's colour, and a dark card
 The card now carries **Pause / Resume / End break** and **Clock out**, names what
 the session counts towards, paints itself in the session's own colour, and adapts

@@ -84,9 +84,19 @@ export type LiveActivitySnapshot = {
   // The same colour lifted for the DARK card's navy ground. A third value, not
   // a reuse: see entityOnDark in lib/colors.ts for the measurements.
   accentOnDark: string | null;
-  // "Tracking" | "Paused" | "On a break" — the same three words the live
-  // screen's status pill uses, so the card and the screen never disagree.
-  stateLabel: string;
+  // "Paused" | "On a break" — the live screen's own words — or NULL while
+  // running.
+  //
+  // Null on purpose, and it buys the sub-line its headroom. The card renders
+  // `ATTRIBUTION · STATE` on one line beside the elapsed clock, which leaves it
+  // about 25 small-caps characters; `GOAL · WRITING · TRACKING` is exactly 25,
+  // so it was the word "TRACKING" tipping the line into an ellipsis. A ticking
+  // clock already says the session is tracking, so the word is redundant
+  // exactly when space is tightest.
+  //
+  // Decided here rather than in Swift because the payload owns copy: this file
+  // ships on a Vercel deploy, the binary waits on App Store review.
+  stateLabel: string | null;
   // Never "ended": an ended session has no snapshot at all (null), which is how
   // teardown stays the degenerate case of the same call.
   state: "running" | "paused" | "onBreak";
@@ -169,7 +179,7 @@ export function liveActivitySnapshot(
     accentOnDark: accent?.onDark ?? null,
     state,
     stateLabel:
-      state === "onBreak" ? "On a break" : state === "paused" ? "Paused" : "Tracking",
+      state === "onBreak" ? "On a break" : state === "paused" ? "Paused" : null,
     // plannedEndMs(timing, 0) by definition. Written out rather than called so
     // the anchor reads as what it is, with the test asserting they agree.
     timerAnchorMs: timing.startedAt + timing.pausedMs,

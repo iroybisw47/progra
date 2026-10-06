@@ -306,9 +306,18 @@ describe("attribution and colour", () => {
 });
 
 describe("the state label", () => {
-  // The same three words the live screen's status pill uses.
-  it("matches the live screen's vocabulary", () => {
-    expect(snap()!.stateLabel).toBe("Tracking");
+  // Null while running, and that is what buys the sub-line its headroom: the
+  // card renders ATTRIBUTION · STATE beside the clock in ~25 small-caps
+  // characters, and "GOAL · WRITING · TRACKING" is exactly 25. A ticking clock
+  // already says the session is tracking.
+  it("is null while running, so the card drops the redundant word", () => {
+    expect(snap()!.stateLabel).toBeNull();
+    // A timed session too — its sub-line shows the target instant instead,
+    // computed natively from targetEndMs.
+    expect(snap(timing(), plan({ plannedWorkMs: 2 * HOUR }))!.stateLabel).toBeNull();
+  });
+
+  it("keeps the live screen's vocabulary when NOT running", () => {
     expect(snap(timing({ pausedSince: HOUR }))!.stateLabel).toBe("Paused");
     expect(
       snap(
@@ -316,6 +325,16 @@ describe("the state label", () => {
         plan({ breakMs: 5 * MIN, onBreak: true })
       )!.stateLabel
     ).toBe("On a break");
+  });
+
+  // The paused and break words are the ones the card cannot do without — a
+  // frozen clock looks identical to a stopped one otherwise.
+  it("is non-null for every state that stops the clock", () => {
+    for (const p of [plan(), plan({ breakMs: 5 * MIN, onBreak: true })]) {
+      const s = snap(timing({ pausedSince: HOUR }), p)!;
+      expect(s.state).not.toBe("running");
+      expect(s.stateLabel).not.toBeNull();
+    }
   });
 });
 

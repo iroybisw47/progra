@@ -103,8 +103,22 @@ struct PrograActivityAttributes: ActivityAttributes {
         // The upper bound of the counting-up range. The cap is the honest end:
         // past it autoClockOut zeroes the session, so there is nothing worth
         // showing even if iOS would still allow it.
+        //
+        // THE FALLBACK IS LOAD-BEARING, and it used to be `Date.distantFuture`.
+        // Text(timerInterval:) reserves layout width for the widest string its
+        // RANGE can produce, not for the value it currently draws — so a
+        // distant-future bound made it reserve room for a counter of
+        // astronomical magnitude, which crushed everything beside it on the
+        // card. Every field here is Optional by the compatibility contract
+        // above, so a nil capEndMs is a reachable path, not a hypothetical.
+        //
+        // Clamped to the anchor plus the app's own 10-hour cap: the same bound
+        // the payload would have carried, so the reservation is identical
+        // whether or not the field decoded.
         var timerRangeEnd: Date {
-            Self.date(capEndMs) ?? Date.distantFuture
+            if let end = Self.date(capEndMs) { return end }
+            let anchor = anchorDate ?? Date()
+            return anchor.addingTimeInterval(10 * 60 * 60)
         }
     }
 

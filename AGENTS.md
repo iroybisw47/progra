@@ -166,6 +166,27 @@ native binary is out"* — the TS half deploys from Vercel long before it.
 signed-out HTTP route smoke test → after actual deploys, prod probes
 (`x-vercel-id` header, TTFB).
 
+For the **Swift** under `ios/` (the Live Activity widget and its plugin),
+type-check before claiming it builds — three layout bugs shipped to a device
+because nothing here did:
+
+```sh
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+xcrun swiftc -typecheck -sdk "$SDK" -target arm64-apple-ios17.0 \
+  ios/App/PrograActivityAttributes.swift \
+  ios/App/PrograWidget/PrograLiveActivityWidget.swift
+```
+
+The `DEVELOPER_DIR` export is the load-bearing part: `xcode-select -p` points at
+`/Library/Developer/CommandLineTools`, which ships **no iOS SDK**, so a bare
+`xcrun` reports "SDK iphoneos cannot be located" and it looks like there is no
+way to check. Overriding the variable costs nothing and changes no global state.
+`PrograLiveActivityPlugin.swift` can't be checked this way — it imports
+`Capacitor`, which only resolves inside the Xcode build — so pass only the two
+files above. This proves the types, never the layout: a pixel claim still needs
+a device.
+
 "Deploy" means: commit all + push `main`. This repo is normally an
 **uncommitted working tree** — commit/push only when explicitly asked.
 

@@ -60,6 +60,10 @@ struct PrograLiveActivityWidget: Widget {
                         // appearance — so it takes the on-dark accent
                         // unconditionally, never accentInk.
                         .foregroundStyle(islandAccent(context.state))
+                        .lineLimit(1)
+                        // Same reservation problem, smaller font: "10:00:00" at
+                        // .title3 (~20pt) ≈ 7 × 12 + 2 × 5.2 ≈ 96pt.
+                        .frame(width: 96, alignment: .trailing)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(context.state.attribution?.uppercased() ?? "")
@@ -83,8 +87,10 @@ struct PrograLiveActivityWidget: Widget {
                 ElapsedText(state: context.state)
                     .font(.system(.caption2, design: .rounded).monospacedDigit())
                     .foregroundStyle(islandAccent(context.state))
-                    // Without a width the compact region clips H:MM:SS.
-                    .frame(maxWidth: 58)
+                    .lineLimit(1)
+                    // Without a width the compact region clips H:MM:SS. Trailing
+                    // alignment for the same reason as the Lock Screen's clock.
+                    .frame(width: 58, alignment: .trailing)
             } minimal: {
                 Marker(state: context.state, height: 12, forceDark: true)
             }
@@ -92,6 +98,31 @@ struct PrograLiveActivityWidget: Widget {
         }
     }
 }
+
+// MARK: - Metrics
+
+// The width the elapsed clock reserves on the Lock Screen, right-aligned inside
+// it.
+//
+// Text(timerInterval:) sizes itself for the WIDEST string its range can produce,
+// not for the value it currently draws — and the range runs to the 10-hour cap,
+// so it always reserves for "10:00:00" while drawing "1:24:07" or "52:18". It
+// does not right-align within that reservation, so the digits drifted left by up
+// to ~54pt and stole the row's width from the title at the same time.
+//
+// Pinning fixes both ends: the clock can never overflow the card, never drifts,
+// and the sub-line's budget becomes a known constant rather than the outcome of
+// a negotiation. This is the convention the web app already uses for a changing
+// numeric readout — `w-[50px] shrink-0 text-right tabular-nums` on the friends
+// leaderboard, `min-w-[78px]` on the history stepper — both sized for the
+// longest realistic string rather than the current one.
+//
+// 124 = "10:00:00" at 26pt SF Pro Rounded with monospaced digits: 7 digits at
+// ~15.6pt advance (0.6em) plus 2 colons at ~6.8pt ≈ 123pt.
+//
+// NOT adaptive to the current digit count — that would reshuffle the layout
+// mid-session every time the clock crossed an hour.
+private let clockWidth: CGFloat = 124
 
 // MARK: - Adaptive palette
 
@@ -196,7 +227,11 @@ private func deepLink(_ path: String?) -> URL? {
 @available(iOS 17.0, *)
 private struct Marker: View {
     let state: PrograActivityAttributes.ContentState
-    let height: CGFloat
+    // nil = width only, so the bar fills whatever height its row establishes.
+    // The Lock Screen card relies on that to span both of its rows without a
+    // hardcoded height that would drift if the rows ever reflow. The Dynamic
+    // Island passes explicit heights — those regions are fixed-height by nature.
+    var height: CGFloat?
     var forceDark: Bool = false
 
     var body: some View {
@@ -229,34 +264,67 @@ private struct ElapsedText: View {
 private struct SubLine: View {
     let state: PrograActivityAttributes.ContentState
 
+    // What follows the attribution, or nil when nothing does.
+    //
+    // Resolved as a VALUE first, not as a ViewBuilder branch, because the body
+    // has to know whether a trailing segment exists at all: a ViewBuilder is
+    // never nil, which is why the "·" used to render unconditionally. stateLabel
+    // is null while running — a ticking clock already says "tracking" — so
+    // without this the card shows a dangling "MATH ·".
+    private enum Trailing {
+        case breakCountdown(Date)
+        case breakOver
+        case endsAt(Date)
+        case word(String)
+    }
+
+    private var trailing: Trailing? {
+        if state.isOnBreak, let ends = state.breakEndDate {
+            // Past the end instant nothing has ended the break in the DB —
+            // useBreakSchedule only runs with the app open — so say so rather
+            // than showing a frozen 0:00.
+            return ends > Date() ? .breakCountdown(ends) : .breakOver
+        }
+        if let target = state.targetEndMs, state.isRunning,
+           target > Date().timeIntervalSince1970 * 1000 {
+            return .endsAt(Date(timeIntervalSince1970: target / 1000))
+        }
+        if let label = state.stateLabel, !label.isEmpty {
+            return .word(label.uppercased())
+        }
+        return nil
+    }
+
     var body: some View {
         HStack(spacing: 5) {
+            // The attribution is what truncates if the row ever runs out: a
+            // clipped "TRACKIN" reads as a bug where "LINEAR ALGEBRA REV…" reads
+            // as a long goal name.
             Text((state.attribution ?? "").uppercased())
                 .lineLimit(1)
-            Text("·")
-            trailing
+                .truncationMode(.tail)
+
+            if let trailing {
+                Text("·")
+                view(for: trailing)
+                    .lineLimit(1)
+            }
         }
     }
 
-    @ViewBuilder private var trailing: some View {
-        if state.isOnBreak, let ends = state.breakEndDate {
-            if ends > Date() {
-                // The one thing still moving on a paused card, so it keeps the
-                // primary ink while the rest of the line stays secondary.
-                Text(timerInterval: Date()...ends, countsDown: true)
-                    .foregroundStyle(primaryInk)
-            } else {
-                // Past this instant nothing has ended the break in the DB —
-                // useBreakSchedule only runs with the app open — so say so
-                // rather than showing a frozen 0:00.
-                Text("BREAK OVER")
-            }
-        } else if let target = state.targetEndMs, state.isRunning,
-                  target > Date().timeIntervalSince1970 * 1000 {
-            Text("ENDS ")
-                + Text(Date(timeIntervalSince1970: target / 1000), style: .time)
-        } else {
-            Text((state.stateLabel ?? "").uppercased())
+    @ViewBuilder private func view(for trailing: Trailing) -> some View {
+        switch trailing {
+        case .breakCountdown(let ends):
+            // The one thing still moving on a paused card, so it keeps the
+            // primary ink while the rest of the line stays secondary.
+            Text(timerInterval: Date()...ends, countsDown: true)
+                .foregroundStyle(primaryInk)
+        case .breakOver:
+            Text("BREAK OVER")
+        case .endsAt(let instant):
+            Text("ENDS ") + Text(instant, style: .time)
+        case .word(let word):
+            Text(word)
         }
     }
 }
@@ -292,6 +360,10 @@ private struct Buttons: View {
     private func label(_ text: String) -> some View {
         Text(text)
             .font(.system(size: 13, weight: .semibold))
+            // lineLimit before the greedy frame: the labels come from the
+            // payload, and one long enough to wrap would grow the card's height
+            // rather than truncate.
+            .lineLimit(1)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
     }
@@ -308,32 +380,66 @@ private struct Buttons: View {
 private struct LockScreenCard: View {
     let state: PrograActivityAttributes.ContentState
 
+    // THE TITLE GETS ITS OWN ROW. The clock shares row two with the sub-line.
+    //
+    // Nesting the title and the sub-line in one column beside the clock meant
+    // both competed for the same ~171pt, and `GOAL · WRITING · TRACKING` is
+    // almost exactly that line's 25-character budget — so both ellipsised. On
+    // its own row the title gets the card's full ~305pt (~31 characters), and
+    // the sub-line's 25 now hold `GOAL · WRITING` with room, because stateLabel
+    // is null while running.
+    //
+    // It also settles a Dynamic Type mismatch: the title scales (.title3) while
+    // the clock is pinned at 26pt, so sharing a row made the contest strictly
+    // worse at accessibility sizes. Apart, the title simply truncates later and
+    // the clock's row holds only fixed-metric items.
+    //
+    // The marker takes no height here, so it fills both rows on its own.
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // The marker spans the title and the sub-line — and ONLY those. The
+            // rule and the buttons sit outside this HStack on purpose: a
+            // height-less shape fills whatever height its row proposes, so with
+            // them inside, the bar would run the full depth of the card and down
+            // past the buttons.
             HStack(alignment: .top, spacing: 10) {
-                Marker(state: state, height: 34)
+                Marker(state: state)
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 0) {
                     Text(state.label ?? "Session")
                         .font(.system(.title3, design: .serif).weight(.medium))
                         .lineLimit(1)
+                        .truncationMode(.tail)
                         .foregroundStyle(primaryInk)
-                    SubLine(state: state)
-                        .font(.system(size: 10, weight: .semibold))
-                        .kerning(0.6)
-                        .foregroundStyle(secondaryInk)
+                        // Fills the column, so a long title can't widen it.
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        SubLine(state: state)
+                            .font(.system(size: 10, weight: .semibold))
+                            .kerning(0.6)
+                            .foregroundStyle(secondaryInk)
+
+                        Spacer(minLength: 8)
+
+                        ElapsedText(state: state)
+                            .font(.system(size: 26, weight: .semibold, design: .rounded).monospacedDigit())
+                            .foregroundStyle(digitsColor(state))
+                            .lineLimit(1)
+                            // Pinned and trailing-aligned. NOT .fixedSize(),
+                            // which lets a timerInterval Text demand its
+                            // unbounded ideal width and overflow the card, and
+                            // NOT .minimumScaleFactor, which resolved the old
+                            // squeeze by shrinking the digits so glyph size moved
+                            // between states. See `clockWidth`.
+                            .frame(width: clockWidth, alignment: .trailing)
+                    }
+                    .padding(.top, 2)
                 }
-
-                Spacer(minLength: 8)
-
-                ElapsedText(state: state)
-                    .font(.system(size: 26, weight: .semibold, design: .rounded).monospacedDigit())
-                    .foregroundStyle(digitsColor(state))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
             }
 
-            // The app's hairline, at the app's weight.
+            // Full card width, not indented by the marker — the rule reads as
+            // the card's own division, the way it did before.
             Rectangle()
                 .fill(ruleColor)
                 .frame(height: 1)
