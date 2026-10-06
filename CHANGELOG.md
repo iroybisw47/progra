@@ -7,6 +7,31 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-06
 
+### 04:05 · Live Activity layout — the clock to the edge, the text uncut
+Two symptoms on device, one structural cause and one SwiftUI gotcha.
+
+**The sub-line was nested inside the title's column**, so a task name and a goal
+title competed for the same ~180pt beside the clock and both truncated. It is now
+its own row at the card's full inner width, indented 13pt (marker + gap) to sit
+under the title, so only the title negotiates with the clock.
+
+**`Text(timerInterval:)` reserves width for the widest value its range can
+reach**, not for what it currently draws — so it claimed more space than it used,
+stealing room from the title AND leaving a visible gap to its own right.
+`.fixedSize()` makes it hug the real content, and moving it into the outer row
+lets it reach the card's trailing padding instead of being inset by the marker.
+
+`.layoutPriority(1)` on the clock settles the negotiation: the title truncates,
+the clock never shrinks — a half-size clock is unreadable at a glance, which is
+the one thing the card is for. The sub-line truncates the ATTRIBUTION and never
+the state (`.fixedSize()` on the state word and the separator), because a clipped
+"TRACKIN" reads as a bug where a tail-truncated goal title reads as a long goal
+title.
+
+The marker is now 22pt on the title row rather than 34pt spanning both. Keeping
+it spanning while the clock still reaches the trailing edge would need a
+hardcoded-height overlay; this is the robust version.
+
 ### 03:35 · Live Activity — buttons, the session's colour, and a dark card
 The card now carries **Pause / Resume / End break** and **Clock out**, names what
 the session counts towards, paints itself in the session's own colour, and adapts
