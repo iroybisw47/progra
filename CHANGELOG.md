@@ -7,6 +7,31 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-06
 
+### 05:05 · Measure the Live Activity clock instead of estimating it
+The card's clock sat slightly inset. The reserved width was guessed from a
+0.6em-per-digit figure; CoreText was asked instead, with the exact font the card
+uses (26pt SF Pro Rounded semibold, monospaced-numbers feature):
+
+```
+"10:00:00"  115.35pt     "59:59"  74.45pt
+"1:24:07"    98.58pt     "5:23"   57.68pt
+```
+
+So `clockWidth` was ~9pt over at 124, and the sub-line was paying for it — now
+116, the widest string the 10-hour range can produce plus a hair. Both Dynamic
+Island clocks were over the same way and are now measured too: expanded 96 → 90
+(89.44 at 20pt), compact 58 → 52 (49.95 at 11pt).
+
+Plus `clockOpticalInset`, which is the one value here that is a judgement rather
+than a measurement, and is commented as such: 16pt of card padding is right for
+10pt small caps, but against 26pt digits the same gap reads as the clock being
+inset, so it is pulled 6pt past it to sit ~10pt from the card's edge. That single
+constant is the whole lever — nothing else depends on it.
+
+The measuring script is throwaway (a scratchpad `swiftc` run), but the technique
+is not: the card's metrics are checkable, and a guessed em-ratio had already cost
+two round trips to a device.
+
 ### 04:40 · Live Activity layout, rebuilt — and a way to type-check the Swift
 Third attempt at the card's layout, and the first with the Swift actually
 verified rather than reasoned about.

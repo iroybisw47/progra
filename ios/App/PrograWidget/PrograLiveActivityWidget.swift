@@ -61,9 +61,9 @@ struct PrograLiveActivityWidget: Widget {
                         // unconditionally, never accentInk.
                         .foregroundStyle(islandAccent(context.state))
                         .lineLimit(1)
-                        // Same reservation problem, smaller font: "10:00:00" at
-                        // .title3 (~20pt) ≈ 7 × 12 + 2 × 5.2 ≈ 96pt.
-                        .frame(width: 96, alignment: .trailing)
+                        // Measured the same way: "10:00:00" at 20pt semibold
+                        // rounded with monospaced numbers is 89.44pt.
+                        .frame(width: 90, alignment: .trailing)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(context.state.attribution?.uppercased() ?? "")
@@ -88,9 +88,11 @@ struct PrograLiveActivityWidget: Widget {
                     .font(.system(.caption2, design: .rounded).monospacedDigit())
                     .foregroundStyle(islandAccent(context.state))
                     .lineLimit(1)
-                    // Without a width the compact region clips H:MM:SS. Trailing
-                    // alignment for the same reason as the Lock Screen's clock.
-                    .frame(width: 58, alignment: .trailing)
+                    // Without a width the compact region clips H:MM:SS. Measured:
+                    // "10:00:00" at 11pt rounded with monospaced numbers is
+                    // 49.95pt. Trailing-aligned for the same reason as the Lock
+                    // Screen's clock.
+                    .frame(width: 52, alignment: .trailing)
             } minimal: {
                 Marker(state: context.state, height: 12, forceDark: true)
             }
@@ -117,12 +119,28 @@ struct PrograLiveActivityWidget: Widget {
 // leaderboard, `min-w-[78px]` on the history stepper — both sized for the
 // longest realistic string rather than the current one.
 //
-// 124 = "10:00:00" at 26pt SF Pro Rounded with monospaced digits: 7 digits at
-// ~15.6pt advance (0.6em) plus 2 colons at ~6.8pt ≈ 123pt.
+// 116 is MEASURED, not estimated. CoreText, with the exact font the card uses
+// (26pt SF Pro Rounded semibold, monospaced-numbers feature):
+//
+//     "10:00:00"  115.35pt      "59:59"  74.45pt
+//     "1:24:07"    98.58pt      "5:23"   57.68pt
+//
+// So 116 is the widest string the 10-hour range can produce, plus a hair. The
+// earlier 124 came from a 0.6em-per-digit estimate and was ~9pt over, which the
+// sub-line was paying for.
 //
 // NOT adaptive to the current digit count — that would reshuffle the layout
 // mid-session every time the clock crossed an hour.
-private let clockWidth: CGFloat = 124
+private let clockWidth: CGFloat = 116
+
+// How far past the card's 16pt padding the clock is pulled, so its right edge
+// sits ~16 − 6 = 10pt from the card's edge.
+//
+// An optical correction, and the only value here that is a judgement rather than
+// a measurement. 16pt of padding is right for the 10pt sub-line; against 26pt
+// digits the same gap reads as the clock being inset. Raise this number to move
+// the clock further right, lower it to pull it back — nothing else depends on it.
+private let clockOpticalInset: CGFloat = 6
 
 // MARK: - Adaptive palette
 
@@ -433,6 +451,7 @@ private struct LockScreenCard: View {
                             // squeeze by shrinking the digits so glyph size moved
                             // between states. See `clockWidth`.
                             .frame(width: clockWidth, alignment: .trailing)
+                            .padding(.trailing, -clockOpticalInset)
                     }
                     .padding(.top, 2)
                 }
