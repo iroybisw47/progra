@@ -30,6 +30,8 @@ import { syncLiveActivity } from "@/lib/live-activity-sync";
 export function SyncLiveActivity({
   sessionId,
   label,
+  attribution,
+  accent,
   startedAt,
   pausedMs,
   pausedSince,
@@ -39,6 +41,8 @@ export function SyncLiveActivity({
 }: {
   sessionId: string | null;
   label: string;
+  attribution: string;
+  accent: { fill: string; ink: string; onDark: string } | null;
   startedAt: number | null;
   pausedMs: number | null;
   pausedSince: number | null;
@@ -62,6 +66,8 @@ export function SyncLiveActivity({
         : liveActivitySnapshot(
             sessionId,
             label,
+            attribution,
+            accent,
             {
               startedAt,
               endedAt: null,
@@ -79,6 +85,8 @@ export function SyncLiveActivity({
   }, [
     sessionId,
     label,
+    attribution,
+    accent,
     startedAt,
     pausedMs,
     pausedSince,

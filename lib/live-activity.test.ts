@@ -28,12 +28,17 @@ function plan(over: Partial<Plan> = {}): Plan {
   return { plannedWorkMs: null, breakMs: null, onBreak: false, ...over };
 }
 
+// Real palette entries, with their on-white inks — the pairing the card relies
+// on (fill for the marker, ink for the digits).
+const GREEN = { fill: "#2E8B50", ink: "#175E33", onDark: "#8cbf9f" };
+const ORANGE = { fill: "#E07042", ink: "#C24E14", onDark: "#eeb097" };
+
 function snap(
   t: SessionTiming = timing(),
   p: Plan = plan(),
   capMs?: number
 ) {
-  return liveActivitySnapshot("s1", "Calc problem set", t, p, capMs);
+  return liveActivitySnapshot("s1", "Calc problem set", "Math", GREEN, t, p, capMs);
 }
 
 afterEach(() => {
@@ -184,7 +189,7 @@ describe("breakEndsAtMs", () => {
 
 describe("nothing to show", () => {
   it("is null with no session", () => {
-    expect(liveActivitySnapshot(null, "x", timing(), plan())).toBeNull();
+    expect(liveActivitySnapshot(null, "x", "Math", null, timing(), plan())).toBeNull();
   });
 
   it("is null for an ended session", () => {
@@ -223,24 +228,94 @@ describe("the stale horizon", () => {
 describe("the label", () => {
   it("trims", () => {
     expect(
-      liveActivitySnapshot("s1", "  Reading  ", timing(), plan())!.label
+      liveActivitySnapshot("s1", "  Reading  ", "Books", null, timing(), plan())!.label
     ).toBe("Reading");
   });
 
   it("falls back to Untitled session, matching the live screen", () => {
     expect(
-      liveActivitySnapshot("s1", "   ", timing(), plan())!.label
+      liveActivitySnapshot("s1", "   ", "Books", null, timing(), plan())!.label
     ).toBe("Untitled session");
   });
 });
 
 describe("paths", () => {
-  it("sends End to the finish screen for this session", () => {
-    expect(snap()!.endPath).toBe("/clock/finish?sid=s1");
-  });
-
   it("sends a tap to the live timer", () => {
     expect(snap()!.tapPath).toBe("/clock/live");
+  });
+
+  // End deep-links to the TIMER, not straight to the finish screen: the session
+  // has to actually be clocked out first, and handleStop owns that plus the
+  // session_completed event and the routing that follows.
+  it("sends End to the timer with the end action", () => {
+    expect(snap()!.endPath).toBe("/clock/live?la=end");
+  });
+
+  it("points the secondary button at the action for the current state", () => {
+    expect(snap()!.secondaryPath).toBe("/clock/live?la=pause");
+    expect(snap(timing({ pausedSince: HOUR }))!.secondaryPath).toBe(
+      "/clock/live?la=resume"
+    );
+    expect(
+      snap(
+        timing({ pausedSince: HOUR }),
+        plan({ plannedWorkMs: 2 * HOUR, breakMs: 5 * MIN, onBreak: true })
+      )!.secondaryPath
+    ).toBe("/clock/live?la=endBreak");
+  });
+
+  // The path and the label must name the SAME action, or the card offers one
+  // thing and performs another.
+  it("keeps secondaryPath and secondaryAction in agreement", () => {
+    for (const s of [
+      snap(),
+      snap(timing({ pausedSince: HOUR })),
+      snap(
+        timing({ pausedSince: HOUR }),
+        plan({ breakMs: 5 * MIN, onBreak: true })
+      ),
+    ]) {
+      expect(s!.secondaryPath).toBe(`/clock/live?la=${s!.secondaryAction}`);
+    }
+  });
+});
+
+describe("attribution and colour", () => {
+  it("carries the attribution text and accent through", () => {
+    const s = snap()!;
+    expect(s.attribution).toBe("Math");
+    expect(s.accentColor).toBe(GREEN.fill);
+    expect(s.accentInk).toBe(GREEN.ink);
+    expect(s.accentOnDark).toBe(GREEN.onDark);
+  });
+
+  it("falls back to Uncategorized on blank attribution", () => {
+    const s = liveActivitySnapshot(
+      "s1",
+      "Reading",
+      "   ",
+      null,
+      timing(),
+      plan()
+    )!;
+    expect(s.attribution).toBe("Uncategorized");
+    expect(s.accentColor).toBeNull();
+    expect(s.accentInk).toBeNull();
+    expect(s.accentOnDark).toBeNull();
+  });
+});
+
+describe("the state label", () => {
+  // The same three words the live screen's status pill uses.
+  it("matches the live screen's vocabulary", () => {
+    expect(snap()!.stateLabel).toBe("Tracking");
+    expect(snap(timing({ pausedSince: HOUR }))!.stateLabel).toBe("Paused");
+    expect(
+      snap(
+        timing({ pausedSince: HOUR }),
+        plan({ breakMs: 5 * MIN, onBreak: true })
+      )!.stateLabel
+    ).toBe("On a break");
   });
 });
 
@@ -251,8 +326,8 @@ describe("fingerprint field coverage", () => {
   const base = liveActivityFingerprint(snap());
 
   const mutations: Array<[string, string]> = [
-    ["sessionId", liveActivityFingerprint(liveActivitySnapshot("s2", "Calc problem set", timing(), plan()))],
-    ["label", liveActivityFingerprint(liveActivitySnapshot("s1", "Reading", timing(), plan()))],
+    ["sessionId", liveActivityFingerprint(liveActivitySnapshot("s2", "Calc problem set", "Math", GREEN, timing(), plan()))],
+    ["label", liveActivityFingerprint(liveActivitySnapshot("s1", "Reading", "Math", GREEN, timing(), plan()))],
     ["startedAt", liveActivityFingerprint(snap(timing({ startedAt: 99 })))],
     ["pausedMs", liveActivityFingerprint(snap(timing({ pausedMs: MIN })))],
     ["pausedSince", liveActivityFingerprint(snap(timing({ pausedSince: HOUR })))],
@@ -264,6 +339,18 @@ describe("fingerprint field coverage", () => {
       ),
     ],
     ["capMs", liveActivityFingerprint(snap(timing(), plan(), 20 * MIN))],
+    [
+      "attribution",
+      liveActivityFingerprint(
+        liveActivitySnapshot("s1", "Calc problem set", "Reading", GREEN, timing(), plan())
+      ),
+    ],
+    [
+      "accentColor",
+      liveActivityFingerprint(
+        liveActivitySnapshot("s1", "Calc problem set", "Math", ORANGE, timing(), plan())
+      ),
+    ],
   ];
 
   for (const [field, fingerprint] of mutations) {

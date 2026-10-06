@@ -5,6 +5,56 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-06
+
+### 03:35 · Live Activity — buttons, the session's colour, and a dark card
+The card now carries **Pause / Resume / End break** and **Clock out**, names what
+the session counts towards, paints itself in the session's own colour, and adapts
+to the system appearance.
+
+**The buttons are `Link`s, not `Button(intent:)`.** They deep-link to
+`/clock/live?la=<action>`, and the new `?la=` handler runs the EXISTING
+`handleStop` / `handleEndBreak` / pause handlers. That matters more than it
+sounds: the Lock Screen path is byte-identical to the on-screen one — same
+toasts, same `session_completed` event, same `endLiveActivity()` teardown, and
+`revalidateSessionSurfaces()` fires, so **the reminder schedule is rebuilt**. A
+silent PostgREST write would have skipped all of it. The action is dispatched
+explicitly rather than through `togglePause()`, because a scheduled break can
+start between the tap and the app finishing its launch — which would turn a
+"Pause" tap into a resume. Acting with the app closed stays deferred: it needs a
+`LiveActivityIntent` that can read the Supabase cookies out of
+`WKHTTPCookieStore` on a background launch, which is unverified.
+
+**Colour is THREE hexes, and the numbers are why.** `entityOnDark()` joins
+`entityColor` and `entityInk` in `lib/colors.ts`. Against the dark card's
+`#142c49` ground the raw fills put maroon at **1.91:1**, dark blue at 2.12 and
+purple at 2.14 — under the 3:1 that even a NON-TEXT marker needs, so the 3pt bar
+would be invisible rather than merely dim. And `entityInk` is worse than
+unhelpful there: it darkens a colour for white grounds, moving it toward the
+background. Mixing 45% toward white keeps the hue and clears 4.5:1 for every
+palette entry, so one value serves both the marker and the digits.
+`lib/colors.test.ts` pins that over all 11 colours rather than trusting the
+arithmetic, and encodes the two failure modes as tests of their own.
+
+So: on white, fill for the marker and `accentInk` for the digits; on navy,
+`accentOnDark` for both. The Dynamic Island takes `accentOnDark` unconditionally
+— it is black in either appearance, so there is no light variant to pick.
+
+**The card adapts off one dynamic `UIColor`** rather than four
+`@Environment(\.colorScheme)` branches, so ground, type, hairline and both
+buttons flip from a single source. Clock out inverts on navy (white pill, navy
+type) since navy on navy disappears, and the ghost/solid pairing survives so the
+destructive action keeps its weight. Paused drops the colour in both themes, but
+the neutral moves UP in lightness on navy and down on white.
+
+**Attribution and colour are resolved only while a session runs.** Both
+`listCategories` and `listActiveGoals` are `cache()`-wrapped, so this is free on
+the routes that already read them — but gating on `activeSession` means `/feed`
+and `/me` pay nothing when nobody is clocked in.
+
+Still dark behind `LIVE_ACTIVITY`. New Xcode target `PrograWidgetExtension` at
+iOS 17.0; the app target stays at 15.0.
+
 ## 2026-10-05
 
 ### 14:55 · Live Activity, phase 1 — the whole TypeScript half, dark

@@ -46,6 +46,31 @@ export function entityInk(hex: string | null | undefined): string {
   return fill ? inkFor(fill) : FALLBACK;
 }
 
+// The same color for use ON A DARK GROUND — the iOS Live Activity's navy card.
+//
+// A THIRD variant, because neither of the two above works there, and the
+// numbers are not close. Measured against the card's #142c49 ground: the raw
+// fills put maroon at 1.91:1, dark blue at 2.12 and purple at 2.14 — under the
+// 3:1 that even a non-text marker needs, so the bar goes invisible rather than
+// merely dim. And entityInk is worse than unhelpful: it DARKENS a color for
+// white grounds, which on navy moves it toward the background.
+//
+// Mixing toward white keeps the hue (so a goal still reads as its own color)
+// while lifting lightness until it clears the ground. At 45% every palette
+// entry lands at 5.3:1 or better, which covers body text, so one value serves
+// both the marker and the elapsed digits.
+//
+// Deliberately NOT a general dark-mode token: the app is flat white, and this
+// exists for the one surface that isn't.
+const ON_DARK_MIX = 0.45;
+
+export function entityOnDark(hex: string | null | undefined): string {
+  const rgb = parseHex(entityColor(hex)) ?? parseHex(FALLBACK)!;
+  const lift = (c: number) => Math.round(c + (255 - c) * ON_DARK_MIX);
+  const hexOf = (c: number) => lift(c).toString(16).padStart(2, "0");
+  return `#${hexOf(rgb[0])}${hexOf(rgb[1])}${hexOf(rgb[2])}`;
+}
+
 // A goal's color: the one its owner picked, or — for goals created before the
 // column existed, and anywhere only an id is in hand — a hue derived from the
 // id. Deriving keeps it stable across surfaces and devices: same id, same

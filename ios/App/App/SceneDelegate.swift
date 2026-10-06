@@ -8,7 +8,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         window = UIWindow(windowScene: windowScene)
-        window?.rootViewController = CAPBridgeViewController()
+        // PrograBridgeViewController, not CAPBridgeViewController: its
+        // capacitorDidLoad() is what registers the Live Activity plugin, which
+        // Capacitor's packageClassList cannot do for a plugin compiled into the
+        // app target rather than installed from npm. See
+        // PrograLiveActivityPlugin.swift. Reverting this line silently removes
+        // the Live Activity — the JS accessor just returns null.
+        window?.rootViewController = PrograBridgeViewController()
         window?.makeKeyAndVisible()
 
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)

@@ -140,8 +140,15 @@ export function LiveTimerClient({
   const [photoOpen, setPhotoOpen] = useState(
     () => capture === "photo" && !hasPhoto
   );
+  // The iOS Live Activity's buttons deep-link here with `?la=<action>` rather
+  // than mutating the session themselves — see lib/live-activity.ts for why. The
+  // action is read in a useState initializer for the same reason `capture` is:
+  // it must fire on the INITIAL mount only, never on a nav-ticker reopen, and
+  // the param is stripped below so a hard refresh can't re-fire what is, for
+  // "end", a destructive mutation.
+  const [liveAction] = useState(() => searchParams.get("la"));
   useEffect(() => {
-    if (capture) router.replace("/clock/live");
+    if (capture || liveAction) router.replace("/clock/live");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -355,6 +362,41 @@ export function LiveTimerClient({
       router.push(`/clock/finish?sid=${r.sessionId}`);
     });
   }
+
+  // Perform the deep-linked action, once, on mount.
+  //
+  // Dispatched EXPLICITLY rather than through togglePause(): that reads the
+  // current `paused` state, and between the tap on the Lock Screen and the app
+  // finishing its launch a scheduled break can have started — which would turn a
+  // "Pause" tap into a resume. The card named an action; run that action.
+  //
+  // Reusing these handlers rather than calling the actions directly is what
+  // keeps the Lock Screen path identical to the on-screen one: same toasts, same
+  // startTransition, and for End the same session_completed event, the same
+  // endLiveActivity() teardown and the same routing to the finish screen.
+  useEffect(() => {
+    if (!liveAction) return;
+    if (liveAction === "end") {
+      handleStop();
+    } else if (liveAction === "endBreak") {
+      handleEndBreak();
+    } else if (liveAction === "pause" || liveAction === "resume") {
+      startTransition(async () => {
+        const r =
+          liveAction === "resume" ? await resumeSession() : await pauseSession();
+        if ("error" in r) {
+          toast.error(r.error);
+          return;
+        }
+        // pause/resume don't route anywhere, so nothing else re-renders this
+        // screen with the new state. togglePause relies on the action's own
+        // revalidation; from a cold launch that has already happened before
+        // this component mounted, so refresh explicitly.
+        router.refresh();
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleSaveEdit() {
     const trimmedTitle = titleInput.trim();

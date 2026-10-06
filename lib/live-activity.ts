@@ -66,6 +66,27 @@ export type LiveActivitySnapshot = {
   sessionId: string;
   // What they typed they were working on — the card's headline.
   label: string;
+  // What it counts towards, resolved by the shared rule — a goal's title or a
+  // category's name, "Uncategorized" otherwise. The card's sub-line.
+  attribution: string;
+  // The session's own colour, as concrete hexes, or null when there's nothing
+  // to colour. Swift parses them rather than being handed a palette: the
+  // palette lives in app/globals.css and must not be duplicated in a binary
+  // behind App Store review.
+  //
+  // THREE, and each is load-bearing. `accentColor` is the FILL (the light
+  // card's 3pt marker); `accentInk` is it darkened for TEXT on white (the
+  // digits), because light green, gold and light blue fail contrast as type;
+  // `accentOnDark` is it lifted for the navy card, where the fills fall under
+  // even the 3:1 non-text bar and the inks move the wrong way entirely.
+  accentColor: string | null;
+  accentInk: string | null;
+  // The same colour lifted for the DARK card's navy ground. A third value, not
+  // a reuse: see entityOnDark in lib/colors.ts for the measurements.
+  accentOnDark: string | null;
+  // "Tracking" | "Paused" | "On a break" — the same three words the live
+  // screen's status pill uses, so the card and the screen never disagree.
+  stateLabel: string;
   // Never "ended": an ended session has no snapshot at all (null), which is how
   // teardown stays the degenerate case of the same call.
   state: "running" | "paused" | "onBreak";
@@ -87,16 +108,20 @@ export type LiveActivitySnapshot = {
   secondaryAction: Extract<LiveActivityAction, "pause" | "resume" | "endBreak">;
   secondaryLabel: string;
   endLabel: string;
-  // Where a tap on the card goes.
+  // Where a tap on the card body goes.
   tapPath: string;
-  // Where End lands once the session is over — the finish screen, so the
-  // session gets posted rather than stranded draft-private.
+  // The two buttons. Both are DEEP LINKS into the live timer, which performs the
+  // real mutation — see the `?la=` handler in live-timer-client.tsx.
+  //
+  // Deliberately not silent-yet: acting with the app closed needs a
+  // LiveActivityIntent that can read the Supabase cookies out of
+  // WKHTTPCookieStore on a background launch, which is unverified. Routing
+  // through the app costs a ~1s launch and buys correctness for free — the
+  // actions run exactly as they do on screen, so revalidateSessionSurfaces()
+  // fires, the reminder schedule is rebuilt, and the break guard still applies.
+  // When the silent path lands, only these two values change.
+  secondaryPath: string;
   endPath: string;
-  // Phase 2: where a button falls back to when the silent call can't
-  // authenticate. Ships unused in Phase 1 so the ContentState shape doesn't
-  // change in a later binary (a non-optional field added later fails to decode
-  // an activity started by the earlier one).
-  fallbackPath: string;
   // Past this instant the card stops being trustworthy — see LIVE_ACTIVITY_MAX_MS.
   staleAtMs: number;
   staleLabel: string;
@@ -117,6 +142,8 @@ function resolveLabel(raw: string): string {
 export function liveActivitySnapshot(
   sessionId: string | null,
   label: string,
+  attribution: string,
+  accent: { fill: string; ink: string; onDark: string } | null,
   timing: SessionTiming,
   plan: Pick<SessionPlan, "plannedWorkMs" | "breakMs" | "onBreak">,
   // Injected for the same reason clockReminders injects it: `fast` mode
@@ -136,7 +163,13 @@ export function liveActivitySnapshot(
     snapshotVersion: LIVE_ACTIVITY_SNAPSHOT_VERSION,
     sessionId,
     label: resolveLabel(label),
+    attribution: attribution.trim() || "Uncategorized",
+    accentColor: accent?.fill ?? null,
+    accentInk: accent?.ink ?? null,
+    accentOnDark: accent?.onDark ?? null,
     state,
+    stateLabel:
+      state === "onBreak" ? "On a break" : state === "paused" ? "Paused" : "Tracking",
     // plannedEndMs(timing, 0) by definition. Written out rather than called so
     // the anchor reads as what it is, with the test asserting they agree.
     timerAnchorMs: timing.startedAt + timing.pausedMs,
@@ -162,8 +195,14 @@ export function liveActivitySnapshot(
       state === "onBreak" ? "End break" : state === "paused" ? "Resume" : "Pause",
     endLabel: "Clock out",
     tapPath: "/clock/live",
-    endPath: `/clock/finish?sid=${sessionId}`,
-    fallbackPath: "/clock/live",
+    // Both land on the live timer with an action param. It performs the
+    // mutation and, for "end", routes on to /clock/finish?sid=… itself — which
+    // is why End doesn't deep-link straight to the finish screen: the session
+    // has to actually be clocked out first, and handleStop owns that.
+    secondaryPath: `/clock/live?la=${
+      state === "onBreak" ? "endBreak" : state === "paused" ? "resume" : "pause"
+    }`,
+    endPath: "/clock/live?la=end",
     // Never past the cap: beyond it autoClockOut will zero the session, so
     // there is nothing worth showing even if iOS would still allow it.
     staleAtMs: Math.min(timing.startedAt + LIVE_ACTIVITY_MAX_MS, capEndMs),

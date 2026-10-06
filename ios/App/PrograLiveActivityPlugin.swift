@@ -4,13 +4,26 @@ import Foundation
 
 // The JS → ActivityKit bridge. APP TARGET ONLY (not the widget extension).
 //
-// Deliberately the only native code this feature adds to the app target, and
-// deliberately NOT in AppDelegate.swift: that file carries hand-written APNs
-// delegate methods with a warning that `npx cap sync` can clobber them. Capacitor
-// discovers CAPPlugin subclasses conforming to CAPBridgedPlugin from the
-// Objective-C runtime, so a plugin needs no registration, no AppDelegate edit and
-// no capacitor.config.ts entry. This file lives somewhere `cap sync` has never
-// heard of.
+// Deliberately NOT in AppDelegate.swift: that file carries hand-written APNs
+// delegate methods with a warning that `npx cap sync` can clobber them.
+//
+// REGISTRATION IS NOT AUTOMATIC, and assuming it was cost a debugging round.
+// Capacitor 8 does not scan the Objective-C runtime for CAPPlugin subclasses —
+// CapacitorBridge.registerPlugins() reads `packageClassList` out of the generated
+// capacitor.config.json, and `cap sync` builds that list from INSTALLED NPM
+// PACKAGES only. A plugin compiled straight into the app target is never in it,
+// so it never registers and window.Capacitor.Plugins.PrograLiveActivity stays
+// undefined.
+//
+// Adding the class name to capacitor.config.json is not an option either: that
+// file is generated and gitignored, so the next `cap sync` would drop it.
+// registerPluginType() is also a dead end — it early-returns while
+// autoRegisterPlugins is true, which is the default.
+//
+// The supported hook is CAPBridgeViewController.capacitorDidLoad(), with
+// registerPluginInstance() — which has no autoRegisterPlugins guard, registers
+// under `jsName`, and exports the JS shim. See PrograBridgeViewController at the
+// bottom of this file.
 //
 // `jsName` is what appears on window.Capacitor.Plugins — it must stay
 // "PrograLiveActivity" to match liveActivityPlugin() in lib/native-plugins.ts.
@@ -149,7 +162,12 @@ public class PrograLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         return PrograActivityAttributes.ContentState(
             snapshotVersion: version,
             label: str("label"),
+            attribution: str("attribution"),
+            accentColor: str("accentColor"),
+            accentInk: str("accentInk"),
+            accentOnDark: str("accentOnDark"),
             state: str("state"),
+            stateLabel: str("stateLabel"),
             timerAnchorMs: num("timerAnchorMs"),
             frozenWorkedMs: num("frozenWorkedMs"),
             targetEndMs: num("targetEndMs"),
@@ -162,8 +180,24 @@ public class PrograLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             secondaryLabel: str("secondaryLabel"),
             endLabel: str("endLabel"),
             tapPath: str("tapPath"),
-            endPath: str("endPath"),
-            fallbackPath: str("fallbackPath")
+            secondaryPath: str("secondaryPath"),
+            endPath: str("endPath")
         )
+    }
+}
+
+// Carries the one job `packageClassList` can't do for a local plugin.
+//
+// Lives in THIS file rather than its own, on purpose: `ios/App/` is a
+// conventional Xcode group, not a file-system-synchronized one, so a brand-new
+// file there would need adding to the App target by hand. This file is already a
+// member, so the fix costs one line in SceneDelegate and nothing in Xcode.
+public class PrograBridgeViewController: CAPBridgeViewController {
+    override public func capacitorDidLoad() {
+        super.capacitorDidLoad()
+        // Idempotent and safe on every iOS version: the plugin's own `sync`
+        // resolves immediately below iOS 17, so registering it there costs
+        // nothing and keeps this free of availability branching.
+        bridge?.registerPluginInstance(PrograLiveActivityPlugin())
     }
 }

@@ -16,6 +16,12 @@ import { LastSeenPing } from "@/components/last-seen-ping";
 import { NotificationLifecycle } from "@/components/notification-lifecycle";
 import { SyncClockReminders } from "@/components/sync-clock-reminders";
 import { SyncLiveActivity } from "@/components/sync-live-activity";
+import { listCategories } from "@/lib/db/categories";
+import { listActiveGoals } from "@/lib/db/goals";
+import {
+  resolveAttribution,
+  resolveAttributionColor,
+} from "@/lib/session-attribution";
 import { SyncHabitReminders } from "@/components/sync-habit-reminders";
 import { PlanCompleteModal } from "@/components/v2/plan-complete-modal";
 import { WhatsNewModal } from "@/components/v2/whats-new-modal";
@@ -25,7 +31,7 @@ import {
 } from "@/lib/db/sessions";
 import { getHabitReminderData } from "@/lib/db/habits";
 import { getNavBadges } from "@/lib/db/notifications";
-import { HABIT_REMINDERS } from "@/lib/flags";
+import { HABIT_REMINDERS, LIVE_ACTIVITY } from "@/lib/flags";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 import { patchNoteToShow } from "@/lib/patch-notes";
@@ -127,6 +133,27 @@ export default async function RootLayout({
       // serializing the others. Skipped entirely while the flag is dark.
       HABIT_REMINDERS ? getHabitReminderData() : Promise.resolve(null),
     ]);
+
+  // The Live Activity card names what the session counts towards and paints it
+  // in the session's own colour, so it needs the goal/category lists the live
+  // screen already resolves against.
+  //
+  // CONDITIONAL on purpose. Both reads are cache()-wrapped, so on the routes
+  // that already use them (/, /clock, /clock/live, /goals) this is free — but on
+  // /feed or /me it would be two extra queries on EVERY render. Gating on an
+  // active session means the overwhelmingly common case (nobody clocked in) pays
+  // nothing, and the cost only lands while a card actually exists. Skipped
+  // entirely while the flag is dark.
+  let liveAttribution = "";
+  let liveAccent: { fill: string; ink: string; onDark: string } | null = null;
+  if (LIVE_ACTIVITY && activeSession) {
+    const [cats, goals] = await Promise.all([
+      listCategories(),
+      listActiveGoals(),
+    ]);
+    liveAttribution = resolveAttribution(activeSession, cats, goals).text;
+    liveAccent = resolveAttributionColor(activeSession, cats, goals);
+  }
 
   // Free: the profile is already read above. `undefined` (the column doesn't
   // exist yet) deliberately yields null — see patchNoteToShow.
@@ -286,6 +313,8 @@ export default async function RootLayout({
         <SyncLiveActivity
           sessionId={activeSession?.id ?? null}
           label={activeSession?.taskName ?? ""}
+          attribution={liveAttribution}
+          accent={liveAccent}
           startedAt={activeSession?.startedAt ?? null}
           pausedMs={activeSession?.pausedMs ?? null}
           pausedSince={activeSession?.pausedSince ?? null}

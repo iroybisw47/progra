@@ -32,10 +32,28 @@ struct PrograActivityAttributes: ActivityAttributes {
         var snapshotVersion: Int?
 
         var label: String?
+        // What the session counts towards — a goal title or category name.
+        var attribution: String?
+        // The session's own colour as "#rrggbb", or nil when it has none. Hexes
+        // rather than palette names: the palette lives in app/globals.css and
+        // must not be duplicated in a binary behind App Store review.
+        //
+        // THREE, and none is interchangeable with another. accentColor is the
+        // FILL (the light card's marker); accentInk is it darkened for TEXT on
+        // white (the digits), since light green, gold and light blue fail
+        // contrast as type; accentOnDark is it LIFTED for the navy card, where
+        // the fills fall under even the 3:1 non-text bar (maroon 1.91:1) and the
+        // inks are darker still. lib/colors.test.ts pins every palette entry
+        // above 4.5:1 on that ground.
+        var accentColor: String?
+        var accentInk: String?
+        var accentOnDark: String?
         // "running" | "paused" | "onBreak". A String rather than an enum so an
         // unrecognised future state degrades to "treat as running" instead of
         // failing the whole decode.
         var state: String?
+        // "Tracking" | "Paused" | "On a break" — the live screen's own words.
+        var stateLabel: String?
 
         // Epoch MILLISECONDS throughout — JavaScript's unit, converted once at
         // the edge (see `date(_:)` below). Keeping the wire format in JS's
@@ -55,15 +73,18 @@ struct PrograActivityAttributes: ActivityAttributes {
 
         var staleLabel: String?
 
-        // Phase 2. Present from Phase 1 so the ContentState shape never has to
-        // change. "pause" | "resume" | "endBreak" — the DECISION, already made
-        // in TypeScript, so this side never branches on onBreak itself.
+        // The buttons. `secondaryAction` is the DECISION, already made in
+        // TypeScript — "pause" | "resume" | "endBreak" — so this side never
+        // branches on onBreak itself, and can never offer a Pause during a break
+        // that pauseSession would refuse.
         var secondaryAction: String?
         var secondaryLabel: String?
         var endLabel: String?
+        // Deep links. tapPath is the card body; the other two are the buttons,
+        // each "/clock/live?la=<action>".
         var tapPath: String?
+        var secondaryPath: String?
         var endPath: String?
-        var fallbackPath: String?
 
         // MARK: - Derived
 
