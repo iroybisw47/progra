@@ -134,12 +134,31 @@ until 2026-09-17, when the AI auto-categorize feature was deleted.)
 ## Local notification patterns (on-device, no server)
 
 Timed clock-in reminders (duration-end + hourly) use
-`@capacitor/local-notifications` and are **wall-clock scheduled** —
-scheduling is set once at clock-in and does NOT reschedule on pause/resume.
-This is a deliberate design decision, not a bug — see
-`.claude/plans/clock-in-notifications.md` if touching this again. This is a
-different system from the server-driven push notifications (likes/comments,
-friend activity), which go through APNs — don't conflate the two.
+`@capacitor/local-notifications` and are **wall-clock scheduled** from *worked*
+time: the instant of a mark at `W` worked-ms is `plannedEndMs(timing, W) =
+startedAt + W + pausedMs` (`lib/clock-reminders.ts`, pure and tested).
+
+Because every future instant shifts by a pause, pausing **cancels everything**
+and resuming **reschedules** from the new `pausedMs` — a paused session
+(including a break: a break IS a pause) schedules *nothing*
+(`lib/clock-reminders.ts:84-91`, tests at `lib/clock-reminders.test.ts:75-88`).
+Reminders are driven by **one leaf**, `components/sync-clock-reminders.tsx` in
+the root layout, which re-renders because every mutation ends in
+`revalidateSessionSurfaces()` — so it catches paths nobody remembered to wire up.
+
+> **Corrected 2026-10-05.** This section used to claim scheduling was "set once
+> at clock-in and does NOT reschedule on pause/resume" and cited
+> `.claude/plans/clock-in-notifications.md`. Both were wrong: that plan file has
+> never existed in git history, and the code says the opposite in as many words
+> — *"it's why 'pausing doesn't touch notifications' was never viable."* Don't
+> reintroduce the old claim.
+
+This is a different system from the server-driven push notifications
+(likes/comments, friend activity), which go through APNs — don't conflate the
+two. The **iOS Live Activity** (`lib/live-activity.ts` + the
+`SyncLiveActivity` leaf) is a third, separate thing again: it needs no
+notification permission, and it is gated on `LIVE_ACTIVITY`, which means *"the
+native binary is out"* — the TS half deploys from Vercel long before it.
 
 ## Verification style before calling something done
 

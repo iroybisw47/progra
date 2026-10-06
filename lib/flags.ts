@@ -167,6 +167,21 @@ export const JOHN = envFlag(process.env.NEXT_PUBLIC_JOHN);
 // the per-user column (profiles.is_uw), and the user sets it themselves.
 export const UW = envFlag(process.env.NEXT_PUBLIC_UW);
 
+// Master switch for the iOS Live Activity: the Lock Screen / Dynamic Island card
+// for a running clock-in session.
+//
+// THIS FLAG MEANS "THE BINARY IS OUT", and it is the sequencing mechanism rather
+// than a nicety. capacitor.config.ts points the shell at https://progra.world, so
+// the whole TypeScript half can deploy to every user the moment it's written —
+// while the native plugin that consumes it is still in App Store review. Off,
+// nothing calls the bridge.
+//
+// It stays useful after launch as the kill switch: a user on an older binary gets
+// the newer JS, and the accessor contract already makes that a no-op (the plugin
+// is simply absent from window.Capacitor.Plugins) — but a payload shape the
+// shipped binary mishandles is only fixable from here.
+export const LIVE_ACTIVITY = envFlag(process.env.NEXT_PUBLIC_LIVE_ACTIVITY);
+
 // How long an "hour" is for the hourly nudge. Only ever anything else in test
 // mode; lib/clock-reminders.ts stays pure and takes this as an argument rather
 // than reading the flag itself.

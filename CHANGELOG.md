@@ -5,6 +5,56 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-05
+
+### 14:55 · Live Activity, phase 1 — the whole TypeScript half, dark
+Groundwork for a Lock Screen / Dynamic Island card for a running clock-in
+session. Everything here ships **dark behind `LIVE_ACTIVITY`**, which means "the
+native binary is out" — `capacitor.config.ts` points the shell at
+`https://progra.world`, so the TS half can deploy to everyone while the plugin
+that consumes it is still in App Store review.
+
+**`lib/live-activity.ts` needs no `now`.** A running session's worked time
+advances at exactly 1x, so iOS renders a self-updating clock from one anchor,
+`startedAt + pausedMs` (= `plannedEndMs(timing, 0)`), with zero refreshes; while
+paused the value is a constant. Every other field is a function of stored
+columns too, so `liveActivitySnapshot()` takes no `now` parameter at all — a
+deliberate asymmetry with `clockReminders(…, now, …)`. Two things fall out:
+"one update per state transition, not a tick" becomes a property of the
+signature rather than a discipline, and the fingerprint can cover *every* field
+with no now-driven resync loop — which matters because ActivityKit throttles
+update bursts. 35 tests, including the one that pins it: identical inputs an
+hour later must produce byte-identical output.
+
+**`sessionLiveState()` is now shared.** `live-timer-client.tsx` derived its
+three states inline. The card decides its own button from the same function,
+and the two can be on screen at once — so a second copy would eventually let
+one offer something `pauseSession` refuses (it hard-rejects during a break).
+
+**The one-leaf pattern has exactly two blind spots, and they matter more here.**
+`clockOut` and the edit-that-ends both call
+`revalidateSessionSurfacesExceptLive()`, which skips the layout on purpose — so
+`SyncLiveActivity` never sees them. For reminders the cost is a stale nav
+ticker; here it would be a Lock Screen card claiming a running session, with
+live buttons, after clock-out. Both call `endLiveActivity()` explicitly, as does
+`notification-lifecycle.tsx` for sign-out and account deletion, which a
+`user`-gated leaf can never observe.
+
+**Deep links did not work at all.** Nothing in the app listened for
+`appUrlOpen`, and Capacitor navigates nothing on a custom-scheme open — it fires
+that event and stops. So a deep link only ever foregrounded the app on whatever
+it was showing, and a cold launch landed on Home. `components/deep-link-router.tsx`
+handles both the warm event and the cold `getLaunchUrl()`, with the same
+same-origin allowlist the notification tap router uses and a module-scope guard
+so a client-side remount can't re-navigate. That was a prerequisite, not a
+nicety: phase 1 needs it to open the timer from the card, and phase 2 needs it
+for the fallback when a button can't authenticate silently.
+
+**Also corrected `AGENTS.md`.** Its "Local notification patterns" section
+claimed reminders never reschedule on pause/resume and cited
+`.claude/plans/clock-in-notifications.md`. That plan file has never existed in
+git history, and the code states the opposite outright.
+
 ## 2026-10-03
 
 ### 21:45 · Turn a private past session public, from the session itself

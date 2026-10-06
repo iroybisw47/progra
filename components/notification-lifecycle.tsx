@@ -4,6 +4,7 @@ import { useEffect } from "react";
 
 import { cancelClockReminders } from "@/lib/clock-notifications";
 import { cancelHabitReminders } from "@/lib/habit-notifications";
+import { endLiveActivity } from "@/lib/live-activity-sync";
 
 // Clears every scheduled local notification when the signed-in user goes away.
 //
@@ -36,6 +37,12 @@ export function NotificationLifecycle({ userId }: { userId: string | null }) {
 
     void cancelClockReminders();
     void cancelHabitReminders();
+    // Same argument as the two above, one notch worse: SyncLiveActivity is
+    // gated on `user`, so sign-out and account deletion UNMOUNT it rather than
+    // tearing the card down. A Lock Screen card for a signed-out — or deleted —
+    // account is strictly worse than a stale notification, and in Phase 2 its
+    // buttons would still be live.
+    void endLiveActivity();
   }, [userId]);
 
   return null;

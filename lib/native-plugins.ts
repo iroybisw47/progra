@@ -1,6 +1,8 @@
 import type { LocalNotificationsPlugin } from "@capacitor/local-notifications";
 import type { PushNotificationsPlugin } from "@capacitor/push-notifications";
 
+import type { LiveActivitySnapshot } from "@/lib/live-activity";
+
 // Every Capacitor plugin this app touches, read off the Capacitor global.
 //
 // DO NOT IMPORT A CAPACITOR PLUGIN. Both forms fail on device: `await
@@ -21,10 +23,48 @@ import type { PushNotificationsPlugin } from "@capacitor/push-notifications";
 // debugging. Off-native (the website, SSR) the global is absent and these
 // return null, so callers get the same "no plugin, do nothing" contract
 // everywhere.
+//
+// To be precise, since the rule is easy to over-read: it's the ACCESSORS that
+// must be synchronous, not the plugin methods. `ln.schedule()` is already
+// awaited and so is `la.sync()`. The original stall hid inside a
+// promise-returning accessor, where there was no plugin reference to inspect —
+// a different thing from awaiting a call on a reference you already hold.
+
+// Progra's own Live Activity plugin. Its interface is HAND-WRITTEN because there
+// is no npm package to `import type` from — it's a CAPPlugin subclass compiled
+// into the app target, which Capacitor discovers from the Objective-C runtime and
+// registers on the global like any other. Only the payload type is imported, and
+// that import is erased (see above).
+//
+// ONE `sync` method, not start/update — and that is not stylistic. TypeScript
+// cannot know whether an activity exists, because iOS ends them on its own: the
+// ~8h lifetime limit, the user switching Live Activities off, force-quit cleanup.
+// A TS-side "did we start it" boolean would be wrong after every one of those,
+// and the sharp case is real — pause at hour 7, resume at hour 12, and `update()`
+// fails on a dismissed activity where `request()` is needed. Swift inspects
+// Activity.activities and decides. `null` means end whatever is showing.
+type LiveActivityPlugin = {
+  sync(options: { snapshot: LiveActivitySnapshot | null }): Promise<void>;
+};
+
+// @capacitor/app, for deep links. Note the two sources: `appUrlOpen` fires on a
+// WARM open, and getLaunchUrl() covers the COLD one, where the URL exists before
+// any JS is listening. Capacitor does NOT navigate the webview on a custom-scheme
+// open — it only fires this event — so without a listener a deep link does
+// nothing but foreground the app.
+type AppPlugin = {
+  addListener(
+    event: "appUrlOpen",
+    cb: (data: { url: string }) => void
+  ): Promise<{ remove: () => void }>;
+  getLaunchUrl(): Promise<{ url: string } | null>;
+};
 
 type Plugins = {
   LocalNotifications?: LocalNotificationsPlugin;
   PushNotifications?: PushNotificationsPlugin;
+  PrograLiveActivity?: LiveActivityPlugin;
+  App?: AppPlugin;
 };
 
 // The one place that touches `window.Capacitor`. Returns null off-native, which
@@ -49,4 +89,16 @@ export function localNotificationsPlugin(): LocalNotificationsPlugin | null {
 
 export function pushNotificationsPlugin(): PushNotificationsPlugin | null {
   return plugins()?.PushNotifications ?? null;
+}
+
+// Null on web, AND on any binary that predates the plugin — which is the normal
+// case for a while, since the JS deploys from Vercel while the binary waits on
+// App Store review. Callers treat it as "no plugin, do nothing", same contract
+// as the two above.
+export function liveActivityPlugin(): LiveActivityPlugin | null {
+  return plugins()?.PrograLiveActivity ?? null;
+}
+
+export function appPlugin(): AppPlugin | null {
+  return plugins()?.App ?? null;
 }

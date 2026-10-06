@@ -269,3 +269,29 @@ export function sessionPausedMs(s: Session, now: number): number {
 export function isPaused(s: Pick<Session, "endedAt" | "pausedSince">): boolean {
   return s.endedAt === null && s.pausedSince !== null;
 }
+
+// The three live states a running session can be in, as ONE rule.
+//
+// `isPaused` above is true for a break too (a break IS a pause), which is right
+// for worked-time math and wrong for a control surface: pauseSession REFUSES
+// during a break — `{ error: "End the break first, then pause" }` — so anything
+// offering a Pause button has to tell them apart or it offers something the
+// action rejects. Same reasoning as breakFitsTarget being shared rather than
+// re-derived: two copies of this rule would eventually let the UI offer
+// something the server refuses.
+//
+// Callers: the live timer's own three-state chrome and the iOS Live Activity
+// snapshot. Those two MUST agree about which button to show, since they can be
+// on screen at the same time.
+export type SessionLiveState = "ended" | "running" | "paused" | "onBreak";
+
+export function sessionLiveState(
+  s: Pick<Session, "endedAt" | "pausedSince">,
+  plan: Pick<SessionPlan, "onBreak">
+): SessionLiveState {
+  if (s.endedAt !== null) return "ended";
+  if (s.pausedSince === null) return "running";
+  // Ordered: onBreak only ever means anything while actually paused, and a
+  // stale `on_break = true` on a resumed session must still read as running.
+  return plan.onBreak ? "onBreak" : "paused";
+}

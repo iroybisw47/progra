@@ -49,6 +49,8 @@
 	<string>Progra uses your camera to attach a photo to your work sessions</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Progra saves your weekly recap image to your photo library when you choose to share it</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

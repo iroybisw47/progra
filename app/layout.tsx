@@ -9,11 +9,13 @@ import { PushRegistration } from "@/components/push-registration";
 import { Toaster } from "@/components/ui/sonner";
 import { EnsurePlanComplete } from "@/components/ensure-plan-complete";
 import { PostHogInit } from "@/components/posthog-init";
+import { DeepLinkRouter } from "@/components/deep-link-router";
 import { NotificationTapRouter } from "@/components/notification-tap-router";
 import { RouteMemory } from "@/components/route-memory";
 import { LastSeenPing } from "@/components/last-seen-ping";
 import { NotificationLifecycle } from "@/components/notification-lifecycle";
 import { SyncClockReminders } from "@/components/sync-clock-reminders";
+import { SyncLiveActivity } from "@/components/sync-live-activity";
 import { SyncHabitReminders } from "@/components/sync-habit-reminders";
 import { PlanCompleteModal } from "@/components/v2/plan-complete-modal";
 import { WhatsNewModal } from "@/components/v2/whats-new-modal";
@@ -265,6 +267,33 @@ export default async function RootLayout({
           plannedWorkMs={activeSession?.plannedWorkMs ?? null}
         />
       )}
+      {/* The iOS Live Activity, on the same flat-primitives rule and for a
+          sharper reason: ActivityKit THROTTLES update bursts, so an object
+          literal here would re-animate the Dynamic Island on every layout
+          render. Note the failure mode differs from the clock leaf above —
+          there a literal is catastrophic and invisible (each cancel-then-
+          schedule wipes the previous run before it fires); here the
+          fingerprint absorbs it, which is exactly why the rule has to be
+          written down. Nothing would fail loudly enough to teach the next
+          person.
+
+          Three fields the clock leaf doesn't need: `label`, because the card
+          names the task; `breakMs`, because the card RENDERS the break
+          countdown where a paused session simply schedules nothing; and
+          `onBreak`, because it decides whether the button says Pause or End
+          break — pausedSince alone cannot tell them apart. */}
+      {user && (
+        <SyncLiveActivity
+          sessionId={activeSession?.id ?? null}
+          label={activeSession?.taskName ?? ""}
+          startedAt={activeSession?.startedAt ?? null}
+          pausedMs={activeSession?.pausedMs ?? null}
+          pausedSince={activeSession?.pausedSince ?? null}
+          plannedWorkMs={activeSession?.plannedWorkMs ?? null}
+          breakMs={activeSession?.breakMs ?? null}
+          onBreak={activeSession?.onBreak ?? false}
+        />
+      )}
       {/* Same flat-primitives rule as the clock leaf: the name lists ride
           in as "\n"-joined strings, so the effect re-runs only when the
           habit data actually changes. Habit toggles reach it because
@@ -280,6 +309,11 @@ export default async function RootLayout({
           reserved id. Lives outside the sync leaves so it survives either
           flag being off. */}
       {user && <NotificationTapRouter />}
+      {/* Custom-scheme deep links (world.progra.app://…). Ungated by any
+          feature flag for the same reason as the tap router: Capacitor fires
+          appUrlOpen and navigates nothing, so without this ANY deep link is a
+          no-op — not just the Live Activity's. */}
+      {user && <DeepLinkRouter />}
       {/* Gated on `user`: the push token is stored against the current
           user, so there's nothing to save until someone is signed in.
           No-op on web. */}

@@ -50,9 +50,11 @@ import {
 import {
   breakRemainingMs,
   msUntilNextBreak,
+  sessionLiveState,
   sessionWorkedMs,
   type SessionPlan,
 } from "@/lib/session";
+import { endLiveActivity } from "@/lib/live-activity-sync";
 import { track } from "@/lib/analytics";
 import { RemindersBand } from "@/app/clock/live/reminders-band";
 import { primeTimerSound, setTimerSoundMuted } from "@/lib/timer-sound";
@@ -153,8 +155,14 @@ export function LiveTimerClient({
   // Three states, no overlap. A break IS a pause (both stamp pausedSince), so
   // `onBreak` is what tells them apart — and Pause is deliberately unavailable
   // during a break: stopping for longer means ending the break first.
-  const onBreak = plan.onBreak;
-  const paused = pausedSince != null && !onBreak;
+  //
+  // Derived through the SHARED rule rather than inline, because the iOS Live
+  // Activity decides its own button from the same function. Those two can be on
+  // screen at once, so a second copy here would eventually let one of them offer
+  // something pauseSession refuses.
+  const liveState = sessionLiveState(timing, plan);
+  const onBreak = liveState === "onBreak";
+  const paused = liveState === "paused";
   const timed = plan.plannedWorkMs !== null;
 
   // The session's own color — its goal's or its category's — paints the ring,
@@ -338,6 +346,12 @@ export function LiveTimerClient({
         timed: timed,
         breaks_taken: plan.breaksTaken,
       });
+      // clockOut calls revalidateSessionSurfacesExceptLive(), which skips the
+      // layout on purpose — so SyncLiveActivity never re-renders and never sees
+      // the session end. Without this the Lock Screen keeps a card claiming a
+      // running session, with live buttons, after clock-out. Idempotent, so the
+      // finish screen's later full revalidation re-firing is free.
+      void endLiveActivity();
       router.push(`/clock/finish?sid=${r.sessionId}`);
     });
   }
@@ -409,6 +423,9 @@ export function LiveTimerClient({
       }
       setEditOpen(false);
       if (r.ended) {
+        // The second revalidateSessionSurfacesExceptLive() path — see
+        // handleStop above for why the leaf can't cover it.
+        void endLiveActivity();
         router.push(`/clock/finish?sid=${r.sessionId}`);
       } else {
         toast.success("Session updated");
