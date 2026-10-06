@@ -47,17 +47,15 @@ struct PrograLiveActivityWidget: Widget {
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 7) {
-                        Marker(state: context.state, height: 18, forceDark: true)
+                        Marker(state: context.state, height: 18)
                         Text(context.state.label ?? "Session")
                             .font(.system(.footnote, design: .serif).weight(.medium))
                             .lineLimit(1)
-                            .truncationMode(.tail)
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     ElapsedText(state: context.state)
                         .font(.system(.title3, design: .rounded).weight(.semibold).monospacedDigit())
-                        .fixedSize()
                         // The Island is always dark, whatever the system
                         // appearance — so it takes the on-dark accent
                         // unconditionally, never accentInk.
@@ -235,14 +233,8 @@ private struct SubLine: View {
         HStack(spacing: 5) {
             Text((state.attribution ?? "").uppercased())
                 .lineLimit(1)
-                .truncationMode(.tail)
             Text("·")
-                .fixedSize()
-            // fixedSize so the state word (or a live countdown) is never the
-            // thing that gets clipped — a half-written "TRACKIN" reads as a bug,
-            // where a tail-truncated goal title reads as a long goal title.
             trailing
-                .fixedSize()
         }
     }
 
@@ -316,53 +308,30 @@ private struct Buttons: View {
 private struct LockScreenCard: View {
     let state: PrograActivityAttributes.ContentState
 
-    // Two ROWS, not a marker beside a two-line column — and the difference is
-    // the whole fix for the clipping.
-    //
-    // Nesting the sub-line under the title confined it to the title's column,
-    // so a goal title and a task name competed for the same ~180pt beside the
-    // clock and both truncated. Here the sub-line is its own row at the card's
-    // full inner width, and only the title negotiates with the clock.
-    //
-    // The clock also sits in the OUTER row, so it reaches the card's trailing
-    // padding instead of being inset by the marker; and it is .fixedSize(),
-    // because Text(timerInterval:) otherwise reserves width for the widest
-    // value its range can reach — which both stole room from the title and left
-    // a visible gap to the clock's right.
     var body: some View {
-        // spacing 0: the rule and the buttons carry their own padding, so a
-        // VStack spacing would stack on top of it and loosen both.
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center, spacing: 10) {
-                Marker(state: state, height: 22)
+            HStack(alignment: .top, spacing: 10) {
+                Marker(state: state, height: 34)
 
-                Text(state.label ?? "Session")
-                    .font(.system(.title3, design: .serif).weight(.medium))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .foregroundStyle(primaryInk)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(state.label ?? "Session")
+                        .font(.system(.title3, design: .serif).weight(.medium))
+                        .lineLimit(1)
+                        .foregroundStyle(primaryInk)
+                    SubLine(state: state)
+                        .font(.system(size: 10, weight: .semibold))
+                        .kerning(0.6)
+                        .foregroundStyle(secondaryInk)
+                }
 
-                Spacer(minLength: 10)
+                Spacer(minLength: 8)
 
                 ElapsedText(state: state)
                     .font(.system(size: 26, weight: .semibold, design: .rounded).monospacedDigit())
                     .foregroundStyle(digitsColor(state))
                     .lineLimit(1)
-                    .fixedSize()
-                    // Wins the negotiation: the title truncates, the clock never
-                    // shrinks. A half-size clock is unreadable at a glance,
-                    // which is the one thing this card exists for.
-                    .layoutPriority(1)
+                    .minimumScaleFactor(0.7)
             }
-
-            // Indented to sit under the title rather than under the marker:
-            // marker (3) + the row's spacing (10).
-            SubLine(state: state)
-                .font(.system(size: 10, weight: .semibold))
-                .kerning(0.6)
-                .foregroundStyle(secondaryInk)
-                .padding(.leading, 13)
-                .padding(.top, 3)
 
             // The app's hairline, at the app's weight.
             Rectangle()
