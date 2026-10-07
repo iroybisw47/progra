@@ -49,7 +49,10 @@ struct PrograLiveActivityWidget: Widget {
                     HStack(spacing: 7) {
                         Marker(state: context.state, height: 18)
                         Text(context.state.label ?? "Session")
-                            .font(.system(.footnote, design: .serif).weight(.medium))
+                            // Matches the Lock Screen's title — the wordmark's
+                            // sans, not the serif.
+                            .font(.system(.footnote).weight(.semibold))
+                            .tracking(-0.3)
                             .lineLimit(1)
                     }
                 }
@@ -131,16 +134,21 @@ struct PrograLiveActivityWidget: Widget {
 //
 // NOT adaptive to the current digit count — that would reshuffle the layout
 // mid-session every time the clock crossed an hour.
+//
+// AND NO OPTICAL INSET ON TOP OF IT. A headless ImageRenderer pass (see the
+// render-harness note in AGENTS.md) shows that at this width the digits land
+// exactly on the card's trailing padding, flush with the "Clock out" pill below
+// — for a short "52:18" as well as a long "1:24:07". An earlier
+// `.padding(.trailing, -6)`, added to chase "move it further right", pushed the
+// clock PAST that edge and out of line with the buttons, which is what read as
+// broken. Right-aligned against the same edge as everything else is as far right
+// as it goes.
+//
+// The width has to stay close to the real reservation for this to hold: given
+// slack, the timer centres its glyphs inside the box rather than hugging the
+// trailing edge, which is what the earlier 124 produced.
 private let clockWidth: CGFloat = 116
 
-// How far past the card's 16pt padding the clock is pulled, so its right edge
-// sits ~16 − 6 = 10pt from the card's edge.
-//
-// An optical correction, and the only value here that is a judgement rather than
-// a measurement. 16pt of padding is right for the 10pt sub-line; against 26pt
-// digits the same gap reads as the clock being inset. Raise this number to move
-// the clock further right, lower it to pull it back — nothing else depends on it.
-private let clockOpticalInset: CGFloat = 6
 
 // MARK: - Adaptive palette
 
@@ -425,7 +433,19 @@ private struct LockScreenCard: View {
 
                 VStack(alignment: .leading, spacing: 0) {
                     Text(state.label ?? "Session")
-                        .font(.system(.title3, design: .serif).weight(.medium))
+                        // The wordmark's treatment, not the serif. "Progra" is
+                        // `font-semibold tracking-tight` with NO font-serif
+                        // (components/dashboard.tsx:99), so it resolves to the
+                        // sans — Hanken Grotesk on the web. A widget can't load
+                        // a Google font (no file in the repo, and an extension
+                        // needs it embedded + registered via UIAppFonts), so
+                        // this is the system sans at the same weight and
+                        // tracking. tracking-tight is -0.025em ≈ -0.5pt here.
+                        //
+                        // Same family as the sub-line below on purpose: the
+                        // title and the goal name now read as one voice.
+                        .font(.system(.title3).weight(.semibold))
+                        .tracking(-0.5)
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .foregroundStyle(primaryInk)
@@ -451,7 +471,6 @@ private struct LockScreenCard: View {
                             // squeeze by shrinking the digits so glyph size moved
                             // between states. See `clockWidth`.
                             .frame(width: clockWidth, alignment: .trailing)
-                            .padding(.trailing, -clockOpticalInset)
                     }
                     .padding(.top, 2)
                 }

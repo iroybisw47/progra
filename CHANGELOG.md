@@ -7,6 +7,37 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-06
 
+### 06:10 · One voice on the Live Activity card, and a way to SEE it
+The card's title was New York — Apple's serif, reached via `design: .serif` —
+while the goal name beside it was the system sans. Two typefaces, and neither was
+the wordmark's.
+
+**"Progra" is the sans.** `components/dashboard.tsx:99` is
+`text-3xl font-semibold tracking-tight` with **no** `font-serif`, so it falls
+through to `body { @apply font-sans }` — Hanken Grotesk. The title and the
+Dynamic Island's label now use the system sans at the same weight and tracking
+(`tracking-tight` is -0.025em ≈ -0.5pt at this size), so the title and the goal
+name read as one voice.
+
+Not literally Hanken: the fonts come from Google Fonts via `next/font`, there is
+no file in the repo, and a widget extension needs one embedded and registered
+through `UIAppFonts`. Embedding it is a separate, bigger change — a binary asset
+plus its OFL licence plus another Xcode target step.
+
+**And the card can now be rendered headlessly.** `ImageRenderer` on macOS
+compiles the card's layout and writes a PNG; a red hairline marks the trailing
+padding so alignment is visible rather than inferred. It immediately showed what
+three device round-trips had not: the `clockOpticalInset` added last pass pushed
+the clock PAST the padding the buttons respect, which is what read as broken.
+Removed — at a frame width matching the timer's real reservation the digits land
+flush on that edge on their own, for a short "52:18" as well as a long
+"1:24:07".
+
+It also corrected an earlier guess of mine: `Text(timerInterval:)` *does*
+right-align inside a trailing-aligned frame. Given slack it centres instead,
+which is what the old 124pt produced — so the width has to stay near the
+measured reservation, and that is now written down beside the constant.
+
 ### 05:05 · Measure the Live Activity clock instead of estimating it
 The card's clock sat slightly inset. The reserved width was guessed from a
 0.6em-per-digit figure; CoreText was asked instead, with the exact font the card
