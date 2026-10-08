@@ -4,6 +4,7 @@ import { useOptimistic, useTransition } from "react";
 import { HeartIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { track } from "@/lib/analytics";
 import { toggleReaction } from "@/app/actions/reactions";
 import { LIKE_EMOJI } from "@/lib/social/reactions";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,7 @@ export function KudosButton({
         toast.error(r.error);
         return;
       }
+      if ("reacted" in r && r.reacted) track("like_given", { session_ref: sessionId });
     });
   }
 

@@ -6,7 +6,10 @@ import { createClient } from "@/lib/supabase/server";
 import { capText } from "@/lib/validate";
 import { isPaletteFill } from "@/lib/palette";
 import { requireSeat } from "@/lib/auth/require-seat";
-import { JOHN } from "@/lib/flags";
+import { after } from "next/server";
+
+import { labelGoalAfterWrite } from "@/lib/anthropic/label-goal";
+import { ANALYTICS, JOHN } from "@/lib/flags";
 import { isJohnRequest } from "@/lib/john/gate";
 import { TARGET_OUTCOME_MAX } from "@/lib/john/instrumentation";
 
@@ -101,8 +104,12 @@ export async function createGoal(
     .single();
 
   if (error) return { error: error.message };
+  const id = (data as { id: string }).id;
+  // The AI category label, after the response: it can neither slow the save
+  // down nor fail it, and private goals are skipped inside (see label-goal).
+  after(() => labelGoalAfterWrite(id));
   revalidateGoalSurfaces();
-  return { ok: true, id: (data as { id: string }).id };
+  return { ok: true, id };
 }
 
 type UpdateGoalPatch = {
@@ -147,6 +154,13 @@ export async function updateGoal(
   }
   if (patch.isPrivate !== undefined) {
     update.is_private = patch.isPrivate;
+    // A goal going private drops its label: the title will not be sent again,
+    // and the dashboard shows private goals as their own bucket. Flag-gated
+    // because the column exists only once phase1.sql has run.
+    if (ANALYTICS && patch.isPrivate) {
+      update.category_label = null;
+      update.category_labeled_at = null;
+    }
   }
   const john = await johnGoalFields(patch);
   if ("error" in john) return john as { error: string };
@@ -155,6 +169,10 @@ export async function updateGoal(
   const supabase = await createClient();
   const { error } = await supabase.from("goals").update(update).eq("id", id);
   if (error) return { error: error.message };
+  // Re-label when the title changed or the goal just became visible.
+  if (patch.title !== undefined || patch.isPrivate === false) {
+    after(() => labelGoalAfterWrite(id));
+  }
   revalidateGoalSurfaces();
   return { ok: true };
 }

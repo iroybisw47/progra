@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { track } from "@/lib/analytics";
 import { BottomSheet, BottomSheetContent } from "@/components/v2/bottom-sheet";
 import { PrimaryButton } from "@/components/v2/primary-button";
 import { ColorSwatches } from "@/components/color-swatches";
@@ -124,6 +125,9 @@ export function ManageGoals({
         toast.error(r.error);
         return;
       }
+      const createdId = "id" in r && typeof r.id === "string" ? r.id : null;
+      if (id) track("goal_updated", { goal_id: id });
+      else if (createdId) track("goal_created", { goal_id: createdId });
       setEditing(null);
       toast.success(id ? `Saved ${title}` : `Added ${title}`);
     });

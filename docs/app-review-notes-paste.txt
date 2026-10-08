@@ -36,7 +36,7 @@ friends correctly sees an empty feed — intended, not a failure.
 - Google Calendar API (calendar.events.readonly): optional; reads event titles and times so calendar time can sit beside tracked time
 - Anthropic (Claude API): categorizes calendar event titles into the user's own categories; not used for advertising or model training
 - Apple Push Notification service: social notifications
-- PostHog: product analytics keyed to the account's user ID; no advertising identifiers, no cross-app tracking, no data brokers
+- Product analytics are first-party (events stored in Progra's own database, keyed to the account); no third-party analytics SDK, no advertising identifiers, no cross-app tracking, no data brokers
 No payment processor, ad network or data provider, and nothing is sold or shared for advertising.
 
 6. REGIONAL DIFFERENCES

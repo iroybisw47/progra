@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { TrackView } from "@/components/track-view";
 import { AddToHomeHint } from "@/components/add-to-home-hint";
 import { SignInButtons } from "@/app/login/sign-in-buttons";
 import { Dashboard } from "@/components/dashboard";
@@ -121,6 +122,8 @@ function SignedOutLanding() {
         </header>
         {/* Starts the OAuth flow directly — no intermediate /login stop. */}
         <SignInButtons googleLabel="Sign in with Google" />
+        {/* By device id only — there is no user yet; linked at sign-in. */}
+        <TrackView event="landing_viewed" />
 
         <AddToHomeHint />
       </main>

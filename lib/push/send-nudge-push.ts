@@ -2,6 +2,7 @@ import "server-only";
 
 import { NUDGES, SOCIAL_PUSH } from "@/lib/flags";
 import { sendApnsAlert } from "@/lib/push/apns";
+import { logRemoteNotification, newNotificationId } from "@/lib/push/notification-log";
 import {
   composeNudgePush,
   nudgeCollapseId,
@@ -179,6 +180,8 @@ export async function sendNudgePush(event: {
       });
     }
 
+    const nid = newNotificationId();
+    let accepted = false;
     for (const token of tokens) {
       const result = await sendApnsAlert(token, {
         ...content,
@@ -186,11 +189,23 @@ export async function sendNudgePush(event: {
         silent: !nudge.pushed,
         // A nudge is about today. Don't deliver it tomorrow.
         ttlSeconds: 4 * 60 * 60,
+        nid,
+        ntype: "nudge",
       });
+      if (result === "ok") accepted = true;
       if (result === "gone") {
         await admin.from("device_tokens").delete().eq("user_id", recipient).eq("token", token);
       }
     }
+    await logRemoteNotification(admin, {
+      id: nid,
+      key,
+      userId: recipient,
+      type: "nudge",
+      status: accepted ? "sent" : "failed",
+      relatedKind: "nudge",
+      relatedId: event.nudgeId,
+    });
   } catch (err) {
     console.error("[push] nudge push failed:", err);
   }

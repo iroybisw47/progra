@@ -15,6 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { BottomSheet, BottomSheetContent } from "@/components/v2/bottom-sheet";
 import { MenuRow } from "@/components/v2/menu-row";
@@ -172,7 +173,10 @@ export function ProfileActions({
       label: "Add as friend",
       run: () => run(() => sendFriendRequest(target.userId), {
         okMsg: "Request sent",
-        then: () => setMenuOpen(false),
+        then: () => {
+          track("friend_request_sent", { target_id: target.userId });
+          setMenuOpen(false);
+        },
       }),
     };
   })();
@@ -202,7 +206,13 @@ export function ProfileActions({
                   onClick={() =>
                     run(() => acceptFriendRequest(relationship.requestId!), {
                       okMsg: "Friend added",
-                      then: () => setMenuOpen(false),
+                      then: () => {
+                        track("friend_added", {
+                          friendship_id: relationship.requestId ?? null,
+                          from: "profile",
+                        });
+                        setMenuOpen(false);
+                      },
                     })
                   }
                 />

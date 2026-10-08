@@ -18,7 +18,9 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validate";
 
-type SendResult = { ok: true; pushed: boolean } | ({ error: string } & NudgeRefusal);
+type SendResult =
+  | { ok: true; nudgeId: string; pushed: boolean }
+  | ({ error: string } & NudgeRefusal);
 
 const UNAVAILABLE = { reason: "unavailable", cooldownUntil: null, opensAt: null } as const;
 
@@ -104,7 +106,7 @@ export async function sendNudge(input: {
   // recipient's dot arrives through BottomNav's own badge poll, so there is
   // nothing to revalidate on their side.
   revalidateNudgeSurfaces();
-  return { ok: true, pushed: result.pushed };
+  return { ok: true, nudgeId: result.nudgeId, pushed: result.pushed };
 }
 
 // The anchor nudge whose 60-minute push window this one fell into. Only read

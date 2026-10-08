@@ -31,6 +31,10 @@ export type ApnsAlert = {
   // Seconds until APNs stops trying. Defaults to a day; a nudge uses 4h,
   // because "still time today" delivered tomorrow morning is just wrong.
   ttlSeconds?: number;
+  // Attribution for the tap router: the notification_log row this push IS,
+  // and its type. Surface under `notification.data` on a tap, like `url`.
+  nid?: string;
+  ntype?: string;
 };
 
 // The APNs topic is the app's bundle id — a constant, not config: it must
@@ -177,6 +181,7 @@ export function sendApnsAlert(
           ...(alert.silent ? {} : { sound: "default" }),
         },
         url: alert.url,
+        ...(alert.nid ? { nid: alert.nid, ntype: alert.ntype } : {}),
       })
     );
   });

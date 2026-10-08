@@ -7,6 +7,330 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-07
 
+### 00:40 · Internal analytics, phase 5 — the dashboard
+`/admin/analytics` is rebuilt on the pipeline: three tabs, one GET filter row,
+every number from the phase-4 RPCs, nothing from anywhere else.
+
+**Shape.** Admin-only as before (`requireAdmin()`, 404 for anyone else; each RPC
+re-checks `is_admin()`), reachable only from the admin-only Admin hub. Tabs are
+`?tab=` and the filters are a plain GET form — date-range presets and a custom
+range, segment, signup cohort, include-internal — so a view is a URL, the
+server re-renders every chart against one slice, and the page carries no
+client state beyond the roster's chip row. One `Promise.all` per tab.
+Phone-first: `max-w-md`, wide tables scroll inside themselves, charts are
+`aspect-auto` with set heights.
+
+**Overview** — six pulse tiles each with the delta against the same number one
+week earlier (active, ghosts, activated-by-day-7 rate, hours this week, median
+friends doers · ghosts, counted users); the stacked state bar with the ghost
+callout underneath; the seven-stage activation funnel; retention by signup week
+split by friends at day 7, blank cells never 0%.
+
+**Usage & social** — clock-ins vs habit checks per active user over the range;
+usage mix; session-quality tiles (sessions per doer, median session, %
+auto-ended, logged vs target); goals by category with a **Categorize goals**
+button (`backfillGoalCategories`, private goals never sent); friend buckets
+with % active; interactions; the nudge funnel against the recipient's own
+baseline; social pull; and the Notifications section — per-type table (sent /
+tap / influenced / converted / baseline / lift), lift by hour, fatigue,
+response by user state, permission and toggle breakdowns. Lift and social
+pull show "collecting data" until the logs are 14 days old.
+
+**Onboarding, ghosts & roster** — drop-off by screen with median seconds on
+each, stuck by screen, a per-sign-in-method table, the stuck list, possible
+duplicates (flag only), ghost open frequency, what ghosts do when they open,
+ghosts vs doers, and the full roster with All / Active / Ghosts / Lapsed /
+Stuck chips and a sort. Every roster card, stuck user and duplicate opens
+`/admin/analytics/user/[id]`: that person's internal timeline, newest first,
+kinds and ids only.
+
+**Charts.** recharts through shadcn's `components/ui/chart.tsx` — the one
+approved dependency. Built to the dataviz method: bars ≤ 16px with a 4px
+rounded data-end, 2px lines, a solid hairline grid, text in text tokens, a
+legend whenever two series share a plot, a tooltip on every mark. Colours
+are the app's own palette, VALIDATED as a categorical set with the method's
+checker: Green → Dark blue → Orange → Dark purple passes every gate in that
+order (green beside orange failed the protan simulation; blue beside purple
+failed the normal-vision floor — both avoided), plus the theme neutral for
+"nothing yet". Light blue (chroma) and Light green (contrast) are not used.
+
+**Retired.** The 2026-09-14 roster page (`user-card.tsx`, `cohort-table.tsx`,
+`lib/admin-analytics.ts` + its 25 tests, the two old readers). phase4.sql STEP
+3 drops `admin_list_users`, `admin_activity_days` and
+`analytics_excluded_users` once this is deployed. `docs/SCREENS.md` S58 / S58a.
+
+Gate: `tsc` · `eslint` · vitest · `npm run build` · signed-out smoke.
+
+### 23:59 · Internal analytics, phase 4 — the data layer
+Every number the dashboard will show is computed on read by SQL behind
+`is_admin()`, from one place.
+
+**One facts function.** `analytics_user_facts(filters…, p_now)` returns one row
+per user with everything: state and ghost, friends now and at day 7, logged
+days in the first week and activation, hours this week and the week before
+(clipped), clock-ins, habit checks, opens, the eight interaction counts,
+notifications received and opened, usage flags, week-4 activity. Every
+`admin_*` RPC reads from it, so each definition exists exactly once — and
+"the prior 7-day value" on the pulse cards is literally the same function
+evaluated at `p_now − 7 days` over the users who existed then. `p_now`
+defaults to `now()` and exists so the harness can pin the clock.
+
+**The definitions, in SQL and TypeScript.** `lib/telemetry/metrics.ts` is the
+reference: `userState`, `isGhost`, `friendsInFirstWeek`,
+`loggedDaysInFirstWeek`, `isActivated`, `workedMs`, `clippedWorkedMs` — 20
+tests, boundaries pinned (a log exactly 7 days old is lapsed; day 7 is outside
+the first week; a running session caps at 10h, an ended one reads back as
+stored; an auto-ended one is 0 however it overlaps). `analytics_worked_ms` is
+the SQL twin, and the proportional-clipping rule is stated once: pauses are not
+timestamped, so a session straddling the window keeps the same share of its
+worked time as of its wall-clock span. "Logged" dates a session by
+`started_at` and a habit tick by `created_at` — the day the person acted, not
+the day a backfilled tick is about.
+
+**Seven RPCs** (`.claude/plans/analytics/phase4.sql`, read-only, hand-run after
+phase 1): `admin_user_roster`; `admin_overview` (pulse now vs prior, states,
+ghosts, activation rate, median friends doers vs ghosts, the seven-stage
+funnel, retention by signup week × friends-at-day-7 with blank-never-0% cells);
+`admin_usage_social` (usage mix, session quality, per-day series, goals by
+category with a "private" bucket, friend buckets, interactions, the nudge
+funnel against the recipient's own 28-day log rate, and social pull: sessions
+within 3h of a friend's against chance coverage, opens within 24h of a
+like/comment/nudge against the quiet users' daily open rate);
+`admin_notification_stats` (per type sent / tapped / influenced / converted /
+baseline / lift, by hour, by notifications-per-day, by user state, the
+permission and toggle breakdowns — "sent" for a local notification means
+presumed fired, and clock_in_reminder converts on a MANUAL clock-out within 30
+minutes, the plan's D4); `admin_onboarding_stats` (reached / stuck / median
+seconds per step, by sign-in method; the stuck list; same display name across
+providers, flagged only); `admin_ghost_behavior`; `admin_user_timeline`. Lift
+and social pull report `collecting_data` until the logs are 14 days old.
+
+**Readers** in `lib/db/admin-analytics.ts`, one `cache()`-wrapped reader per
+RPC with primitive args, null on any error so the page can say the SQL is not
+installed; the roster gets `rowToRosterUser`, the aggregates keep the RPC's
+keys (`lib/admin-dashboard.ts`).
+
+**Proven on a fixture** (`nudges-harness/analytics-phase4.mjs`): nine people
+whose numbers are worked out by hand at a pinned clock — Alice active with 2.0h
+(a straddling hour counted proportionally), Bob lapsed and a ghost and
+activated, Carol never-logged and a ghost, Dave stuck at an inferred step,
+Erin with a running session and a worthless auto-ended one, Ivan with three
+early friends but one logged day (so NOT activated), a duplicate "Sam Lee"
+across Google and Apple — 38 checks across all seven RPCs plus the prior week,
+the adversarial block (9/9), and six planted mutants all caught (ghost without
+the open window, activation on friends alone, auto-ended counted, internal
+friends counted, a cancelled local notification counted as sent, a 0%
+retention cell for an unelapsed week). The harness mock moved to
+`analytics-mock.mjs`, shared with the phase-1 suite.
+
+Also: `recharts` via `npx shadcn add chart` for phase 5 (approved 2026-10-07).
+The install also rewrote `components/ui/card.tsx` with a broken `cn` import
+and new spacing variables; that file was reverted — the chart is the only
+addition.
+
+### 23:45 · Internal analytics, phase 3 — notifications, attributed
+Every notification the app can produce now has a `notification_log` row with
+an id the tap can come back to, and the device's permission state finally
+lives somewhere a dashboard can read.
+
+**Remote (like, comment, reply, nudge, recap).** Each sender mints the row id
+BEFORE the send and puts it in the APNs payload as `nid` beside `ntype`
+(top-level custom keys, which surface under `notification.data` on a tap like
+`url` does). After APNs answers it writes the row — `sent` when at least one
+device accepted it, `failed` otherwise — keyed by the push_log dedupe key, so
+the two tables line up one to one. One row per push, not per device. Written
+by the admin client the senders already hold (exception kinds 2 and 3), never
+blocking the push, and a missing table is logged, not thrown.
+
+**Local (clock reminders, habit reminders).** A device can only say "I
+scheduled this" or "I cancelled it before it fired", so that is what is
+reported — and nothing is ever labelled delivered. `createReminderSync` now
+asks iOS what the family still has pending (by the `local:<id>:<ms>` key it
+puts in `extra`, since the schedule date iOS returns is rounded to the second),
+diffs that against the new list with the pure `diffReminderSchedule()`, and
+emits `notification_cancelled` for what disappears and `notification_scheduled`
+for what is new — after the plugin call succeeded, so a throw reports nothing.
+A reminder that already fired is simply absent from pending and is never
+"cancelled"; "presumed fired" (scheduled, never cancelled, instant in the
+past) is derived server-side. This is what makes the clock family's
+pause-cancels-everything / resume-reschedules churn honest instead of
+inflating "sent". Rows cancelled at sign-out may be dropped by the ingest
+(no user) and read as presumed fired later — one accepted edge.
+
+**Taps.** The router records `notification_tapped` before routing — `nid` for
+a push, `key` for a local one — and tells the client, so the `app_opened`
+that follows carries `source: "notification_tap"`. The ingest RPC opens exactly
+that row for exactly that user, and upserts if the tap outran its schedule
+event. Influenced opens, conversions, baselines and lift are Phase 4's SQL.
+
+**Permission and toggles.** On every signed-in open the lifecycle leaf reads
+the iOS permission (a pure read; it never prompts) and the two on-device
+reminder prefs and mirrors them to `profiles.notification_permission` /
+`reminder_prefs` via `sync_device_state`, throttled ten minutes client-side
+and again in the RPC, which also writes whenever something changed. The
+clock-reminder pref is per session, so the leaf now takes the active session
+id (through a ref — a session starting must not re-attach native listeners).
+
+Nothing user-facing changed: no new prompt, no new buzz, no native build.
+
+Gate: `tsc` · `eslint` · vitest (+`reminder-diff.test.ts`) · build.
+
+### 23:20 · Internal analytics, phase 2 — what is tracked
+The pipeline now carries the product. Everything below is client-side
+`track()` next to the existing call, fires only on the user's own completed
+action (never from autoClockOut or a plan completing by itself), and carries
+ids and closed labels only.
+
+**Screens.** `landing_viewed` (device id only — there is no user yet; linked at
+sign-in), `feed_viewed`, `clock_in_screen_opened` (the form, not the
+active-session strip — keyed on the session id so clocking in does not
+re-fire). A `<TrackView/>` leaf lets a SERVER page record a view without
+becoming a client component. `sign_in_started {method}` on all three buttons.
+
+**Onboarding.** One effect keyed on the step NAME: entering a screen records
+`onboarding_step_viewed` and writes `profiles.onboarding_step` through
+`setOnboardingStep` (the per-user "where did they stop" the dashboard reads;
+Back re-reports, the Done splash never does). `go()` records
+`onboarding_step_completed` for the screen being left, but only when moving
+forward.
+
+**Core actions.** `session_clocked_in {session_ref, goal_id, category_id,
+timed}` and `session_clocked_out {session_ref, worked_minutes, timed,
+breaks_taken}` — the latter REPLACES `session_completed`, which only existed
+for PostHog; `session_cancelled` on the finish screen's delete; `habit_checked
+{habit_id, backfilled}` on all four surfaces (Progress, /habits, the weekly
+grid, the manager), only when checking ON; `like_given {session_ref}` on a
+reaction that is now on (either button); `comment_given {session_ref, depth}`
+for posts and replies, replacing `comment_reply_posted`; `nudge_sent` gains
+`nudge_id`; `friend_request_sent {target_id}` and `friend_added
+{friendship_id, from}` on the Friends tab, a profile and the UW onboarding
+step; `goal_created` / `goal_updated {goal_id}` in all three goal editors.
+Metrics still come from the real tables — these add timing and context.
+
+**Profile views.** `<RecordProfileView/>` on anyone else's profile →
+`record_profile_view`, which refuses a self-view and collapses the same pair
+inside 30 minutes. Internal only, never shown.
+
+**Goal categories, by Haiku 4.5.** `lib/anthropic/categorize-goal.ts` is the
+deleted calendar categorizer's shape — structured JSON output pinned to the
+eight labels, one short call, `maxRetries: 0`, 15 s timeout, the
+`DISABLE_AI_CATEGORIZATION` kill switch kept — for ONE goal title.
+`labelGoalAfterWrite` runs inside `after()` from `createGoal` and from
+`updateGoal` when the title changed or the goal just became visible, under the
+CALLER'S OWN RLS client (no service role). **Private goals are never sent:**
+the helper skips them, going private clears the label, and the admin backfill
+RPC never returns their titles — the same rule `admin_list_users()` already
+applies to the admin's own eyes. `backfillGoalCategories` (admin action, the
+dashboard's button) labels what is still null. `/privacy` now says goal titles
+are processed too. Columns and RPCs are already in `phase1.sql` (1.3, 1.15,
+1.16); the adversarial block gained T17a–d (admin-only, CHECK, private goals
+never labelled) — 33/33, all mutants still caught.
+
+Gate: `tsc` · `eslint` on every touched file · vitest · build.
+
+### 22:45 · Internal analytics, phase 1 — the pipeline is ours, and PostHog is gone
+Every product event now lands in `app_events` in Progra's own Supabase, written
+by a route handler, read only by the admin dashboard. There is no third-party
+analytics SDK any more.
+
+**`track()` did not change.** `lib/analytics.ts` keeps its path and signature
+and the two dozen call sites are untouched; the body now delegates to
+`lib/telemetry/client.ts`, which validates, queues (localStorage, so the queue
+survives a kill), batches (every 15 s, at 20 events, and on the way to the
+background with a `keepalive` fetch) and POSTs to `/api/analytics/events`.
+Failures are swallowed after three tries. With `NEXT_PUBLIC_ANALYTICS` off it
+makes zero network calls and the route answers 204 and drops the batch, so this
+deploys safely ahead of the SQL — the flag means "phase1.sql has run", like
+`JOHN` and `UW`.
+
+**No free text can be tracked, by construction.** `lib/telemetry/events.ts` is a
+closed table: every event name and, per event, every property with its type —
+uuid, int, bool, HH:MM, a local-notification key, or a closed enum. There is no
+string type. A goal title, a task name or a comment body cannot pass
+`validateEvent()` even by accident, and the test says so as a property over the
+whole table. A bug report's `route` is normalised to a template
+(`/profile/[username]`) before it becomes a property.
+
+**Identity comes from the cookie, never the body — and the route must not
+refresh it.** `lib/telemetry/ingest.ts` decodes the `@supabase/ssr` cookie
+(chunked, `base64-`) itself and `ingest-server.ts` verifies the access token
+locally with `auth.getClaims(token)`, the one call that neither reads nor
+refreshes a session. That is why `api/analytics` is excluded from `proxy.ts`: a
+background flush is fire-and-forget, the suspended webview may never see the
+response, and a refresh there would rotate the refresh token without the device
+storing it. An expired token just makes that batch anonymous;
+`link_device_events` claims it on the next signed-in open — called on EVERY open
+(one idempotent indexed UPDATE), not once. A guessed device id can only claim
+ownerless rows; the shared-device case (A signs out, browses, B signs in)
+mis-attributes A's landing events to B, which is accepted. This is service-role
+exception kind **(4)** in `lib/supabase/admin.ts` and AGENTS.md.
+
+**Bounded for strangers.** Signed-out batches keep only `landing_viewed` and
+`sign_in_started`; the route rejects a request whose `Origin` /
+`Sec-Fetch-Site` is not same-origin; the RPC budgets 1000 events per device per
+hour and 5000 anonymous events per hour across all devices (an instance-local
+limiter in the route is just the cheap first line). A client `event_id` with a
+unique `(device_id, event_id)` makes a re-sent batch a complete no-op — side
+effects included — and batches stay under 25 events / 16 KB, the `keepalive`
+quota that would otherwise throw.
+
+**One leaf for opens.** `components/analytics-lifecycle.tsx` replaces both
+`PostHogInit` and `LastSeenPing`, ungated inside `Shell` so the beta-full wall
+and the signed-out landing count. On native it listens to the App plugin's
+`pause` / `resume` (didEnterBackground / willEnterForeground), NOT
+`appStateChange`, which also fires for Control Center and the notification
+shade; on the web, `visibilitychange`. `app_opened` carries cold/warm and
+whether a notification tap preceded it; `app_backgrounded` carries seconds in
+the foreground. A resume with no background before it is not an open. With the
+flag off it still calls `touchLastSeen()` exactly as before; with it on the
+ingest RPC bumps `profiles.last_seen_at` from every open, so the roster's
+"Opened" column never regresses.
+
+**All the DDL for phases 1–3 lands now** (`.claude/plans/analytics/phase1.sql`,
+hand-run): `app_events`, `app_open_days` (opens per LOCAL day — the rollup that
+outlives the 180-day raw retention), `profile_views`, `notification_log`;
+`profiles.is_internal` + `excluded_reason` (guard trigger copied from the
+`seat_no` idiom, so not user-writable; `admin_set_internal()` flips it),
+`onboarding_step` as a STEP NAME with its CHECK, the device's notification
+permission and reminder prefs; `goals.category_label`;
+`friendships.accepted_at` with a BEFORE INSERT OR UPDATE trigger, because
+`created_at` is when a request was SENT. Writer RPCs: `ingest_app_events`
+(service role only; merges `mutual_friend_count`, `friends_active_24h`,
+`segment`, `days_since_signup` once per batch — the client never computes
+them), `link_device_events`, `prune_app_events` (called lazily by the route at
+most hourly — the one scheduled job in this repo stays the one),
+`record_profile_view` (no self-views, 30-min pair dedupe),
+`set_onboarding_step`, `sync_device_state`. `admin_list_users()` is re-pointed
+at `is_internal` so the old page and the new one cannot disagree. Backfills:
+the old exclusion rows plus `ishaanroybiswas`, `zack`, `jillybean` as founders
+(data, not query logic); `accepted_at = created_at` for existing friendships,
+flagged approximate; an inferred `onboarding_step` for everyone still in the
+wizard.
+
+Tested first in `nudges-harness/analytics.mjs`: STEP 1V, the 29-check
+adversarial block (which raises its own summary and rolls itself back), the
+budgets, local-day bucketing for Tokyo and a garbage timezone, `last_seen_at`
+parity, prune, the three backfills, idempotent re-run — and **10 planted
+mutants, all caught**, including "ingest left callable by `authenticated`".
+
+**PostHog removed entirely**: `components/posthog-init.tsx`, the `/ingest`
+rewrites and `skipTrailingSlashRedirect` (nothing else used it), `posthog-js`,
+the self-driving report, and the privacy-label / review-notes rows. What
+changes: PostHog's pageview history stops accruing (nothing read it); the App
+Store label's Usage Data → Product Interaction answer STAYS (collected, linked,
+not for tracking, purpose Analytics) with PostHog dropped from "Third parties";
+`NEXT_PUBLIC_POSTHOG_KEY` can come off Vercel.
+
+Gate: `tsc` clean · `eslint` clean on every changed file · **543/543 vitest in
+39 files** (+48) · `npm run build` · signed-out route smoke. New tests:
+`lib/telemetry/events.test.ts` (allowlist, no-free-text property),
+`queue.test.ts` (the three triggers, caps, retries, storage round trip),
+`ingest.test.ts` (batch shape, per-event judgement, origin, cookie decoding,
+limiter).
+
+Yours by hand: run `phase1.sql` STEP 0 and paste it back, then STEP 1 → 1V →
+2 → 3; set `NEXT_PUBLIC_ANALYTICS=1` on Vercel; remove `NEXT_PUBLIC_POSTHOG_KEY`.
+
 ### 21:50 · The card's chip is just the name now
 No "Goal · " prefix and no "Category · " either — the chip reads `Thesis`,
 `Writing`, `Uncategorized`. The card is deliberately plainer than the finish

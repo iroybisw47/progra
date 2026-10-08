@@ -3,6 +3,7 @@
 import { useOptimistic, useTransition } from "react";
 import { toast } from "sonner";
 
+import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { toggleReaction } from "@/app/actions/reactions";
 import { REACTION_EMOJIS } from "@/lib/social/reactions";
@@ -49,6 +50,7 @@ export function ReactionBar({
         toast.error(r.error);
         return;
       }
+      if ("reacted" in r && r.reacted) track("like_given", { session_ref: sessionId });
     });
   }
 

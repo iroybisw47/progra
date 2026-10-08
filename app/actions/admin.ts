@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isBugStatus } from "@/lib/bug-reports";
 import { isSuggestionStatus } from "@/lib/suggestions";
+import { classifyGoalTitle } from "@/lib/anthropic/categorize-goal";
 
 type Result = { ok: true } | { error: string };
 type ServerClient = Awaited<ReturnType<typeof createClient>>;
@@ -142,4 +143,38 @@ export async function resolveSuggestion(
   if (error) return { error: "Couldn't update the suggestion." };
   revalidatePath("/admin");
   return { ok: true };
+}
+
+// Labels every active, non-private goal that has no category yet — the
+// dashboard's "Categorize goals" button. Private goals never come back from
+// the RPC, so their titles are never sent. Sequential on purpose: a few
+// hundred one-line calls at most, and no reason to open parallel connections
+// from a server action.
+export async function backfillGoalCategories(): Promise<
+  { ok: true; labeled: number; skipped: number } | { error: string }
+> {
+  const supabase = await createClient();
+  const gate = await requireAdmin(supabase);
+  if ("error" in gate) return gate;
+  const { data, error } = await supabase.rpc("admin_list_uncategorized_goals", {
+    p_limit: 200,
+  });
+  if (error) return { error: "Couldn't list goals (SQL run?)." };
+  let labeled = 0;
+  let skipped = 0;
+  for (const row of (data ?? []) as { id: string; title: string }[]) {
+    const label = await classifyGoalTitle(row.title);
+    if (!label) {
+      skipped += 1;
+      continue;
+    }
+    const { error: writeError } = await supabase.rpc("admin_set_goal_category", {
+      p_goal: row.id,
+      p_label: label,
+    });
+    if (writeError) skipped += 1;
+    else labeled += 1;
+  }
+  revalidatePath("/admin/analytics");
+  return { ok: true, labeled, skipped };
 }

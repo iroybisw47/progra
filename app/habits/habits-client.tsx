@@ -4,6 +4,7 @@ import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { LockIcon, PencilIcon, XIcon } from "lucide-react";
 
+import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -79,6 +80,8 @@ export function HabitsClient({
   );
 
   function handleToggle(habitId: string) {
+    const checkingOn = !optimisticItems.find((it) => it.habit.id === habitId)
+      ?.completedToday;
     startTransition(async () => {
       toggleOptimistic(habitId);
       const r = await toggleHabitCompletion(habitId, todayLocal);
@@ -86,6 +89,7 @@ export function HabitsClient({
         toast.error(r.error);
         return;
       }
+      if (checkingOn) track("habit_checked", { habit_id: habitId, backfilled: false });
     });
   }
 

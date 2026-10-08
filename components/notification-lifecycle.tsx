@@ -48,7 +48,7 @@ export function NotificationLifecycle({ userId }: { userId: string | null }) {
   return null;
 }
 
-// Module scope, not state, and for the same reason as posthog-init's
-// `lastIdentified`: this must survive the remounts a client-side navigation
+// Module scope, not state, and for the same reason as analytics-lifecycle's
+// `lastUserId`: this must survive the remounts a client-side navigation
 // causes, or every navigation would look like a user change.
 let lastUserId: string | null = null;

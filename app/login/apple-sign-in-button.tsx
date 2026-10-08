@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { track } from "@/lib/analytics";
 import { signInWithAppleIdToken } from "@/app/actions/native-auth";
 import { appleDisplayName } from "@/lib/auth/apple-name";
 import { buildNonce } from "@/lib/auth/nonce";
@@ -61,6 +62,7 @@ export function AppleSignInButton({
     if (nativeFlowInFlight) return;
     nativeFlowInFlight = true;
     setLoading(true);
+    track("sign_in_started", { method: "apple" });
 
     try {
       const { SocialLogin } = await import("@capgo/capacitor-social-login");

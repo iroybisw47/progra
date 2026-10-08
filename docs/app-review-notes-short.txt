@@ -28,9 +28,10 @@ happens when you stop. Free — no in-app purchases, subscriptions or advertisin
 SERVICES: Supabase (database, auth, photo storage), Vercel (hosting), Sign in
 with Apple and Google Sign-In (authentication), Google Calendar API read-only
 (optional), Anthropic Claude API (categorizes calendar event titles; not used
-for advertising or model training), APNs (notifications), PostHog (analytics
-keyed to user ID; no advertising identifiers, no tracking, no data brokers). No
-payment processor, ad network or data provider.
+for advertising or model training), APNs (notifications). Product analytics are
+first-party (stored in Progra's own database, keyed to the account; no
+advertising identifiers, no tracking, no data brokers). No payment processor, ad
+network, data provider or third-party analytics SDK.
 
 REGIONS: No regional differences. Identical in every storefront, English-only,
 no geofenced content, no region-specific pricing. Time zone is user-selected in

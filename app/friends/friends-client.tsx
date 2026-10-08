@@ -153,7 +153,7 @@ export function FriendsClient({
           disabled={pending}
           onClick={() =>
             run(() => acceptFriendRequest(requestId), "Friend added", () =>
-              track("friend_added", { from: "friends_tab" })
+              track("friend_added", { friendship_id: requestId, from: "friends_tab" })
             )
           }
         >
@@ -166,7 +166,11 @@ export function FriendsClient({
         type="button"
         className={chipOutline}
         disabled={pending}
-        onClick={() => run(() => sendFriendRequest(userId), "Request sent")}
+        onClick={() =>
+          run(() => sendFriendRequest(userId), "Request sent", () =>
+            track("friend_request_sent", { target_id: userId })
+          )
+        }
       >
         Add
       </button>
@@ -251,7 +255,7 @@ export function FriendsClient({
                   disabled={pending}
                   onClick={() =>
                     run(() => acceptFriendRequest(r.requestId), "Friend added", () =>
-                      track("friend_added", { from: "friends_tab" })
+                      track("friend_added", { friendship_id: r.requestId, from: "friends_tab" })
                     )
                   }
                   className="bg-brand text-primary-foreground h-[30px] rounded-[10px] px-3.5 text-xs font-semibold transition-transform active:scale-95 disabled:opacity-50"

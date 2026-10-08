@@ -6,6 +6,7 @@ import { useOptimistic, useState, useTransition } from "react";
 import { CalendarIcon, CheckIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { track } from "@/lib/analytics";
 import { Donut } from "@/components/v2/donut";
 import { HabitWeekGrid } from "@/components/v2/habit-week-grid";
 import { GoalQuotaRows } from "@/components/v2/goal-quota-rows";
@@ -150,6 +151,8 @@ export function ProgressClient(props: {
   const doneToday = optimisticHabits.filter((h) => h.done).length;
 
   function toggleHabit(habitId: string) {
+    // Only checking a habit ON is the activation signal worth counting.
+    const checkingOn = !optimisticHabits.find((h) => h.id === habitId)?.done;
     startTransition(async () => {
       toggleOptimistic(habitId);
       const r = await toggleHabitCompletion(habitId, props.today);
@@ -157,6 +160,7 @@ export function ProgressClient(props: {
         toast.error(r.error);
         return;
       }
+      if (checkingOn) track("habit_checked", { habit_id: habitId, backfilled: false });
     });
   }
 

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { TrackView } from "@/components/track-view";
 import { FeedV2 } from "@/components/v2/feed-v2";
 import { requireUser } from "@/lib/auth/require-user";
 import { REDESIGN } from "@/lib/flags";
@@ -9,5 +10,10 @@ import { REDESIGN } from "@/lib/flags";
 export default async function FeedPage() {
   if (!REDESIGN) notFound();
   await requireUser();
-  return <FeedV2 />;
+  return (
+    <>
+      <FeedV2 />
+      <TrackView event="feed_viewed" />
+    </>
+  );
 }

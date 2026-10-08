@@ -3,12 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
+import { track } from "@/lib/analytics";
 import { CLOCK_REMINDERS, HABIT_REMINDERS, SOCIAL_PUSH } from "@/lib/flags";
 import { isHabitReminderId } from "@/lib/habit-reminders";
 import {
   localNotificationsPlugin,
   pushNotificationsPlugin,
 } from "@/lib/native-plugins";
+import { noteNotificationTap } from "@/lib/telemetry/client";
+import { reminderTypeForId } from "@/lib/telemetry/reminder-diff";
 
 // Where a tapped notification lands. ONE listener for every family, routing by
 // the notification's reserved id — two leaves each attaching their own
@@ -38,10 +41,20 @@ export function NotificationTapRouter() {
         if (!ln) return;
         const h = await ln.addListener(
           "localNotificationActionPerformed",
-          (event) =>
-            router.push(
-              isHabitReminderId(event.notification?.id) ? "/" : "/clock/live"
-            )
+          (event) => {
+            // Attribution first, routing second. `extra.key` is what the
+            // scheduler put in; the type falls back to the id range.
+            const id = event.notification?.id;
+            const extra = (event.notification?.extra ?? null) as
+              | { key?: unknown }
+              | null;
+            noteNotificationTap();
+            track("notification_tapped", {
+              key: typeof extra?.key === "string" ? extra.key : null,
+              type: id === undefined ? null : reminderTypeForId(id),
+            });
+            router.push(isHabitReminderId(id) ? "/" : "/clock/live");
+          }
         );
         if (cancelled) h.remove();
         else handle = h;
@@ -73,7 +86,18 @@ export function NotificationTapRouter() {
         const h = await pn.addListener(
           "pushNotificationActionPerformed",
           (event) => {
-            const url = event.notification?.data?.url as unknown;
+            const data = (event.notification?.data ?? null) as Record<
+              string,
+              unknown
+            > | null;
+            // The sender put the notification_log id and type in the payload;
+            // the ingest RPC opens exactly that row for exactly this user.
+            noteNotificationTap();
+            track("notification_tapped", {
+              nid: typeof data?.nid === "string" ? data.nid : null,
+              type: typeof data?.ntype === "string" ? data.ntype : null,
+            });
+            const url = data?.url as unknown;
             router.push(
               typeof url === "string" &&
                 url.startsWith("/") &&

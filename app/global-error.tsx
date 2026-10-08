@@ -8,7 +8,7 @@ import { recordError } from "@/lib/error-log";
 // inside and therefore cannot catch. It exists for one reason — to make sure
 // the error gets WRITTEN DOWN no matter where it came from. The root layout
 // mounts about a dozen client leaves (EnsureProfileSync, PushRegistration,
-// PostHogInit, LastSeenPing…), several of which only run on a cold open, and a
+// AnalyticsLifecycle…), several of which only run on a cold open, and a
 // cold-open crash is precisely the open bug in buglist.md.
 //
 // A global error replaces the entire document, so this has to render its own

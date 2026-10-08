@@ -45,7 +45,7 @@ params are `Promise<{...}>` and must be `await`ed.
 - **Never bypass RLS.** The app relies 100% on `auth.uid()` scoping — social
   reads must be provably DB-gated. Prove RLS/security changes with the
   adversarial JWT test before shipping to prod.
-- **No service-role key in user-facing paths**, with three documented
+- **No service-role key in user-facing paths**, with four documented
   exception *kinds*, each of which authenticates and authorizes **before** the
   admin client touches anything. **(1) Storage writes** through
   `lib/supabase/admin.ts` after explicit in-action ownership/identity
@@ -66,9 +66,17 @@ params are `Promise<{...}>` and must be `await`ed.
   `app/api/cron/recap-ready/route.ts` and (b) `recap_push_candidates()`, a
   `SECURITY DEFINER` RPC revoked from anon+authenticated that decides on its own
   who is due. The sender acts *only* on that RPC's rows and never on a user id
-  taken off a request. Everything else is anon-key + RLS; privileged
-  operations are `is_admin()`-gated `SECURITY DEFINER` RPCs — never a god-key
-  shortcut.
+  taken off a request. **(4) The analytics ingest route**
+  (`lib/telemetry/ingest-server.ts`, `POST /api/analytics/events`): identity
+  comes first, from the access-token cookie verified **locally** with
+  `auth.getClaims(token)` — never from the body — and the only write is
+  `ingest_app_events()`, a definer RPC revoked from every client role, into
+  RLS-on/no-policy tables. It uses the admin client because a session-bound
+  client would *refresh* an expired session on a fire-and-forget background
+  flush and rotate the refresh token out from under the device, which is also
+  why `api/analytics` is excluded from `proxy.ts`'s matcher. Everything else is
+  anon-key + RLS; privileged operations are `is_admin()`-gated `SECURITY
+  DEFINER` RPCs — never a god-key shortcut.
 - Every FK to `auth.users` is `ON DELETE CASCADE` **except**
   `profiles.referred_by`, which is a **deliberate** `ON DELETE SET NULL` —
   cascading would delete invitees' profiles when a referrer deletes their
@@ -152,6 +160,15 @@ the root layout, which re-renders because every mutation ends in
 > never existed in git history, and the code says the opposite in as many words
 > — *"it's why 'pausing doesn't touch notifications' was never viable."* Don't
 > reintroduce the old claim.
+
+**Both families are logged, and only as what a device can know.** The engine
+reports `notification_scheduled` / `notification_cancelled` from a diff of
+`getPending()` (keyed by the `local:<id>:<ms>` it stores in `extra`) against
+the new list, after the plugin call succeeded; nothing local is ever marked
+delivered — "presumed fired" is derived in SQL. Remote senders write
+`notification_log` themselves after APNs answers, with the row id in the
+payload (`nid`) so a tap attributes. See `lib/telemetry/reminder-diff.ts` and
+`lib/push/notification-log.ts`.
 
 This is a different system from the server-driven push notifications
 (likes/comments, friend activity), which go through APNs — don't conflate the

@@ -289,7 +289,7 @@ export default async function AdminPage() {
           <span className="flex flex-col gap-0.5">
             <span className="text-sm font-semibold">Analytics</span>
             <span className="text-caption text-xs">
-              Users, goals, activity, retention
+              States, activation, usage, notifications, roster
             </span>
           </span>
           <span className="text-caption text-sm" aria-hidden>

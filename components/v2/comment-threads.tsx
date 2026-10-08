@@ -112,7 +112,7 @@ export function CommentThreads({
         toast.error(r.error);
         return;
       }
-      track("comment_reply_posted", { depth: target.isRoot ? "root" : "reply" });
+      track("comment_given", { session_ref: sessionId, depth: "reply" });
       // The new reply is the thread's newest — open it, or it'd land hidden.
       setOpen(target.rootId, true);
       scrollToAfterPost.current = r.commentId;

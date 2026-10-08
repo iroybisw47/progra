@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 // never be imported into a client component and the key must never be exposed to
 // the browser (it lives in SUPABASE_SERVICE_ROLE_KEY, not a NEXT_PUBLIC_ var).
 //
-// THREE narrow uses, each with the same discipline — whoever calls this
+// FOUR narrow uses, each with the same discipline — whoever calls this
 // authenticates and authorizes BEFORE this client touches anything, so the
 // check RLS would have made is done explicitly in code:
 //
@@ -29,6 +29,15 @@ import { createClient } from "@supabase/supabase-js";
 //    that picks the recipients itself. Same underlying need as (2): device
 //    tokens and the push opt-out are owner-only rows and there is no session
 //    to read them under.
+// 4. The analytics ingest route (lib/telemetry/ingest-server.ts). Identity is
+//    established FIRST, from the access-token cookie verified locally against
+//    the project's JWKS — nothing in the request body is ever treated as a
+//    user id — and the only write is ingest_app_events(), a definer RPC
+//    revoked from every client role, into RLS-on/no-policy tables. The admin
+//    client is needed because the route must not use a session-bound client
+//    at all: that client would refresh an expired session on a fire-and-forget
+//    background request and rotate the refresh token out from under the
+//    device (see proxy.ts).
 export function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

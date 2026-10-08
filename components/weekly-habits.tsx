@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { DAY_LABELS, addDaysISO, parseLocalDate, formatLongDate } from "@/lib/dates";
 import type { Habit, HabitCompletion } from "@/lib/db/habits";
@@ -70,12 +71,18 @@ export function WeeklyHabits({
   function handleToggle(habitId: string, date: string) {
     if (readOnly) return; // viewing someone else's habits
     if (date > today) return; // can't fill future days
+    const checkingOn = !filtered.some(
+      (c) => c.habitId === habitId && c.completedOn === date
+    );
     startTransition(async () => {
       applyToggle({ habitId, date });
       const r = await toggleHabitCompletion(habitId, date);
       if ("error" in r) {
         toast.error(r.error);
         return;
+      }
+      if (checkingOn) {
+        track("habit_checked", { habit_id: habitId, backfilled: date !== today });
       }
     });
   }

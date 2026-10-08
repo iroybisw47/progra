@@ -4,6 +4,7 @@ import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { EyeIcon, LockIcon, PencilIcon, XIcon } from "lucide-react";
 
+import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -103,6 +104,7 @@ export function GoalsClient({
         toast.error(r.error);
         return;
       }
+      track("goal_created", { goal_id: r.id });
       setNewGoalTitle("");
       setNewGoalDescription("");
       setNewGoalQuota("");
@@ -140,6 +142,7 @@ export function GoalsClient({
         toast.error(r.error);
         return;
       }
+      track("goal_updated", { goal_id: id });
       setEditingGoal(null);
       toast.success("Saved");
     });

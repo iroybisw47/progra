@@ -3,6 +3,7 @@ import "server-only";
 import { weekWindow } from "@/lib/dates";
 import { RECAP_PUSH } from "@/lib/flags";
 import { sendApnsAlert } from "@/lib/push/apns";
+import { logRemoteNotification, newNotificationId } from "@/lib/push/notification-log";
 import {
   composeRecapPush,
   recapCollapseId,
@@ -99,6 +100,8 @@ export async function sendRecapPush(candidate: {
 
     const content = composeRecapPush({ weekStartISO });
 
+    const nid = newNotificationId();
+    let accepted = false;
     for (const token of tokens) {
       const result = await sendApnsAlert(token, {
         ...content,
@@ -107,7 +110,10 @@ export async function sendRecapPush(candidate: {
         // overnight should still show it at breakfast. Longer than the nudge's
         // 4h, short of APNs' 24h default.
         ttlSeconds: 12 * 60 * 60,
+        nid,
+        ntype: "recap",
       });
+      if (result === "ok") accepted = true;
       if (result === "gone") {
         await admin
           .from("device_tokens")
@@ -116,6 +122,14 @@ export async function sendRecapPush(candidate: {
           .eq("token", token);
       }
     }
+    await logRemoteNotification(admin, {
+      id: nid,
+      key,
+      userId: candidate.userId,
+      type: "recap",
+      status: accepted ? "sent" : "failed",
+      relatedKind: "recap_week",
+    });
     return "sent";
   } catch (err) {
     console.error("[push] recap push failed:", err);

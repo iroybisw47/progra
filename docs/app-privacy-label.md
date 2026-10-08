@@ -69,16 +69,21 @@ Sessions, goals, habits, comments, bios, weekly recaps, and bug-report text.
 - **Collected:** Yes · **Linked:** Yes · **Tracking:** No
 - **Purposes:** App Functionality; Analytics
 
-The Supabase `auth.users` UUID. Analytics because PostHog identifies events with
-it.
+The Supabase `auth.users` UUID. Analytics because the first-party event log
+(`app_events` in Progra's own database) is keyed to it. The app also mints a
+random install id (a UUID in the web view's storage — not IDFV or IDFA) that is
+linked to the account on sign-in; it is covered by this answer.
 
 ### Usage Data → Product Interaction
 - **Collected:** Yes · **Linked:** Yes · **Tracking:** No
 - **Purposes:** Analytics
 
-PostHog events — the closed union in `lib/analytics.ts`. Session completions,
-habit checks, friend adds, invites sent, onboarding completion, notification
-permission outcomes, bug reports.
+First-party analytics events — the closed allowlist in `lib/telemetry/events.ts`,
+stored in Progra's own Supabase and read only by the admin dashboard; there is
+no third-party analytics SDK. App opens, screen views, onboarding steps, session
+clock-ins/outs, habit checks, friend adds, likes/comments/nudges (ids only,
+never content), notification scheduling and taps, permission outcomes, bug
+reports. No property can carry free text.
 
 ### Diagnostics → Crash Data / Performance Data
 - **Collected:** No
@@ -130,7 +135,6 @@ requirements, which the privacy policy commits to explicitly.
 | Google | OAuth identity, Calendar (read-only) | sign-in, calendar |
 | Apple | OAuth identity, APNs tokens | sign-in, push |
 | Anthropic | calendar event titles | event categorization |
-| PostHog | product analytics | analytics |
 
 All are service providers operating the app. **None is a data broker, none
 receives data for its own purposes, and nothing is sold** — which is what keeps

@@ -126,7 +126,7 @@ export function ManageHabits({
         toast.error(r.error);
         return;
       }
-      if (checkingOn) track("habit_checked", { backfilled: date !== today });
+      if (checkingOn) track("habit_checked", { habit_id: habitId, backfilled: date !== today });
     });
   }
 

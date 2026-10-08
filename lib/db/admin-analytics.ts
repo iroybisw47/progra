@@ -2,111 +2,180 @@ import "server-only";
 
 import { cache } from "react";
 
-import type {
-  ActivityDay,
-  AnalyticsGoal,
-  AnalyticsUser,
-} from "@/lib/admin-analytics";
+import {
+  rowToRosterUser,
+  type DashboardFilters,
+  type GhostBehavior,
+  type NotificationStats,
+  type OnboardingStats,
+  type Overview,
+  type Roster,
+  type RosterRow,
+  type TimelineEntry,
+  type UsageSocial,
+} from "@/lib/admin-dashboard";
 import { createClient } from "@/lib/supabase/server";
 
-// Reads for /admin/analytics. Both RPCs are SECURITY DEFINER and re-check
-// is_admin() as their first statement — that check, not the page gate, is what
-// protects the data. Both return null on any error (including "function does
-// not exist"), so the page can say the migration isn't installed rather than
-// showing an empty roster that looks like "no users".
+// Reads for /admin/analytics.
+//
+// One cache()-wrapped reader per admin_* RPC (phase4.sql). Every RPC
+// re-checks is_admin() as its first statement — that, not the page gate, is
+// what protects the data. All return null on any error, including "function
+// does not exist", so the page can say the SQL hasn't been run rather than
+// render an empty dashboard that looks like "no users".
+//
+// Primitive args only (the cache() rule): the filters object is spread into
+// scalars at the call site by the page.
 
-type GoalRow = {
-  id: string;
-  title: string | null;
-  weekly_quota_hours: string | number;
-  is_private: boolean;
-  color: string | null;
+type FilterArgs = {
+  p_include_internal: boolean;
+  p_segment: string | null;
+  p_cohort_from: string | null;
+  p_cohort_to: string | null;
 };
 
-type UserRow = {
-  id: string;
-  email: string | null;
-  signed_up_at: string;
-  username: string | null;
-  display_name: string | null;
-  seat_no: number | null;
-  onboarded_on: string | null;
-  local_today: string;
-  last_seen_at: string | null;
-  last_active_on: string | null;
-  excluded: boolean;
-  goals: GoalRow[] | null;
-};
-
-type ActivityRow = {
-  user_id: string;
-  day: string;
-  tracked_min: number;
-  habit_ticks: number;
-};
-
-function rowToAnalyticsGoal(row: GoalRow): AnalyticsGoal {
+function filterArgs(
+  includeInternal: boolean,
+  segment: string | null,
+  cohortFrom: string | null,
+  cohortTo: string | null
+): FilterArgs {
   return {
-    id: row.id,
-    title: row.title,
-    // numeric column; jsonb emits a number, but normalize either way.
-    weeklyQuotaHours: Number(row.weekly_quota_hours),
-    isPrivate: row.is_private ?? false,
-    color: row.color ?? null,
+    p_include_internal: includeInternal,
+    p_segment: segment,
+    p_cohort_from: cohortFrom,
+    p_cohort_to: cohortTo,
   };
 }
 
-function rowToAnalyticsUser(row: UserRow): AnalyticsUser {
-  return {
-    id: row.id,
-    email: row.email,
-    signedUpAt: row.signed_up_at,
-    username: row.username,
-    displayName: row.display_name,
-    seatNo: row.seat_no,
-    onboardedOn: row.onboarded_on,
-    localToday: row.local_today,
-    lastSeenAt: row.last_seen_at,
-    lastActiveOn: row.last_active_on,
-    excluded: row.excluded === true,
-    goals: (row.goals ?? []).map(rowToAnalyticsGoal),
-  };
+export function filtersToArgs(f: DashboardFilters): [boolean, string | null, string | null, string | null] {
+  return [f.includeInternal, f.segment, f.cohortFrom, f.cohortTo];
 }
 
-function rowToActivityDay(row: ActivityRow): ActivityDay {
-  return {
-    userId: row.user_id,
-    day: row.day,
-    trackedMin: Number(row.tracked_min),
-    habitTicks: Number(row.habit_ticks),
-  };
-}
-
-export const listAnalyticsUsers = cache(
-  async (): Promise<{ generatedAt: string; users: AnalyticsUser[] } | null> => {
+export const getAdminRoster = cache(
+  async (
+    includeInternal: boolean,
+    segment: string | null,
+    cohortFrom: string | null,
+    cohortTo: string | null
+  ): Promise<Roster | null> => {
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc("admin_list_users");
+    const { data, error } = await supabase.rpc(
+      "admin_user_roster",
+      filterArgs(includeInternal, segment, cohortFrom, cohortTo)
+    );
     if (error || !data) return null;
-    const payload = data as { generated_at: string; users: UserRow[] | null };
+    const payload = data as { generated_at: string; users: RosterRow[] | null };
     return {
       generatedAt: payload.generated_at,
-      users: (payload.users ?? []).map(rowToAnalyticsUser),
+      users: (payload.users ?? []).map(rowToRosterUser),
     };
   }
 );
 
-// `weeks` rather than a start date so this can run in parallel with
-// listAnalyticsUsers — a start date would have to wait for the roster's
-// local_today. The SQL adds two days of slack to its window, which is what lets
-// callers derive their own `since` from any user's local today and still be
-// covered.
-export const listActivityDays = cache(
-  async (weeks: number): Promise<ActivityDay[] | null> => {
+export const getAdminOverview = cache(
+  async (
+    includeInternal: boolean,
+    segment: string | null,
+    cohortFrom: string | null,
+    cohortTo: string | null
+  ): Promise<Overview | null> => {
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc("admin_activity_days", {
-      p_weeks: weeks,
+    const { data, error } = await supabase.rpc(
+      "admin_overview",
+      filterArgs(includeInternal, segment, cohortFrom, cohortTo)
+    );
+    if (error || !data) return null;
+    return data as Overview;
+  }
+);
+
+export const getAdminUsageSocial = cache(
+  async (
+    includeInternal: boolean,
+    segment: string | null,
+    cohortFrom: string | null,
+    cohortTo: string | null,
+    from: string | null,
+    to: string | null
+  ): Promise<UsageSocial | null> => {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("admin_usage_social", {
+      ...filterArgs(includeInternal, segment, cohortFrom, cohortTo),
+      p_from: from,
+      p_to: to,
+    });
+    if (error || !data) return null;
+    return data as UsageSocial;
+  }
+);
+
+export const getAdminNotificationStats = cache(
+  async (
+    includeInternal: boolean,
+    segment: string | null,
+    cohortFrom: string | null,
+    cohortTo: string | null,
+    from: string | null,
+    to: string | null
+  ): Promise<NotificationStats | null> => {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("admin_notification_stats", {
+      ...filterArgs(includeInternal, segment, cohortFrom, cohortTo),
+      p_from: from,
+      p_to: to,
+    });
+    if (error || !data) return null;
+    return data as NotificationStats;
+  }
+);
+
+export const getAdminOnboardingStats = cache(
+  async (
+    includeInternal: boolean,
+    segment: string | null,
+    cohortFrom: string | null,
+    cohortTo: string | null
+  ): Promise<OnboardingStats | null> => {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc(
+      "admin_onboarding_stats",
+      filterArgs(includeInternal, segment, cohortFrom, cohortTo)
+    );
+    if (error || !data) return null;
+    return data as OnboardingStats;
+  }
+);
+
+export const getAdminGhostBehavior = cache(
+  async (
+    includeInternal: boolean,
+    segment: string | null,
+    cohortFrom: string | null,
+    cohortTo: string | null
+  ): Promise<GhostBehavior | null> => {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc(
+      "admin_ghost_behavior",
+      filterArgs(includeInternal, segment, cohortFrom, cohortTo)
+    );
+    if (error || !data) return null;
+    return data as GhostBehavior;
+  }
+);
+
+export const getAdminUserTimeline = cache(
+  async (userId: string, limit: number): Promise<TimelineEntry[] | null> => {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("admin_user_timeline", {
+      p_user: userId,
+      p_limit: limit,
     });
     if (error) return null;
-    return ((data ?? []) as ActivityRow[]).map(rowToActivityDay);
+    return ((data ?? []) as TimelineEntry[]).map((e) => ({
+      at: e.at,
+      kind: e.kind,
+      meta: (e.meta ?? {}) as Record<string, unknown>,
+    }));
   }
 );

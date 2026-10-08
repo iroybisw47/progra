@@ -52,12 +52,23 @@ type LiveActivityPlugin = {
 // any JS is listening. Capacitor does NOT navigate the webview on a custom-scheme
 // open — it only fires this event — so without a listener a deep link does
 // nothing but foreground the app.
+//
+// `pause` / `resume` are the events that mean "went to the background" and
+// "came back": on iOS they map to didEnterBackground / willEnterForeground.
+// NOT `appStateChange`, which also fires for Control Center, the notification
+// shade and an incoming call — none of which is the user leaving the app.
+// `getInfo()` is the only way JS can learn the native build it is running in.
 type AppPlugin = {
   addListener(
     event: "appUrlOpen",
     cb: (data: { url: string }) => void
   ): Promise<{ remove: () => void }>;
+  addListener(
+    event: "pause" | "resume",
+    cb: () => void
+  ): Promise<{ remove: () => void }>;
   getLaunchUrl(): Promise<{ url: string } | null>;
+  getInfo(): Promise<{ name: string; id: string; build: string; version: string }>;
 };
 
 type Plugins = {

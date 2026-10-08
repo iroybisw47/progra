@@ -182,6 +182,19 @@ export const UW = envFlag(process.env.NEXT_PUBLIC_UW);
 // shipped binary mishandles is only fixable from here.
 export const LIVE_ACTIVITY = envFlag(process.env.NEXT_PUBLIC_LIVE_ACTIVITY);
 
+// Master switch for the internal analytics pipeline: the client event logger
+// (lib/telemetry/client.ts → POST /api/analytics/events), the per-screen
+// writers (onboarding step, profile views, device state) and the root-layout
+// lifecycle leaf that records app opens.
+//
+// THIS FLAG MEANS "THE SQL HAS RUN", like JOHN and UW:
+// .claude/plans/analytics/phase1.sql creates every table and column the writers
+// name. Off, track() makes zero network calls, the ingest route answers 204 and
+// drops the batch, and every writer action returns early — so the TypeScript
+// half is safe to deploy ahead of the SQL. It is also the kill switch: flipping
+// it off stops collection on the next deploy without touching the database.
+export const ANALYTICS = envFlag(process.env.NEXT_PUBLIC_ANALYTICS);
+
 // How long an "hour" is for the hourly nudge. Only ever anything else in test
 // mode; lib/clock-reminders.ts stays pure and takes this as an argument rather
 // than reading the flag itself.

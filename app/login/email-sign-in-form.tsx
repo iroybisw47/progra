@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { toast } from "sonner";
 
+import { track } from "@/lib/analytics";
 import { signInWithPassword } from "@/app/actions/password-auth";
 
 const INPUT =
@@ -45,6 +46,7 @@ export function EmailSignInForm({
     }
     if (pending) return;
     setPending(true);
+    track("sign_in_started", { method: "password" });
 
     const out = await signInWithPassword({ email, password, next });
     if ("error" in out) {

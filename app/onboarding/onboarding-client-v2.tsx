@@ -1,10 +1,11 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ChevronLeftIcon } from "lucide-react";
 
+import { setOnboardingStep } from "@/app/actions/telemetry";
 import { archiveHabit, createHabit } from "@/app/actions/habits";
 import { createGoal, updateGoal } from "@/app/actions/goals";
 import { fetchUwPeers, setUwProfile } from "@/app/actions/uw";
@@ -175,9 +176,21 @@ export function OnboardingClientV2({
   const [shared, setShared] = useState(false);
 
   const go = (i: number) => {
+    // Moving FORWARD completes the current screen; Back does not.
+    if (i > stepIndex) track("onboarding_step_completed", { step_name: step });
     setClockRunning(false);
     setNavIndex(Math.max(0, Math.min(steps.length - 1, i)));
   };
+
+  // Analytics: the screen just entered, as a STEP NAME. Re-fires on Back (a
+  // real re-entry) and never during the Done splash. setOnboardingStep is the
+  // per-user "where did they stop" the dashboard reads; the event is the
+  // timeline. Both no-op while ANALYTICS is off.
+  useEffect(() => {
+    if (done) return;
+    track("onboarding_step_viewed", { step_name: step });
+    void setOnboardingStep(step);
+  }, [step, done]);
   const next = () => go(stepIndex + 1);
 
   // ── Writes ──────────────────────────────────────────────────────────────
@@ -238,6 +251,7 @@ export function OnboardingClientV2({
           return;
         }
         setSavedGoal({ ...savedGoal, title, hours, color: goalColor });
+        track("goal_updated", { goal_id: savedGoal.id });
       } else {
         const r = await createGoal({ title, weeklyQuotaHours: hours, color: goalColor });
         if ("error" in r) {
@@ -245,6 +259,7 @@ export function OnboardingClientV2({
           return;
         }
         setSavedGoal({ id: r.id, title, hours, color: goalColor });
+        track("goal_created", { goal_id: r.id });
       }
       next();
     });
@@ -287,6 +302,7 @@ export function OnboardingClientV2({
         toast.error(r.error);
         return;
       }
+      track("friend_request_sent", { target_id: userId });
       setAdded((list) => (list.includes(userId) ? list : [...list, userId]));
     });
   }

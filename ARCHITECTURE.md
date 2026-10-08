@@ -11,7 +11,7 @@
 > first. When code and this doc disagree, the code wins — and the doc should be
 > fixed in the same session.
 >
-> _Last updated: 2026-08-20_
+> _Last updated: 2026-10-07_
 
 ---
 
@@ -137,6 +137,10 @@ unaffected.
 | `/recap/[weekStart]` | `recap/[weekStart]/page.tsx` | `recap-story.tsx` | Full-screen 5-panel weekly recap **story** (number · categories · goals · circle rank · shareable card) — `framer-motion`, own-data, `force-dynamic`. The "your week is ready" nudge on Progress opens this. |
 | `/recap/[weekStart]/card` | `recap/[weekStart]/card/route.tsx` (Route Handler) | — | 1080×1080 recap PNG via `next/og` `ImageResponse` (Node runtime, `getCurrentUser`-gated) — the story's Share button fetches it and shares it as a `File`. |
 | `/sessions` | `sessions/page.tsx` | `sessions-client.tsx` | Paginated past-session browser/editor. |
+| `/admin/analytics` | `admin/analytics/page.tsx` | `roster.tsx`, `charts.tsx`, `categorize-button.tsx` (the rest is server) | **Internal analytics dashboard** (2026-10-07; `requireAdmin()` → 404, reachable only from the Admin hub). Three tabs as `?tab=` — Overview · Usage & social · Onboarding, ghosts & roster — behind one GET filter row (date range, segment, signup cohort, include-internal). Every number comes from the phase-4 `admin_*` RPCs; nothing is computed in TypeScript. Charts are recharts via `components/ui/chart.tsx`. |
+| `/admin/analytics/user/[id]` | `admin/analytics/user/[id]/page.tsx` | — | One person's internal timeline (`admin_user_timeline`), newest first: kinds and ids, never content. |
+| `/api/cron/recap-ready` | `api/cron/recap-ready/route.ts` | — | The one scheduled job: hourly from Supabase `pg_cron` + `pg_net`, `CRON_SECRET`-gated, fans out the weekly-recap push. Excluded from `proxy.ts`. |
+| `/api/analytics/events` | `api/analytics/events/route.ts` | — | The event ingest (POST only, always 204). Thin shell over `lib/telemetry/ingest-server.ts`. **Excluded from `proxy.ts`** on purpose — see §9. |
 
 **Convention:** `page.tsx` is the server boundary (data + auth); `*-client.tsx`
 is the interactive shell. `loading.tsx` provides route-level skeletons.
@@ -166,6 +170,10 @@ is the interactive shell. `loading.tsx` provides route-level skeletons.
 | `recap_views` (weekly recap) | `lib/db/recap-views.ts`, `app/actions/recap.ts` | Per-`(user_id, week_start_ms)` marker that a recap was opened — drives the "your week is ready" nudge across devices (survives reinstall, unlike localStorage). Owner-only RLS (SELECT + INSERT). |
 | `recap_posts` (weekly recap) | `lib/db/feed.ts`, `app/actions/recap.ts` | A recap posted to the friends feed. **Denormalized summary** (`total_tracked_ms`, `rank`, `circle_size`, `categories` jsonb, `caption`) so the feed card renders without recompute; unique `(user_id, week_start_ms)` (re-post upserts). RLS: read own-or-accepted-friend, write own. Deliberately its own row, never a synthetic session (can't pollute time aggregation). |
 | `device_tokens` (native push) | `app/actions/device-tokens.ts` | APNs tokens for push. **PK is `(user_id, token)`** — the table pre-dates the feature's own SQL (which `if not exists`-no-opped), so there is no `id`, no `created_at`, and no unique index on `token` alone; a plain upsert on `token` fails `42P10`. Writes go **only** through the `save_device_token` definer RPC, which first deletes any *other* user's claim on that token — a cross-owner delete owner-only RLS can't do, and without which a reassigned phone keeps receiving the previous account's pushes. Owner-only RLS otherwise. |
+| `app_events` (internal analytics) | `lib/telemetry/ingest.ts` → `ingest_app_events()` | Raw client events: `event_id` (client-minted; unique with `device_id`, so a re-sent batch is a no-op), `user_id` (null before sign-in), `device_id`, `app_session_id`, `event_name`, `properties` jsonb (ids and closed labels only — no property type accepts free text), `occurred_at` (client clock, clamped), `received_at`, `app_version`, `platform`, `build_sha`. **RLS on, no policies, revoked** from every client role; written only by the service-role ingest RPC; pruned after 180 days by `prune_app_events()`. |
+| `app_open_days` (internal analytics) | `ingest_app_events()` | `(user_id, day, open_count)` — opens per LOCAL day, the rollup that outlives the raw retention. Same RLS shape. |
+| `profile_views` (internal analytics) | `record_profile_view()` | `viewer_id`, `viewed_id`, `viewed_at`, `app_session_id`. No self-views; the same pair at most once per 30 minutes. Same RLS shape. |
+| `notification_log` (internal analytics) | `lib/push/notification-log.ts`, `apply_notification_event()` | One row per notification: `key` (unique — the `push_log` dedupe key for a remote push, `local:<id>:<ms>` for a device-scheduled one), `type` ∈ clock_in_reminder / habit_reminder / like / comment / reply / nudge / recap, `channel`, `status` ∈ scheduled / cancelled / sent / failed, `scheduled_for`, `sent_at`, `opened_at` + `open_method` (tap), `converted_at` (reserved; derived on read), `related_kind` / `related_id`. Remote rows are written by the senders after APNs answers; local rows only ever say *scheduled* or *cancelled* — "presumed fired" is derived in SQL. Same RLS shape. |
 | `recap_reactions` / `recap_comments` (weekly recap) | `lib/db/recap-social.ts`, `app/actions/recap-social.ts` | Kudos + comments on recap posts — **parallel tables** (chosen over a polymorphic migration so the live session social tables/RLS/RPCs stay untouched). RLS gates on the `can_see_recap` definer helper; reactions write only via `toggle_recap_reaction`; comments insert-own-on-visible / delete-own-or-recap-owner. FK `ON DELETE CASCADE` from `recap_posts` (takedown removes both). |
 
 **Draft-private clock-out (2026-07-27).** In the redesign flow, ending a session
@@ -267,6 +275,42 @@ is an opt-OUT where null means "on", while `interview_consent` was an opt-IN
 where null and false both mean *not consented* — every read was `?? false`, and
 getting it backwards emails people who never agreed.
 
+**Internal analytics (2026-10-07, `.claude/plans/analytics/phase1.sql` +
+`phase4.sql` — hand-run SQL, NOT yet applied at the time of writing; the app
+is deployed dark behind `NEXT_PUBLIC_ANALYTICS`).** Beyond the four tables
+above: `profiles` gains `is_internal` + `excluded_reason` (founder / test /
+demo / review / duplicate / internal; **not user-writable** — the
+`guard_profiles_is_internal` trigger copies the `seat_no` guard's
+`current_user` idiom; flipped only by `admin_set_internal()`), the last
+onboarding screen entered as a STEP NAME (`onboarding_step`,
+`onboarding_step_at`, `onboarding_step_inferred` for the backfilled guess),
+the device's `notification_permission` / `notification_permission_at` and a
+`reminder_prefs` mirror of the two localStorage toggles; `goals` gains
+`category_label` (one of eight, CHECK'd) + `category_labeled_at`; `friendships`
+gains `accepted_at`, stamped by a BEFORE INSERT OR UPDATE trigger because
+`created_at` is when a request was *sent* (pre-migration rows are backfilled
+from `created_at`, flagged approximate). Writer RPCs, all self-scoped on
+`auth.uid()`: `link_device_events(p_device)` (claims ownerless rows of that
+device, called on every signed-in open), `record_profile_view`,
+`set_onboarding_step`, `sync_device_state`. Service-role-only:
+`ingest_app_events` (validates again, budgets 1000 events/device/hour and 5000
+anonymous/hour, clamps `occurred_at`, merges `mutual_friend_count` /
+`friends_active_24h` / `segment` / `days_since_signup` once per batch, routes
+`app_opened` to `app_open_days` + `last_seen_at` and `notification_*` to
+`notification_log` via `apply_notification_event`) and `prune_app_events`.
+Admin RPCs (phase 4, all `is_admin()`-gated definers returning jsonb with
+`generated_at`, all taking an optional `p_now` so the harness can pin the
+clock): `admin_user_roster`, `admin_overview`, `admin_usage_social`,
+`admin_notification_stats`, `admin_onboarding_stats`, `admin_ghost_behavior`,
+`admin_user_timeline`, plus `admin_list_uncategorized_goals` /
+`admin_set_goal_category` for the Haiku backfill. They all read ONE helper,
+`analytics_user_facts()`, so every definition exists exactly once;
+`analytics_worked_ms()` is the SQL twin of `sessionWorkedMs` (plus
+proportional window clipping) and carries the same `36000000` cap literal as
+`week_leaderboard`. `admin_list_users()` was re-pointed at `is_internal`;
+phase4.sql STEP 3 retires it, `admin_activity_days()` and
+`analytics_excluded_users` once the dashboard is deployed.
+
 **Weekly recap added these definer RPCs:** `week_leaderboard(p_week_start_ms,
 p_week_end_ms)` (ranks caller + accepted friends by **clocked** session time —
 takes only the week bounds, derives the circle from `auth.uid()` so a caller can
@@ -350,6 +394,24 @@ numbers reconcile across every surface.
   **on at 18:00** (product decision: users who granted permission before the
   feature existed start getting it; Settings is the way out). Both expose a
   pure `…For(stored)` decision fn plus an event/`useSyncExternalStore` pair.
+
+- **`lib/telemetry/*` — the analytics pipeline's pure parts.** `events.ts` is
+  the closed event table: every name, and per event every property with its
+  type (`uuid` / `int` / `bool` / `hhmm` / `local_key` / a closed enum — there
+  is no string type, which is the privacy boundary: a goal title cannot pass
+  `validateEvent()` even by accident; the test proves it as a property over the
+  whole table). `queue.ts` is the client queue as a reducer (flush at 20 events
+  / 15 s / background; ≤ 25 events and ≤ 16 KB per batch, the `keepalive`
+  quota; retry three times, then drop; storage round trip). `ingest.ts` is the
+  route's parsing, origin check, cookie decoding and limiter, without I/O.
+  `metrics.ts` is the dashboard's definitions as functions — `userState`,
+  `isGhost`, `friendsInFirstWeek`, `loggedDaysInFirstWeek`, `isActivated`,
+  `workedMs`, `clippedWorkedMs` — and is the TypeScript twin the phase-4 SQL is
+  held to on one fixture (`nudges-harness/analytics-phase4.mjs`).
+  `reminder-diff.ts` turns "what iOS still has pending" vs "what we are about
+  to schedule" into scheduled/cancelled sets, which is the only honest thing a
+  device can report. `lib/goal-categories.ts` is the eight labels shared by the
+  classifier's schema, the CHECK and the dashboard.
 
 ---
 
@@ -540,7 +602,7 @@ durably.
   `createSession` is deliberately uncapped. **`week_leaderboard` re-implements
   the cap in SQL** — the `36000000` literal there and `SESSION_CAP_MS` must move
   together.
-- **Service-role key: three narrow, server-only uses.** All privileged/admin power
+- **Service-role key: five narrow, server-only uses.** All privileged/admin power
   is otherwise `SECURITY DEFINER` RPCs gated by a single `is_admin()` helper
   (holds one UUID). `/admin` checks `is_admin()` to render *and* every `admin_*`
   RPC re-checks it (defense in depth), so a direct RPC call from a non-admin fails
@@ -578,6 +640,17 @@ durably.
   RPC revoked from anon+authenticated that selects the due users itself; the
   sender acts only on that RPC's rows, never on a user id taken off a request,
   and re-reads the opt-out rather than trusting the RPC did.
+  **(5)** the analytics ingest route (`lib/telemetry/ingest-server.ts`): identity
+  is established FIRST, from the access-token cookie verified locally with
+  `auth.getClaims(token)` — the one Supabase call that neither reads nor
+  refreshes a session — and never from the request body; the only write is
+  `ingest_app_events()`, a definer RPC revoked from every client role, into
+  RLS-on/no-policy tables. It uses the admin client precisely because a
+  session-bound client would *refresh* an expired session on a fire-and-forget
+  background flush and rotate the refresh token out from under the device,
+  which is also why `api/analytics` is excluded from `proxy.ts`'s matcher. An
+  expired token makes that one batch anonymous; `link_device_events` claims it
+  on the next signed-in open.
   The key lives in `SUPABASE_SERVICE_ROLE_KEY` (server env only, never
   `NEXT_PUBLIC_`, never in a client bundle).
 - **Take-down = hide.** `admin_take_down_story` nulls `sessions.photo_path`, so
@@ -630,6 +703,31 @@ durably.
   layout. Tap routing is a single listener (`NotificationTapRouter`)
   discriminating families by reserved id — two listeners would race their
   `router.push`es.
+- **Analytics events carry ids and closed labels, never content.** The only
+  property types are uuid, int, bool, HH:MM, a local-notification key and
+  closed enums (`lib/telemetry/events.ts`); the client validates before
+  enqueueing and the ingest validates again. A bug report's route is
+  normalised to a template before it becomes a property. Goal titles reach
+  Anthropic (Haiku 4.5) for a category label only when the goal is NOT
+  private, under the caller's own RLS client inside `after()`; going private
+  clears the label.
+- **`NEXT_PUBLIC_ANALYTICS` means "phase1.sql has run"**, like `JOHN` and `UW`:
+  off, `track()` makes zero network calls, the ingest route drops everything,
+  every writer action no-ops, every new `profiles` column is optional in the
+  type and fails closed. It is also the kill switch.
+- **A device never reports a local notification as delivered.** The engine
+  diffs `getPending()` (by the `local:<id>:<ms>` key it stores in `extra`)
+  against the new list and emits `notification_scheduled` /
+  `notification_cancelled` after the plugin call succeeded; "presumed fired"
+  is derived server-side. Remote pushes carry `nid` + `ntype` so a tap
+  attributes to its `notification_log` row, which the sender wrote after APNs
+  answered. The lifecycle leaf (`components/analytics-lifecycle.tsx`) listens
+  to the App plugin's `pause` / `resume`, NOT `appStateChange`, which also
+  fires for Control Center.
+- **Admin pages use the RPC's clock.** Every `admin_*` RPC returns
+  `generated_at`; the page never calls `Date.now()` during render (the
+  `react-hooks/purity` baseline is a gate), and relative times and the date
+  presets derive from that value.
 - **`SPEC.md` is historical**, not current scope.
 - **Sentinel** (`.sentinel.yaml`): the agent runtime is monitored. Notably it
   **denies tool-writes to `.claude/settings*.json` and `.sentinel.yaml`** (reads
@@ -666,6 +764,25 @@ durably.
   `EnsurePlanComplete`), the V2 editorial redesign behind `REDESIGN`, and the
   goals/sessions manager sheets. §§3–4 and 7 predate all of it. Backfill next
   time those areas are touched.
+- **The analytics SQL has not been run (2026-10-07).** `phase1.sql` (all DDL +
+  writer RPCs + backfills) and `phase4.sql` (read RPCs) are proven on the
+  PGlite harnesses but the live schema was never inspected — the Supabase
+  connector was unauthorised — so phase1 STEP 0 is a real pre-flight, not a
+  formality. Until it runs the app is dark behind `NEXT_PUBLIC_ANALYTICS`;
+  the dashboard shows "not installed" per section.
+- **`friendships.accepted_at` is approximate for pre-migration rows** (set to
+  `created_at`, the request instant). Friends-at-day-7 is exact only from the
+  migration on.
+- **Shared-device attribution.** A signed-out device's landing events are
+  claimed by whoever signs in next; `link_device_events` cannot tell A from B.
+  Accepted.
+- **`notification_cancelled` at sign-out may be dropped** (the batch carries no
+  user), so those rows read as "presumed fired" later. One family, one edge.
+- **Social pull's baselines are approximations** (chance coverage of friends'
+  3h windows; quiet users' daily open rate). Read them as direction, not
+  effect size.
+- **PostHog's pageview history stopped accruing on removal**; nothing read it
+  and it was never backfilled. `NEXT_PUBLIC_POSTHOG_KEY` can come off Vercel.
 - `lib/hooks.ts`, `lib/duration.ts`, `lib/storage.ts` (now types-only),
   `lib/aggregate.ts` goal/category reconciliation, and the recap/rollups read
   helpers are summarized but not exhaustively documented.
@@ -677,6 +794,44 @@ durably.
 > Append one entry per work session / feature set. Keep it terse: what changed
 > architecturally, why, and any new invariant or migration. Seeded from git
 > history; entries before this file existed are reconstructed.
+
+### 2026-10-07 — Internal analytics, phases 1–5 **(requires SQL, run by hand — NOT yet applied: `.claude/plans/analytics/phase1.sql` then `phase4.sql`)**
+- **PostHog is gone; every event lands in our own Postgres.** `track()` kept its
+  path and signature (`lib/analytics.ts`) and now feeds `lib/telemetry/client.ts`
+  → `POST /api/analytics/events` → `ingest_app_events()` → `app_events`. The
+  event table (`lib/telemetry/events.ts`) is closed and has no free-text
+  property type — that file is the privacy boundary.
+- **Identity for the ingest comes from a locally verified cookie, and the route
+  must never refresh it.** New service-role exception kind (5); `api/analytics`
+  leaves the proxy matcher so a background `keepalive` flush cannot rotate the
+  refresh token. Anonymous batches keep only the landing events and are bounded
+  by budgets in the RPC; a client `event_id` makes re-sends idempotent.
+- **All DDL for the five phases landed in one file** so one flag
+  (`NEXT_PUBLIC_ANALYTICS` = "phase1.sql has run") means one thing and no later
+  deploy can make the ingest raise. `profiles.is_internal` replaces the
+  `analytics_excluded_users` table (guarded like `seat_no`); `onboarding_step`
+  is a step NAME; `friendships.accepted_at` + trigger; `goals.category_label`.
+- **Notifications are attributed.** Senders mint the `notification_log` id before
+  the APNs send and put it in the payload; local reminders are logged only as
+  scheduled/cancelled from a `getPending()` diff — never "delivered". Taps come
+  back by id or key. Influence, conversion, baseline and lift are derived on read.
+- **One facts function, seven admin RPCs, one fixture.** `analytics_user_facts()`
+  is the single definition of state / ghost / friends / activation / clipped
+  hours; "the prior week" is the same function at `p_now − 7d`.
+  `lib/telemetry/metrics.ts` is the TypeScript twin; the PGlite harnesses hold
+  SQL to it with hand-worked numbers and planted mutants (16 caught in all).
+- **The dashboard** (`/admin/analytics`, three tabs, GET filters, recharts via
+  shadcn's chart — the one new dependency, approved) replaces the 2026-09-14
+  roster page; phase4 STEP 3 drops its two RPCs and the exclusion table after
+  deploy. Supersedes the 2026-09-14 "Admin analytics panel" plan's `last_seen_at`
+  leaf: `AnalyticsLifecycle` subsumes `LastSeenPing` (flag off → still pings).
+- **Deviations from the brief, decided:** `appStateChange` → `pause`/`resume`;
+  Capacitor Preferences → localStorage; `clock_in_reminder` converts on a manual
+  clock-out within 30 min (no "clock in" reminder exists); friend counts exclude
+  all internal accounts; private goal titles never leave the database.
+- App Store privacy label: Usage Data → Product Interaction stays declared
+  (first-party now); PostHog leaves "Third parties"; `/privacy` discloses goal
+  titles to Anthropic.
 
 ### 2026-08-20 — Bug reports, and interview consent **(requires SQL, run by hand — user has confirmed both applied)**
 - Two pre-submission surfaces, both reusing the admin-panel shape the beta-cap

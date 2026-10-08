@@ -97,7 +97,8 @@ export function NudgeSheet({
         isPraiseTarget(chosen) ? `Cheered ${name} on` : `Nudged ${name}`
       );
       track("nudge_sent", {
-        kind: chosen.kind,
+        nudge_id: result.nudgeId,
+        kind: sendKind(chosen),
         preset,
         pushed: result.pushed,
       });

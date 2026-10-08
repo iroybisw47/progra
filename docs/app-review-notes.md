@@ -249,11 +249,11 @@ signing in with their own Apple ID sees so little.
 | **Google Calendar API** (`calendar.events.readonly`) | optional, off by default in this build: reads event titles and times so calendar time can sit beside tracked time |
 | **Anthropic (Claude API)** | categorizes calendar event titles into the user's own categories. Not used for advertising; data is not used for model training |
 | **Apple Push Notification service (APNs)** | social notifications (likes, comments, friend requests) |
-| **PostHog** | product analytics, keyed to the account's user ID; no advertising identifiers, no cross-app tracking, no data brokers |
 
-No payment processor, no ad network, no data provider, no analytics SDK beyond
-PostHog. Nothing is sold or shared for advertising, which is why every "used for
-tracking" answer on the privacy nutrition label is No.
+No payment processor, no ad network, no data provider, no third-party analytics
+SDK (product analytics are first-party: events are stored in Progra's own
+database, keyed to the account). Nothing is sold or shared for advertising, which
+is why every "used for tracking" answer on the privacy nutrition label is No.
 
 **On the native shell:** Progra is a Capacitor app whose web layer is served from
 `https://progra.world`, and it uses native device capabilities directly — Sign in

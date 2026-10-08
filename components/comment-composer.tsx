@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { track } from "@/lib/analytics";
 import { addComment } from "@/app/actions/comments";
 import { COMMENT_MAX_LENGTH } from "@/lib/social/comments";
 
@@ -22,6 +23,7 @@ export function CommentComposer({ sessionId }: { sessionId: string }) {
         toast.error(r.error);
         return;
       }
+      track("comment_given", { session_ref: sessionId, depth: "root" });
       setValue("");
     });
   }

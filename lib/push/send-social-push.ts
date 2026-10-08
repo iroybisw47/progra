@@ -3,6 +3,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SOCIAL_PUSH } from "@/lib/flags";
 import { sendApnsAlert } from "@/lib/push/apns";
+import { logRemoteNotification, newNotificationId } from "@/lib/push/notification-log";
 import {
   commentDedupeKey,
   composeSocialPush,
@@ -93,16 +94,22 @@ export async function sendSocialPush(event: SocialPushEvent): Promise<void> {
           : // Degraded: no comment id, fall back to once-per-session.
             `comment:${event.actorId}:${event.sessionId}`;
 
-    await deliver(admin, recipient, key, event.kind, async () =>
-      composeSocialPush({
-        kind: event.kind,
-        actorName: await getActorName(),
-        emoji: event.kind === "like" ? event.emoji : undefined,
-        sessionId: event.sessionId,
-        taskName,
-        commentBody: event.kind === "comment" ? event.body : undefined,
-        commentId: event.kind === "comment" ? (event.commentId ?? undefined) : undefined,
-      })
+    await deliver(
+      admin,
+      recipient,
+      key,
+      event.kind,
+      async () =>
+        composeSocialPush({
+          kind: event.kind,
+          actorName: await getActorName(),
+          emoji: event.kind === "like" ? event.emoji : undefined,
+          sessionId: event.sessionId,
+          taskName,
+          commentBody: event.kind === "comment" ? event.body : undefined,
+          commentId: event.kind === "comment" ? (event.commentId ?? undefined) : undefined,
+        }),
+      event.sessionId
     );
   } catch (err) {
     // A push may never break anything — including the after() callback.
@@ -171,7 +178,8 @@ async function sendReplyPushes(
           taskName,
           commentBody: event.body,
           commentId: event.commentId,
-        })
+        }),
+      event.sessionId
     );
   }
 }
@@ -213,8 +221,9 @@ async function deliver(
   admin: AdminClient,
   recipient: string,
   key: string,
-  label: string,
-  compose: () => Promise<SocialPushContent>
+  label: "like" | "comment" | "reply",
+  compose: () => Promise<SocialPushContent>,
+  sessionId: string
 ): Promise<void> {
   // Opt-out before the dedupe claim, so an opted-out user's slots aren't
   // burned — turning pushes on later still delivers a first-time like.
@@ -268,9 +277,14 @@ async function deliver(
 
   const content = await compose();
   console.log(`[push] sending ${label} to ${tokens.length} device(s) for ${recipient}`);
+  // One log row per push, not per device: the id is in every device's payload,
+  // and "sent" means APNs accepted it for at least one of them.
+  const nid = newNotificationId();
+  let accepted = false;
   for (const token of tokens) {
-    const result = await sendApnsAlert(token, content);
+    const result = await sendApnsAlert(token, { ...content, nid, ntype: label });
     console.log(`[push] APNs result: ${result}`);
+    if (result === "ok") accepted = true;
     if (result === "gone") {
       // Dead token (unregistered, or a sandbox token against the production
       // host) — delete so we stop paying for it. A live device re-registers
@@ -282,4 +296,13 @@ async function deliver(
         .eq("token", token);
     }
   }
+  await logRemoteNotification(admin, {
+    id: nid,
+    key,
+    userId: recipient,
+    type: label,
+    status: accepted ? "sent" : "failed",
+    relatedKind: "session",
+    relatedId: sessionId,
+  });
 }

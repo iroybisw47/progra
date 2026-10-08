@@ -8,12 +8,11 @@ import { EnsureSessionCap } from "@/components/ensure-session-cap";
 import { PushRegistration } from "@/components/push-registration";
 import { Toaster } from "@/components/ui/sonner";
 import { EnsurePlanComplete } from "@/components/ensure-plan-complete";
-import { PostHogInit } from "@/components/posthog-init";
 import { DeepLinkRouter } from "@/components/deep-link-router";
 import { NotificationTapRouter } from "@/components/notification-tap-router";
 import { RouteMemory } from "@/components/route-memory";
-import { LastSeenPing } from "@/components/last-seen-ping";
 import { NotificationLifecycle } from "@/components/notification-lifecycle";
+import { AnalyticsLifecycle } from "@/components/analytics-lifecycle";
 import { SyncClockReminders } from "@/components/sync-clock-reminders";
 import { SyncLiveActivity } from "@/components/sync-live-activity";
 import { listCategories } from "@/lib/db/categories";
@@ -180,31 +179,19 @@ export default async function RootLayout({
 
   if (betaFull) {
     // No children, no BottomNav, no session/push leaves — a waitlisted user
-    // gets no app shell at all. PostHogInit stays: hitting the wall is exactly
-    // the drop-off worth measuring.
+    // gets no app shell at all. Shell still mounts AnalyticsLifecycle: hitting
+    // the wall is exactly the drop-off worth measuring.
     return (
-      <Shell userId={user?.id ?? null}>
+      <Shell userId={user?.id ?? null} activeSessionId={null}>
         <BetaFull position={waitlistPosition} />
-        <PostHogInit
-          userId={user?.id ?? null}
-          username={profile?.username ?? null}
-          signupDate={profile?.created_at ?? null}
-        />
         <Toaster />
       </Shell>
     );
   }
 
   return (
-    <Shell userId={user?.id ?? null}>
+    <Shell userId={user?.id ?? null} activeSessionId={activeSession?.id ?? null}>
       {children}
-      {/* Analytics. Deliberately NOT gated on `user`: the signed-out landing
-          and the invite pages are exactly where drop-off matters most. */}
-      <PostHogInit
-        userId={user?.id ?? null}
-        username={profile?.username ?? null}
-        signupDate={profile?.created_at ?? null}
-      />
       {/* Hidden until onboarding is finished: the wizard owns the whole
           viewport and now renders at `/` rather than behind a redirect to
           /onboarding, so the pathname check inside BottomNav can no longer see
@@ -350,9 +337,6 @@ export default async function RootLayout({
       {/* Remembers the previous route so a bug report filed from /settings can
           name the screen the bug actually happened on. Renders nothing. */}
       {user && <RouteMemory />}
-      {/* "Last opened" for the admin analytics roster. Normal branch only: a
-          waitlisted user can't use the app, so there's nothing to measure. */}
-      {user && <LastSeenPing />}
       <Toaster />
     </Shell>
   );
@@ -363,9 +347,11 @@ export default async function RootLayout({
 function Shell({
   children,
   userId,
+  activeSessionId,
 }: {
   children: React.ReactNode;
   userId: string | null;
+  activeSessionId: string | null;
 }) {
   return (
     <html
@@ -378,6 +364,9 @@ function Shell({
             becoming null, which is the event it exists to catch. Living in
             Shell means the beta-full wall gets it too. */}
         <NotificationLifecycle userId={userId} />
+        {/* Ungated for the same reason, plus one more: the signed-out landing
+            and the beta-full wall are exactly where drop-off matters most. */}
+        <AnalyticsLifecycle userId={userId} activeSessionId={activeSessionId} />
       </body>
     </html>
   );

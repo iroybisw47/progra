@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
+import { RecordProfileView } from "@/components/record-profile-view";
 import { AvatarInitials } from "@/components/avatar-initials";
 import { BackButton } from "@/components/v2/back-button";
 import { GoalQuotaRows } from "@/components/v2/goal-quota-rows";
@@ -110,6 +111,11 @@ export default async function ProfilePage({
             <ProfileActions target={target} relationship={relationship} />
           </div>
         </div>
+        {/* Internal only: profile_views. The RPC refuses a self-view anyway;
+            not mounting it on your own page saves the round trip. */}
+        {relationship.kind !== "self" && (
+          <RecordProfileView viewedId={target.userId} />
+        )}
         {target.bio && (
           <p className="text-body px-5 pt-2.5 text-[13px] text-pretty">
             {target.bio}

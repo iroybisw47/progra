@@ -104,6 +104,34 @@ export type Profile = {
   uw_major?: string | null;
   uw_clubs?: string[] | null;
   uw_share_goals?: boolean | null;
+  // "Last opened", for the admin analytics roster. Written by touch_last_seen()
+  // and, once ANALYTICS is on, by the ingest RPC on every app_opened event.
+  // Never shown to anyone but the admin. (May be absent until the column SQL is
+  // run — treated as null.)
+  last_seen_at?: string | null;
+  // The internal analytics pipeline (.claude/plans/analytics/phase1.sql).
+  // All optional for seat_no's reason — PostgREST omits a column that does not
+  // exist yet — and all fail CLOSED: every reader treats `undefined` the same
+  // as "not set".
+  //
+  //   is_internal / excluded_reason — founder, test, demo, review and duplicate
+  //       accounts. NOT user-writable (guard_profiles_is_internal rejects the
+  //       column from `authenticated`/`anon`); the admin flips it via
+  //       admin_set_internal(). Server-only: omitted from ClientProfile.
+  //   onboarding_step / _at / _inferred — the last wizard screen entered, as a
+  //       STEP NAME from lib/onboarding.ts, never an index. `inferred` marks a
+  //       row the backfill guessed from which fields were filled.
+  //   notification_permission / _at — the iOS permission state as the device
+  //       last reported it. `reminder_prefs` mirrors the two on-device
+  //       reminder toggles, which otherwise live only in localStorage.
+  is_internal?: boolean | null;
+  excluded_reason?: string | null;
+  onboarding_step?: string | null;
+  onboarding_step_at?: string | null;
+  onboarding_step_inferred?: boolean | null;
+  notification_permission?: string | null;
+  notification_permission_at?: string | null;
+  reminder_prefs?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 };
@@ -134,6 +162,8 @@ export type ClientProfile = Omit<
   | "google_token_expires_at"
   | "google_scopes"
   | "referred_by"
+  | "is_internal"
+  | "excluded_reason"
 > & { calendarConnected: boolean };
 
 export function toClientProfile(p: Profile): ClientProfile {
@@ -144,6 +174,8 @@ export function toClientProfile(p: Profile): ClientProfile {
     google_token_expires_at,
     google_scopes,
     referred_by,
+    is_internal,
+    excluded_reason,
     ...rest
   } = p;
   /* eslint-enable @typescript-eslint/no-unused-vars */

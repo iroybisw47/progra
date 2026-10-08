@@ -1,5 +1,11 @@
+import { track } from "@/lib/analytics";
 import { localNotificationsPlugin } from "@/lib/native-plugins";
 import { checkNotificationPermission } from "@/lib/notification-permission";
+import {
+  diffReminderSchedule,
+  localNotificationKey,
+  reminderTypeForId,
+} from "@/lib/telemetry/reminder-diff";
 
 // The ONLY file that talks to @capacitor/local-notifications.
 //
@@ -19,6 +25,16 @@ import { checkNotificationPermission } from "@/lib/notification-permission";
 // EVERY sync is safe to call unconditionally — on the web, with the plugin
 // missing, or with notification permission denied. A reminder is a nicety,
 // and it may never break the feature it decorates.
+//
+// LOGGING. A device can only ever say "I scheduled this" or "I cancelled it
+// before it fired", so that is exactly what is reported: before the cancel,
+// the engine asks iOS what this family still has pending (by the key it put
+// in `extra`), diffs that against the new list, and emits
+// notification_cancelled for what disappears and notification_scheduled for
+// what is new — AFTER the respective plugin call succeeded. A reminder that
+// already fired is simply absent from pending, so it is never "cancelled";
+// the server derives "presumed fired" from that. The diff is pure and tested
+// (lib/telemetry/reminder-diff.ts).
 
 export type LocalReminder = {
   id: number;
@@ -61,8 +77,14 @@ export function createReminderSync(allIds: () => number[]): {
     if (!ln) return;
 
     try {
+      const ids = allIds();
+      const previousKeys = await pendingKeys(ln, ids);
+      const next = reminders.map((r) => ({ id: r.id, at: Math.round(r.at) }));
+      const diff = diffReminderSchedule(previousKeys, next);
+
       // Unconditional: cancelling ids that aren't scheduled is a no-op.
-      await ln.cancel({ notifications: allIds().map((id) => ({ id })) });
+      await ln.cancel({ notifications: ids.map((id) => ({ id })) });
+      for (const key of diff.cancelled) track("notification_cancelled", { key });
 
       if (reminders.length === 0) {
         // Cancelled above; record it so a later identical call skips even this.
@@ -85,8 +107,21 @@ export function createReminderSync(allIds: () => number[]): {
           // would keep firing forever for anyone who force-quits, since
           // cancelling requires the app to run.
           schedule: { at: new Date(r.at) },
+          // Rides inside the notification: getPending() hands it back for the
+          // diff above, and the tap router reports it on a tap.
+          extra: {
+            key: localNotificationKey(r.id, r.at),
+            ntype: reminderTypeForId(r.id),
+          },
         })),
       });
+      for (const s of diff.scheduled) {
+        track("notification_scheduled", {
+          key: localNotificationKey(s.id, s.at),
+          type: reminderTypeForId(s.id),
+          scheduled_for: s.at,
+        });
+      }
       // Only recorded once the write actually succeeded, so a throw leaves the
       // fingerprint stale and the next call retries rather than skipping.
       last = fingerprint;
@@ -100,7 +135,14 @@ export function createReminderSync(allIds: () => number[]): {
     const ln = localNotificationsPlugin();
     if (!ln) return;
     try {
-      await ln.cancel({ notifications: allIds().map((id) => ({ id })) });
+      const ids = allIds();
+      const previousKeys = await pendingKeys(ln, ids);
+      await ln.cancel({ notifications: ids.map((id) => ({ id })) });
+      // Usually sign-out: the batch may then carry no user and be dropped by
+      // the ingest, in which case these rows read as "presumed fired" later.
+      // Accepted — it is one edge of one family, and the alternative is to
+      // flush before the session cookie goes.
+      for (const key of previousKeys) track("notification_cancelled", { key });
       last = null;
     } catch {
       // Swallowed on purpose.
@@ -108,4 +150,23 @@ export function createReminderSync(allIds: () => number[]): {
   }
 
   return { sync, cancelAll };
+}
+
+// The keys this family still has pending on the device. Empty on any failure:
+// a diff against nothing reports everything new as scheduled and nothing as
+// cancelled, which over-counts schedules once rather than inventing cancels.
+async function pendingKeys(
+  ln: NonNullable<ReturnType<typeof localNotificationsPlugin>>,
+  ids: number[]
+): Promise<string[]> {
+  try {
+    const idSet = new Set(ids);
+    const { notifications } = await ln.getPending();
+    return notifications
+      .filter((n) => idSet.has(n.id))
+      .map((n) => (n.extra as { key?: unknown } | undefined)?.key)
+      .filter((k): k is string => typeof k === "string");
+  } catch {
+    return [];
+  }
 }

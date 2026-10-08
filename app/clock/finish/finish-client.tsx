@@ -15,6 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleSwitch } from "@/components/v2/toggle-switch";
@@ -177,6 +178,7 @@ export function FinishClient({
         toast.error(r.error);
         return;
       }
+      track("session_cancelled", { session_ref: sessionId });
       toast.success("Session deleted");
       router.push("/clock");
     });

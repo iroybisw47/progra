@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useOptimistic } from "react";
 import {
@@ -17,6 +17,7 @@ import {
   XIcon,
 } from "lucide-react";
 
+import { track } from "@/lib/analytics";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -242,6 +243,12 @@ export function ClockClient({
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
 
   const activeSession = sessions.find((s) => s.endedAt === null) ?? null;
+  // Analytics: the clock-in form was shown (not the active-session strip).
+  // Keyed on the session id so clocking in from here does not re-fire.
+  const activeSessionId = activeSession?.id ?? null;
+  useEffect(() => {
+    if (activeSessionId === null) track("clock_in_screen_opened");
+  }, [activeSessionId]);
 
   // Inline notes draft for the active session. Reset when the active session
   // changes (clock out → new clock in) using the render-time prop-sync pattern.
@@ -365,6 +372,12 @@ export function ClockClient({
         toast.error(r.error);
         return;
       }
+      track("session_clocked_in", {
+        session_ref: r.sessionId,
+        goal_id: goalId,
+        category_id: categoryId,
+        timed: timerMode === "timed" && plannedMinutes !== null,
+      });
       setTaskName("");
       setDescription("");
       setIntention("");
@@ -396,6 +409,10 @@ export function ClockClient({
         toast.error(r.error);
         return;
       }
+      track("session_clocked_out", {
+        session_ref: session.id,
+        worked_minutes: Math.round(sessionWorkedMs(session, Date.now()) / 60_000),
+      });
       toast.success(`Logged ${formatDuration(sessionWorkedMs(session, Date.now()))}`);
       // No photo step here: a session's one photo is taken while it runs, and
       // this session has just ended.

@@ -348,7 +348,8 @@ export function LiveTimerClient({
       // Only on the user-initiated stop. autoClockOut and
       // completePlannedSession end sessions without anyone doing anything, and
       // counting those would inflate "sessions completed".
-      track("session_completed", {
+      track("session_clocked_out", {
+        session_ref: sessionId,
         worked_minutes: Math.round(sessionWorkedMs(timing, Date.now()) / 60_000),
         timed: timed,
         breaks_taken: plan.breaksTaken,

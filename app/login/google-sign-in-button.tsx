@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { track } from "@/lib/analytics";
 import { buildNonce } from "@/lib/auth/nonce";
 import { createClient } from "@/lib/supabase/client";
 import { isNativeApp } from "@/lib/native";
@@ -54,6 +55,7 @@ export function GoogleSignInButton({
       // Guards a second tap while the native picker is already up.
       if (nativeFlowInFlight) return;
       nativeFlowInFlight = true;
+      track("sign_in_started", { method: "google" });
 
       try {
         const { SocialLogin } = await import("@capgo/capacitor-social-login");
@@ -137,6 +139,7 @@ export function GoogleSignInButton({
     // opt-in connect flow (/auth/google-calendar), so new users never hit the
     // unverified-app screen or count against Google's unverified-user cap
     // just to sign in.
+    track("sign_in_started", { method: "google" });
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {

@@ -70,9 +70,12 @@ export default function PrivacyPage() {
           </h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
             To automatically categorize your calendar events, event titles are
-            processed by a third-party AI provider (Anthropic). This processing
-            happens solely to categorize events for you. The data is not used
-            for advertising and is not used to train AI models.
+            processed by a third-party AI provider (Anthropic). The title of a
+            goal you have not marked private is processed the same way, so that
+            we can see which kinds of goals people set; a private goal&rsquo;s
+            title is never sent. This processing happens solely to categorize
+            events and goals. The data is not used for advertising and is not
+            used to train AI models.
           </p>
         </section>
 
