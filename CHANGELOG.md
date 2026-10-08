@@ -7,6 +7,50 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-07
 
+### 20:20 · Why the elapsed clock keeps drifting left, and the actual fix
+The clock sitting too far from the card's trailing edge has now been "fixed"
+three times — an optical inset (`.padding(.trailing, -6)`, reverted), and the
+frame width tuned 124 → 116. Both aimed at the wrong thing.
+
+**The mechanism.** `Text(timerInterval:)` reserves layout width for the WIDEST
+string its range can produce, not the value it draws. Over a 10-hour range that
+is `"9:59:59"` — 165.41pt at 48pt — while a young session draws `"5:23"`, which
+is 57.68pt. More than 100pt of the box is empty, and the glyphs are not
+trailing-aligned inside it by default.
+
+**Why the obvious fix never worked.** `.frame(width:alignment:.trailing)` has
+nothing to align: the Text's own box already fills the frame, so the slack is
+*inside* the Text, out of the frame's reach. Only `.multilineTextAlignment`
+gets at it — and no version of this card has ever set it, across all four
+attempts. The handoff's own reference implementation did.
+
+**Why it kept coming back.** The render harness cannot see it. `ImageRenderer`
+draws a timer Text as a plain static string at its natural width and never
+applies the reservation, so a clock that drifts badly left on a phone
+photographs as perfectly flush. Proven by rendering a timer Text and a plain
+`Text("5:23")` side by side in the same frame: identical output. AGENTS.md now
+says so beside the harness, because a green render was the evidence that kept
+closing this.
+
+Ruled out on the way: right side bearing, which is 0.55–3.55pt and *varies per
+digit* — which is also why the -6pt inset was wrong, being roughly twice the
+largest of them and overshooting for most.
+
+The fix is `.multilineTextAlignment(.trailing)`, set inside `ElapsedText` so
+the card and both Dynamic Island regions get it rather than two of three. The
+frame also moves 166 → 169, the UNTRACKED width of the widest string: it is not
+certain the system applies `.tracking` when computing the reservation, and a
+frame narrower than the reservation squeezes the digits, which is worse than a
+few points of slack now that the glyphs hug the edge.
+
+**An adaptive width is not available here**, and the reason is specific to this
+surface: a Live Activity re-renders only when the app pushes, so a width chosen
+at render time would still be in force after the clock crossed an hour and
+gained a digit — overflowing rather than merely sitting left. A widget could
+schedule a timeline entry for that instant; a Live Activity cannot.
+
+Needs a device to confirm. Nothing off-device can.
+
 ### 19:45 · The Live Activity card, rebuilt to the widget handoff
 `design_handoff_progra_widget` is now the Lock Screen card: a goal chip, the
 session name, the elapsed clock at 48pt in the goal's colour, and Pause /

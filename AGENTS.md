@@ -212,6 +212,14 @@ missing `.buttonStyle(.plain)` that type-checking cannot see. Fonts, metrics,
 wrapping and colour are real here; the system's Live Activity chrome, corner
 radius, press feedback and the Dynamic Island are not.
 
+**It CANNOT verify the elapsed clock's alignment, and a green render is not
+evidence there.** `ImageRenderer` draws `Text(timerInterval:)` as a plain static
+string at its natural width; it never applies the widest-string-in-range
+reservation the system uses on device. So a clock that drifts badly left on a
+phone photographs as perfectly flush here — which is why that bug came back
+three times. Anything touching `ElapsedText`, `clockWidth` or the timer's range
+needs a device.
+
 "Deploy" means: commit all + push `main`. This repo is normally an
 **uncommitted working tree** — commit/push only when explicitly asked.
 

@@ -99,8 +99,13 @@ private let iconToLabel: CGFloat = 8
 //     "10:00:00"              193.63pt      (8 characters)
 //     "24:07"                 125.04pt      (5 characters)
 //
-// 166 is the widest string the range can produce, plus a hair. The handoff
-// reference file's TODO guessed 150, which is ~15pt short.
+// 169 is the UNTRACKED width of the widest string (168.77pt), rounded up,
+// rather than the tracked 165.41. Deliberately the conservative bound: it is
+// not certain the system applies `.tracking` when it computes the reservation,
+// and a frame NARROWER than the reservation squeezes the digits, which is a
+// visibly broken clock. A frame a few points wider costs nothing now that the
+// glyphs are trailing-aligned inside it — see ElapsedText. (The handoff
+// reference file's TODO guessed 150, which is ~15pt short of either number.)
 //
 // Holds only because the model's `rangeEnd` stops one second short of the cap,
 // capping the range at seven characters: Text(timerInterval:) reserves width
@@ -108,7 +113,7 @@ private let iconToLabel: CGFloat = 8
 // are a pair and moving either alone breaks the other. Given slack the timer
 // centres its glyphs instead of hugging the trailing edge, which is the drift
 // the previous card's own clock-width comment documented at length.
-private let clockWidth: CGFloat = 166
+private let clockWidth: CGFloat = 169
 
 // How much of the clock's reserved descent to reclaim.
 //
@@ -219,6 +224,39 @@ struct Marker: View {
 /// formatter. That is a layout requirement as much as a tidiness one — the card
 /// pins the clock to the system formatter's seven-character reservation, and
 /// the hand-rolled string this used to use could differ from it in metrics.
+///
+/// WHY `.multilineTextAlignment(.trailing)` IS LOAD-BEARING, and why the clock
+/// drifting left has come back three times.
+///
+/// `Text(timerInterval:)` reserves layout width for the WIDEST string its
+/// range can produce, not the value it currently draws. With a 10-hour range
+/// that reservation is "9:59:59" — 165.41pt at 48pt — while a young session
+/// draws "5:23", which is 57.68pt. Over 100pt of the box is empty, and the
+/// glyphs are NOT trailing-aligned inside it by default.
+///
+/// `.frame(width:alignment:.trailing)` cannot fix that, which is the part that
+/// kept being missed: the Text's own box already fills the frame, so the frame
+/// has nothing left to align. The slack is INSIDE the Text. Only the text
+/// alignment reaches it.
+///
+/// Two earlier fixes aimed at the wrong thing and were reverted:
+/// `.padding(.trailing, -6)` (the digits' right side bearing is 0.55–3.55pt
+/// and VARIES per digit, so a fixed inset overshoots for most of them), and
+/// tuning the frame width 124 → 116 (changes how much slack there is, never
+/// where the glyphs sit in it).
+///
+/// An adaptive frame sized to the current digit count is NOT an option here,
+/// and the reason is specific to this surface: a Live Activity re-renders only
+/// when the app pushes an update, so a width chosen at render time would still
+/// be in force after the clock crossed an hour and gained a digit — overflowing
+/// instead of merely sitting left. A widget could schedule a timeline entry for
+/// that instant; a Live Activity cannot.
+///
+/// NOT VERIFIABLE BY THE RENDER HARNESS. `ImageRenderer` draws a timer Text as
+/// a plain static string at its natural width and never applies the
+/// reservation, so all of this looks correct in a PNG whether or not it is.
+/// That is why the bug survived every off-device check. Changes here need a
+/// device.
 struct ElapsedText: View {
     let model: PrograCardModel
 
@@ -229,6 +267,10 @@ struct ElapsedText: View {
                 pauseTime: model.pauseDisplay,
                 countsDown: false
             )
+            // THE CLOCK'S RIGHT EDGE. Do not remove — and read the block above
+            // before replacing it with a frame tweak or an inset, because both
+            // have been tried and neither can work.
+            .multilineTextAlignment(.trailing)
         } else {
             Text("—")
         }
