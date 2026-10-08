@@ -130,9 +130,6 @@ extension PrograActivityAttributes.ContentState {
     var card: PrograCardModel {
         PrograCardModel(
             label: label ?? "Session",
-            // chipLabel is newer than the binary that first shipped this card,
-            // so fall back to the bare attribution rather than showing nothing.
-            chipLabel: chipLabel ?? attribution ?? "",
             attribution: attribution ?? "",
             chipInk: Color(hexString: chipInk),
             chipFill: Color(hexString: accentColor),

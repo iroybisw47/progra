@@ -7,6 +7,22 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-07
 
+### 21:50 · The card's chip is just the name now
+No "Goal · " prefix and no "Category · " either — the chip reads `Thesis`,
+`Writing`, `Uncategorized`. The card is deliberately plainer than the finish
+screen and the live timer, which both still prefix a goal off
+`attribution.isGoal`.
+
+That made `chipLabel` byte-identical to `attribution`, so it is gone rather
+than kept as a second name for one value — along with the `isGoal` threading it
+needed through `liveActivitySnapshot`, the sync leaf and the layout.
+`liveActivitySnapshot` takes a plain attribution string again. `chipInk` stays:
+the chip still needs ink lifted past its own 28% fill.
+
+Safe to remove rather than deprecate: no shipped binary reads `chipLabel`. The
+card that uses it has never been released, and the one in the field renders the
+previous editorial layout.
+
 ### 20:20 · Why the elapsed clock keeps drifting left, and the actual fix
 The clock sitting too far from the card's trailing edge has now been "fixed"
 three times — an optical inset (`.padding(.trailing, -6)`, reverted), and the

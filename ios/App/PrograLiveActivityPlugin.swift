@@ -166,7 +166,6 @@ public class PrograLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             accentColor: str("accentColor"),
             accentInk: str("accentInk"),
             accentOnDark: str("accentOnDark"),
-            chipLabel: str("chipLabel"),
             chipInk: str("chipInk"),
             state: str("state"),
             stateLabel: str("stateLabel"),

@@ -53,7 +53,6 @@ for name in ["HankenGrotesk-SemiBold.ttf", "Newsreader48pt-Medium.ttf"] {
 extension PrograCardModel {
     static func sample(
         label: String = "Thesis — chapter 3 redraft",
-        chipLabel: String = "Goal · Thesis",
         attribution: String = "Thesis",
         onDark: String? = "#cbbbd5",
         ink: String? = "#dfd5e5",
@@ -65,7 +64,6 @@ extension PrograCardModel {
         let anchor = Date().addingTimeInterval(-elapsed)
         return PrograCardModel(
             label: label,
-            chipLabel: chipLabel,
             attribution: attribution,
             chipInk: Color(hexString: ink),
             chipFill: Color(hexString: fill),
@@ -94,9 +92,7 @@ extension PrograCardModel {
         sample(label: "Thesis — chapter 3 redraft, literature review and figure cleanup")
     }
     static var previewCategory: PrograCardModel {
-        // No "Goal · " prefix — the app's own rule for a category-tracked
-        // session, which the handoff does not specify.
-        sample(label: "Inbox zero", chipLabel: "Writing", attribution: "Writing",
+        sample(label: "Inbox zero", attribution: "Writing",
                onDark: "#b4d7e0", ink: "#d1e7ec", fill: "#77B7C6")
     }
     static var previewShort: PrograCardModel { sample(elapsed: 1447) }
@@ -104,7 +100,7 @@ extension PrograCardModel {
         sample(running: false, onBreak: true)
     }
     static var previewNoColour: PrograCardModel {
-        sample(label: "Reading", chipLabel: "Uncategorized", attribution: "Uncategorized",
+        sample(label: "Reading", attribution: "Uncategorized",
                onDark: nil, ink: nil, fill: nil)
     }
 }
@@ -116,7 +112,7 @@ struct Sheet: View {
         ("Running", .preview),
         ("Paused", .previewPaused),
         ("Long name — wraps to 2 lines", .previewLong),
-        ("Category — no Goal prefix", .previewCategory),
+        ("Category", .previewCategory),
         ("Under an hour", .previewShort),
         ("On a break", .previewBreak),
         ("No colour (uncategorised)", .previewNoColour),

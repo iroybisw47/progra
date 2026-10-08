@@ -24,11 +24,9 @@ import SwiftUI
 
 struct PrograCardModel {
     var label: String
-    /// "Goal · Thesis", or a bare "Writing" for a category-tracked session.
-    /// Assembled in lib/live-activity.ts by the app's own rule, so this side
-    /// never decides whether a prefix is owed.
-    var chipLabel: String
-    /// Uppercased on the Dynamic Island, which has no room for a prefix.
+    /// What the session counts towards — a goal's title or a category's name,
+    /// "Uncategorized" otherwise. The chip renders it as-is: no "Goal · "
+    /// prefix, just the name of the thing. Uppercased on the Dynamic Island.
     var attribution: String
 
     /// The chip's text. A fourth colour variant: the chip's own 28% fill tints
@@ -277,12 +275,12 @@ struct ElapsedText: View {
     }
 }
 
-/// The goal chip.
+/// The attribution chip — the goal's or category's bare name.
 struct GoalChip: View {
     let model: PrograCardModel
 
     var body: some View {
-        Text(model.chipLabel)
+        Text(model.attribution)
             .font(WidgetFonts.hanken(12.5))
             .foregroundStyle(model.chipInk ?? .white)
             .lineLimit(1)

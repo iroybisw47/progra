@@ -48,14 +48,11 @@ struct PrograActivityAttributes: ActivityAttributes {
         var accentColor: String?
         var accentInk: String?
         var accentOnDark: String?
-        // The chip the card draws: "Goal · Thesis", or a bare "Writing" for a
-        // category-tracked session. Assembled in lib/live-activity.ts by the
-        // app's own rule, so this side never decides whether a prefix is owed.
-        var chipLabel: String?
-        // The chip's TEXT. A fourth colour, because the chip's own 28% fill
-        // tints the ground: accentOnDark is measured against bare navy and
-        // leaves 12.5pt type hue-on-hue inside the pill. The chip's FILL is
-        // accentColor, drawn at 28% as a wash.
+        // The ink for the chip, which renders `attribution` — the goal's or
+        // category's bare name. A fourth colour, because the chip's own 28%
+        // fill tints the ground: accentOnDark is measured against bare navy
+        // and leaves 12.5pt type hue-on-hue inside the pill. The chip's FILL
+        // is accentColor, drawn at 28% as a wash.
         var chipInk: String?
         // "running" | "paused" | "onBreak". A String rather than an enum so an
         // unrecognised future state degrades to "treat as running" instead of

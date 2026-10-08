@@ -145,18 +145,13 @@ export default async function RootLayout({
   // nothing, and the cost only lands while a card actually exists. Skipped
   // entirely while the flag is dark.
   let liveAttribution = "";
-  let liveAttributionIsGoal = false;
   let liveAccent: { fill: string; ink: string; onDark: string } | null = null;
   if (LIVE_ACTIVITY && activeSession) {
     const [cats, goals] = await Promise.all([
       listCategories(),
       listActiveGoals(),
     ]);
-    const attribution = resolveAttribution(activeSession, cats, goals);
-    liveAttribution = attribution.text;
-    // Earns the card's "Goal · " chip prefix — the app's own rule, so a
-    // category-tracked session doesn't read "Goal · Writing".
-    liveAttributionIsGoal = attribution.isGoal;
+    liveAttribution = resolveAttribution(activeSession, cats, goals).text;
     liveAccent = resolveAttributionColor(activeSession, cats, goals);
   }
 
@@ -319,7 +314,6 @@ export default async function RootLayout({
           sessionId={activeSession?.id ?? null}
           label={activeSession?.taskName ?? ""}
           attribution={liveAttribution}
-          attributionIsGoal={liveAttributionIsGoal}
           accent={liveAccent}
           startedAt={activeSession?.startedAt ?? null}
           pausedMs={activeSession?.pausedMs ?? null}

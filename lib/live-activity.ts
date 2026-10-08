@@ -85,22 +85,11 @@ export type LiveActivitySnapshot = {
   // The same colour lifted for the DARK card's navy ground. A third value, not
   // a reuse: see entityOnDark in lib/colors.ts for the measurements.
   accentOnDark: string | null;
-  // The goal/category chip, as the card now draws it: "Goal · Thesis" for a
-  // goal-tracked session, a bare "Writing" for a category.
-  //
-  // ASSEMBLED HERE, and the prefix rule is not invented: `attribution.isGoal ?
-  // "Goal · " + text : text` is exactly what the finish screen
-  // (app/clock/finish/finish-client.tsx:222) and the live timer
-  // (app/clock/live/live-timer-client.tsx:614) already render. A literal
-  // reading of the handoff — which only specifies the goal case — would put
-  // "Goal · Writing" on every category-tracked session.
-  //
-  // `attribution` is kept ALONGSIDE this, uppercased by the Dynamic Island's
-  // centre region, which has no room for a prefix.
-  chipLabel: string;
-  // The chip's text. A FOURTH colour variant, because the chip's own fill tints
-  // the ground its 12.5pt text sits on — `accentOnDark` is measured against
-  // bare navy and leaves hue-on-hue here. See entityChipInk in lib/colors.ts.
+  // The ink for the chip, which renders `attribution` above — the goal's or
+  // category's bare name, with no "Goal · " prefix. A FOURTH colour variant,
+  // because the chip's own fill tints the ground its 12.5pt text sits on:
+  // `accentOnDark` is measured against bare navy and leaves hue-on-hue here.
+  // See entityChipInk in lib/colors.ts.
   //
   // The chip's FILL is `accentColor`, the raw palette hex: Swift draws it at
   // 28% as a wash, where being too dark to read is the intended effect.
@@ -173,11 +162,7 @@ function resolveLabel(raw: string): string {
 export function liveActivitySnapshot(
   sessionId: string | null,
   label: string,
-  // The resolved attribution WHOLE — `resolveAttribution`'s own return shape —
-  // rather than just its text, because `isGoal` is what earns the chip's
-  // "Goal · " prefix and a second copy of that rule would eventually disagree
-  // with the live screen's.
-  attribution: { text: string; isGoal: boolean },
+  attribution: string,
   accent: { fill: string; ink: string; onDark: string } | null,
   timing: SessionTiming,
   plan: Pick<SessionPlan, "plannedWorkMs" | "breakMs" | "onBreak">,
@@ -193,14 +178,13 @@ export function liveActivitySnapshot(
 
   const paused = state !== "running";
   const capEndMs = timing.startedAt + capMs + timing.pausedMs;
-  const attributionText = attribution.text.trim() || "Uncategorized";
+  const attributionText = attribution.trim() || "Uncategorized";
 
   return {
     snapshotVersion: LIVE_ACTIVITY_SNAPSHOT_VERSION,
     sessionId,
     label: resolveLabel(label),
     attribution: attributionText,
-    chipLabel: attribution.isGoal ? `Goal · ${attributionText}` : attributionText,
     accentColor: accent?.fill ?? null,
     // Unused by the card since it went always-navy, and KEPT anyway: removing a
     // field strands an activity an older binary started, which the Optional
