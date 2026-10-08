@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400..700&family=Newsreader:opsz,wght@6..72,400..600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#ffffff;}
+a{color:#1c3a5e;} a:hover{color:#142c49;}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes pop-in{0%{opacity:0;transform:scale(.5)}70%{transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
+@keyframes sweep{to{transform:rotate(360deg)}}
+@keyframes bar-pulse{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes wheel-fill{from{stroke-dashoffset:238.76}to{stroke-dashoffset:90.7}}
+@keyframes check-pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+@keyframes hl-sweep{from{background-size:0% 100%}to{background-size:100% 100%}}
+@keyframes caret-blink{0%,100%{opacity:1}50%{opacity:0}}
+</style>
+</helmet>
+<div style="min-height: 100dvh; display: flex; flex-direction: column; background: #ffffff; font-family: 'Hanken Grotesk', sans-serif; color: #1b2129; position: relative; overflow: hidden;">
+
+  <sc-if value="{{ notDone }}" hint-placeholder-val="{{ true }}">
+    <header style="height: 64px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 20px; position: relative; z-index: 2;">
+      <sc-if value="{{ canBack }}" hint-placeholder-val="{{ false }}">
+        <button type="button" aria-label="Back" onClick="{{ back }}" style="width: 32px; height: 32px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 11px; border: 1.5px solid #eceef1; background: none; color: #8b929c; cursor: pointer; padding: 0;" style-hover="border-color: #1c3a5e;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+      </sc-if>
+      <sc-if value="{{ noBack }}" hint-placeholder-val="{{ true }}">
+        <span style="width: 32px; flex-shrink: 0;"></span>
+      </sc-if>
+      <span style="flex: 1; display: flex; justify-content: center; gap: 5px;">
+        <sc-for list="{{ dots }}" as="d" hint-placeholder-count="9">
+          <span style="height: 5px; border-radius: 999px; transition: all .3s; width: {{ d.w }}; background: {{ d.bg }};"></span>
+        </sc-for>
+      </span>
+      <button type="button" onClick="{{ skipAll }}" style="width: 32px; flex-shrink: 0; text-align: right; background: none; border: none; padding: 0; font-family: 'Hanken Grotesk', sans-serif; font-size: 12px; font-weight: 500; color: #8b929c; cursor: pointer;" style-hover="color: #12171d;">Skip</button>
+    </header>
+  </sc-if>
+
+  <main style="margin: 0 auto; width: 100%; max-width: 420px; flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 0 24px; box-sizing: border-box; position: relative; z-index: 1;">
+
+    <!-- 1 · WELCOME -->
+    <sc-if value="{{ isWelcome }}" hint-placeholder-val="{{ true }}">
+      <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 22px; padding-bottom: 40px;">
+        <svg viewBox="0 0 100 100" width="58" height="58" role="img" aria-label="Progra" style="border-radius: 28%; box-shadow: 0 14px 30px -12px rgba(28,58,94,.55); animation: pop-in 0.55s cubic-bezier(.34,1.56,.64,1) both;">
+          <rect x="0" y="0" width="100" height="100" rx="28" fill="#1c3a5e"></rect>
+          <circle cx="50" cy="50" r="22" fill="none" stroke="#fff" stroke-width="4.5"></circle>
+          <g stroke="#fff" stroke-width="4.5" stroke-linecap="round">
+            <line x1="50" y1="50" x2="50" y2="38" style="transform-box: view-box; transform-origin: 50px 50px; animation: sweep 96s linear infinite; rotate: 120deg;"></line>
+            <line x1="50" y1="50" x2="50" y2="30" style="transform-box: view-box; transform-origin: 50px 50px; animation: sweep 9s linear infinite;"></line>
+          </g>
+        </svg>
+        <h1 style="margin: 0; font-family: 'Newsreader', serif; font-weight: 500; font-size: 40px; line-height: 1.08; letter-spacing: -0.02em; color: #12171d; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .1s; position: relative; white-space: pre-line;"><span style="visibility: hidden;">Welcome to
+Progra.</span><span style="position: absolute; inset: 0;">{{ typedTitle }}<span style="display: {{ caretDisplay }}; width: 2.5px; height: 0.85em; background: #1c3a5e; margin-left: 3px; vertical-align: -0.06em; animation: caret-blink 1s step-end infinite; border-radius: 1px;"></span></span></h1>
+        <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #5d6672; text-wrap: pretty; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .22s;">Hours toward your goals, with friends watching.</p>
+        <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 4px; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .38s;">
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <div style="display: flex; align-items: baseline; justify-content: space-between;"><span style="font-size: 10px; line-height: 1; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0;">Your name</span><span style="font-size: 11px; color: #9fa6b0;">Optional</span></div>
+            <input placeholder="Your name" maxlength="50" value="{{ name }}" onChange="{{ setName }}" style="width: 100%; border: none; border-bottom: 2px solid #eceef1; background: transparent; padding: 0 0 8px; font-family: 'Hanken Grotesk', sans-serif; font-size: 19px; font-weight: 500; letter-spacing: -0.01em; color: #12171d; outline: none; box-sizing: border-box;" style-focus="border-bottom-color: #1c3a5e;">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <span style="font-size: 10px; line-height: 1; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0;">Username</span>
+            <div style="display: flex; align-items: center;">
+              <span style="color: #8b929c; font-size: 19px; padding-right: 4px;">@</span>
+              <input placeholder="yourhandle" autocapitalize="none" spellcheck="false" value="{{ username }}" onChange="{{ setUsername }}" style="min-width: 0; flex: 1; border: none; border-bottom: 2px solid #eceef1; background: transparent; padding: 0 0 8px; font-family: 'Hanken Grotesk', sans-serif; font-size: 19px; font-weight: 500; letter-spacing: -0.01em; color: #12171d; outline: none;" style-focus="border-bottom-color: #1c3a5e;">
+              <sc-if value="{{ usernameOk }}" hint-placeholder-val="{{ false }}">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1c3a5e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 8px; flex-shrink: 0; animation: check-pop .3s ease both;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              </sc-if>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span aria-hidden="true" style="width: 56px; height: 56px; border-radius: 50%; background: rgba(28,58,94,.1); color: #1c3a5e; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600;">{{ initials }}</span>
+            <span style="font-size: 14px; font-weight: 500; color: #12171d;">Add photo</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- 2 · HOW -->
+    <sc-if value="{{ isHow }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 18px; padding: 18px 0 24px;">
+        <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0; animation: rise .45s cubic-bezier(.22,1,.36,1) both;">{{ eyebrow }}</span>
+        <h1 style="margin: 0; font-family: 'Newsreader', serif; font-weight: 500; font-size: 28px; line-height: 1.14; letter-spacing: -0.02em; color: #12171d; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .1s; position: relative; white-space: pre-line;"><span style="visibility: hidden;">Most productivity apps are singleplayer, but Progra is multiplayer.</span><span style="position: absolute; inset: 0;">{{ typedTitle }}<span style="display: {{ caretDisplay }}; width: 2.5px; height: 0.85em; background: #1c3a5e; margin-left: 3px; vertical-align: -0.06em; animation: caret-blink 1s step-end infinite; border-radius: 1px;"></span></span></h1>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #5d6672; text-wrap: pretty; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .25s;">On Progra, you track hours put towards your goals, and your habits, but your friends are able to see your progress to hold you accountable.</p>
+        <div style="animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .4s;">
+          <div style="border: 1.5px solid #e6e9ed; border-radius: 16px; overflow: hidden;">
+            <div style="display: flex; align-items: center; gap: 7px; padding: 12px 14px 10px;">
+              <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0;">This week</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr;">
+              <div style="display: flex; flex-direction: column; gap: 10px; padding: 4px 14px 14px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="width: 26px; height: 26px; border-radius: 50%; background: rgba(28,58,94,.12); color: #1c3a5e; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex-shrink: 0;">Y</span>
+                  <span style="font-size: 12.5px; font-weight: 600; color: #1b2129;">You</span>
+                </div>
+                <div style="position: relative; width: 92px; height: 92px; align-self: center;">
+                  <svg width="92" height="92" viewBox="0 0 92 92" style="transform: rotate(-90deg);">
+                    <circle cx="46" cy="46" r="40" fill="none" stroke="#f1f3f5" stroke-width="12"></circle>
+                    <circle cx="46" cy="46" r="40" fill="none" stroke="#4A6FA5" stroke-width="12" stroke-dasharray="155.6 95.7" stroke-dashoffset="0"></circle>
+                    <circle cx="46" cy="46" r="40" fill="none" stroke="#46808A" stroke-width="12" stroke-dasharray="59.8 191.5" stroke-dashoffset="-155.6"></circle>
+                    <circle cx="46" cy="46" r="40" fill="none" stroke="#A98A38" stroke-width="12" stroke-dasharray="35.9 215.4" stroke-dashoffset="-215.4"></circle>
+                  </svg>
+                  <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <span style="font-size: 15px; font-weight: 600; color: #12171d; line-height: 1; font-variant-numeric: tabular-nums;">4.2h</span>
+                    <span style="font-size: 7px; font-weight: 600; text-transform: uppercase; letter-spacing: .12em; color: #c3c8ce;">Tracked</span>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #4A6FA5; flex-shrink: 0;"></span><span style="min-width: 0; flex: 1; color: #1b2129; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Study math</span><span style="color: #8b929c; font-variant-numeric: tabular-nums;">2.6h</span></div>
+                  <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #46808A; flex-shrink: 0;"></span><span style="min-width: 0; flex: 1; color: #1b2129; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Reading</span><span style="color: #8b929c; font-variant-numeric: tabular-nums;">1.0h</span></div>
+                  <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #A98A38; flex-shrink: 0;"></span><span style="min-width: 0; flex: 1; color: #1b2129; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Gym</span><span style="color: #8b929c; font-variant-numeric: tabular-nums;">0.6h</span></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="height: 7px; border-radius: 999px; background: #f1f3f5; overflow: hidden;">
+                    <div style="height: 100%; border-radius: 999px; width: 70%; background: #4A6FA5;"></div>
+                  </div>
+                  <span style="font-size: 10.5px; color: #8b929c;">of 6h goal · on track</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 5px; border-top: 1px solid #f4f5f7; padding-top: 8px;">
+                  <span style="font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .12em; color: #9fa6b0;">Habits</span>
+                  <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px;">
+                    <span style="width: 14px; height: 14px; border-radius: 5px; background: #6B639C; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+                    <span style="color: #1b2129; font-weight: 500;">Journaling</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px;">
+                    <span style="width: 14px; height: 14px; border-radius: 5px; border: 1.5px solid #d5d9df; background: #fff; box-sizing: border-box; flex-shrink: 0;"></span>
+                    <span style="color: #8b929c; font-weight: 500;">Stretching</span>
+                  </div>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 10px; padding: 4px 14px 14px; border-left: 1px solid #f4f5f7;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="width: 26px; height: 26px; border-radius: 50%; background: rgba(145,96,127,.14); color: #91607F; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex-shrink: 0;">MP</span>
+                  <span style="font-size: 12.5px; font-weight: 600; color: #1b2129;">Maya</span>
+                </div>
+                <div style="position: relative; width: 92px; height: 92px; align-self: center;">
+                  <svg width="92" height="92" viewBox="0 0 92 92" style="transform: rotate(-90deg);">
+                    <circle cx="46" cy="46" r="40" fill="none" stroke="#f1f3f5" stroke-width="12"></circle>
+                    <circle cx="46" cy="46" r="40" fill="none" stroke="#91607F" stroke-width="12" stroke-dasharray="134.0 117.3" stroke-dashoffset="0"></circle>
+                    <circle cx="46" cy="46" r="40" fill="none" stroke="#4E7A5F" stroke-width="12" stroke-dasharray="70.4 180.9" stroke-dashoffset="-134.0"></circle>
+                    <circle cx="46" cy="46" r="40" fill="none" stroke="#B0703C" stroke-width="12" stroke-dasharray="46.9 204.4" stroke-dashoffset="-204.4"></circle>
+                  </svg>
+                  <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <span style="font-size: 15px; font-weight: 600; color: #12171d; line-height: 1; font-variant-numeric: tabular-nums;">7.5h</span>
+                    <span style="font-size: 7px; font-weight: 600; text-transform: uppercase; letter-spacing: .12em; color: #c3c8ce;">Tracked</span>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #91607F; flex-shrink: 0;"></span><span style="min-width: 0; flex: 1; color: #1b2129; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Thesis</span><span style="color: #8b929c; font-variant-numeric: tabular-nums;">4.0h</span></div>
+                  <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #4E7A5F; flex-shrink: 0;"></span><span style="min-width: 0; flex: 1; color: #1b2129; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Yoga</span><span style="color: #8b929c; font-variant-numeric: tabular-nums;">2.1h</span></div>
+                  <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #B0703C; flex-shrink: 0;"></span><span style="min-width: 0; flex: 1; color: #1b2129; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Piano</span><span style="color: #8b929c; font-variant-numeric: tabular-nums;">1.4h</span></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="height: 7px; border-radius: 999px; background: #f1f3f5; overflow: hidden;">
+                    <div style="height: 100%; border-radius: 999px; width: 94%; background: #91607F;"></div>
+                  </div>
+                  <span style="font-size: 10.5px; color: #266b4d; font-weight: 600;">of 8h goal · almost ✓</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 5px; border-top: 1px solid #f4f5f7; padding-top: 8px;">
+                  <span style="font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .12em; color: #9fa6b0;">Habits</span>
+                  <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px;">
+                    <span style="width: 14px; height: 14px; border-radius: 5px; background: #46808A; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+                    <span style="color: #1b2129; font-weight: 500;">Meditation</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px;">
+                    <span style="width: 14px; height: 14px; border-radius: 5px; background: #4A6FA5; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+                    <span style="color: #1b2129; font-weight: 500;">Drinking water</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- 3 · GOAL -->
+    <sc-if value="{{ isGoal }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 18px; padding: 18px 0 24px;">
+        <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0; animation: rise .45s cubic-bezier(.22,1,.36,1) both;">{{ eyebrow }}</span>
+        <h1 style="margin: 0; font-family: 'Newsreader', serif; font-weight: 500; font-size: 30px; line-height: 1.12; letter-spacing: -0.02em; color: #12171d; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .1s; position: relative; white-space: pre-line;"><span style="visibility: hidden;">Set your first goal.</span><span style="position: absolute; inset: 0;">{{ typedTitle }}<span style="display: {{ caretDisplay }}; width: 2.5px; height: 0.85em; background: #1c3a5e; margin-left: 3px; vertical-align: -0.06em; animation: caret-blink 1s step-end infinite; border-radius: 1px;"></span></span></h1>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #5d6672; text-wrap: pretty; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .25s;"><strong style="color: #12171d; font-weight: 700; background-image: linear-gradient(rgba(169,138,56,.28), rgba(169,138,56,.28)); background-repeat: no-repeat; background-size: 0% 100%; background-position: 0 55%; border-radius: 3px; padding: 1px 3px; margin: -1px -3px; box-decoration-break: clone; -webkit-box-decoration-break: clone; animation: hl-sweep .7s cubic-bezier(.22,1,.36,1) 1.2s both;">BUT, make sure it's something you can put hours in.</strong> Instead of saying <span style="color: #9c5148;">"get a 4.0 in math"</span>, say <strong style="color: #12171d; font-weight: 600;">"study math 6hr a week"</strong>.</p>
+        <div style="display: flex; flex-direction: column; gap: 18px; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .4s;">
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0;">Your goal</span>
+            <input placeholder="e.g. Study math" maxlength="120" value="{{ goalTitle }}" onChange="{{ setGoalTitle }}" style="width: 100%; border: none; border-bottom: 2px solid #eceef1; background: transparent; padding: 0 0 8px; font-family: 'Hanken Grotesk', sans-serif; font-size: 19px; font-weight: 500; letter-spacing: -0.01em; color: #12171d; outline: none; box-sizing: border-box;" style-focus="border-bottom-color: #1c3a5e;">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0;">Color</span>
+            <div style="display: flex; gap: 6px;">
+              <sc-for list="{{ swatches }}" as="c" hint-placeholder-count="9">
+                <button type="button" aria-label="{{ c.name }}" onClick="{{ c.pick }}" style="flex: 1; height: 38px; border: none; border-radius: 11px; background: {{ c.value }}; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: transform .15s; box-shadow: {{ c.shadow }};" style-active="transform: scale(.92);">
+                  <sc-if value="{{ c.selected }}" hint-placeholder-val="{{ false }}">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </sc-if>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0;">Hours per week</span>
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <button type="button" aria-label="Fewer hours" onClick="{{ decHours }}" style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1.5px solid #eceef1; background: none; color: #8b929c; cursor: pointer; padding: 0; transition: transform .15s; opacity: {{ decOpacity }};" style-active="transform: scale(.9);">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </button>
+              <span style="min-width: 74px; text-align: center; font-family: 'Newsreader', serif; font-weight: 500; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: #12171d; font-size: 30px; line-height: 1;">{{ hoursLabel }}</span>
+              <button type="button" aria-label="More hours" onClick="{{ incHours }}" style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1.5px solid #eceef1; background: none; color: #8b929c; cursor: pointer; padding: 0; transition: transform .15s; opacity: {{ incOpacity }};" style-active="transform: scale(.9);">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </button>
+            </div>
+          </div>
+          <div style="border: 1.5px solid #e6e9ed; border-radius: 16px; padding: 14px; display: flex; align-items: center; gap: 14px;">
+            <svg viewBox="0 0 96 96" width="84" height="84" aria-hidden="true" style="flex-shrink: 0;">
+              <circle cx="48" cy="48" r="38" fill="none" stroke="#f1f3f5" stroke-width="8"></circle>
+              <circle cx="48" cy="48" r="38" fill="none" stroke="{{ goalTint }}" stroke-width="8" stroke-linecap="round" stroke-dasharray="238.76" transform="rotate(-90 48 48)" style="animation: wheel-fill 1.1s cubic-bezier(.22,1,.36,1) .3s both; transition: stroke .3s;"></circle>
+            </svg>
+            <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+              <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0;">On your Progress tab</span>
+              <span style="font-size: 14px; font-weight: 600; color: #12171d; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ goalDisplay }}</span>
+              <span style="font-family: 'Newsreader', serif; font-weight: 500; letter-spacing: -0.03em; font-size: 20px; color: {{ goalTint }}; transition: color .3s;">{{ hoursLabel }}<span style="font-size: 12px; color: #8b929c; font-family: 'Hanken Grotesk', sans-serif; letter-spacing: 0;"> / week</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- 4 · HABITS -->
+    <sc-if value="{{ isHabit }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 18px; padding: 18px 0 24px;">
+        <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0; animation: rise .45s cubic-bezier(.22,1,.36,1) both;">{{ eyebrow }}</span>
+        <h1 style="margin: 0; font-family: 'Newsreader', serif; font-weight: 500; font-size: 30px; line-height: 1.12; letter-spacing: -0.02em; color: #12171d; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .1s; position: relative; white-space: pre-line;"><span style="visibility: hidden;">Add daily habits.</span><span style="position: absolute; inset: 0;">{{ typedTitle }}<span style="display: {{ caretDisplay }}; width: 2.5px; height: 0.85em; background: #1c3a5e; margin-left: 3px; vertical-align: -0.06em; animation: caret-blink 1s step-end infinite; border-radius: 1px;"></span></span></h1>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #5d6672; text-wrap: pretty; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .25s;">Small daily habits compound. They keep you moving on the days you can't put in hours, and your friends see your streak right next to your goals.</p>
+        <div style="display: flex; flex-direction: column; gap: 18px; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .4s;">
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0;">Pick a few</span>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <sc-for list="{{ presets }}" as="p" hint-placeholder-count="4">
+                <button type="button" aria-pressed="{{ p.on }}" onClick="{{ p.toggle }}" style="display: flex; min-width: 0; align-items: center; gap: 7px; border-radius: 12px; border: 1.5px solid {{ p.border }}; background: #fff; padding: 9px 10px; font-family: 'Hanken Grotesk', sans-serif; font-size: 12.5px; font-weight: 600; color: #1b2129; cursor: pointer; transition: transform .15s, border-color .15s;" style-active="transform: scale(.96);">
+                  <span style="width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px; border: 1.5px solid {{ p.boxBorder }}; background: {{ p.boxBg }}; transition: background .15s, border-color .15s;">
+                    <sc-if value="{{ p.on }}" hint-placeholder-val="{{ false }}">
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="animation: check-pop .25s ease both;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </sc-if>
+                  </span>
+                  <span style="min-width: 0; flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ p.name }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display: flex; align-items: flex-end; gap: 8px;">
+            <input placeholder="Or add your own…" value="{{ habitDraft }}" onChange="{{ setHabitDraft }}" onKeyDown="{{ habitKey }}" style="min-width: 0; flex: 1; border: none; border-bottom: 2px solid #eceef1; background: transparent; padding: 0 0 8px; font-family: 'Hanken Grotesk', sans-serif; font-size: 15px; font-weight: 500; color: #12171d; outline: none;" style-focus="border-bottom-color: #1c3a5e;">
+            <button type="button" onClick="{{ addOwn }}" style="height: 34px; flex-shrink: 0; border-radius: 11px; border: 1.5px solid #eceef1; background: none; padding: 0 12px; font-family: 'Hanken Grotesk', sans-serif; font-size: 12px; font-weight: 600; color: #1c3a5e; cursor: pointer;" style-hover="border-color: #1c3a5e;">+ Add</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- 5 · CLOCK -->
+    <sc-if value="{{ isClock }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 18px; padding: 18px 0 24px;">
+        <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0; animation: rise .45s cubic-bezier(.22,1,.36,1) both;">{{ eyebrow }}</span>
+        <h1 style="margin: 0; font-family: 'Newsreader', serif; font-weight: 500; font-size: 30px; line-height: 1.12; letter-spacing: -0.02em; color: #12171d; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .1s; position: relative; white-space: pre-line;"><span style="visibility: hidden;">Try clocking in.</span><span style="position: absolute; inset: 0;">{{ typedTitle }}<span style="display: {{ caretDisplay }}; width: 2.5px; height: 0.85em; background: #1c3a5e; margin-left: 3px; vertical-align: -0.06em; animation: caret-blink 1s step-end infinite; border-radius: 1px;"></span></span></h1>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #5d6672; text-wrap: pretty; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .25s;">Name the session, pick your goal, and go! This one's 25 minutes, but we will fast forward it.</p>
+        <div style="animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .4s;">
+          <div style="border: 1.5px solid #e6e9ed; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+            <sc-if value="{{ notRunning }}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; flex-direction: column; gap: 7px;">
+                <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0;">Name this session</span>
+                <input placeholder="What are you working on?" value="{{ practiceTask }}" onChange="{{ setPracticeTask }}" style="width: 100%; border: none; border-bottom: 2px solid #eceef1; background: transparent; padding: 0 0 8px; font-family: 'Hanken Grotesk', sans-serif; font-size: 19px; font-weight: 500; letter-spacing: -0.01em; color: #12171d; outline: none; box-sizing: border-box;" style-focus="border-bottom-color: #1c3a5e;">
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <span style="display: flex; min-width: 0; flex: 1; height: 38px; align-items: center; justify-content: center; gap: 7px; border-radius: 12px; border: 1.5px solid #e6e9ed; padding: 0 10px; font-size: 12.5px; font-weight: 600; color: #1b2129; box-sizing: border-box;">
+                  <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: {{ goalTint }}; flex-shrink: 0;"></span>
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ goalDisplay }}</span>
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#c3c8ce" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </span>
+                <span style="display: flex; height: 38px; flex-shrink: 0; align-items: center; gap: 7px; border-radius: 12px; border: 1.5px solid #e6e9ed; padding: 0 12px; font-size: 12.5px; font-weight: 600; color: #1b2129; box-sizing: border-box;">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#8b929c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  25m
+                </span>
+              </div>
+              <button type="button" onClick="{{ startPractice }}" style="height: 50px; width: 100%; border: none; border-radius: 14px; background: #1c3a5e; color: #fff; font-family: 'Hanken Grotesk', sans-serif; font-size: 15px; font-weight: 600; box-shadow: 0 10px 22px -10px rgba(28,58,94,.55); cursor: pointer; transition: transform .12s;" style-active="transform: scale(.98);">Clock in for 25m</button>
+            </sc-if>
+            <sc-if value="{{ running }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <span style="font-family: 'Newsreader', serif; font-weight: 500; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: #12171d; font-size: 52px; line-height: .95;">{{ simLabel }}</span>
+                <div style="display: flex; align-items: center; gap: 7px; padding-top: 8px;">
+                  <span aria-hidden="true" style="width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: {{ goalTint }}; animation: pulse-dot 1.6s infinite;"></span>
+                  <span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; color: #1b2129;">{{ sessionName }}</span>
+                  <span style="flex: 1;"></span>
+                  <span style="font-size: 12px; color: #9fa6b0; white-space: nowrap;">25m target</span>
+                </div>
+              </div>
+              <div style="height: 8px; border-radius: 999px; background: #f1f3f5; overflow: hidden;">
+                <div style="height: 100%; border-radius: 999px; background: {{ goalTint }}; width: {{ simPct }}%; transition: width .1s linear;"></div>
+              </div>
+              <span style="text-align: center; font-size: 12px; font-weight: 500; color: #8b929c;">{{ simNote }}</span>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- 6 · NOTIFY -->
+    <sc-if value="{{ isNotify }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 18px; padding: 18px 0 24px;">
+        <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0; animation: rise .45s cubic-bezier(.22,1,.36,1) both;">{{ eyebrow }}</span>
+        <h1 style="margin: 0; font-family: 'Newsreader', serif; font-weight: 500; font-size: 30px; line-height: 1.12; letter-spacing: -0.02em; color: #12171d; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .1s; position: relative; white-space: pre-line;"><span style="visibility: hidden;">Don't lose track of time.</span><span style="position: absolute; inset: 0;">{{ typedTitle }}<span style="display: {{ caretDisplay }}; width: 2.5px; height: 0.85em; background: #1c3a5e; margin-left: 3px; vertical-align: -0.06em; animation: caret-blink 1s step-end infinite; border-radius: 1px;"></span></span></h1>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #5d6672; text-wrap: pretty; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .25s;">We'll nudge you each hour you're still clocked in.</p>
+        <div style="border: 1.5px solid #e6e9ed; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .4s;">
+          <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#266b4d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 3px; flex-shrink: 0;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span style="font-size: 13.5px; line-height: 1.45; color: #1b2129;">A nudge each hour you're still clocked in</span>
+          </div>
+          <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#266b4d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 3px; flex-shrink: 0;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span style="font-size: 13.5px; line-height: 1.45; color: #1b2129;">An alert when a session hits its target</span>
+          </div>
+          <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#266b4d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 3px; flex-shrink: 0;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span style="font-size: 13.5px; line-height: 1.45; color: #1b2129;">Nothing else — no streaks, no marketing</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- 7 · POST -->
+    <sc-if value="{{ isPost }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 18px; padding: 18px 0 24px;">
+        <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0; animation: rise .45s cubic-bezier(.22,1,.36,1) both;">{{ eyebrow }}</span>
+        <h1 style="margin: 0; font-family: 'Newsreader', serif; font-weight: 500; font-size: 30px; line-height: 1.12; letter-spacing: -0.02em; color: #12171d; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .1s; position: relative; white-space: pre-line;"><span style="visibility: hidden;">Show your work.</span><span style="position: absolute; inset: 0;">{{ typedTitle }}<span style="display: {{ caretDisplay }}; width: 2.5px; height: 0.85em; background: #1c3a5e; margin-left: 3px; vertical-align: -0.06em; animation: caret-blink 1s step-end infinite; border-radius: 1px;"></span></span></h1>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #5d6672; text-wrap: pretty; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .25s;">Clock out, snap what you did, and post it to your friends. <strong style="color: #1b2129; font-weight: 600;">This one's practice, so don't worry - nothing gets posted.</strong></p>
+        <div style="animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .4s;">
+          <div style="border: 1.5px solid #e6e9ed; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="width: 34px; height: 34px; border-radius: 50%; background: rgba(28,58,94,.1); color: #1c3a5e; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0;">{{ initials }}</span>
+              <div style="display: flex; min-width: 0; flex: 1; flex-direction: column;">
+                <span style="font-size: 13px; font-weight: 600; color: #1b2129;">Your first session</span>
+                <span style="font-size: 11px; color: #9fa6b0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">25m · {{ goalDisplay }}</span>
+              </div>
+              <span aria-hidden="true" style="width: 9px; height: 9px; flex-shrink: 0; border-radius: 2px; background: {{ goalTint }};"></span>
+            </div>
+            <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">
+              <button type="button" onClick="{{ addPhoto }}" style="height: 76px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 12px; border: 1.5px dashed #d5d9df; background: #fafbfc; font-family: 'Hanken Grotesk', sans-serif; font-size: 12.5px; font-weight: 600; color: #8b929c; cursor: pointer;" style-hover="border-color: #1c3a5e;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg>
+                Add a photo
+              </button>
+            </sc-if>
+            <sc-if value="{{ photo }}" hint-placeholder-val="{{ false }}">
+              <div style="height: 76px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 12px; background: linear-gradient(135deg,#dfe5ec,#eef0f3); animation: check-pop .3s ease both;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#5d6672" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg>
+                <span style="font-size: 12px; font-weight: 600; color: #5d6672; white-space: nowrap;">desk-photo.jpg attached</span>
+              </div>
+            </sc-if>
+            <input placeholder="Say something about it…" value="{{ postText }}" onChange="{{ setPostText }}" style="width: 100%; border: none; border-bottom: 2px solid #eceef1; background: transparent; padding: 0 0 8px; font-family: 'Hanken Grotesk', sans-serif; font-size: 14px; color: #12171d; outline: none; box-sizing: border-box;" style-focus="border-bottom-color: #1c3a5e;">
+            <sc-if value="{{ notPosted }}" hint-placeholder-val="{{ true }}">
+              <button type="button" onClick="{{ doPost }}" style="height: 46px; width: 100%; border: none; border-radius: 13px; background: #1c3a5e; color: #fff; font-family: 'Hanken Grotesk', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; transition: transform .12s;" style-active="transform: scale(.98);">Post to feed</button>
+            </sc-if>
+            <sc-if value="{{ posted }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; align-items: center; gap: 8px; padding-top: 2px; animation: check-pop .3s ease both;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#266b4d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span style="font-size: 13px; font-weight: 600; color: #266b4d;">That's the whole flow. Nothing was posted.</span>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- 8 · FRIENDS -->
+    <sc-if value="{{ isFriends }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 18px; padding: 18px 0 24px;">
+        <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0; animation: rise .45s cubic-bezier(.22,1,.36,1) both;">{{ eyebrow }}</span>
+        <h1 style="margin: 0; font-family: 'Newsreader', serif; font-weight: 500; font-size: 30px; line-height: 1.12; letter-spacing: -0.02em; color: #12171d; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .1s; position: relative; white-space: pre-line;"><span style="visibility: hidden;">Hold your friends accountable.</span><span style="position: absolute; inset: 0;">{{ typedTitle }}<span style="display: {{ caretDisplay }}; width: 2.5px; height: 0.85em; background: #1c3a5e; margin-left: 3px; vertical-align: -0.06em; animation: caret-blink 1s step-end infinite; border-radius: 1px;"></span></span></h1>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #5d6672; text-wrap: pretty; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .25s;">Your friends hold you accountable, and you hold them accountable. When a friend is falling behind, send them a nudge. Try it below.</p>
+        <div style="display: flex; flex-direction: column; gap: 18px; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .4s;">
+          <div style="border: 1.5px solid #e6e9ed; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+            <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0;">Practice on a profile</span>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="width: 44px; height: 44px; border-radius: 50%; background: rgba(145,96,127,.14); color: #91607F; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; flex-shrink: 0;">MP</span>
+              <div style="display: flex; min-width: 0; flex: 1; flex-direction: column;">
+                <span style="font-size: 14.5px; font-weight: 600; color: #1b2129;">Maya</span>
+                <span style="font-size: 11.5px; color: #9fa6b0;">@maya</span>
+              </div>
+              <button type="button" onClick="{{ openNudge }}" style="height: 32px; flex-shrink: 0; border: none; border-radius: 999px; background: #1c3a5e; color: #fff; padding: 0 16px; font-family: 'Hanken Grotesk', sans-serif; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: transform .12s, opacity .2s; opacity: {{ nudgeBtnOpacity }};" style-active="transform: scale(.95);">{{ nudgeBtnLabel }}</button>
+              <button type="button" aria-label="Settings" style="width: 32px; height: 32px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 999px; border: 1.5px solid #eceef1; background: none; cursor: pointer; padding: 0;">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#8b929c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="min-width: 0; flex: 1; font-size: 11px; color: #9fa6b0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Thesis writing · 2.5h of 8h this week</span>
+                <span style="font-size: 9.5px; font-weight: 700; color: #9c5148; text-transform: uppercase; letter-spacing: .08em; white-space: nowrap;">Behind pace</span>
+              </div>
+              <div style="height: 7px; border-radius: 999px; background: #f1f3f5; overflow: hidden;">
+                <div style="height: 100%; border-radius: 999px; width: 31%; background: #91607F;"></div>
+              </div>
+            </div>
+            <sc-if value="{{ nudgePick }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; gap: 7px; animation: rise .3s cubic-bezier(.22,1,.36,1) both;">
+                <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #9fa6b0;">Pick a message</span>
+                <sc-for list="{{ nudgePresets }}" as="n" hint-placeholder-count="5">
+                  <button type="button" onClick="{{ n.send }}" style="width: 100%; border-radius: 12px; border: 1.5px solid #e6e9ed; background: #fff; padding: 10px 12px; font-family: 'Hanken Grotesk', sans-serif; font-size: 13px; font-weight: 600; color: #1b2129; text-align: left; cursor: pointer; transition: transform .12s, border-color .15s; box-sizing: border-box;" style-hover="border-color: #1c3a5e;" style-active="transform: scale(.98);">{{ n.text }}</button>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ nudgeSent }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; gap: 7px; animation: check-pop .3s ease both;">
+                <div style="align-self: flex-end; max-width: 85%; background: #1c3a5e; color: #fff; border-radius: 16px 16px 4px 16px; padding: 10px 14px; font-size: 13.5px; font-weight: 500; line-height: 1.4;">{{ nudgedMsg }}</div>
+                <div style="display: flex; align-items: center; gap: 6px; align-self: flex-end;">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#266b4d" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span style="font-size: 12px; font-weight: 600; color: #266b4d;">Nudge sent to Maya</span>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </main>
+
+  <sc-if value="{{ notDone }}" hint-placeholder-val="{{ true }}">
+    <div style="flex: none; display: flex; flex-direction: column; gap: 10px; padding: 14px 24px 24px; max-width: 420px; width: 100%; margin: 0 auto; box-sizing: border-box; position: relative; z-index: 2;">
+      <button type="button" onClick="{{ ctaClick }}" style="height: 52px; width: 100%; border: none; border-radius: 15px; background: #1c3a5e; color: #fff; font-family: 'Hanken Grotesk', sans-serif; font-size: 16px; font-weight: 600; box-shadow: 0 10px 22px -10px rgba(28,58,94,.55); cursor: pointer; transition: transform .12s, opacity .25s; opacity: {{ ctaOpacity }};" style-active="transform: scale(.98);">{{ ctaLabel }}</button>
+      <sc-if value="{{ skippable }}" hint-placeholder-val="{{ false }}">
+        <button type="button" onClick="{{ skipStep }}" style="align-self: center; background: none; border: none; padding: 2px; font-family: 'Hanken Grotesk', sans-serif; font-size: 12px; font-weight: 500; color: #8b929c; cursor: pointer;" style-hover="color: #1c3a5e;">{{ skipLabel }}</button>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <!-- DONE splash -->
+  <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; z-index: 5; padding: 24px;">
+      <h1 style="margin: 0; font-family: 'Newsreader', serif; font-weight: 500; font-size: 52px; line-height: 1.02; letter-spacing: -0.03em; color: #12171d; text-align: center;">
+        <span style="display: inline-block; animation: rise .45s cubic-bezier(.22,1,.36,1) both;">Ready.</span><br>
+        <span style="display: inline-block; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .45s;">Set.</span><br>
+        <span style="display: inline-block; color: #1c3a5e; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: .95s;">GO!</span>
+      </h1>
+      <div aria-hidden="true" style="display: flex; gap: 6px; align-items: flex-end; height: 30px; width: 200px; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: 1.4s;">
+        <span style="flex: 1; height: 100%; border-radius: 3px; background: #4A6FA5; transform-origin: bottom; animation: bar-pulse 5.4s ease-in-out infinite;"></span>
+        <span style="flex: 1; height: 100%; border-radius: 3px; background: #46808A; transform-origin: bottom; animation: bar-pulse 6.1s ease-in-out infinite; animation-delay: .7s;"></span>
+        <span style="flex: 1; height: 100%; border-radius: 3px; background: #4E7A5F; transform-origin: bottom; animation: bar-pulse 5.7s ease-in-out infinite; animation-delay: 1.4s;"></span>
+        <span style="flex: 1; height: 100%; border-radius: 3px; background: #A98A38; transform-origin: bottom; animation: bar-pulse 6.4s ease-in-out infinite; animation-delay: 2.1s;"></span>
+        <span style="flex: 1; height: 100%; border-radius: 3px; background: #6B639C; transform-origin: bottom; animation: bar-pulse 5.5s ease-in-out infinite; animation-delay: 2.8s;"></span>
+        <span style="flex: 1; height: 100%; border-radius: 3px; background: #B0703C; transform-origin: bottom; animation: bar-pulse 6.2s ease-in-out infinite; animation-delay: 3.5s;"></span>
+        <span style="flex: 1; height: 100%; border-radius: 3px; background: #91607F; transform-origin: bottom; animation: bar-pulse 5.9s ease-in-out infinite; animation-delay: 4.2s;"></span>
+      </div>
+      <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #5d6672; text-align: center; max-width: 300px; text-wrap: pretty; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: 1.7s;">{{ doneSummary }}</p>
+      <button type="button" onClick="{{ restart }}" style="background: none; border: none; padding: 4px; font-family: 'Hanken Grotesk', sans-serif; font-size: 12px; color: #8b929c; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; animation: rise .45s cubic-bezier(.22,1,.36,1) both; animation-delay: 2s;" style-hover="color: #1c3a5e;">Replay onboarding</button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 420, &quot;height&quot;: 820}, &quot;startStep&quot;: {&quot;editor&quot;: &quot;int&quot;, &quot;default&quot;: 0, &quot;min&quot;: 0, &quot;max&quot;: 7, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Review&quot;}}">
+class Component extends DCLogic {
+  state = {
+    stepIndex: null, done: false, typed: "", typing: false,
+    name: "", username: "",
+    goalTitle: "", hours: 5, goalColor: "#4A6FA5",
+    picked: [], habitDraft: "",
+    practiceTask: "", sim: 0, running: false, fast: false,
+    photo: false, postText: "", posted: false,
+    checked: {},
+    copied: false, shared: false, nudgeOpen: false, nudged: null,
+  };
+  STEPS = ["welcome", "how", "goal", "habit", "clock", "notify", "post", "friends"];
+  PALETTE = [
+    { name: "Brick", value: "#9C5148" }, { name: "Burnt orange", value: "#B0703C" },
+    { name: "Mustard", value: "#A98A38" }, { name: "Olive", value: "#7D8850" },
+    { name: "Forest", value: "#4E7A5F" }, { name: "Deep teal", value: "#46808A" },
+    { name: "Blue", value: "#4A6FA5" }, { name: "Indigo", value: "#6B639C" },
+    { name: "Plum", value: "#91607F" },
+  ];
+  PRESETS = [
+    { name: "Journaling", color: "#6B639C" }, { name: "Meditation", color: "#46808A" },
+    { name: "Stretching", color: "#4E7A5F" }, { name: "Drinking water", color: "#4A6FA5" },
+  ];
+  NUDGES = ["Lock in", "Still got time today!", "Your friends are counting on you", "You can do this!", "Slow progress is better than no progress"];
+  idx() { return this.state.stepIndex ?? (this.props.startStep ?? 0); }
+  go(i) {
+    const idx = Math.max(0, Math.min(this.STEPS.length - 1, i));
+    this.setState({ stepIndex: idx });
+    this.typeFor(this.STEPS[idx]);
+  }
+  componentDidMount() { this.typeFor(this.STEPS[this.idx()]); }
+  typeFor(step) {
+    const TITLES = { welcome: "Welcome to\nProgra.", how: "Most productivity apps are singleplayer, but Progra is multiplayer.", goal: "Set your first goal.", habit: "Add daily habits.", clock: "Try clocking in.", notify: "Don't lose track of time.", post: "Show your work.", friends: "Hold your friends accountable." };
+    const t = TITLES[step] || "";
+    if (this._ty) clearInterval(this._ty);
+    if (this._tyd) clearTimeout(this._tyd);
+    this.setState({ typed: "", typing: true });
+    let n = 0;
+    this._tyd = setTimeout(() => {
+      this._ty = setInterval(() => {
+        n++;
+        this.setState({ typed: t.slice(0, n) });
+        if (n >= t.length) { clearInterval(this._ty); this.setState({ typing: false }); }
+      }, 32);
+    }, 280);
+  }
+  componentWillUnmount() { if (this._t) clearInterval(this._t); if (this._ty) clearInterval(this._ty); if (this._tyd) clearTimeout(this._tyd); }
+  startPractice() {
+    if (this._t) clearInterval(this._t);
+    this.setState({ running: true, fast: false, sim: 0 });
+    const t0 = Date.now(), TARGET = 25 * 60000, REAL = 1500, TOTAL = 3300;
+    this._t = setInterval(() => {
+      const real = Date.now() - t0;
+      let v = real < REAL ? real : REAL + Math.min(1, (real - REAL) / 1800) ** 2 * (TARGET - REAL);
+      if (real >= REAL) this.setState({ fast: true });
+      if (real >= TOTAL || v >= TARGET) {
+        clearInterval(this._t);
+        const ni = Math.min(this.STEPS.length - 1, this.idx() + 1);
+        this.setState({ sim: TARGET, running: false, fast: false, stepIndex: ni });
+        this.typeFor(this.STEPS[ni]);
+      } else this.setState({ sim: v });
+    }, 100);
+  }
+  renderVals() {
+    const s = this.state, i = this.idx(), step = this.STEPS[i];
+    const usernameOk = /^[a-z0-9_]{3,}$/i.test(s.username.trim());
+    const goalDisplay = s.goalTitle.trim() || "your first goal";
+    const tiles = s.picked.length ? s.picked : this.PRESETS.slice(0, 2);
+    const checkedCount = tiles.filter((h) => s.checked[h.name]).length;
+    const nStep = i; // welcome not numbered
+    const practice = step === "clock" || step === "post";
+    const cta = {
+      welcome: { label: "Get started", dim: !usernameOk, go: () => usernameOk && this.go(1) },
+      how: { label: "Continue", go: () => this.go(i + 1) },
+      goal: { label: "Save goal", dim: !s.goalTitle.trim(), go: () => s.goalTitle.trim() && this.go(i + 1) },
+      habit: { label: s.picked.length > 1 ? "Save habits" : "Save habit", dim: !s.picked.length && !s.habitDraft.trim(), go: () => { this.addOwn(); (s.picked.length || s.habitDraft.trim()) && this.go(i + 1); } },
+      clock: { label: s.running ? "Clocking in…" : "Clock in above to continue", dim: true, go: () => {} },
+      notify: { label: "Enable notifications", go: () => this.go(i + 1) },
+      post: { label: s.posted ? "Continue" : "Post above to continue", dim: !s.posted, go: () => s.posted && this.go(i + 1) },
+      friends: { label: s.shared ? "Start my week" : "Share with friends", go: () => { if (s.shared) { this.setState({ done: true }); } else { const body = `I'm putting ${s.hours} hours into \u201C${goalDisplay}\u201D this week on Progra${s.picked.length ? `, plus ${s.picked.map((h) => h.name.toLowerCase()).join(", ")} every day` : ""}. Join me and hold me accountable.` + "\nhttps://progra.world/i/" + (s.username.trim() || "you"); if (navigator.share) navigator.share({ title: "Progra", text: body }).catch(() => {}); else { try { navigator.clipboard.writeText(body); } catch (e) {} } this.setState({ shared: true }); } } },
+    }[step];
+    const mins = Math.floor(s.sim / 60000), secs = Math.floor((s.sim % 60000) / 1000);
+    const habitPart = s.picked.length ? `, plus ${s.picked.map((h) => h.name.toLowerCase()).join(", ")} every day` : "";
+    const inviteMessage = `I'm putting ${s.hours} hours into \u201C${goalDisplay}\u201D this week on Progra${habitPart}. Join me and hold me accountable.`;
+    return {
+      notDone: !s.done, isDone: s.done,
+      typedTitle: s.typed,
+      caretDisplay: s.typing ? "inline-block" : "none",
+
+      canBack: i > 0, noBack: i === 0,
+      back: () => this.go(i - 1),
+      skipAll: () => this.setState({ done: true }),
+      dots: this.STEPS.map((st, k) => ({ w: k === i ? "18px" : "5px", bg: k === i ? "#1c3a5e" : k < i ? "#b7c4d3" : "#e6e9ed" })),
+      isWelcome: step === "welcome", isHow: step === "how", isGoal: step === "goal", isHabit: step === "habit",
+      isClock: step === "clock", isNotify: step === "notify", isPost: step === "post", isFriends: step === "friends",
+      eyebrow: `Step ${nStep} of ${this.STEPS.length - 1}${practice ? " · Practice" : ""}`,
+      name: s.name, setName: (e) => this.setState({ name: e.target.value }),
+      username: s.username, setUsername: (e) => this.setState({ username: e.target.value.replace(/\s/g, "") }),
+      usernameOk,
+      initials: (() => { const src = s.name.trim(); if (src) { const p = src.split(/\s+/); return (p.length > 1 ? p[0][0] + p[1][0] : src.slice(0, 2)).toUpperCase(); } return (s.username.slice(0, 2) || "?").toUpperCase(); })(),
+      goalTitle: s.goalTitle, setGoalTitle: (e) => this.setState({ goalTitle: e.target.value }),
+      goalDisplay, goalTint: s.goalColor,
+      swatches: this.PALETTE.map((c) => ({ ...c, selected: s.goalColor === c.value, shadow: s.goalColor === c.value ? `0 0 0 2px #fff, 0 0 0 4px ${c.value}` : "none", pick: () => this.setState({ goalColor: c.value }) })),
+      hours: s.hours, hoursLabel: `${s.hours}h`,
+      decHours: () => this.setState((st) => ({ hours: Math.max(1, st.hours - 1) })),
+      incHours: () => this.setState((st) => ({ hours: Math.min(40, st.hours + 1) })),
+      decOpacity: s.hours <= 1 ? 0.35 : 1, incOpacity: s.hours >= 40 ? 0.35 : 1,
+      presets: this.PRESETS.map((p) => { const on = s.picked.some((h) => h.name === p.name); return { name: p.name, on, border: on ? p.color : "#e6e9ed", boxBorder: on ? p.color : "#d5d9df", boxBg: on ? p.color : "#fff", toggle: () => this.setState((st) => ({ picked: st.picked.some((h) => h.name === p.name) ? st.picked.filter((h) => h.name !== p.name) : [...st.picked, p] })) }; }),
+      habitDraft: s.habitDraft, setHabitDraft: (e) => this.setState({ habitDraft: e.target.value }),
+      habitKey: (e) => { if (e.key === "Enter") { e.preventDefault(); this.addOwn(); } },
+      addOwn: () => this.addOwn(),
+      practiceTask: s.practiceTask, setPracticeTask: (e) => this.setState({ practiceTask: e.target.value }),
+      running: s.running, notRunning: !s.running,
+      simLabel: `${mins}:${String(secs).padStart(2, "0")}`,
+      simPct: Math.min(100, (s.sim / (25 * 60000)) * 100),
+      simNote: s.fast ? "Fast-forwarding — you get the idea." : "It's running. Sit back — we'll fast-forward this one.",
+      sessionName: s.practiceTask.trim() || goalDisplay,
+      startPractice: () => this.startPractice(),
+      photo: s.photo, noPhoto: !s.photo, addPhoto: () => this.setState({ photo: true }),
+      postText: s.postText, setPostText: (e) => this.setState({ postText: e.target.value }),
+      posted: s.posted, notPosted: !s.posted, doPost: () => this.setState({ posted: true }),
+      inviteMessage, handle: s.username.trim() || "you",
+      copyLabel: s.copied ? "Copied ✓" : "Copy message",
+      doCopy: () => { try { navigator.clipboard.writeText(inviteMessage + "\nhttps://progra.world/i/" + (s.username.trim() || "you")); } catch (e) {} this.setState({ copied: true }); clearTimeout(this._ct); this._ct = setTimeout(() => this.setState({ copied: false }), 1500); },
+      doShare: () => { const body = inviteMessage + "\nhttps://progra.world/i/" + (s.username.trim() || "you"); if (navigator.share) navigator.share({ title: "Progra", text: body }).catch(() => {}); else { try { navigator.clipboard.writeText(body); } catch (e) {} } },
+      nudgeBtnLabel: s.nudged ? "Nudged" : "Nudge",
+      nudgeBtnOpacity: s.nudged ? 0.5 : 1,
+      nudgePick: s.nudgeOpen && !s.nudged,
+      nudgeSent: !!s.nudged,
+      nudgedMsg: s.nudged || "",
+      openNudge: () => this.setState({ nudgeOpen: true }),
+      nudgePresets: this.NUDGES.map((m) => ({ text: m, send: () => this.setState({ nudged: m }) })),
+      skippable: step === "habit" || step === "notify" || step === "friends",
+      skipLabel: step === "friends" ? "Start my week without sharing" : "Skip for now",
+      skipStep: () => (step === "friends" ? this.setState({ done: true }) : this.go(i + 1)),
+      ctaLabel: cta.label, ctaClick: cta.go, ctaOpacity: cta.dim ? 0.4 : 1,
+      doneSummary: `Your week starts now: ${s.hours}h on \u201C${goalDisplay}\u201D${s.picked.length ? `, plus ${s.picked.map((h) => h.name.toLowerCase()).join(", ")} every day` : ""}. Your friends will see how it goes.`,
+      restart: () => { this.setState({ done: false, stepIndex: 0 }); this.typeFor("welcome"); },
+    };
+  }
+  addOwn() {
+    const name = this.state.habitDraft.trim();
+    if (!name) return;
+    if (this.state.picked.some((h) => h.name.toLowerCase() === name.toLowerCase())) { this.setState({ habitDraft: "" }); return; }
+    const color = this.PRESETS[this.state.picked.length % this.PRESETS.length].color;
+    this.setState((st) => ({ picked: [...st.picked, { name, color }], habitDraft: "" }));
+  }
+}
+</script>
+</body>
+</html>

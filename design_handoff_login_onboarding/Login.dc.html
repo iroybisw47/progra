@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400..700&family=Newsreader:opsz,wght@6..72,400..600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#ffffff;}
+a{color:#1c3a5e;} a:hover{color:#142c49;}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes pop-in{0%{opacity:0;transform:scale(.5)}70%{transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
+@keyframes sweep{to{transform:rotate(360deg)}}
+@keyframes bar-pulse{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@keyframes nudge-x{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+</style>
+</helmet>
+<div style="min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #ffffff; font-family: 'Hanken Grotesk', sans-serif; position: relative; overflow: hidden; padding: 48px 24px; box-sizing: border-box; color: #1b2129;">
+
+  <main style="position: relative; z-index: 1; width: 100%; max-width: 384px; display: flex; flex-direction: column; gap: 22px;">
+
+    <!-- Brand mark, hands drifting in slow time -->
+    <svg viewBox="0 0 100 100" width="58" height="58" role="img" aria-label="Progra" style="border-radius: 28%; box-shadow: 0 14px 30px -12px rgba(28,58,94,.55); animation: pop-in 0.55s cubic-bezier(.34,1.56,.64,1) both; align-self: flex-start;">
+      <rect x="0" y="0" width="100" height="100" rx="28" fill="#1c3a5e"></rect>
+      <circle cx="50" cy="50" r="22" fill="none" stroke="#fff" stroke-width="4.5"></circle>
+      <g stroke="#fff" stroke-width="4.5" stroke-linecap="round">
+        <line x1="50" y1="50" x2="50" y2="38" style="transform-box: view-box; transform-origin: 50px 50px; animation: sweep 96s linear infinite; rotate: 120deg;"></line>
+        <line x1="50" y1="50" x2="50" y2="30" style="transform-box: view-box; transform-origin: 50px 50px; animation: sweep 9s linear infinite;"></line>
+      </g>
+    </svg>
+
+    <h1 style="margin: 0; font-family: 'Newsreader', serif; font-weight: 500; font-size: 40px; line-height: 1.08; letter-spacing: -0.02em; color: #12171d; animation: rise 0.45s cubic-bezier(0.22,1,0.36,1) both; animation-delay: .1s;">Progra</h1>
+
+    <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #5d6672; text-wrap: pretty; animation: rise 0.45s cubic-bezier(0.22,1,0.36,1) both; animation-delay: .22s;">Log self improvement sessions, track your habits, and share your progress with friends.</p>
+
+    <!-- A week of sessions, breathing -->
+    <sc-if value="{{ weekPulse }}" hint-placeholder-val="{{ true }}">
+      <div aria-hidden="true" style="display: flex; gap: 6px; align-items: flex-end; height: 30px; animation: rise 0.45s cubic-bezier(0.22,1,0.36,1) both; animation-delay: .34s;">
+        <span style="flex: 1; height: 100%; border-radius: 3px; background: #4A6FA5; transform-origin: bottom; animation: bar-pulse 5.4s ease-in-out infinite; animation-delay: 0s;"></span>
+        <span style="flex: 1; height: 100%; border-radius: 3px; background: #46808A; transform-origin: bottom; animation: bar-pulse 6.1s ease-in-out infinite; animation-delay: .7s;"></span>
+        <span style="flex: 1; height: 100%; border-radius: 3px; background: #4E7A5F; transform-origin: bottom; animation: bar-pulse 5.7s ease-in-out infinite; animation-delay: 1.4s;"></span>
+        <span style="flex: 1; height: 100%; border-radius: 3px; background: #A98A38; transform-origin: bottom; animation: bar-pulse 6.4s ease-in-out infinite; animation-delay: 2.1s;"></span>
+        <span style="flex: 1; height: 100%; border-radius: 3px; background: #6B639C; transform-origin: bottom; animation: bar-pulse 5.5s ease-in-out infinite; animation-delay: 2.8s;"></span>
+        <span style="flex: 1; height: 100%; border-radius: 3px; background: #B0703C; transform-origin: bottom; animation: bar-pulse 6.2s ease-in-out infinite; animation-delay: 3.5s;"></span>
+        <span style="flex: 1; height: 100%; border-radius: 3px; background: #91607F; transform-origin: bottom; animation: bar-pulse 5.9s ease-in-out infinite; animation-delay: 4.2s;"></span>
+      </div>
+    </sc-if>
+
+    <!-- Terms consent -->
+    <div style="display: flex; align-items: flex-start; gap: 10px; animation-name: rise, {{ nudgeAnim }}; animation-duration: .45s, .4s; animation-timing-function: cubic-bezier(0.22,1,0.36,1), ease; animation-fill-mode: both, none; animation-delay: .46s, 0s;">
+      <button type="button" role="checkbox" aria-checked="{{ agreed }}" aria-label="Agree to the terms" onClick="{{ toggleAgreed }}" style="width: 16px; height: 16px; margin-top: 2px; flex-shrink: 0; border-radius: 4px; border: 1.5px solid {{ checkBorder }}; background: {{ checkBg }}; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; transition: background .15s, border-color .15s;">
+        <sc-if value="{{ agreed }}" hint-placeholder-val="{{ false }}">
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </sc-if>
+      </button>
+      <span style="font-size: 12px; line-height: 1.6; color: #8b929c; text-align: left;">I agree to the <a href="#" style="color: #1b2129; text-decoration: underline; text-underline-offset: 2px;">Terms of Service</a> and <a href="#" style="color: #1b2129; text-decoration: underline; text-underline-offset: 2px;">Privacy Policy</a>. Progra has no tolerance for objectionable content or abusive users.</span>
+    </div>
+
+    <!-- Sign-in buttons -->
+    <div style="display: flex; flex-direction: column; gap: 10px; animation: rise 0.45s cubic-bezier(0.22,1,0.36,1) both; animation-delay: .58s; opacity: 1;">
+      <button type="button" onClick="{{ onApple }}" style="height: 46px; width: 100%; border: none; border-radius: 14px; background: #000; color: #fff; font-family: 'Hanken Grotesk', sans-serif; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: {{ authCursor }}; opacity: {{ authOpacity }}; transition: transform .12s, opacity .2s;" style-active="transform: scale(.98);">
+        <svg viewBox="0 0 384 512" aria-hidden="true" width="15" height="15" fill="currentColor"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"></path></svg>
+        <span>{{ appleLabel }}</span>
+      </button>
+      <button type="button" onClick="{{ onGoogle }}" style="height: 46px; width: 100%; border: none; border-radius: 14px; background: #1c3a5e; color: #fff; font-family: 'Hanken Grotesk', sans-serif; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 22px -10px rgba(28,58,94,.55); cursor: {{ authCursor }}; opacity: {{ authOpacity }}; transition: transform .12s, opacity .2s;" style-active="transform: scale(.98);">{{ googleLabel }}</button>
+
+      <sc-if value="{{ emailClosed }}" hint-placeholder-val="{{ true }}">
+        <button type="button" onClick="{{ openEmail }}" style="align-self: center; background: none; border: none; padding: 4px; font-family: 'Hanken Grotesk', sans-serif; font-size: 12px; color: #8b929c; text-decoration: underline; text-underline-offset: 2px; cursor: {{ authCursor }}; opacity: {{ authOpacity }};" style-hover="color: #1b2129;">Sign in with email</button>
+      </sc-if>
+      <sc-if value="{{ emailOpen }}" hint-placeholder-val="{{ false }}">
+        <form onSubmit="{{ submitEmail }}" style="display: flex; flex-direction: column; gap: 10px; animation: rise 0.35s cubic-bezier(0.22,1,0.36,1) both;">
+          <input type="email" placeholder="Email" autocomplete="username" value="{{ email }}" onChange="{{ setEmail }}" style="height: 44px; border: 1.5px solid #e6e9ed; border-radius: 13px; padding: 0 14px; font-family: 'Hanken Grotesk', sans-serif; font-size: 15px; color: #12171d; outline: none; background: transparent; box-sizing: border-box; width: 100%;" style-focus="border-color: #1c3a5e;">
+          <input type="password" placeholder="Password" autocomplete="current-password" value="{{ password }}" onChange="{{ setPassword }}" style="height: 44px; border: 1.5px solid #e6e9ed; border-radius: 13px; padding: 0 14px; font-family: 'Hanken Grotesk', sans-serif; font-size: 15px; color: #12171d; outline: none; background: transparent; box-sizing: border-box; width: 100%;" style-focus="border-color: #1c3a5e;">
+          <button type="submit" style="height: 44px; width: 100%; border: 1.5px solid #e6e9ed; border-radius: 13px; background: #fff; color: #1b2129; font-family: 'Hanken Grotesk', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="border-color: #1c3a5e;" style-active="transform: scale(.98);">Sign in</button>
+        </form>
+      </sc-if>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 420, &quot;height&quot;: 780}, &quot;weekPulse&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Ambience&quot;}}">
+class Component extends DCLogic {
+  state = { agreed: false, emailOpen: false, loadingApple: false, loadingGoogle: false, email: "", password: "", nudge: false };
+  nudge() {
+    this.setState({ nudge: true });
+    clearTimeout(this._nt);
+    this._nt = setTimeout(() => this.setState({ nudge: false }), 450);
+  }
+  tryAuth(key) {
+    if (!this.state.agreed) return this.nudge();
+    this.setState({ [key]: true });
+    setTimeout(() => {
+      this.setState({ [key]: false });
+      if (this.props.onSignedIn) this.props.onSignedIn();
+    }, 1600);
+  }
+  renderVals() {
+    const agreed = this.state.agreed;
+    return {
+
+      weekPulse: this.props.weekPulse ?? true,
+      agreed,
+      toggleAgreed: () => this.setState((s) => ({ agreed: !s.agreed })),
+      checkBorder: agreed ? "#1c3a5e" : "#c3c8ce",
+      checkBg: agreed ? "#1c3a5e" : "#fff",
+      nudgeAnim: this.state.nudge ? "nudge-x" : "none",
+      authOpacity: agreed ? 1 : 0.45,
+      authCursor: agreed ? "pointer" : "not-allowed",
+      appleLabel: this.state.loadingApple ? "Signing in…" : "Sign in with Apple",
+      googleLabel: this.state.loadingGoogle ? "Redirecting…" : "Continue with Google",
+      onApple: () => this.tryAuth("loadingApple"),
+      onGoogle: () => this.tryAuth("loadingGoogle"),
+      emailOpen: this.state.emailOpen,
+      emailClosed: !this.state.emailOpen,
+      openEmail: () => (this.state.agreed ? this.setState({ emailOpen: true }) : this.nudge()),
+      email: this.state.email,
+      password: this.state.password,
+      setEmail: (e) => this.setState({ email: e.target.value }),
+      setPassword: (e) => this.setState({ password: e.target.value }),
+      submitEmail: (e) => { e.preventDefault(); if (this.state.agreed && this.props.onSignedIn) this.props.onSignedIn(); },
+    };
+  }
+}
+</script>
+</body>
+</html>

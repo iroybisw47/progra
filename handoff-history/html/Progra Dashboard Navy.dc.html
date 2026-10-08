@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap"><style>body{margin:0;background:#e9ebef;font-family:'Hanken Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}a{color:#1c3a5e}a:hover{color:#142c49}*{box-sizing:border-box}@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}@keyframes fade{from{opacity:0}to{opacity:1}}@keyframes pulseDot{0%,100%{opacity:1}50%{opacity:.2}}.noscroll::-webkit-scrollbar{display:none}</style></helmet>
+
+<div style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:40px 24px 64px">
+<div style="width:390px;height:844px;background:#fff;border-radius:44px;box-shadow:0 0 0 1px #d5d9df, 0 30px 60px -28px rgba(27,33,41,.4);overflow:hidden;position:relative;display:flex;flex-direction:column">
+
+<div style="flex:1;min-height:0;display:flex;flex-direction:column;padding:44px 20px 0">
+
+<div style="display:flex;align-items:center;justify-content:space-between;flex:none">
+<span style="font:600 11px 'Hanken Grotesk',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#9fa6b0;white-space:nowrap">{{ periodLabel }}</span>
+<div style="display:flex;gap:2px;background:#f1f3f5;border-radius:9999px;padding:3px">
+<button type="button" onClick="{{ showToday }}" style="border:0;border-radius:9999px;padding:5px 13px;font:600 11px 'Hanken Grotesk',sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;background:{{ todayChipBg }};color:{{ todayChipInk }};transition:background .18s,color .18s">Today</button>
+<button type="button" onClick="{{ showWeek }}" style="border:0;border-radius:9999px;padding:5px 13px;font:600 11px 'Hanken Grotesk',sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;background:{{ weekChipBg }};color:{{ weekChipInk }};transition:background .18s,color .18s">Week</button>
+<button type="button" onClick="{{ showHistory }}" style="border:0;border-radius:9999px;padding:5px 13px;font:600 11px 'Hanken Grotesk',sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;background:{{ histChipBg }};color:{{ histChipInk }};transition:background .18s,color .18s">History</button>
+</div>
+</div>
+
+<sc-if value="{{ notHistory }}" hint-placeholder-val="{{ true }}">
+<div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<button type="button" onClick="{{ openTime }}" style="flex:none;border:0;background:transparent;text-align:left;padding:14px 0 0;cursor:pointer;display:flex;flex-direction:column;gap:12px;transition:transform .12s" style-active="transform:scale(.99)">
+<div style="width:100%;display:flex;align-items:stretch;gap:16px">
+<span style="position:relative;width:128px;height:128px;flex:none">
+<svg width="128" height="128" viewBox="0 0 128 128" style="transform:rotate(-90deg)">
+<circle cx="64" cy="64" r="54" fill="none" stroke="#f1f3f5" stroke-width="15"></circle>
+<sc-for list="{{ arcs }}" as="a" hint-placeholder-count="4">
+<circle cx="64" cy="64" r="54" fill="none" stroke="{{ a.color }}" stroke-width="15" stroke-dasharray="{{ a.dash }}" stroke-dashoffset="{{ a.offset }}"></circle>
+</sc-for>
+</svg>
+<span style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">
+<span style="font:600 20px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#12171d">{{ sessionTally }}</span>
+<span style="font:600 8px 'Hanken Grotesk',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#b0b6bf">Sessions</span>
+</span>
+</span>
+<div style="min-width:0;flex:1;display:flex;flex-direction:column">
+<div style="display:flex;align-items:flex-end;gap:6px;padding-top:12px">
+<span style="font:600 36px/0.9 Newsreader,serif;letter-spacing:-.025em;font-variant-numeric:tabular-nums;color:#12171d">{{ bigNum }}</span>
+<span style="font:600 36px/0.9 Newsreader,serif;letter-spacing:-.025em;font-variant-numeric:tabular-nums;color:#12171d">{{ bigUnit }}</span>
+<span style="flex:1"></span>
+<sc-if value="{{ isRunning }}" hint-placeholder-val="{{ false }}">
+<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(28,58,94,.08);color:#1c3a5e;border-radius:9999px;padding:3px 8px;font:600 11px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;margin-bottom:3px;white-space:nowrap"><span style="width:5px;height:5px;border-radius:9999px;background:#1c3a5e;animation:pulseDot 1.6s infinite"></span>{{ elapsedLabel }}</span>
+</sc-if>
+</div>
+<span style="flex:1;min-height:8px"></span>
+<div style="display:flex;flex-direction:column;padding-left:10px">
+<sc-for list="{{ heroCats }}" as="c" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:8px">
+<span style="width:8px;height:8px;border-radius:2px;background:{{ c.color }};flex:none"></span>
+<span style="flex:1;min-width:0;font:400 12px/1.62 'Hanken Grotesk',sans-serif;color:#1b2129;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.name }}</span>
+<span style="font:600 12px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#12171d;white-space:nowrap">{{ c.hours }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</button>
+
+<div style="height:1px;background:#eceef1;margin:16px 0 0;flex:none"></div>
+
+<div style="flex:none;display:flex;flex-direction:column;padding-top:12px">
+<button type="button" onClick="{{ openSessions }}" style="flex:none;border:0;background:transparent;padding:0 0 8px;display:flex;align-items:center;gap:7px;cursor:pointer;width:100%">
+<span style="font:600 10px 'Hanken Grotesk',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#9fa6b0">Sessions</span>
+<span style="flex:1"></span>
+<span style="font:600 10px 'Hanken Grotesk',sans-serif;letter-spacing:.06em;color:#8b929c">{{ sessionCount }}</span>
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c3c8ce" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+</button>
+<sc-if value="{{ isToday }}" hint-placeholder-val="{{ true }}">
+<div style="flex:none;display:flex;flex-direction:column">
+<sc-for list="{{ topSessions }}" as="s" hint-placeholder-count="3">
+<button type="button" data-id="{{ s.id }}" onClick="{{ openSession }}" style="flex:none;border:0;border-top:1px solid #f4f5f7;background:#fff;display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer;text-align:left;transition:transform .12s" style-active="transform:scale(.99)">
+<span style="width:3px;height:20px;border-radius:2px;background:{{ s.color }};flex:none"></span>
+<div style="min-width:0;flex:1;display:flex;flex-direction:column">
+<span style="font:600 13px/1.25 'Hanken Grotesk',sans-serif;color:#1b2129;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.title }}</span>
+<span style="font:400 11px/1.3 'Hanken Grotesk',sans-serif;color:#9fa6b0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.meta }}</span>
+</div>
+<span style="font:600 13px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#333a44;white-space:nowrap">{{ s.dur }}</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ isWeek }}" hint-placeholder-val="{{ false }}">
+<div style="flex:none;display:flex;flex-direction:column">
+<div style="display:flex;gap:4px;padding-bottom:4px">
+<sc-for list="{{ days }}" as="d" hint-placeholder-count="7">
+<button type="button" data-id="{{ d.i }}" onClick="{{ pickDay }}" style="flex:1;border:1.5px solid {{ d.border }};background:{{ d.bg }};box-shadow:{{ d.shadow }};border-radius:10px;padding:4px 0 3px;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:background .16s,border-color .16s,transform .12s" style-hover="border-color:#1c3a5e" style-active="transform:scale(.92)">
+<span style="font:600 9px 'Hanken Grotesk',sans-serif;color:{{ d.labelInk }}">{{ d.label }}</span>
+<span style="font:600 10px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:{{ d.valInk }}">{{ d.val }}</span>
+</button>
+</sc-for>
+</div>
+<sc-for list="{{ daySessions }}" as="s" hint-placeholder-count="2">
+<button type="button" data-id="{{ s.id }}" onClick="{{ openSession }}" style="flex:none;border:0;border-top:1px solid #f4f5f7;background:#fff;display:flex;align-items:center;gap:10px;padding:6px 0;cursor:pointer;text-align:left;transition:transform .12s" style-active="transform:scale(.99)">
+<span style="width:3px;height:20px;border-radius:2px;background:{{ s.color }};flex:none"></span>
+<div style="min-width:0;flex:1;display:flex;flex-direction:column">
+<span style="font:600 13px/1.25 'Hanken Grotesk',sans-serif;color:#1b2129;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.title }}</span>
+<span style="font:400 11px/1.3 'Hanken Grotesk',sans-serif;color:#9fa6b0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.meta }}</span>
+</div>
+<span style="font:600 13px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#333a44;white-space:nowrap">{{ s.dur }}</span>
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#c3c8ce" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+</button>
+</sc-for>
+<button type="button" data-id="new" onClick="{{ openSession }}" style="flex:none;border:0;border-top:1px solid #f4f5f7;background:#fff;display:flex;align-items:center;gap:10px;padding:6px 0 0;cursor:pointer;text-align:left">
+<span style="width:3px;height:16px;border-left:1.5px dashed #d5d9df;flex:none"></span>
+<span style="font:500 12px 'Hanken Grotesk',sans-serif;color:#8b929c">+ Add a session to {{ dayName }}</span>
+</button>
+</div>
+</sc-if>
+</div>
+
+<div style="flex:1 1 0;min-height:9px"></div>
+<div style="height:1px;background:#eceef1;flex:none"></div>
+
+<div style="flex:none;padding:11px 0 0">
+<button type="button" onClick="{{ openHabits }}" style="border:0;background:transparent;padding:0 0 10px;display:flex;align-items:center;gap:7px;cursor:pointer;width:100%">
+<span style="font:600 10px 'Hanken Grotesk',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#9fa6b0">Habits</span>
+<span style="flex:1"></span>
+<span style="font:600 10px 'Hanken Grotesk',sans-serif;letter-spacing:.06em;color:#8b929c">{{ habitScore }}</span>
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c3c8ce" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+</button>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 9px">
+<sc-for list="{{ habits }}" as="h" hint-placeholder-count="8">
+<button type="button" data-id="{{ h.id }}" onClick="{{ tapHabit }}" onPointerDown="{{ holdHabit }}" onPointerUp="{{ release }}" onPointerLeave="{{ release }}" style="min-width:0;border:1.5px solid {{ h.border }};background:{{ h.bg }};border-radius:12px;padding:5px 9px 5px 7px;display:flex;align-items:center;gap:7px;cursor:pointer;text-align:left;transition:background .18s,border-color .18s,transform .12s" style-active="transform:scale(.96)">
+<span style="width:20px;height:20px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;border:1.5px solid {{ h.markBorder }};background:{{ h.markBg }};color:{{ h.markInk }}">{{ h.mark }}</span>
+<span style="flex:1;min-width:0;font:500 12px 'Hanken Grotesk',sans-serif;color:{{ h.ink }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ h.name }}</span>
+</button>
+</sc-for>
+</div>
+</div>
+
+<div style="flex:1 1 0;min-height:9px"></div>
+<div style="height:1px;background:#eceef1;flex:none"></div>
+
+<div style="flex:none;padding:11px 0 0">
+<button type="button" onClick="{{ openGoals }}" style="border:0;background:transparent;padding:0 0 9px;display:flex;align-items:center;gap:7px;cursor:pointer;width:100%">
+<span style="font:600 10px 'Hanken Grotesk',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#9fa6b0">Goals</span>
+<span style="flex:1"></span>
+<span style="font:600 10px 'Hanken Grotesk',sans-serif;letter-spacing:.06em;color:#8b929c">{{ goalScore }}</span>
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c3c8ce" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+</button>
+<div style="display:flex;flex-direction:column;gap:7px">
+<sc-for list="{{ goals }}" as="g" hint-placeholder-count="2">
+<button type="button" data-id="{{ g.id }}" onClick="{{ openGoal }}" style="border:0;background:transparent;padding:0;display:flex;flex-direction:column;gap:4px;cursor:pointer;text-align:left;transition:transform .12s" style-active="transform:scale(.99)">
+<div style="display:flex;align-items:baseline;gap:8px">
+<span style="flex:1;font:600 13px 'Hanken Grotesk',sans-serif;color:#1b2129">{{ g.title }}</span>
+<span style="font:600 13px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#12171d">{{ g.actual }}</span>
+<span style="font:400 12px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#8b929c">{{ g.quota }}</span>
+</div>
+<div style="width:100%;height:5px;border-radius:9999px;background:#f1f3f5;overflow:hidden">
+<div style="height:100%;border-radius:9999px;width:{{ g.pct }};background:{{ g.color }};transform-origin:left;animation:grow .8s cubic-bezier(.22,1,.36,1) both"></div>
+</div>
+</button>
+</sc-for>
+</div>
+</div>
+
+<div style="flex:1 1 0;min-height:10px"></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+<div class="noscroll" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column">
+
+<div style="flex:none;padding:14px 0 0;display:flex;align-items:center">
+<div style="display:flex;gap:2px;background:#f1f3f5;border-radius:9999px;padding:3px">
+<button type="button" onClick="{{ scopeYear }}" style="border:0;border-radius:9999px;padding:4px 12px;font:600 11px 'Hanken Grotesk',sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;background:{{ scopeYearBg }};color:{{ scopeYearInk }};transition:background .18s,color .18s">Year</button>
+<button type="button" onClick="{{ scopeMonth }}" style="border:0;border-radius:9999px;padding:4px 12px;font:600 11px 'Hanken Grotesk',sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;background:{{ scopeMonthBg }};color:{{ scopeMonthInk }};transition:background .18s,color .18s">Month</button>
+</div>
+<span style="flex:1"></span>
+<sc-if value="{{ isMonthScope }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:2px">
+<button type="button" onClick="{{ prevMonth }}" aria-label="Previous month" style="width:26px;height:26px;border:1.5px solid #eceef1;border-radius:9px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:{{ prevInk }};transition:transform .12s" style-active="transform:scale(.9)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg></button>
+<span style="min-width:78px;text-align:center;font:600 13px 'Hanken Grotesk',sans-serif;color:#12171d">{{ monthName }}</span>
+<button type="button" onClick="{{ nextMonth }}" aria-label="Next month" style="width:26px;height:26px;border:1.5px solid #eceef1;border-radius:9px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:{{ nextInk }};transition:transform .12s" style-active="transform:scale(.9)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg></button>
+</div>
+</sc-if>
+</div>
+
+<div style="flex:none;padding:16px 0 0">
+<div style="font:600 34px/1 Newsreader,serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:#12171d">{{ histTitle }}</div>
+<div style="display:flex;align-items:baseline;gap:8px;padding:8px 0 0">
+<span style="font:600 19px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#12171d">{{ histTotal }}h</span>
+<span style="font:400 12px 'Hanken Grotesk',sans-serif;color:#9fa6b0">{{ histSessions }}</span>
+</div>
+</div>
+
+<div style="flex:none;display:flex;flex-direction:column;padding:14px 0 0">
+<div style="padding-bottom:4px"><span style="font:600 10px 'Hanken Grotesk',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#9fa6b0">Time</span></div>
+<sc-for list="{{ timeRows }}" as="r" hint-placeholder-count="8">
+<div style="display:flex;align-items:center;gap:8px;padding:5px 0">
+<span style="width:8px;height:8px;border-radius:{{ r.rad }};background:{{ r.color }};flex:none"></span>
+<span style="min-width:0;font:400 12.5px 'Hanken Grotesk',sans-serif;color:#1b2129;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:#9fa6b0">{{ r.kind }}</span> {{ r.name }}</span>
+<span style="flex:1"></span>
+<span style="display:block;width:96px;height:4px;border-radius:9999px;background:#f1f3f5;overflow:hidden;flex:none"><span style="display:block;height:100%;width:{{ r.pct }};background:{{ r.color }}"></span></span>
+<span style="width:44px;text-align:right;font:600 12px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#12171d">{{ r.hours }}</span>
+<span style="width:30px;text-align:right;font:400 11px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#8b929c">{{ r.pctLabel }}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="height:1px;background:#eceef1;flex:none;margin:14px 0 0"></div>
+
+<div style="flex:none;padding:12px 0 0">
+<div style="display:flex;align-items:center;gap:7px;padding-bottom:6px">
+<span style="font:600 10px 'Hanken Grotesk',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#9fa6b0">Goal completion</span>
+<span style="flex:1"></span>
+<span style="font:600 10px 'Hanken Grotesk',sans-serif;letter-spacing:.06em;color:#8b929c">{{ goalRate }} of quotas met</span>
+</div>
+<sc-for list="{{ goalHist }}" as="g" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:8px;padding:5px 0">
+<span style="width:8px;height:8px;border-radius:9999px;background:{{ g.color }};flex:none"></span>
+<span style="min-width:0;font:400 12.5px 'Hanken Grotesk',sans-serif;color:#1b2129;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ g.title }}</span>
+<span style="flex:1"></span>
+<span style="display:block;width:96px;height:4px;border-radius:9999px;background:#f1f3f5;overflow:hidden;flex:none"><span style="display:block;height:100%;width:{{ g.pct }};background:{{ g.color }}"></span></span>
+<span style="width:44px;text-align:right;font:400 11px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#8b929c">{{ g.weeks }}</span>
+<span style="width:30px;text-align:right;font:600 12px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#12171d">{{ g.pctLabel }}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="height:1px;background:#eceef1;flex:none;margin:6px 0 0"></div>
+
+<div style="flex:none;padding:12px 0 20px">
+<div style="display:flex;align-items:center;gap:7px;padding-bottom:6px">
+<span style="font:600 10px 'Hanken Grotesk',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#9fa6b0">Habit completion</span>
+<span style="flex:1"></span>
+<span style="font:600 10px 'Hanken Grotesk',sans-serif;letter-spacing:.06em;color:#8b929c">{{ habitRateLine }}</span>
+</div>
+<sc-if value="{{ notMonthScope }}" hint-placeholder-val="{{ true }}">
+<sc-for list="{{ habitHist }}" as="h" hint-placeholder-count="8">
+<div style="display:flex;align-items:center;gap:8px;padding:5px 0">
+<span style="width:8px;height:8px;border-radius:9999px;background:{{ h.color }};flex:none"></span>
+<span style="min-width:0;font:400 12.5px 'Hanken Grotesk',sans-serif;color:#1b2129;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ h.name }}</span>
+<span style="flex:1"></span>
+<span style="display:block;width:96px;height:4px;border-radius:9999px;background:#f1f3f5;overflow:hidden;flex:none"><span style="display:block;height:100%;width:{{ h.pct }};background:{{ h.color }}"></span></span>
+<span style="width:30px;text-align:right;font:600 12px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#12171d">{{ h.pctLabel }}</span>
+</div>
+</sc-for>
+</sc-if>
+<sc-if value="{{ isMonthScope }}" hint-placeholder-val="{{ false }}">
+<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:4px 0 0">
+<sc-for list="{{ calHead }}" as="w" hint-placeholder-count="7">
+<span style="text-align:center;font:600 9px 'Hanken Grotesk',sans-serif;letter-spacing:.08em;color:#c3c8ce">{{ w }}</span>
+</sc-for>
+<sc-for list="{{ calDays }}" as="d" hint-placeholder-count="35">
+<span style="height:30px;border-radius:8px;background:{{ d.bg }};border:1px solid {{ d.border }};display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:{{ d.ink }}">{{ d.n }}</span>
+</sc-for>
+</div>
+<div style="padding-top:8px;font:400 11px 'Hanken Grotesk',sans-serif;color:#9fa6b0">Habits completed each day, of {{ habitCount }}</div>
+</sc-if>
+</div>
+
+</div>
+</sc-if>
+
+</div>
+
+<sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;z-index:20">
+<div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(18,23,29,.34);animation:fade .18s ease-out both"></div>
+<div style="position:absolute;left:0;right:0;bottom:80px;max-height:80%;min-height:{{ sheetMinH }};overflow-y:auto;background:#fff;border-radius:26px;box-shadow:0 -12px 32px -18px rgba(18,23,29,.35);margin:0 8px;padding:0 20px 20px;display:flex;flex-direction:column;animation:rise .24s cubic-bezier(.22,1,.36,1) both">
+<div onPointerDown="{{ dragSheet }}" style="flex:none;padding:10px 0 12px;cursor:grab;touch-action:none">
+<div style="width:38px;height:4px;border-radius:9999px;background:#e3e6ea;margin:0 auto"></div>
+</div>
+<div style="display:flex;align-items:baseline;gap:10px;padding-bottom:14px">
+<span style="font:500 21px Newsreader,serif;letter-spacing:-.01em;color:#12171d">{{ sheetTitle }}</span>
+<span style="flex:1"></span>
+<span style="font:400 12px 'Hanken Grotesk',sans-serif;color:#9fa6b0;white-space:nowrap">{{ sheetMeta }}</span>
+</div>
+
+<sc-if value="{{ sheetIsTime }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column">
+<sc-for list="{{ cats }}" as="c" hint-placeholder-count="4">
+<div style="display:flex;flex-direction:column;gap:6px;padding:11px 0;border-top:1px solid #f4f5f7">
+<div style="display:flex;align-items:center;gap:9px">
+<span style="width:9px;height:9px;border-radius:2px;background:{{ c.color }};flex:none"></span>
+<span style="flex:1;font:400 14px 'Hanken Grotesk',sans-serif;color:#1b2129">{{ c.name }}</span>
+<span style="font:600 13px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#12171d">{{ c.hours }}</span>
+<span style="width:36px;text-align:right;font:400 12px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#8b929c">{{ c.pctLabel }}</span>
+</div>
+<div style="height:5px;border-radius:9999px;background:#f1f3f5;overflow:hidden"><div style="height:100%;width:{{ c.pct }};background:{{ c.color }}"></div></div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ sheetIsSessions }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column">
+<sc-for list="{{ sessions }}" as="s" hint-placeholder-count="5">
+<button type="button" data-id="{{ s.id }}" onClick="{{ openSession }}" style="border:0;border-top:1px solid #f4f5f7;background:#fff;display:flex;align-items:center;gap:11px;padding:12px 0;cursor:pointer;text-align:left">
+<span style="width:3px;height:28px;border-radius:2px;background:{{ s.color }};flex:none"></span>
+<div style="min-width:0;flex:1;display:flex;flex-direction:column;gap:2px">
+<span style="font:600 14px 'Hanken Grotesk',sans-serif;color:#1b2129">{{ s.title }}</span>
+<span style="font:400 12px 'Hanken Grotesk',sans-serif;color:#9fa6b0">{{ s.meta }}</span>
+</div>
+<span style="font:600 13px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#333a44">{{ s.dur }}</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ sheetIsSession }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:20px">
+<input value="{{ draftTitle }}" onInput="{{ setDraftTitle }}" placeholder="What was it?" style="width:100%;border:0;border-bottom:2px solid #eceef1;padding:2px 0 9px;font:500 19px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#12171d;outline:none" />
+<div style="display:flex;flex-direction:column;gap:9px">
+<span style="font:600 10px 'Hanken Grotesk',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#9fa6b0">Category</span>
+<div style="display:flex;flex-wrap:wrap;gap:7px">
+<sc-for list="{{ draftPickables }}" as="p" hint-placeholder-count="4">
+<button type="button" data-id="{{ p.id }}" onClick="{{ pickDraftCat }}" style="display:flex;align-items:center;gap:6px;border-radius:9999px;padding:6px 11px;cursor:pointer;font:600 12px 'Hanken Grotesk',sans-serif;border:1.5px solid {{ p.border }};background:{{ p.bg }};color:{{ p.ink }};transition:transform .12s" style-active="transform:scale(.95)">
+<span style="width:7px;height:7px;border-radius:2px;background:{{ p.dot }}"></span>{{ p.name }}
+</button>
+</sc-for>
+</div>
+</div>
+<div style="display:flex;gap:12px">
+<div style="flex:1;display:flex;flex-direction:column;gap:7px">
+<span style="font:600 10px 'Hanken Grotesk',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#9fa6b0">Start</span>
+<input value="{{ draftStart }}" onInput="{{ setDraftStart }}" placeholder="9:20" style="width:100%;border:0;border-bottom:2px solid #eceef1;padding:2px 0 8px;font:600 16px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#12171d;outline:none" />
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:7px">
+<span style="font:600 10px 'Hanken Grotesk',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#9fa6b0">Duration</span>
+<div style="display:flex;align-items:center;gap:8px">
+<button type="button" data-id="-15" onClick="{{ nudgeDur }}" style="width:30px;height:30px;border:1.5px solid #eceef1;border-radius:10px;background:#fff;cursor:pointer;font:600 15px 'Hanken Grotesk',sans-serif;color:#5d6672;line-height:1" style-active="transform:scale(.9)">−</button>
+<span style="flex:1;text-align:center;font:600 16px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#12171d;white-space:nowrap">{{ draftDur }}</span>
+<button type="button" data-id="15" onClick="{{ nudgeDur }}" style="width:30px;height:30px;border:1.5px solid #eceef1;border-radius:10px;background:#fff;cursor:pointer;font:600 15px 'Hanken Grotesk',sans-serif;color:#5d6672;line-height:1" style-active="transform:scale(.9)">+</button>
+</div>
+</div>
+</div>
+<div style="display:flex;gap:10px">
+<sc-if value="{{ draftIsExisting }}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{ deleteSession }}" style="height:48px;padding:0 16px;border:1.5px solid #f0e3e0;border-radius:15px;background:#fff;font:600 14px 'Hanken Grotesk',sans-serif;color:#a85842;cursor:pointer">Delete</button>
+</sc-if>
+<button type="button" onClick="{{ saveDraftSession }}" style="flex:1;height:48px;border:0;border-radius:15px;background:#1c3a5e;color:#fff;font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;transition:transform .12s" style-active="transform:scale(.98)">Save session</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sheetIsHabits }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:4px;padding-bottom:7px">
+<span style="flex:1"></span>
+<sc-for list="{{ dayLetters }}" as="d" hint-placeholder-count="7">
+<span style="width:26px;text-align:center;font:600 9px 'Hanken Grotesk',sans-serif;letter-spacing:.06em;color:{{ d.ink }}">{{ d.letter }}</span>
+</sc-for>
+<span style="width:26px"></span>
+</div>
+<sc-for list="{{ habits }}" as="h" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:4px;padding:6px 0;border-top:1px solid #f4f5f7">
+<div style="flex:1;min-width:0;display:flex;align-items:center;gap:6px;padding-right:4px">
+<span style="width:8px;height:8px;border-radius:2px;background:{{ h.color }};flex:none"></span>
+<span style="min-width:0;font:400 13px 'Hanken Grotesk',sans-serif;color:#1b2129;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ h.name }}</span>
+</div>
+<sc-for list="{{ h.week }}" as="c" hint-placeholder-count="7">
+<button type="button" data-key="{{ c.key }}" onClick="{{ toggleCell }}" style="width:26px;height:26px;border-radius:8px;cursor:pointer;border:1.5px solid {{ c.border }};background:{{ c.bg }};color:#fff;display:flex;align-items:center;justify-content:center;opacity:{{ c.opacity }};transition:background .16s,border-color .16s,transform .12s;flex:none" style-active="transform:scale(.9)">{{ c.mark }}</button>
+</sc-for>
+<button type="button" data-id="{{ h.id }}" onClick="{{ editHabit }}" aria-label="Edit habit" style="width:26px;height:26px;border:0;border-radius:8px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#b0b6bf;flex:none;margin-left:2px;transition:color .16s" style-hover="color:#1c3a5e"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
+</div>
+</sc-for>
+<div style="padding:8px 0 0;font:400 11px 'Hanken Grotesk',sans-serif;color:#c3c8ce">Tap a day to check it off · ✎ edits the habit.</div>
+<button type="button" data-id="new" onClick="{{ editHabit }}" style="width:100%;height:46px;margin-top:12px;border:0;border-radius:15px;background:#1c3a5e;color:#fff;font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;transition:transform .12s" style-active="transform:scale(.98)">+ Add a habit</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ sheetIsHabitEdit }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:20px">
+<input value="{{ hDraftName }}" onInput="{{ setHDraftName }}" placeholder="Habit name" style="width:100%;border:0;border-bottom:2px solid #eceef1;padding:2px 0 9px;font:500 19px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#12171d;outline:none" />
+<div style="display:flex;gap:8px">
+<sc-for list="{{ hPalette }}" as="p" hint-placeholder-count="8">
+<button type="button" data-id="{{ p.value }}" onClick="{{ setHDraftColor }}" style="flex:1;height:38px;border:0;border-radius:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;background:{{ p.bg }};box-shadow:{{ p.ring }};transition:transform .14s,box-shadow .14s" style-active="transform:scale(.92)">{{ p.mark }}</button>
+</sc-for>
+</div>
+<div style="display:flex;gap:10px">
+<sc-if value="{{ hDraftIsExisting }}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{ deleteHDraft }}" style="height:48px;padding:0 16px;border:1.5px solid #f0e3e0;border-radius:15px;background:#fff;font:600 14px 'Hanken Grotesk',sans-serif;color:#a85842;cursor:pointer">Delete</button>
+</sc-if>
+<button type="button" onClick="{{ saveHDraft }}" style="flex:1;height:48px;border:0;border-radius:15px;background:#1c3a5e;color:#fff;font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;transition:transform .12s" style-active="transform:scale(.98)">Save habit</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sheetIsGoalEdit }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:20px">
+<input value="{{ gDraftName }}" onInput="{{ setGDraftName }}" placeholder="Goal name" style="width:100%;border:0;border-bottom:2px solid #eceef1;padding:2px 0 9px;font:500 19px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#12171d;outline:none" />
+<div style="display:flex;flex-direction:column;gap:7px">
+<span style="font:600 10px 'Hanken Grotesk',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#9fa6b0">Weekly quota</span>
+<div style="display:flex;align-items:center;justify-content:center;gap:18px;height:44px;border:1.5px solid #e6e9ed;border-radius:13px">
+<button type="button" data-id="-1" onClick="{{ nudgeQuota }}" style="width:30px;height:30px;border:1.5px solid #eceef1;border-radius:10px;background:#fff;cursor:pointer;font:600 15px 'Hanken Grotesk',sans-serif;color:#5d6672;line-height:1" style-active="transform:scale(.9)">−</button>
+<span style="min-width:64px;text-align:center;font:600 16px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#12171d">{{ gDraftQuota }}</span>
+<button type="button" data-id="1" onClick="{{ nudgeQuota }}" style="width:30px;height:30px;border:1.5px solid #eceef1;border-radius:10px;background:#fff;cursor:pointer;font:600 15px 'Hanken Grotesk',sans-serif;color:#5d6672;line-height:1" style-active="transform:scale(.9)">+</button>
+</div>
+</div>
+<div style="display:flex;gap:8px">
+<sc-for list="{{ gPalette }}" as="p" hint-placeholder-count="8">
+<button type="button" data-id="{{ p.value }}" onClick="{{ setGDraftColor }}" style="flex:1;height:38px;border:0;border-radius:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;background:{{ p.bg }};box-shadow:{{ p.ring }};transition:transform .14s,box-shadow .14s" style-active="transform:scale(.92)">{{ p.mark }}</button>
+</sc-for>
+</div>
+<div style="display:flex;gap:10px">
+<sc-if value="{{ gDraftIsExisting }}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{ deleteGDraft }}" style="height:48px;padding:0 16px;border:1.5px solid #f0e3e0;border-radius:15px;background:#fff;font:600 14px 'Hanken Grotesk',sans-serif;color:#a85842;cursor:pointer">Delete</button>
+</sc-if>
+<button type="button" onClick="{{ saveGDraft }}" style="flex:1;height:48px;border:0;border-radius:15px;background:#1c3a5e;color:#fff;font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;transition:transform .12s" style-active="transform:scale(.98)">Save goal</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sheetIsGoals }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ goals }}" as="g" hint-placeholder-count="2">
+<button type="button" data-id="{{ g.id }}" onClick="{{ editGoal }}" style="border:1.5px solid #eceef1;border-radius:16px;background:#fff;text-align:left;display:flex;flex-direction:column;gap:8px;padding:13px 14px;cursor:pointer;transition:border-color .16s,transform .12s" style-hover="border-color:#1c3a5e" style-active="transform:scale(.99)">
+<div style="width:100%;display:flex;align-items:center;gap:8px">
+<span style="width:9px;height:9px;border-radius:2px;background:{{ g.color }};flex:none"></span>
+<span style="flex:1;font:600 14px 'Hanken Grotesk',sans-serif;color:#1b2129">{{ g.title }}</span>
+<span style="font:600 14px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#12171d">{{ g.actual }}</span>
+<span style="font:400 12px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;color:#8b929c">{{ g.quota }}</span>
+<span style="width:30px;height:28px;border:1.5px solid #eceef1;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#8b929c;flex:none"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></span>
+</div>
+<div style="width:100%;height:6px;border-radius:9999px;background:#f1f3f5;overflow:hidden"><div style="height:100%;width:{{ g.pct }};background:{{ g.color }}"></div></div>
+<span style="font:400 12px 'Hanken Grotesk',sans-serif;color:#9fa6b0">{{ g.remain }}</span>
+</button>
+</sc-for>
+<button type="button" data-id="new" onClick="{{ editGoal }}" style="width:100%;height:46px;margin-top:2px;border:0;border-radius:15px;background:#1c3a5e;color:#fff;font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;transition:transform .12s" style-active="transform:scale(.98)">+ Add a goal</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ sheetIsGoal }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;align-items:flex-end;gap:9px">
+<span style="font:400 44px/0.9 Newsreader,serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:#12171d">{{ oneDur }}</span>
+<span style="font:500 15px 'Hanken Grotesk',sans-serif;color:#9fa6b0;padding-bottom:5px">{{ oneQuota }}</span>
+</div>
+<div style="height:8px;border-radius:9999px;background:#f1f3f5;overflow:hidden"><div style="height:100%;width:{{ onePct }};background:{{ oneColor }}"></div></div>
+<div style="display:flex;align-items:flex-end;gap:5px;height:74px">
+<sc-for list="{{ goalDays }}" as="d" hint-placeholder-count="7">
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
+<div style="width:100%;border-radius:5px;height:{{ d.h }};background:{{ d.bg }}"></div>
+<span style="font:500 10px 'Hanken Grotesk',sans-serif;color:{{ d.ink }}">{{ d.letter }}</span>
+</div>
+</sc-for>
+</div>
+<div style="font:400 13px 'Hanken Grotesk',sans-serif;color:#5d6672">{{ oneRemain }}</div>
+</div>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ toastOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:20px;right:20px;bottom:80px;z-index:30;background:#1c3a5e;color:#fff;border-radius:14px;padding:12px 16px;font:600 13px 'Hanken Grotesk',sans-serif;animation:rise .2s ease-out both">{{ toast }}</div>
+</sc-if>
+
+<nav style="flex:none;height:64px;border-top:1px solid #eceef1;background:rgba(255,255,255,.92);backdrop-filter:blur(18px);display:flex;align-items:stretch;z-index:10">
+<button type="button" style="flex:1;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;padding-bottom:9px;cursor:pointer;color:#1c3a5e"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg><span style="font:600 10px 'Hanken Grotesk',sans-serif">Progress</span></button>
+<button type="button" style="flex:1;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;padding-bottom:9px;cursor:pointer;color:#c3c8ce"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path><path d="M18 14h-8"></path><path d="M15 18h-5"></path><path d="M10 6h8v4h-8V6Z"></path></svg><span style="font:600 10px 'Hanken Grotesk',sans-serif">Feed</span></button>
+<button type="button" onClick="{{ toggleRun }}" style="flex:1;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;padding-bottom:14px;cursor:pointer">
+<span style="width:56px;height:56px;transform:translateY(-16px);border-radius:9999px;background:{{ fabBg }};color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 26px -8px rgba(28,58,94,.55), 0 0 0 4px #fff;transition:background .2s">
+<sc-if value="{{ notRunning }}" hint-placeholder-val="{{ true }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></sc-if>
+<sc-if value="{{ isRunning }}" hint-placeholder-val="{{ false }}"><span style="font:600 11px 'Hanken Grotesk',sans-serif;font-variant-numeric:tabular-nums;line-height:1">{{ fabTick }}</span></sc-if>
+</span>
+<span style="margin-top:-12px;font:600 10px 'Hanken Grotesk',sans-serif;color:{{ navClock }}">{{ clockLabel }}</span>
+</button>
+<button type="button" style="flex:1;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;padding-bottom:9px;cursor:pointer;color:#c3c8ce"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg><span style="font:600 10px 'Hanken Grotesk',sans-serif">Friends</span></button>
+<button type="button" style="flex:1;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;padding-bottom:9px;cursor:pointer;color:#c3c8ce"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg><span style="font:600 10px 'Hanken Grotesk',sans-serif">You</span></button>
+</nav>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:940}}">
+const H = 3600000;
+
+const INK = {"#F1584E":"#BE362D","#F47A48":"#C24E14","#FFD440":"#8F6C0A","#E277AF":"#BA4485","#42B86E":"#1E7A3E","#81C7D7":"#22758C","#3E62AE":"#33518F","#AE90C3":"#7A57A0"};
+const inkOf = (c) => INK[(c || "").toUpperCase()] || c;
+const LIGHT = {"#FFD440":1,"#81C7D7":1,"#F47A48":1,"#E277AF":1};
+const onInk = (c) => (LIGHT[(c || "").toUpperCase()] ? "#12171d" : "#fff");
+const onDot = (c) => (LIGHT[(c || "").toUpperCase()] ? "rgba(18,23,29,.65)" : "rgba(255,255,255,.85)");
+const PALETTE = ["#F1584E", "#F47A48", "#FFD440", "#42B86E", "#81C7D7", "#3E62AE", "#AE90C3", "#E277AF"];
+const MN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const YEAR = {
+  months: [41.5, 44, 52.5, 38, 47.5, 50, 18.5, 0, 0, 0, 0, 0],
+  cats: [["c1", 118.5], ["c2", 74], ["c3", 52.5], ["c4", 47]],
+  sessions: 318,
+  weeksSoFar: 27,
+  goalWeeks: { g1: 21, g2: 15, g3: 23, g4: 19 },
+  habitRates: { h1: 82, h2: 48, h3: 55, h4: 61, h5: 44, h6: 39, h7: 68, h8: 72 },
+  habitMonths: [58, 62, 66, 71, 60, 68, 64],
+  goalHours: { g1: 96, g2: 58, g3: 84, g4: 54 },
+};
+const CHECK = React.createElement("svg", { width: 13, height: 13, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 3.4, strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { d: "M20 6 9 17l-5-5" }));
+
+function fmt(ms) {
+  const t = Math.round(ms / 60000);
+  const h = Math.floor(t / 60), m = t % 60;
+  return h > 0 ? h + "h " + (m < 10 ? "0" + m : m) + "m" : m + "m";
+}
+function clockStr(ms) {
+  const t = Math.floor(ms / 1000);
+  const p = (n) => (n < 10 ? "0" + n : "" + n);
+  return Math.floor(t / 3600) + ":" + p(Math.floor((t % 3600) / 60)) + ":" + p(t % 60);
+}
+function tint(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + ",.12)";
+}
+
+class Component extends DCLogic {
+  state = {
+    tab: "today",
+    sheet: null,
+    focus: null,
+    run: null,
+    now: 0,
+    count: 1,
+    toast: "",
+    cats: [
+      { id: "c1", name: "Thesis", color: "#3E62AE", today: 2.5 * H, week: 9.2 * H },
+      { id: "c2", name: "Coursework", color: "#81C7D7", today: 1.4 * H, week: 4.6 * H },
+      { id: "c3", name: "Reading", color: "#AE90C3", today: 0.8 * H, week: 2.8 * H },
+      { id: "c4", name: "Admin", color: "#FFD440", today: 0.5 * H, week: 1.9 * H },
+    ],
+    sessions: [
+      { id: "s1", title: "Chapter 3 rewrite", cat: "c1", start: "9:20", d: 4, ms: 1.8 * H },
+      { id: "s2", title: "Stats problem set", cat: "c2", start: "11:35", d: 4, ms: 1.4 * H },
+      { id: "s3", title: "Supervisor sync", cat: "c4", start: "14:00", d: 4, ms: 0.5 * H },
+      { id: "s4", title: "Reading — Ostrom", cat: "c3", start: "20:10", d: 2, ms: 0.8 * H },
+      { id: "s5", title: "Methods seminar", cat: "c2", start: "10:00", d: 0, ms: 2 * H },
+      { id: "s6", title: "Interview transcription", cat: "c1", start: "14:20", d: 1, ms: 2.3 * H },
+    ],
+    dayIdx: 4,
+    draft: null,
+    hDraft: null,
+    gDraft: null,
+    habits: [
+      { id: "h1", name: "Wake by 7", color: "#FFD440", week: [1, 1, 1, 1, 1, 0, 0] },
+      { id: "h2", name: "Read 30m", color: "#AE90C3", week: [1, 0, 1, 0, 0, 0, 0] },
+      { id: "h3", name: "Gym", color: "#42B86E", week: [0, 1, 0, 0, 1, 0, 0] },
+      { id: "h4", name: "No phone in bed", color: "#81C7D7", week: [1, 1, 0, 0, 0, 0, 0] },
+      { id: "h5", name: "Journal", color: "#F1584E", week: [1, 0, 0, 0, 1, 0, 0] },
+      { id: "h6", name: "Inbox zero", color: "#3E62AE", week: [0, 0, 1, 0, 0, 0, 0] },
+      { id: "h7", name: "Walk 5k", color: "#F47A48", week: [0, 1, 1, 0, 1, 0, 0] },
+      { id: "h8", name: "Lights out 11", color: "#FFD440", week: [1, 1, 1, 0, 0, 0, 0] },
+    ],
+    goals: [
+      { id: "g1", title: "Thesis", quota: 10, actual: 6.2 * H, color: "#3E62AE", days: [1.8, 1.4, 0.6, 0, 2.4, 0, 0] },
+      { id: "g2", title: "Reading", quota: 5, actual: 2.8 * H, color: "#AE90C3", days: [0.8, 0, 1.1, 0.4, 0.5, 0, 0] },
+      { id: "g3", title: "Coursework", quota: 6, actual: 4.6 * H, color: "#81C7D7", days: [1.4, 0.6, 0, 1.2, 1.4, 0, 0] },
+      { id: "g4", title: "Admin", quota: 3, actual: 1.9 * H, color: "#FFD440", days: [0.5, 0.4, 0.5, 0, 0.5, 0, 0] },
+    ],
+    todayIdx: 4,
+    histMonth: 6,
+    histScope: "year",
+  };
+
+  componentDidMount() {
+    this.animate();
+    this.timer = setInterval(() => { if (this.state.run) this.setState({ now: Date.now() }); }, 1000);
+  }
+  componentWillUnmount() { clearInterval(this.timer); clearInterval(this.tween); clearTimeout(this.press); clearTimeout(this.toastT); }
+
+  animate() {
+    clearInterval(this.tween);
+    const t0 = Date.now();
+    this.setState({ count: 0 });
+    this.tween = setInterval(() => {
+      const k = Math.min(1, (Date.now() - t0) / 650);
+      this.setState({ count: 1 - Math.pow(1 - k, 3) });
+      if (k >= 1) clearInterval(this.tween);
+    }, 32);
+  }
+
+  flash(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this.toastT);
+    this.toastT = setTimeout(() => this.setState({ toast: "" }), 1600);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const period = s.tab === "today" ? "today" : "week";
+    const total = s.cats.reduce((n, c) => n + c[period], 0);
+    const big = fmt(total * s.count).split(" ");
+    const running = s.run != null;
+    const elapsed = running ? Math.max(0, s.now - s.run.at) : 0;
+    const runCat = running ? s.cats.find((c) => c.id === s.run.cat) : null;
+    const doneToday = s.habits.filter((h) => h.week[s.todayIdx]).length;
+    const dayL = ["M", "T", "W", "T", "F", "S", "S"];
+    const chip = (on) => (on ? "#1c3a5e" : "transparent");
+    const chipInk = (on) => (on ? "#fff" : "#9fa6b0");
+    const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+    const cats = s.cats.map((c) => {
+      const pct = total > 0 ? (c[period] / total) * 100 : 0;
+      return { id: c.id, name: c.name, color: c.color, pct: pct.toFixed(1) + "%", pctLabel: Math.round(pct) + "%", hours: (c[period] / H).toFixed(1) + "h" };
+    });
+    const visible = s.sessions.filter((x) => (s.tab === "today" ? x.d === s.todayIdx : true));
+    const sessions = visible.map((x) => {
+      const c = s.cats.find((y) => y.id === x.cat);
+      return { id: x.id, title: x.title, meta: (c ? c.name : "Uncategorized") + " · " + x.start, color: c ? c.color : "#b0b6bf", dur: fmt(x.ms) };
+    });
+    const perDay = [0, 0, 0, 0, 0, 0, 0];
+    s.sessions.forEach((x) => { perDay[x.d] += x.ms; });
+    const dayList = s.sessions.filter((x) => x.d === s.dayIdx);
+    const goals = s.goals.map((g) => {
+      const pct = Math.min(100, (g.actual / (g.quota * H)) * 100);
+      const left = Math.max(0, g.quota * H - g.actual);
+      return {
+        id: g.id, title: g.title, color: g.color,
+        actual: (g.actual / H).toFixed(1) + "h", quota: "/ " + g.quota + "h",
+        pct: pct.toFixed(0) + "%",
+        remain: left > 0 ? fmt(left) + " left this week" : "Quota met",
+      };
+    });
+    const focusGoal = s.sheet === "goal" ? s.goals.find((x) => x.id === s.focus) : null;
+    const peak = focusGoal ? Math.max.apply(null, focusGoal.days.concat([1])) : 1;
+    const yTotal = YEAR.months.reduce((a, b) => a + b, 0);
+    const mi = s.histMonth;
+    const mSel = YEAR.months[mi];
+    const monthScope = s.histScope === "month";
+    const WKIN = [4, 4, 5, 4, 4, 5, 1];
+    const wkTot = monthScope ? WKIN[mi] : YEAR.weeksSoFar;
+    const histTotalH = monthScope ? mSel : yTotal;
+    const catW = YEAR.cats.map((pair, ci) => {
+      const j = monthScope ? [0.07, -0.06, 0.03, -0.04][(mi + ci) % 4] : 0;
+      return (pair[1] / yTotal) * (1 + j);
+    });
+    const catWSum = catW.reduce((a, b) => a + b, 0);
+    const goalHist = s.goals.map((g, gi) => {
+      const yMet = YEAR.goalWeeks[g.id] || 0;
+      const met = monthScope
+        ? Math.max(0, Math.min(wkTot, Math.round((yMet / YEAR.weeksSoFar) * wkTot + [0, 0.6, -0.6][(mi + gi) % 3])))
+        : yMet;
+      const p = Math.round((met / Math.max(1, wkTot)) * 100);
+      return { id: g.id, title: g.title, color: g.color, pctLabel: p + "%", weeks: met + "/" + wkTot + " wks", pct: p + "%", met: met };
+    });
+    const gMet = goalHist.reduce((n, g) => n + g.met, 0);
+    const timeRaw = s.goals.map((g, gi) => {
+      const j2 = monthScope ? [0.06, -0.05, 0.04, -0.03][(mi + gi) % 4] : 0;
+      return { kind: "Goal:", rad: "9999px", name: g.title, color: g.color, frac: ((YEAR.goalHours[g.id] || 0) / yTotal) * (1 + j2) };
+    }).concat(YEAR.cats.map((pair, ci) => {
+      const c = s.cats.find((x) => x.id === pair[0]);
+      return { kind: "Category:", rad: "2px", name: c ? c.name : "Other", color: c ? c.color : "#b0b6bf", frac: monthScope ? catW[ci] / catWSum : pair[1] / yTotal };
+    }));
+    const maxFrac = Math.max.apply(null, timeRaw.map((r) => r.frac).concat([0.01]));
+    const calHead = ["M", "T", "W", "T", "F", "S", "S"];
+    const nH = s.habits.length;
+    const calDays = [];
+    if (monthScope) {
+      const dim = new Date(2026, mi + 1, 0).getDate();
+      const off = (new Date(2026, mi, 1).getDay() + 6) % 7;
+      for (let p = 0; p < off; p++) calDays.push({ n: "", bg: "transparent", border: "transparent", ink: "transparent" });
+      for (let d = 1; d <= dim; d++) {
+        if (mi === 6 && d > 6) { calDays.push({ n: "", bg: "#fff", border: "#f1f3f5", ink: "transparent" }); continue; }
+        const wb = [6, 5, 6, 4, 5, 3, 2][(off + d - 1) % 7];
+        const cnt = Math.max(0, Math.min(nH, wb + ((d * 13 + mi * 7) % 5) - 2));
+        if (cnt === 0) calDays.push({ n: "0", bg: "#f4f5f7", border: "transparent", ink: "#b6bcc4" });
+        else calDays.push({ n: String(cnt), bg: "rgba(28,58,94," + (0.08 + (cnt / nH) * 0.82).toFixed(2) + ")", border: "transparent", ink: cnt / nH >= 0.5 ? "#fff" : "#1c3a5e" });
+      }
+    }
+    const hScale = monthScope ? (YEAR.habitMonths[mi] || 60) / 62 : 1;
+    const hRates = s.habits.map((h) => {
+      const r = YEAR.habitRates[h.id] != null ? YEAR.habitRates[h.id] : 50;
+      return Math.max(0, Math.min(100, Math.round(r * hScale)));
+    });
+    const hAvg = hRates.length ? hRates.reduce((a, b) => a + b, 0) / hRates.length : 0;
+
+    return {
+      periodLabel: s.tab === "today" ? "Mon 6 Jul" : s.tab === "week" ? "6 – 12 Jul" : "",
+      histChipBg: chip(s.tab === "history"), histChipInk: chipInk(s.tab === "history"),
+      isHistory: s.tab === "history", notHistory: s.tab !== "history",
+      showHistory: () => this.setState({ tab: "history" }),
+      histTitle: monthScope ? MN[mi] + " 2026" : "2026",
+      histTotal: histTotalH % 1 ? histTotalH.toFixed(1) : String(histTotalH),
+      histSessions: monthScope
+        ? Math.round(YEAR.sessions * (mSel / yTotal)) + " sessions" + (mi === 6 ? " so far" : "")
+        : YEAR.sessions + " sessions · Jan – Jul",
+      scopeYearBg: chip(!monthScope), scopeYearInk: chipInk(!monthScope),
+      scopeMonthBg: chip(monthScope), scopeMonthInk: chipInk(monthScope),
+      scopeYear: () => this.setState({ histScope: "year" }),
+      scopeMonth: () => this.setState({ histScope: "month" }),
+      isMonthScope: monthScope, notMonthScope: !monthScope,
+      monthName: MN[mi],
+      prevInk: mi > 0 ? "#5d6672" : "#dfe3e8",
+      nextInk: mi < 6 ? "#5d6672" : "#dfe3e8",
+      prevMonth: () => this.setState((st) => ({ histMonth: Math.max(0, st.histMonth - 1) })),
+      nextMonth: () => this.setState((st) => ({ histMonth: Math.min(6, st.histMonth + 1) })),
+      timeRows: timeRaw.map((r) => {
+        const hrs = monthScope ? mSel * r.frac : r.frac * yTotal;
+        const hv = Math.round(hrs * 10) / 10;
+        return { kind: r.kind, rad: r.rad, name: r.name, color: r.color, hours: (hv % 1 ? hv.toFixed(1) : hv) + "h", pct: ((r.frac / maxFrac) * 100).toFixed(0) + "%", pctLabel: Math.round(r.frac * 100) + "%" };
+      }),
+      goalRate: Math.round((gMet / Math.max(1, wkTot * s.goals.length)) * 100) + "%",
+      goalHist: goalHist,
+      habitRateLine: Math.round(hAvg) + "%" + (monthScope ? " in " + MN[mi] : " overall"),
+      habitHist: s.habits.map((h, i) => ({ id: h.id, name: h.name, color: h.color, pctLabel: hRates[i] + "%", pct: hRates[i] + "%" })),
+      calHead: calHead,
+      calDays: calDays,
+      habitCount: String(nH),
+      todayChipBg: chip(s.tab === "today"), todayChipInk: chipInk(s.tab === "today"),
+      weekChipBg: chip(s.tab === "week"), weekChipInk: chipInk(s.tab === "week"),
+      bigNum: big[0], bigUnit: big[1] || "",
+      isRunning: running, notRunning: !running,
+      elapsedLabel: clockStr(elapsed),
+      fabTick: running ? clockStr(elapsed).slice(0, 4) : "",
+      fabBg: running ? (runCat ? runCat.color : "#1c3a5e") : "#1c3a5e",
+      navClock: running ? "#1c3a5e" : "#c3c8ce",
+      clockLabel: running ? "Tracking" : "Clock",
+      cats: cats,
+      arcs: (() => {
+        const C = 2 * Math.PI * 54;
+        let at = 0;
+        return s.cats.map((c) => {
+          const len = total > 0 ? (c[period] / total) * C * s.count : 0;
+          const arc = { color: c.color, dash: Math.max(0, len - 2).toFixed(1) + " " + C.toFixed(1), offset: (-at).toFixed(1) };
+          at += len;
+          return arc;
+        });
+      })(),
+      sessionTally: visible.length,
+      heroCats: cats.slice(0, 4),
+      sessionCount: s.tab === "today"
+        ? (sessions.length > 3 ? sessions.length + " logged · all" : sessions.length + " logged")
+        : (dayList.length > 0 ? dayList.length + " on " + (s.dayIdx === s.todayIdx ? "today" : dayNames[s.dayIdx]) : dayNames[s.dayIdx]),
+      sessions: sessions,
+      isToday: s.tab === "today",
+      isWeek: s.tab === "week",
+      topSessions: sessions.slice(0, 3),
+      dayName: s.dayIdx === s.todayIdx ? "today" : dayNames[s.dayIdx],
+      days: dayL.map((l, i) => {
+        const sel = s.dayIdx === i, today = i === s.todayIdx;
+        const hrs = perDay[i] / H;
+        return {
+          i: i, label: l, val: hrs > 0 ? hrs.toFixed(1) : "—",
+          bg: sel ? "#1c3a5e" : "#f7f8f9",
+          border: sel ? "#1c3a5e" : today ? "#b7c4d3" : "#e6e9ed",
+          shadow: sel ? "none" : "0 1px 2px rgba(27,33,41,.06)",
+          labelInk: sel ? "rgba(255,255,255,.7)" : today ? "#1c3a5e" : "#9fa6b0",
+          valInk: sel ? "#fff" : hrs > 0 ? "#12171d" : "#c3c8ce",
+        };
+      }),
+      daySessions: dayList.slice(0, 2).map((x) => {
+        const c = s.cats.find((y) => y.id === x.cat);
+        return { id: x.id, title: x.title, meta: (c ? c.name : "Uncategorized") + " · " + x.start, color: c ? c.color : "#b0b6bf", dur: fmt(x.ms) };
+      }),
+      draftTitle: s.draft ? s.draft.title : "",
+      draftStart: s.draft ? s.draft.start : "",
+      draftDur: s.draft ? fmt(s.draft.ms) : "",
+      draftIsExisting: !!(s.draft && s.draft.id),
+      draftPickables: s.cats.map((c) => {
+        const on = s.draft && s.draft.cat === c.id;
+        return { id: c.id, name: c.name, bg: on ? c.color : "#fff", ink: on ? onInk(c.color) : "#1b2129", border: on ? c.color : "#eceef1", dot: on ? onDot(c.color) : c.color };
+      }),
+      habitScore: s.tab === "today"
+        ? doneToday + " of " + s.habits.length
+        : s.habits.reduce((n, h) => n + h.week.filter(Boolean).length, 0) + " of " + s.habits.length * (s.todayIdx + 1),
+      habits: s.habits.map((h) => {
+        const on = !!h.week[s.todayIdx];
+        return {
+          id: h.id, name: h.name,
+          bg: on ? tint(h.color) : "#fff",
+          border: on ? h.color : "#eceef1",
+          markBg: on ? h.color : "#fff",
+          markBorder: on ? h.color : "#dfe3e8",
+          markInk: "#fff",
+          mark: on ? CHECK : "",
+          ink: on ? inkOf(h.color) : "#8b929c",
+          week: h.week.map((d, i) => ({
+            key: h.id + ":" + i,
+            bg: d ? h.color : "#fff",
+            border: d ? h.color : "#eceef1",
+            opacity: i > s.todayIdx ? 0.35 : 1,
+            mark: d ? CHECK : "",
+          })),
+        };
+      }),
+      dayLetters: dayL.map((l, i) => ({ letter: l, ink: i === s.todayIdx ? "#1c3a5e" : "#c3c8ce" })),
+      goalScore: s.goals.length + " active",
+      goals: goals,
+      goalDays: focusGoal
+        ? focusGoal.days.map((v, i) => ({
+            letter: dayL[i],
+            h: Math.max(4, (v / peak) * 56) + "px",
+            bg: v > 0 ? focusGoal.color : "#f1f3f5",
+            ink: i === s.todayIdx ? "#1c3a5e" : "#c3c8ce",
+          }))
+        : [],
+
+      sheetOpen: s.sheet != null,
+      sheetMinH: s.sheetExpanded ? "80%" : "0",
+      // Drag the handle: swipe down to dismiss, swipe up to expand.
+      dragSheet: (e) => {
+        const el = e.currentTarget;
+        const sheet = el.parentElement;
+        el.setPointerCapture(e.pointerId);
+        const y0 = e.clientY;
+        let dy = 0;
+        const move = (ev) => {
+          dy = ev.clientY - y0;
+          sheet.style.transition = "none";
+          sheet.style.transform = "translateY(" + (dy > 0 ? dy : Math.max(dy * 0.25, -40)) + "px)";
+        };
+        const up = () => {
+          el.removeEventListener("pointermove", move);
+          sheet.style.transition = "transform .26s cubic-bezier(.22,1,.36,1)";
+          sheet.style.transform = "translateY(0)";
+          if (dy > 90) this.setState({ sheet: null, focus: null, draft: null, hDraft: null, gDraft: null, sheetExpanded: false });
+          else if (dy < -46) this.setState({ sheetExpanded: true });
+          else if (dy > 46) this.setState({ sheetExpanded: false });
+        };
+        el.addEventListener("pointermove", move);
+        el.addEventListener("pointerup", up, { once: true });
+        el.addEventListener("pointercancel", up, { once: true });
+      },
+      sheetIsTime: s.sheet === "time",
+      sheetIsSessions: s.sheet === "sessions",
+      sheetIsSession: s.sheet === "session",
+      sheetIsHabits: s.sheet === "habits",
+      sheetIsGoals: s.sheet === "goals",
+      sheetIsGoal: s.sheet === "goal",
+      sheetIsHabitEdit: s.sheet === "habitEdit",
+      sheetIsGoalEdit: s.sheet === "goalEdit",
+      sheetTitle: s.sheet === "time" ? "Where it went"
+        : s.sheet === "sessions" ? "Sessions"
+        : s.sheet === "session" ? (s.draft && s.draft.id ? "Edit session" : "Add session")
+        : s.sheet === "habits" ? "Habits"
+        : s.sheet === "goals" ? "Goals"
+        : s.sheet === "habitEdit" ? (s.hDraft && s.hDraft.id ? "Edit habit" : "New habit")
+        : s.sheet === "goalEdit" ? (s.gDraft && s.gDraft.id ? "Edit goal" : "New goal")
+        : focusGoal ? focusGoal.title : "",
+      sheetMeta: s.sheet === "habits" ? "Tap ✎ to edit"
+        : s.sheet === "goals" ? "Tap a goal to edit"
+        : s.sheet === "time" ? fmt(total) + " total"
+        : s.sheet === "sessions" ? sessions.length + " sessions"
+        : s.sheet === "session" ? (s.tab === "today" ? "Today" : (s.dayIdx === s.todayIdx ? "Today" : dayNames[s.dayIdx]))
+        : s.sheet === "habits" ? "6 – 12 Jul"
+        : s.sheet === "goals" ? "This week"
+        : s.sheet === "goal" ? "This week"
+        : "",
+      hDraftName: s.hDraft ? s.hDraft.name : "",
+      hDraftIsExisting: !!(s.hDraft && s.hDraft.id),
+      hPalette: PALETTE.map((v) => ({
+        value: v, bg: v,
+        ring: s.hDraft && s.hDraft.color === v ? "0 0 0 2px #fff, 0 0 0 4px #12171d" : "none",
+        mark: s.hDraft && s.hDraft.color === v ? CHECK : "",
+      })),
+      gDraftName: s.gDraft ? s.gDraft.title : "",
+      gDraftQuota: s.gDraft ? s.gDraft.quota + "h" : "",
+      gDraftIsExisting: !!(s.gDraft && s.gDraft.id),
+      gPalette: PALETTE.map((v) => ({
+        value: v, bg: v,
+        ring: s.gDraft && s.gDraft.color === v ? "0 0 0 2px #fff, 0 0 0 4px #12171d" : "none",
+        mark: s.gDraft && s.gDraft.color === v ? CHECK : "",
+      })),
+      editHabit: (e) => {
+        const id = e.currentTarget.dataset.id;
+        if (id === "new") { this.setState({ sheet: "habitEdit", hDraft: { id: null, name: "", color: PALETTE[0] } }); return; }
+        const h = s.habits.find((x) => x.id === id);
+        if (h) this.setState({ sheet: "habitEdit", hDraft: { id: h.id, name: h.name, color: h.color } });
+      },
+      setHDraftName: (e) => { const v = e.target.value; this.setState((st) => ({ hDraft: Object.assign({}, st.hDraft, { name: v }) })); },
+      setHDraftColor: (e) => { const v = e.currentTarget.dataset.id; this.setState((st) => ({ hDraft: Object.assign({}, st.hDraft, { color: v }) })); },
+      saveHDraft: () => {
+        const d = s.hDraft; if (!d) return;
+        this.setState((st) => ({
+          habits: d.id
+            ? st.habits.map((h) => (h.id === d.id ? Object.assign({}, h, { name: d.name.trim() || h.name, color: d.color }) : h))
+            : st.habits.concat([{ id: "h" + Date.now(), name: d.name.trim() || "New habit", color: d.color, week: [0, 0, 0, 0, 0, 0, 0] }]),
+          sheet: "habits", hDraft: null,
+        }));
+        this.flash("Habit saved");
+      },
+      deleteHDraft: () => {
+        const d = s.hDraft; if (!d || !d.id) { this.setState({ sheet: "habits", hDraft: null }); return; }
+        this.setState((st) => ({ habits: st.habits.filter((h) => h.id !== d.id), sheet: "habits", hDraft: null }));
+        this.flash("Habit deleted");
+      },
+      editGoal: (e) => {
+        const id = e.currentTarget.dataset.id;
+        if (id === "new") { this.setState({ sheet: "goalEdit", gDraft: { id: null, title: "", quota: 5, color: PALETTE[0] } }); return; }
+        const g = s.goals.find((x) => x.id === id);
+        if (g) this.setState({ sheet: "goalEdit", gDraft: { id: g.id, title: g.title, quota: g.quota, color: g.color } });
+      },
+      setGDraftName: (e) => { const v = e.target.value; this.setState((st) => ({ gDraft: Object.assign({}, st.gDraft, { title: v }) })); },
+      setGDraftColor: (e) => { const v = e.currentTarget.dataset.id; this.setState((st) => ({ gDraft: Object.assign({}, st.gDraft, { color: v }) })); },
+      nudgeQuota: (e) => {
+        const step = +e.currentTarget.dataset.id;
+        this.setState((st) => ({ gDraft: Object.assign({}, st.gDraft, { quota: Math.min(40, Math.max(1, st.gDraft.quota + step)) }) }));
+      },
+      saveGDraft: () => {
+        const d = s.gDraft; if (!d) return;
+        this.setState((st) => ({
+          goals: d.id
+            ? st.goals.map((g) => (g.id === d.id ? Object.assign({}, g, { title: d.title.trim() || g.title, quota: d.quota, color: d.color }) : g))
+            : st.goals.concat([{ id: "g" + Date.now(), title: d.title.trim() || "New goal", quota: d.quota, actual: 0, color: d.color, days: [0, 0, 0, 0, 0, 0, 0] }]),
+          sheet: "goals", gDraft: null,
+        }));
+        this.flash("Goal saved");
+      },
+      deleteGDraft: () => {
+        const d = s.gDraft; if (!d || !d.id) { this.setState({ sheet: "goals", gDraft: null }); return; }
+        this.setState((st) => ({ goals: st.goals.filter((g) => g.id !== d.id), sheet: "goals", gDraft: null }));
+        this.flash("Goal deleted");
+      },
+      oneDur: focusGoal ? (focusGoal.actual / H).toFixed(1) + "h" : "",
+      oneQuota: focusGoal ? "of " + focusGoal.quota + "h" : "",
+      onePct: focusGoal ? Math.min(100, (focusGoal.actual / (focusGoal.quota * H)) * 100).toFixed(0) + "%" : "0%",
+      oneColor: focusGoal ? focusGoal.color : "#1c3a5e",
+      oneRemain: focusGoal ? (goals.find((g) => g.id === focusGoal.id) || {}).remain : "",
+      toastOpen: s.toast !== "", toast: s.toast,
+
+      showToday: () => { this.setState({ tab: "today" }); this.animate(); },
+      showWeek: () => { this.setState({ tab: "week" }); this.animate(); },
+      openTime: () => this.setState({ sheet: "time" }),
+      openSessions: () => this.setState({ sheet: "sessions" }),
+      openSession: (e) => {
+        const id = e.currentTarget.dataset.id;
+        if (id === "new") {
+          this.setState({ sheet: "session", focus: null, draft: { id: null, title: "", cat: s.cats[0].id, start: "9:00", ms: H } });
+          return;
+        }
+        const x = s.sessions.find((y) => y.id === id);
+        if (x) this.setState({ sheet: "session", focus: id, draft: { id: x.id, title: x.title, cat: x.cat, start: x.start, ms: x.ms } });
+      },
+      pickDay: (e) => this.setState({ dayIdx: +e.currentTarget.dataset.id }),
+      setDraftTitle: (e) => { const v = e.target.value; this.setState((st) => ({ draft: Object.assign({}, st.draft, { title: v }) })); },
+      setDraftStart: (e) => { const v = e.target.value; this.setState((st) => ({ draft: Object.assign({}, st.draft, { start: v }) })); },
+      pickDraftCat: (e) => { const v = e.currentTarget.dataset.id; this.setState((st) => ({ draft: Object.assign({}, st.draft, { cat: v }) })); },
+      nudgeDur: (e) => {
+        const step = +e.currentTarget.dataset.id * 60000;
+        this.setState((st) => ({ draft: Object.assign({}, st.draft, { ms: Math.max(15 * 60000, st.draft.ms + step) }) }));
+      },
+      saveDraftSession: () => {
+        const d = s.draft; if (!d) return;
+        this.setState((st) => {
+          const list = st.sessions.slice();
+          if (d.id) {
+            const i = list.findIndex((x) => x.id === d.id);
+            if (i !== -1) list[i] = Object.assign({}, list[i], { title: d.title.trim() || "Untitled", cat: d.cat, start: d.start.trim() || "9:00", ms: d.ms });
+          } else {
+            list.push({ id: "s" + Date.now(), title: d.title.trim() || "Untitled", cat: d.cat, start: d.start.trim() || "9:00", d: st.tab === "today" ? st.todayIdx : st.dayIdx, ms: d.ms });
+          }
+          return { sessions: list, sheet: null, focus: null, draft: null };
+        });
+        this.flash("Session saved");
+      },
+      openHabits: () => this.setState({ sheet: "habits" }),
+      openGoals: () => this.setState({ sheet: "goals" }),
+      openGoal: (e) => this.setState({ sheet: "goal", focus: e.currentTarget.dataset.id }),
+      closeSheet: () => this.setState({ sheet: null, focus: null, draft: null, hDraft: null, gDraft: null, sheetExpanded: false }),
+      deleteSession: () => {
+        const id = s.focus;
+        this.setState((st) => ({ sessions: st.sessions.filter((x) => x.id !== id), sheet: null, focus: null, draft: null }));
+        this.flash("Session deleted");
+      },
+      tapHabit: (e) => {
+        if (this.held) { this.held = false; return; }
+        const id = e.currentTarget.dataset.id;
+        this.setState((st) => ({
+          habits: st.habits.map((h) => {
+            if (h.id !== id) return h;
+            const w = h.week.slice(); w[st.todayIdx] = w[st.todayIdx] ? 0 : 1;
+            return Object.assign({}, h, { week: w });
+          }),
+        }));
+      },
+      holdHabit: () => { clearTimeout(this.press); this.press = setTimeout(() => { this.held = true; this.setState({ sheet: "habits" }); }, 460); },
+      release: () => clearTimeout(this.press),
+      toggleCell: (e) => {
+        const parts = e.currentTarget.dataset.key.split(":");
+        const id = parts[0], i = +parts[1];
+        if (i > s.todayIdx) return;
+        this.setState((st) => ({
+          habits: st.habits.map((h) => {
+            if (h.id !== id) return h;
+            const w = h.week.slice(); w[i] = w[i] ? 0 : 1;
+            return Object.assign({}, h, { week: w });
+          }),
+        }));
+      },
+      toggleRun: () => {
+        if (running) {
+          this.setState({ run: null });
+          this.flash("Logged " + fmt(elapsed));
+        } else {
+          this.setState({ run: { cat: "c1", at: Date.now() }, now: Date.now() });
+          this.flash("Clocked in to Thesis");
+        }
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
