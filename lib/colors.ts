@@ -64,11 +64,43 @@ export function entityInk(hex: string | null | undefined): string {
 // exists for the one surface that isn't.
 const ON_DARK_MIX = 0.45;
 
-export function entityOnDark(hex: string | null | undefined): string {
+// Blend a palette fill toward white, keeping its hue. Factored out because the
+// two navy surfaces need DIFFERENT amounts of lift and neither value is a
+// rounding of the other — see each caller for the measurement behind it.
+function mixToWhite(hex: string | null | undefined, amount: number): string {
   const rgb = parseHex(entityColor(hex)) ?? parseHex(FALLBACK)!;
-  const lift = (c: number) => Math.round(c + (255 - c) * ON_DARK_MIX);
+  const lift = (c: number) => Math.round(c + (255 - c) * amount);
   const hexOf = (c: number) => lift(c).toString(16).padStart(2, "0");
   return `#${hexOf(rgb[0])}${hexOf(rgb[1])}${hexOf(rgb[2])}`;
+}
+
+export function entityOnDark(hex: string | null | undefined): string {
+  return mixToWhite(hex, ON_DARK_MIX);
+}
+
+// The goal/category colour as TEXT INSIDE ITS OWN CHIP — the home screen
+// widget's "Goal · Thesis" pill, which is the same colour at 28% opacity over
+// navy. A FOURTH variant, because the chip's own fill raises the floor:
+// `entityOnDark` is measured against bare #142c49, but here the ground is navy
+// *tinted by the colour itself*, so a 45% lift leaves hue-on-hue at 12.5pt —
+// the smallest type on the widget.
+//
+// 0.66 is not a free choice: it is solved from the handoff, which pairs a
+// #A98BF5 goal with #E2D8FF ink. Per channel that is 57/86 = 0.663 on red and
+// 77/116 = 0.664 on green (blue is already within 10 steps of white, so it
+// pins nothing). Hence 0.66 rather than the prose's "about 65%".
+//
+// WHAT IT DOES NOT MEAN: that a goal renders #E2D8FF. #A98BF5 is not a Progra
+// hue — `normalizeFill` doesn't recognise it, so it would fall back to the
+// neutral grey. The palette's purple is #A084B3, which lifts to #DFD5E5 here.
+// Only the MIX comes from the mock; the colour always comes from the palette,
+// for the reason entityOnDark's comment gives — the palette lives in
+// app/globals.css and must not be duplicated in a binary behind App Store
+// review.
+const CHIP_INK_MIX = 0.66;
+
+export function entityChipInk(hex: string | null | undefined): string {
+  return mixToWhite(hex, CHIP_INK_MIX);
 }
 
 // A goal's color: the one its owner picked, or — for goals created before the

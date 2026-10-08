@@ -31,6 +31,7 @@ export function SyncLiveActivity({
   sessionId,
   label,
   attribution,
+  attributionIsGoal,
   accent,
   startedAt,
   pausedMs,
@@ -42,6 +43,10 @@ export function SyncLiveActivity({
   sessionId: string | null;
   label: string;
   attribution: string;
+  // Split from `attribution` rather than passed as an object: an object literal
+  // is a fresh reference every render and would re-run the effect on every
+  // layout re-render. Same flat-primitives rule as EnsureSessionCap.
+  attributionIsGoal: boolean;
   accent: { fill: string; ink: string; onDark: string } | null;
   startedAt: number | null;
   pausedMs: number | null;
@@ -66,7 +71,7 @@ export function SyncLiveActivity({
         : liveActivitySnapshot(
             sessionId,
             label,
-            attribution,
+            { text: attribution, isGoal: attributionIsGoal },
             accent,
             {
               startedAt,
@@ -86,6 +91,7 @@ export function SyncLiveActivity({
     sessionId,
     label,
     attribution,
+    attributionIsGoal,
     accent,
     startedAt,
     pausedMs,

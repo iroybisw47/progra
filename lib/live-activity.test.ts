@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { entityChipInk } from "@/lib/colors";
 import {
   LIVE_ACTIVITY_MAX_MS,
   liveActivityFingerprint,
@@ -38,8 +39,10 @@ function snap(
   p: Plan = plan(),
   capMs?: number
 ) {
-  return liveActivitySnapshot("s1", "Calc problem set", "Math", GREEN, t, p, capMs);
+  return liveActivitySnapshot("s1", "Calc problem set", GOAL_MATH, GREEN, t, p, capMs);
 }
+
+const GOAL_MATH = { text: "Math", isGoal: true };
 
 afterEach(() => {
   vi.useRealTimers();
@@ -189,7 +192,7 @@ describe("breakEndsAtMs", () => {
 
 describe("nothing to show", () => {
   it("is null with no session", () => {
-    expect(liveActivitySnapshot(null, "x", "Math", null, timing(), plan())).toBeNull();
+    expect(liveActivitySnapshot(null, "x", GOAL_MATH, null, timing(), plan())).toBeNull();
   });
 
   it("is null for an ended session", () => {
@@ -228,13 +231,13 @@ describe("the stale horizon", () => {
 describe("the label", () => {
   it("trims", () => {
     expect(
-      liveActivitySnapshot("s1", "  Reading  ", "Books", null, timing(), plan())!.label
+      liveActivitySnapshot("s1", "  Reading  ", { text: "Books", isGoal: true }, null, timing(), plan())!.label
     ).toBe("Reading");
   });
 
   it("falls back to Untitled session, matching the live screen", () => {
     expect(
-      liveActivitySnapshot("s1", "   ", "Books", null, timing(), plan())!.label
+      liveActivitySnapshot("s1", "   ", { text: "Books", isGoal: true }, null, timing(), plan())!.label
     ).toBe("Untitled session");
   });
 });
@@ -290,10 +293,7 @@ describe("attribution and colour", () => {
   });
 
   it("falls back to Uncategorized on blank attribution", () => {
-    const s = liveActivitySnapshot(
-      "s1",
-      "Reading",
-      "   ",
+    const s = liveActivitySnapshot("s1", "Reading", { text: "   ", isGoal: true },
       null,
       timing(),
       plan()
@@ -345,8 +345,8 @@ describe("fingerprint field coverage", () => {
   const base = liveActivityFingerprint(snap());
 
   const mutations: Array<[string, string]> = [
-    ["sessionId", liveActivityFingerprint(liveActivitySnapshot("s2", "Calc problem set", "Math", GREEN, timing(), plan()))],
-    ["label", liveActivityFingerprint(liveActivitySnapshot("s1", "Reading", "Math", GREEN, timing(), plan()))],
+    ["sessionId", liveActivityFingerprint(liveActivitySnapshot("s2", "Calc problem set", GOAL_MATH, GREEN, timing(), plan()))],
+    ["label", liveActivityFingerprint(liveActivitySnapshot("s1", "Reading", { text: "Math", isGoal: true }, GREEN, timing(), plan()))],
     ["startedAt", liveActivityFingerprint(snap(timing({ startedAt: 99 })))],
     ["pausedMs", liveActivityFingerprint(snap(timing({ pausedMs: MIN })))],
     ["pausedSince", liveActivityFingerprint(snap(timing({ pausedSince: HOUR })))],
@@ -361,13 +361,13 @@ describe("fingerprint field coverage", () => {
     [
       "attribution",
       liveActivityFingerprint(
-        liveActivitySnapshot("s1", "Calc problem set", "Reading", GREEN, timing(), plan())
+        liveActivitySnapshot("s1", "Calc problem set", { text: "Reading", isGoal: true }, GREEN, timing(), plan())
       ),
     ],
     [
       "accentColor",
       liveActivityFingerprint(
-        liveActivitySnapshot("s1", "Calc problem set", "Math", ORANGE, timing(), plan())
+        liveActivitySnapshot("s1", "Calc problem set", { text: "Math", isGoal: true }, ORANGE, timing(), plan())
       ),
     ],
   ];
@@ -380,5 +380,43 @@ describe("fingerprint field coverage", () => {
 
   it("is stable for identical input", () => {
     expect(liveActivityFingerprint(snap())).toBe(base);
+  });
+});
+
+describe("the chip", () => {
+  // The app's own rule — finish-client.tsx:222 and live-timer-client.tsx:614.
+  // The handoff only specifies the goal case; a literal reading would put
+  // "Goal · Writing" on every category-tracked session.
+  it("prefixes a goal, and only a goal", () => {
+    expect(
+      liveActivitySnapshot("s1", "x", { text: "Thesis", isGoal: true }, GREEN, timing(), plan())!
+        .chipLabel
+    ).toBe("Goal \u00b7 Thesis");
+    expect(
+      liveActivitySnapshot("s1", "x", { text: "Writing", isGoal: false }, GREEN, timing(), plan())!
+        .chipLabel
+    ).toBe("Writing");
+  });
+
+  it("falls back to Uncategorized, unprefixed", () => {
+    const s = liveActivitySnapshot("s1", "x", { text: "  ", isGoal: false }, null, timing(), plan())!;
+    expect(s.chipLabel).toBe("Uncategorized");
+    expect(s.attribution).toBe("Uncategorized");
+  });
+
+  // The chip's ink must clear its own 28% fill, so it is lifted FURTHER than
+  // the bar and the digits are.
+  it("lifts the ink past the on-dark accent", () => {
+    const s = liveActivitySnapshot("s1", "x", GOAL_MATH, GREEN, timing(), plan())!;
+    expect(s.chipInk).toBe(entityChipInk(GREEN.fill));
+    expect(s.chipInk).not.toBe(s.accentOnDark);
+    // The fill stays raw: Swift washes it at 28%.
+    expect(s.accentColor).toBe(GREEN.fill);
+  });
+
+  it("has no colour at all when the session has none", () => {
+    const s = liveActivitySnapshot("s1", "x", GOAL_MATH, null, timing(), plan())!;
+    expect(s.chipInk).toBeNull();
+    expect(s.accentColor).toBeNull();
   });
 });

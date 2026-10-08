@@ -182,10 +182,35 @@ The `DEVELOPER_DIR` export is the load-bearing part: `xcode-select -p` points at
 `/Library/Developer/CommandLineTools`, which ships **no iOS SDK**, so a bare
 `xcrun` reports "SDK iphoneos cannot be located" and it looks like there is no
 way to check. Overriding the variable costs nothing and changes no global state.
-`PrograLiveActivityPlugin.swift` can't be checked this way — it imports
-`Capacitor`, which only resolves inside the Xcode build — so pass only the two
-files above. This proves the types, never the layout: a pixel claim still needs
-a device.
+`PrograLiveActivityPlugin.swift` and `PrograWidgetPlugin.swift` can't be checked
+this way — both import `Capacitor`, which only resolves inside the Xcode build.
+`swiftc -parse` still catches syntax errors in them. This proves the types,
+never the layout: a pixel claim still needs a device.
+
+**The render harness** closes part of that gap for the Live Activity card.
+`scripts/render-widget/main.swift` compiles the real card — not a copy — with
+`ImageRenderer` on macOS and writes a PNG of every state, with hairlines on the
+content box and each card's resolved height:
+
+```sh
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+xcrun swiftc -o /tmp/render-card \
+  ios/App/PrograWidget/PrograCardView.swift \
+  scripts/render-widget/main.swift -target arm64-apple-macos14.0
+/tmp/render-card          # writes live-activity-card.png into the CWD
+```
+
+This is why the card's layout lives in `PrograCardView.swift`, which imports
+**SwiftUI alone**. ActivityKit is iOS-only, so a card that imported it could
+only ever be photographed by hand-copying it, and the copy would drift until
+the renders quietly started lying. Keep that file free of
+`ActivityKit`/`WidgetKit`/`UIKit` imports; `PrograLiveActivityWidget.swift`
+holds the ActivityKit plumbing, the Dynamic Island and the target's `@main`.
+
+It caught the `Link` buttons rendering as a bare yellow fill with no label — a
+missing `.buttonStyle(.plain)` that type-checking cannot see. Fonts, metrics,
+wrapping and colour are real here; the system's Live Activity chrome, corner
+radius, press feedback and the Dynamic Island are not.
 
 "Deploy" means: commit all + push `main`. This repo is normally an
 **uncommitted working tree** — commit/push only when explicitly asked.

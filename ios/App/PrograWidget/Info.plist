@@ -7,5 +7,20 @@
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.widgetkit-extension</string>
 	</dict>
+	<!-- The home screen widget's two faces. Bare filenames, not "Fonts/…":
+	     the fonts sit at the root of this extension's folder, which is a
+	     file-system-synchronized group, so they land at the bundle root.
+
+	     A font listed here but missing from the bundle, or a PostScript name
+	     that doesn't match, fails SILENTLY to the system font — so the names
+	     in WidgetFonts (PrograSessionWidget.swift) were read back out of
+	     these exact files rather than assumed:
+	       HankenGrotesk-SemiBold.ttf  → "HankenGrotesk-SemiBold"
+	       Newsreader48pt-Medium.ttf   → "Newsreader48pt-Medium" -->
+	<key>UIAppFonts</key>
+	<array>
+		<string>HankenGrotesk-SemiBold.ttf</string>
+		<string>Newsreader48pt-Medium.ttf</string>
+	</array>
 </dict>
 </plist>

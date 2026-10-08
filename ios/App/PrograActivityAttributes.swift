@@ -48,6 +48,15 @@ struct PrograActivityAttributes: ActivityAttributes {
         var accentColor: String?
         var accentInk: String?
         var accentOnDark: String?
+        // The chip the card draws: "Goal · Thesis", or a bare "Writing" for a
+        // category-tracked session. Assembled in lib/live-activity.ts by the
+        // app's own rule, so this side never decides whether a prefix is owed.
+        var chipLabel: String?
+        // The chip's TEXT. A fourth colour, because the chip's own 28% fill
+        // tints the ground: accentOnDark is measured against bare navy and
+        // leaves 12.5pt type hue-on-hue inside the pill. The chip's FILL is
+        // accentColor, drawn at 28% as a wash.
+        var chipInk: String?
         // "running" | "paused" | "onBreak". A String rather than an enum so an
         // unrecognised future state degrades to "treat as running" instead of
         // failing the whole decode.
@@ -115,10 +124,48 @@ struct PrograActivityAttributes: ActivityAttributes {
         // Clamped to the anchor plus the app's own 10-hour cap: the same bound
         // the payload would have carried, so the reservation is identical
         // whether or not the field decoded.
-        var timerRangeEnd: Date {
-            if let end = Self.date(capEndMs) { return end }
+            var timerRangeEnd: Date {
             let anchor = anchorDate ?? Date()
-            return anchor.addingTimeInterval(10 * 60 * 60)
+            let cap = Self.date(capEndMs) ?? anchor.addingTimeInterval(10 * 60 * 60)
+            // ONE SECOND SHORT OF THE CAP, and it is the card's layout that
+            // depends on it rather than correctness.
+            //
+            // Text(timerInterval:) reserves width for the widest string its
+            // RANGE can produce. A range ending exactly at the 10-hour cap can
+            // produce "10:00:00" — eight characters — while one ending a second
+            // earlier tops out at "9:59:59", seven. In the card's 48pt
+            // Newsreader that is 193.63pt against 165.41pt, and `clockWidth`
+            // there is pinned to the seven-character measurement. The Island's
+            // two widths are measured the same way.
+            //
+            // Honest as a value, too: at the cap autoClockOut ends the session
+            // and sessionWorkedMs reads it back as zero, so there is nothing
+            // worth showing past 9:59:59 even if iOS would still draw it.
+            //
+            // max() guards a malformed payload from producing an inverted
+            // range, which would trap at the Range initialiser.
+            return max(anchor.addingTimeInterval(1), cap).addingTimeInterval(-1)
+        }
+
+        /// What to pass as `pauseTime` so a frozen clock renders through the
+        /// SAME system formatter as a running one.
+        ///
+        /// The previous card hand-formatted the frozen case with
+        /// a hand-rolled formatter, which was fine when the clock had no pinned
+        /// width. It no longer is: the card reserves exactly the system
+        /// formatter's seven-character width, and a hand-rolled string can
+        /// differ from it in metrics. One formatter, both states.
+        ///
+        /// Clamped into the renderable range. Normally the pause sits well
+        /// inside it; the exception is the offline case `isOverSessionCap`
+        /// documents — a session paused *after* crossing the cap, where no
+        /// client was open at the crossing instant — which unclamped would
+        /// render eight characters into a seven-character frame.
+        var pauseDisplayDate: Date? {
+            guard !isRunning, let anchor = anchorDate else { return nil }
+            let worked = max(0, frozenWorkedMs ?? 0)
+            let at = anchor.addingTimeInterval(worked / 1000)
+            return min(max(at, anchor), timerRangeEnd)
         }
     }
 
@@ -130,15 +177,3 @@ struct PrograActivityAttributes: ActivityAttributes {
     var sessionId: String
 }
 
-// H:MM:SS past an hour, else M:SS — matching how the app's own live clock reads.
-@available(iOS 17.0, *)
-func prograFormatWorked(_ ms: Double) -> String {
-    let total = max(0, Int(ms / 1000))
-    let hours = total / 3600
-    let minutes = (total % 3600) / 60
-    let seconds = total % 60
-    if hours > 0 {
-        return String(format: "%d:%02d:%02d", hours, minutes, seconds)
-    }
-    return String(format: "%d:%02d", minutes, seconds)
-}

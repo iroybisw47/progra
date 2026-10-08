@@ -5,6 +5,83 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-07
+
+### 19:45 · The Live Activity card, rebuilt to the widget handoff
+`design_handoff_progra_widget` is now the Lock Screen card: a goal chip, the
+session name, the elapsed clock at 48pt in the goal's colour, and Pause /
+Clock out.
+
+**It was built as a home screen widget first, and that was the wrong surface.**
+A `.systemMedium` widget cannot hide itself — iOS has no API to retract a placed
+widget — so it needs a design for the ~22 hours a day nobody is clocked in, and
+the handoff explicitly leaves that state undrawn. A Live Activity appears on
+clock-in and disappears on clock-out, which is the lifecycle the design already
+assumes. The widget target, its App Group, its plugin and its whole TypeScript
+stack were removed; what survived is the part that was really missing all along
+— the fonts.
+
+**The fonts are embedded at last.** The 2026-10-06 entry called this out as a
+separate, bigger change, and the old card's own comment said a widget "can't
+load a Google font". Static cuts from the Google Fonts variable originals (SIL
+OFL, licence bundled): Hanken Grotesk at `wght=600`, Newsreader at `opsz=48,
+wght=500`. The handoff asks for a "36 pt or 60 pt static instance", but upstream
+declares `opsz` nominals at 6/16/72 only, so neither exists to take; 48 is the
+clock's render size and so the optically correct cut — and it is what the mock
+shows, since browsers resolve `opsz` from `font-size`. PostScript names were
+read back out of the files through CoreText rather than assumed:
+`HankenGrotesk-SemiBold` and `Newsreader48pt-Medium`. The Newsreader cut is
+subset to the eleven glyphs a timer can emit — 3.7 KB.
+
+**Always navy now.** The adaptive white/dark card is gone, because the handoff
+specifies one ground in both appearances. `accentInk` — the palette colour
+darkened for type on white — consequently has no reader left on this surface.
+It stays in the payload anyway: removing a field strands an activity an older
+binary started.
+
+**The chip follows the app, not the mock.** `Goal · Thesis` for a goal, a bare
+`Writing` for a category, which is what `finish-client.tsx:222` and
+`live-timer-client.tsx:614` already render off `attribution.isGoal`. The handoff
+only specifies the goal case, so a literal reading would have shown
+`Goal · Writing` on every category-tracked session. `liveActivitySnapshot` now
+takes the resolved attribution whole rather than just its text.
+
+**Measured, not estimated.** The handoff reference's `timeWidth` TODO guessed
+150pt; CoreText puts `"0:00:00"` at 48pt with −0.48 tracking at **165.41pt**, so
+the frame is 166. That only holds because the counting-up range now stops one
+second short of the cap — ending *at* it lets the range produce `"10:00:00"`,
+which reserves 193.63pt, and `Text(timerInterval:)` sizes for the widest string
+its range can produce, not the one it draws. The Island's two clock widths were
+re-measured for the same seven-character range (90→77, 52→43).
+
+The clock also gives back 11pt of its reserved descent. A 48pt line of Newsreader
+reserves 12.72pt below the baseline; digits and the colon reach just 1.20pt.
+Left intact it sets the top block's height and pushes a two-line card to
+162.16pt, past the ~160pt a Lock Screen Live Activity should ask for. The card
+is pinned to `minHeight: 160` so the button row sits where the mock's
+`space-between` puts it rather than crowding the name at the bare 8pt minimum.
+
+Both states now render through ONE formatter via `pauseTime`, where the frozen
+case used to be a hand-rolled string — necessary once the clock has a pinned
+width, since a hand-formatted string can differ in metrics from the system's.
+`prograFormatWorked` went with it.
+
+**What the Lock Screen loses:** the sub-line, so the break countdown and a timed
+session's "ENDS 17:30" no longer appear there — the handoff's layout has no slot
+for them. Both survive in the Dynamic Island's expanded region, which keeps its
+measured layout and is otherwise untouched (the handoff designs no Island).
+Nothing else went: `staleLabel` was already in the payload and already rendered
+nowhere.
+
+**And the card can be rendered headlessly again** — this time the real one.
+`scripts/render-widget/main.swift` compiles `PrograCardView.swift` itself, which
+is why the layout now lives in a file importing SwiftUI alone: ActivityKit is
+iOS-only, so a card that imported it could only be photographed by hand-copying
+it, and the copy would drift until the renders started lying. It earned itself
+immediately — both `Link` buttons rendered as a flat yellow fill with a
+missing-glyph symbol and no label, a missing `.buttonStyle(.plain)` that the
+card this replaces has had all along and that `swiftc -typecheck` cannot see.
+
 ## 2026-10-06
 
 ### 06:10 · One voice on the Live Activity card, and a way to SEE it

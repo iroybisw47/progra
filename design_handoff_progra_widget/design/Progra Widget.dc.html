@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9ECF1;font-family:'Hanken Grotesk',system-ui,sans-serif;color:#151B24}a{color:#1C3A5E}a:hover{color:#10243D}</style>
+</helmet>
+<section style="min-height:100vh;box-sizing:border-box;padding:56px 48px;display:flex;flex-wrap:wrap;gap:56px;align-items:flex-start;justify-content:center">
+  <div id="1b" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="background:#1C3A5E;color:#fff;font-size:13px;font-weight:600;padding:3px 9px;border-radius:999px">1b</div>
+      <div style="font-size:15px;font-weight:500;color:#3A4350">Progra widget · systemMedium · 364 × 170 pt (iPhone Plus / Pro Max)</div>
+    </div>
+    <div style="padding:11px;border-radius:66px;background:#0B0D10;box-shadow:0 40px 80px -30px rgba(16,36,61,.45),inset 0 0 0 1.5px #2A2D33">
+    <div data-screen-label="1b Home screen" style="width:430px;height:932px;border-radius:55px;overflow:hidden;position:relative;background:linear-gradient(180deg,#8E7A6B 0%,#B49E8A 50%,#D8C7B3 100%);font-family:'Hanken Grotesk',system-ui,sans-serif">
+      <div style="position:absolute;top:11px;left:50%;margin-left:-63px;width:126px;height:37px;border-radius:20px;background:#000"></div>
+      <div style="position:absolute;top:0;left:0;width:142px;height:58px;padding-top:4px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px;font-weight:600">9:41</div>
+      <div style="position:absolute;top:0;right:0;width:142px;height:58px;padding-top:4px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:7px">
+        <div style="display:flex;align-items:flex-end;gap:1.5px;height:11px">
+          <div style="width:3px;height:4px;border-radius:1px;background:#fff"></div>
+          <div style="width:3px;height:6px;border-radius:1px;background:#fff"></div>
+          <div style="width:3px;height:8.5px;border-radius:1px;background:#fff"></div>
+          <div style="width:3px;height:11px;border-radius:1px;background:#fff"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:1px">
+          <div style="width:24px;height:12px;border:1.2px solid rgba(255,255,255,.6);border-radius:4px;padding:1.5px;box-sizing:border-box">
+            <div style="width:80%;height:100%;border-radius:1.5px;background:#fff"></div>
+          </div>
+          <div style="width:1.5px;height:4px;border-radius:0 1px 1px 0;background:rgba(255,255,255,.6)"></div>
+        </div>
+      </div>
+
+      <div data-screen-label="1b Widget" style="position:absolute;top:76px;left:33px;width:364px;height:170px;box-sizing:border-box;padding:16px 14px;border-radius:23px;background:#1C3A5E;display:flex;flex-direction:column;justify-content:space-between">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px">
+          <div style="min-width:0;display:flex;gap:10px">
+            <div style="width:4px;flex-shrink:0;border-radius:2px;background:#A98BF5"></div>
+          <div style="min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:6px">
+            <div style="max-width:100%;box-sizing:border-box;font-size:12.5px;font-weight:600;line-height:16px;color:#E2D8FF;background:rgba(169,139,245,.28);padding:4px 11px;border-radius:999px;white-space:nowrap">Goal · Thesis</div>
+            <div style="font-size:17px;font-weight:600;line-height:20px;color:#FFFFFF;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">Thesis — chapter 3 redraft</div>
+          </div>
+          </div>
+          <div style="flex-shrink:0;margin-bottom:-9px;font-family:Newsreader,Georgia,serif;font-weight:500;font-size:48px;line-height:1;letter-spacing:-.01em;font-variant-numeric:tabular-nums lining-nums;white-space:nowrap;color:{{ timeInkGoal }}">{{ time }}</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div role="button" aria-label="{{ pauseLabel }}" onClick="{{ togglePause }}" style="flex:1;height:40px;border-radius:12px;background:{{ pauseBg }};color:{{ pauseInk }};display:flex;align-items:center;justify-content:center;gap:8px;font-size:16px;font-weight:600;white-space:nowrap;cursor:pointer" style-active="opacity:.75">
+            <sc-if value="{{ paused }}" hint-placeholder-val="{{ false }}">
+              <div style="width:0;height:0;border-top:7px solid transparent;border-bottom:7px solid transparent;border-left:11px solid currentColor"></div>
+            </sc-if>
+            <sc-if value="{{ running }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;gap:4px">
+                <div style="width:3.5px;height:14px;border-radius:1.5px;background:currentColor"></div>
+                <div style="width:3.5px;height:14px;border-radius:1.5px;background:currentColor"></div>
+              </div>
+            </sc-if>
+            <div>{{ pauseLabel }}</div>
+          </div>
+          <div role="button" aria-label="Clock out" onClick="{{ stop }}" style="flex:1;height:40px;border-radius:12px;background:{{ stopBg }};color:{{ stopInk }};display:flex;align-items:center;justify-content:center;gap:8px;font-size:16px;font-weight:600;white-space:nowrap;cursor:pointer" style-active="opacity:.75">
+            <div style="width:12px;height:12px;border-radius:3px;background:currentColor"></div>
+            <div>Clock out</div>
+          </div>
+        </div>
+      </div>
+      <div style="position:absolute;top:252px;left:33px;width:364px;text-align:center;color:#fff;font-size:12px;font-weight:500;text-shadow:0 1px 2px rgba(0,0,0,.25)">Progra</div>
+
+      <div style="position:absolute;top:290px;left:33px;width:364px;display:grid;grid-template-columns:repeat(4,64px);justify-content:space-between;row-gap:36px">
+        <div style="height:64px;border-radius:15px;background:rgba(255,255,255,.35)"></div>
+        <div style="height:64px;border-radius:15px;background:rgba(255,255,255,.35)"></div>
+        <div style="height:64px;border-radius:15px;background:rgba(255,255,255,.35)"></div>
+        <div style="height:64px;border-radius:15px;background:rgba(255,255,255,.35)"></div>
+        <div style="height:64px;border-radius:15px;background:rgba(255,255,255,.35)"></div>
+        <div style="height:64px;border-radius:15px;background:rgba(255,255,255,.35)"></div>
+        <div style="height:64px;border-radius:15px;background:rgba(255,255,255,.35)"></div>
+        <div style="height:64px;border-radius:15px;background:rgba(255,255,255,.35)"></div>
+        <div style="height:64px;border-radius:15px;background:rgba(255,255,255,.35)"></div>
+        <div style="height:64px;border-radius:15px;background:rgba(255,255,255,.35)"></div>
+        <div style="height:64px;border-radius:15px;background:rgba(255,255,255,.35)"></div>
+        <div style="height:64px;border-radius:15px;background:rgba(255,255,255,.35)"></div>
+      </div>
+
+      <div style="position:absolute;left:14px;right:14px;bottom:14px;height:96px;border-radius:38px;background:rgba(255,255,255,.25);backdrop-filter:blur(24px);padding:0 19px;display:flex;align-items:center;justify-content:space-between">
+        <div style="width:64px;height:64px;border-radius:15px;background:rgba(255,255,255,.35)"></div>
+        <div style="width:64px;height:64px;border-radius:15px;background:rgba(255,255,255,.35)"></div>
+        <div style="width:64px;height:64px;border-radius:15px;background:rgba(255,255,255,.35)"></div>
+        <div style="width:64px;height:64px;border-radius:15px;background:rgba(255,255,255,.35)"></div>
+      </div>
+    </div>
+  </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { base: 5047, since: Date.now(), paused: false, now: Date.now() };
+  componentDidMount() { this.tick = setInterval(() => this.setState({ now: Date.now() }), 1000); }
+  componentWillUnmount() { clearInterval(this.tick); }
+  renderVals() {
+    const p = this.props, s = this.state;
+    const sec = s.paused ? s.base : s.base + Math.floor((s.now - s.since) / 1000);
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), ss = sec % 60;
+    const pad = n => String(n).padStart(2, '0');
+    const time = `${h}:${pad(m)}:${pad(ss)}`;
+    const soft = { bg: 'rgba(255,255,255,.14)', ink: '#FFFFFF' }, solid = { bg: '#FFFFFF', ink: '#1C3A5E' };
+    const pb = soft, sb = solid;
+    return {
+      time, paused: s.paused, running: !s.paused,
+      timeInkGoal: s.paused ? '#8FA3BC' : '#A98BF5',
+      pauseLabel: s.paused ? 'Resume' : 'Pause',
+      pauseBg: pb.bg, pauseInk: pb.ink, stopBg: sb.bg, stopInk: sb.ink,
+      togglePause: () => this.setState(st => st.paused
+        ? { paused: false, since: Date.now(), now: Date.now() }
+        : { paused: true, base: st.base + Math.floor((Date.now() - st.since) / 1000) }),
+      stop: () => {}, // In the app: ends the session and opens Finish & Post (see README)
+    };
+  }
+}
+</script>
+</body>
+</html>
