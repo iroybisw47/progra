@@ -135,7 +135,7 @@ heal by itself.
 | D29 | Edit/new goal (nested) | sheet | ManageGoals | `/` (Progress), `/me` (You) | components/v2/manage-goals.tsx:177 |
 | D30 | Delete goal confirm (nested) | alert | ManageGoals | `/` (Progress), `/me` (You) | components/v2/manage-goals.tsx:250 |
 | D31 | Session finished (unattended) | modal | root layout, when a timed session hit its target with nobody watching | anywhere | components/v2/plan-complete-modal.tsx:19 (mount app/layout.tsx). Both buttons stamp `sessions.plan_reviewed_at`; a dismiss that didn't write would reopen it every load. *(Row added 2026-09-18 — it had never been listed.)* |
-| D32 | What's new | modal | root layout, once per release | `/` only | components/v2/whats-new-modal.tsx (mount app/layout.tsx). Content is `lib/patch-notes.ts`, newest entry only. Gated on `user && onboarded_at != null && !planComplete && patchNote` — D31 outranks it, and suppression never stamps, so the note just waits. Every close path stamps `profiles.patch_notes_seen_version`. Route **allowlist** (`pathname !== "/"` → null), not a denylist |
+| D32 | What's new | modal | root layout, once per release | `/` only | components/v2/whats-new-modal.tsx (mount app/layout.tsx). Content is `lib/patch-notes.ts`, newest entry only; items may carry inline `[label](https://…)` links, plus an optional `outro` sign-off. Rainbow logo at the top (`public/progra-logo.png`); scrolls when taller than the safe viewport. Gated on `user && onboarded_at != null && !planComplete && patchNote` — D31 outranks it, and suppression never stamps, so the note just waits. Every close path stamps `profiles.patch_notes_seen_version`. Route **allowlist** (`pathname !== "/"` → null), not a denylist |
 
 ### Whole-surface conditional states
 

@@ -5,6 +5,33 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-08
+
+### 23:30 · Patch 1.03 notes: Live Activity, a survey, Instagram
+The "What's new" pop-up gets its second release, and three things it couldn't do
+before.
+- **New note `1.03`** (`lib/patch-notes.ts`): the Live Activity on the Lock
+  Screen, a 30-second feedback survey, and the @progra.world Instagram, signed
+  "Sincerely, Ish from Progra". Everyone stamped `1.1` sees it once on `/`.
+- **Inline links in items**, written `[label](https://…)` and split by
+  `noteSegments`. https only; anything else stays plain text, and a PATCH_NOTES
+  test fails on a half-written link so raw markdown can't ship. Links are plain
+  `<a target="_blank">`, which Capacitor hands to iOS for any non-progra.world
+  host, so they open in Safari or Instagram instead of navigating the webview.
+- **Optional `outro`** paragraphs under the bullets; `\n` is a line break.
+- **The rainbow logo replaces the sparkle icon** (`public/progra-logo.png`,
+  144px for 3x screens, `unoptimized` because next/image only serves 1x/2x of a
+  fixed-width image). The web/PWA icons are still the old navy ones.
+- **All copy is ink** (the intro was caption grey), and the dialog now caps at
+  the safe viewport and scrolls. A three-item note with a sign-off is about as
+  tall as an iPhone SE, and an unscrollable dialog that tall would push "Got it"
+  off screen with no backdrop left to tap.
+- The survey link drops the `/u/4/` account index from the URL as pasted, which
+  would have sent other people to the wrong Google account.
+- `npm run build` fails locally on the design-sync `node_modules/progra`
+  self-link (Turbopack: "symlink … infinite loop"). Built clean with the link
+  moved aside, then restored. Vercel never has the link.
+
 ## 2026-10-07
 
 ### 00:40 · Internal analytics, phase 5 — the dashboard

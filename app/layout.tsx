@@ -266,6 +266,7 @@ export default async function RootLayout({
           title={patchNote.title}
           intro={patchNote.intro}
           items={patchNote.items}
+          outro={patchNote.outro}
         />
       )}
       {/* Flat primitives again: an object literal is a fresh reference every

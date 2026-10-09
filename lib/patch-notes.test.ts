@@ -5,6 +5,7 @@ import {
   PATCH_NOTES,
   type PatchNote,
   isKnownPatchVersion,
+  noteSegments,
   patchNoteToShow,
 } from "@/lib/patch-notes";
 
@@ -57,6 +58,37 @@ describe("isKnownPatchVersion", () => {
   });
 });
 
+describe("noteSegments", () => {
+  it("returns a link-free item as one plain segment", () => {
+    expect(noteSegments("Revamped settings")).toEqual([
+      { text: "Revamped settings" },
+    ]);
+  });
+
+  it("splits links out in order, wherever they sit", () => {
+    expect(
+      noteSegments("[Take it](https://a.example/x): then [@p](https://b.example)!")
+    ).toEqual([
+      { text: "Take it", href: "https://a.example/x" },
+      { text: ": then " },
+      { text: "@p", href: "https://b.example" },
+      { text: "!" },
+    ]);
+  });
+
+  // An authored note is trusted, but a javascript: or http: href in a modal
+  // every user sees is not a mistake worth being able to make.
+  it("leaves anything that isn't an https link as plain text", () => {
+    for (const text of [
+      "[x](http://a.example)",
+      "[x](javascript:alert(1))",
+      "[x] (https://a.example)",
+    ]) {
+      expect(noteSegments(text)).toEqual([{ text }]);
+    }
+  });
+});
+
 // Guardrails against the LIVE array — these are what stop a bad note shipping.
 describe("PATCH_NOTES", () => {
   it("agrees with LATEST_PATCH_VERSION", () => {
@@ -96,6 +128,28 @@ describe("PATCH_NOTES", () => {
   it("has no empty intro — omit the field instead", () => {
     for (const n of PATCH_NOTES) {
       if (n.intro !== undefined) expect(n.intro.trim(), n.version).not.toBe("");
+    }
+  });
+
+  it("has no empty outro paragraph — omit the field instead", () => {
+    for (const n of PATCH_NOTES) {
+      if (n.outro === undefined) continue;
+      expect(n.outro.length, n.version).toBeGreaterThan(0);
+      for (const p of n.outro) expect(p.trim(), n.version).not.toBe("");
+    }
+  });
+
+  // A typo'd link — http:, a space before the "(", a stray bracket — fails
+  // noteSegments' pattern and would ship as raw markdown. Catch it here.
+  it("has no half-written links left in the plain text", () => {
+    for (const n of PATCH_NOTES) {
+      for (const item of n.items) {
+        const plain = noteSegments(item)
+          .filter((s) => !s.href)
+          .map((s) => s.text)
+          .join("");
+        expect(plain, n.version).not.toMatch(/\]\s*\(/);
+      }
     }
   });
 

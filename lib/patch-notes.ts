@@ -21,10 +21,28 @@ export type PatchNote = {
   // Optional prose above the bullets. Used for the welcome note that explains
   // what this window IS; most releases won't need one and go straight to items.
   intro?: string;
+  // An item may carry inline links, written `[label](https://…)` and split by
+  // noteSegments. https only — anything else stays plain text, brackets and all,
+  // which the PATCH_NOTES test then refuses to ship.
   items: string[];
+  // Optional closing paragraphs under the bullets: a thank-you, a sign-off. A
+  // "\n" inside one is a line break, so "Sincerely,\nIsh" stays one paragraph.
+  outro?: string[];
 };
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: "1.03",
+    title: "Patch 1.03",
+    intro:
+      "Hey Progra users! As we get to the end of the week, I'm excited to list some new features coming with this patch:",
+    items: [
+      "Live Activity widget: when you're clocked in, you'll now see a widget on your iPhone's Lock Screen showing what you're working on and how long you've been working!",
+      "[Take this survey](https://docs.google.com/forms/d/e/1FAIpQLSfGaA1QHVvjZXg52VDwZj7vJpHk4B9U4VXm-j4kClnywUizFA/viewform): if you've been enjoying (or not enjoying) the app, I'd really appreciate it if you filled it out. It should only take 30 seconds.",
+      "If you haven't already, follow us on Instagram [@progra.world](https://www.instagram.com/progra.world/)!",
+    ],
+    outro: ["Thank you guys!", "Sincerely,\nIsh from Progra"],
+  },
   {
     version: "1.1",
     title: "Welcome to Progra patch notes!",
@@ -87,4 +105,24 @@ export function isKnownPatchVersion(
   notes: readonly PatchNote[] = PATCH_NOTES
 ): boolean {
   return notes.some((n) => n.version === version);
+}
+
+export type NoteSegment = { text: string; href?: string };
+
+const NOTE_LINK = /\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g;
+
+// Splits an item into plain runs and `[label](https://…)` links, in order. A
+// string with no links comes back as one plain segment, so every existing item
+// renders exactly as before.
+export function noteSegments(text: string): NoteSegment[] {
+  const segments: NoteSegment[] = [];
+  let last = 0;
+  for (const match of text.matchAll(NOTE_LINK)) {
+    const start = match.index ?? 0;
+    if (start > last) segments.push({ text: text.slice(last, start) });
+    segments.push({ text: match[1], href: match[2] });
+    last = start + match[0].length;
+  }
+  if (last < text.length) segments.push({ text: text.slice(last) });
+  return segments;
 }
