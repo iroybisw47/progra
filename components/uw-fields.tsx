@@ -1,180 +1,162 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { XIcon } from "lucide-react";
+import { useId, useRef } from "react";
 
-import { PALETTE } from "@/lib/palette";
+import { ChipField } from "@/components/v2/chip-field";
+import { ToggleSwitch } from "@/components/v2/toggle-switch";
 import {
-  CLUB_MAX,
-  MAJOR_MAX,
-  MAX_UW_CLUBS,
-  UW_MAJORS,
-  cleanClubs,
-  normalizeMatchText,
-} from "@/lib/uw";
+  UW_INTEREST_FIELD,
+  UW_LEAVING_NOTE,
+  UW_LISTED_DISCLOSURE,
+  UW_LISTED_LABEL,
+  UW_MAJOR_FIELD,
+  UW_UNLISTED_NOTE,
+  type UwBlockState,
+} from "@/lib/uw-fields";
 
-import { CheckTile, Field, UNDERLINE_INPUT } from "@/app/onboarding/onboarding-ui";
-
-const TILE = PALETTE[7].fill; // Dark blue, as the goal step's default
-
-// Major, clubs and the goal-sharing switch — one implementation, rendered by
-// both the onboarding UW step and Settings → Edit profile. Two copies of a
-// picker whose values have to match to score a match is how a cohort quietly
-// stops matching.
+// The Settings UW block (plan P9b), at the foot of Edit profile: whether
+// you're a UW student, and when you are, your majors and interests on the
+// shared chip field (components/v2/chip-field.tsx) and the switch that lists
+// you to other UW students (D2). Rendered only while UW is on.
 //
-// The major is a typeahead over a suggestion list; the CLUBS FIELD OFFERS
-// NOTHING. UW has on the order of a thousand student orgs, so any list we
-// showed would be mostly wrong and would quietly teach students that a club
-// missing from it doesn't count. They type what they're in, and
-// clubsMatch()/uw_club_tokens() do the work of deciding that "UW Robotics Club"
-// and "Husky Robotics" are the same room.
+// Controlled, and saved by the sheet's own Save (lib/uw-fields.ts'
+// saveUwBlock), not as each thing changes. A UW switch that saved on the tap
+// would clear a student's majors and interests on one mis-tap, since leaving
+// takes everything with it, and a chip field that saved per chip would lose
+// whatever was typed but never Returned. Here the switch can go off and back
+// on with nothing lost, and the Save commits typed drafts.
+//
+// The fields' limits, lists and copy are lib/uw-fields.ts', the same ones
+// Screen 1's quick-add uses (P9c). The goal-sharing tile that used to sit
+// where the listing switch is went with D3: goal titles are no longer shared
+// with UW students at all.
 export function UwFields({
-  major,
-  onMajor,
-  clubs,
-  onClubs,
-  shareGoals,
-  onShareGoals,
+  value,
+  onChange,
+  savedIsUw,
+  disabled,
 }: {
-  major: string;
-  onMajor: (v: string) => void;
-  clubs: readonly string[];
-  onClubs: (next: string[]) => void;
-  shareGoals: boolean;
-  onShareGoals: (v: boolean) => void;
+  value: UwBlockState;
+  onChange: (next: UwBlockState) => void;
+  // Whether the saved profile is in the cohort, so switching off can say
+  // what a Save would then clear.
+  savedIsUw: boolean;
+  // While Edit profile's Save is in flight.
+  disabled?: boolean;
 }) {
-  const [majorFocused, setMajorFocused] = useState(false);
-  const [clubDraft, setClubDraft] = useState("");
-
-  // Empty field → the whole list, so the options are discoverable at all.
-  // Typing filters; an exact pick hides the list rather than leaving one
-  // redundant chip under the field.
-  const majorSuggestions = useMemo(() => {
-    const q = normalizeMatchText(major);
-    if (!q) return UW_MAJORS.slice(0, 8);
-    if (UW_MAJORS.some((m) => normalizeMatchText(m) === q)) return [];
-    return UW_MAJORS.filter((m) => normalizeMatchText(m).includes(q)).slice(0, 8);
-  }, [major]);
-
-  const atCap = clubs.length >= MAX_UW_CLUBS;
-
-  // cleanClubs is the authority on dedupe, trimming and the cap — the same
-  // function the action runs before the write, so the field can never show a
-  // list the DB would then store differently.
-  function addClub(value: string) {
-    const next = cleanClubs([...clubs, value]);
-    setClubDraft("");
-    if (next.length !== clubs.length) onClubs(next);
-  }
-
-  function removeClub(value: string) {
-    onClubs(clubs.filter((c) => c !== value));
-  }
+  const interestsRef = useRef<HTMLInputElement>(null);
+  const id = useId();
+  const leavingId = `${id}-leaving`;
+  const disclosureId = `${id}-disclosure`;
+  const leaving = !value.isUw && savedIsUw;
 
   return (
-    <>
-      <Field label="Major" hint="Or type your own">
-        <input
-          className={UNDERLINE_INPUT}
-          placeholder="Start typing — e.g. Informatics"
-          maxLength={MAJOR_MAX}
-          value={major}
-          onChange={(e) => onMajor(e.target.value)}
-          onFocus={() => setMajorFocused(true)}
-          // Blur fires before a chip's click on some mobile browsers, so the
-          // list closes on a frame delay rather than immediately.
-          onBlur={() => setTimeout(() => setMajorFocused(false), 120)}
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <SwitchRow
+          label="I'm a UW student"
+          checked={value.isUw}
+          disabled={disabled}
+          describedBy={leaving ? leavingId : undefined}
+          onCheckedChange={(isUw) => onChange({ ...value, isUw })}
         />
-        {majorFocused && majorSuggestions.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-2">
-            {majorSuggestions.map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => onMajor(m)}
-                className="border-hairline text-secondary-ink hover:border-brand rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors"
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-        )}
-      </Field>
+        {/* A live region that's always there, so the warning is read out as
+            the switch goes off, not only if someone goes looking for it. */}
+        <div aria-live="polite">
+          {leaving && <Caption id={leavingId}>{UW_LEAVING_NOTE}</Caption>}
+        </div>
+      </div>
 
-      <Field
-        label="Clubs"
-        hint={atCap ? `${MAX_UW_CLUBS} of ${MAX_UW_CLUBS}` : `Up to ${MAX_UW_CLUBS}`}
-      >
-        {clubs.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pb-2.5">
-            {clubs.map((club) => (
-              <span
-                key={club}
-                className="text-primary-foreground flex items-center gap-1.5 rounded-full py-1 pr-1.5 pl-3 text-[12.5px] font-semibold"
-                style={{ backgroundColor: TILE }}
-              >
-                {club}
-                <button
-                  type="button"
-                  aria-label={`Remove ${club}`}
-                  onClick={() => removeClub(club)}
-                  className="flex size-[18px] items-center justify-center rounded-full bg-white/20 transition-transform active:scale-90"
-                >
-                  <XIcon className="size-3" strokeWidth={2.6} />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-        {!atCap && (
-          <div className="flex items-end gap-2">
-            <input
-              className={`${UNDERLINE_INPUT} min-w-0 flex-1`}
-              placeholder="Type a club you're in"
-              maxLength={CLUB_MAX}
-              value={clubDraft}
-              onChange={(e) => setClubDraft(e.target.value)}
-              onKeyDown={(e) => {
-                // Enter and comma both commit, the way every tag field does.
-                if (e.key === "Enter" || e.key === ",") {
-                  e.preventDefault();
-                  if (clubDraft.trim()) addClub(clubDraft);
-                } else if (e.key === "Backspace" && !clubDraft && clubs.length > 0) {
-                  // Backspace on an empty field pulls back the last chip.
-                  removeClub(clubs[clubs.length - 1]);
-                }
-              }}
+      {value.isUw && (
+        <>
+          <ChipField
+            {...UW_MAJOR_FIELD}
+            value={value.majors}
+            onChange={(majors) => onChange({ ...value, majors })}
+            // Return on an empty major moves on to interests (R:85). Not
+            // preventScroll: in the sheet the field can be below the fold.
+            // With interests full there's no input to go to, so it closes the
+            // keyboard instead, as Return on the last field does.
+            onEmptyReturn={(input) => {
+              if (interestsRef.current) interestsRef.current.focus();
+              else input.blur();
+            }}
+            disabled={disabled}
+          />
+          <ChipField
+            {...UW_INTEREST_FIELD}
+            inputRef={interestsRef}
+            value={value.interests}
+            onChange={(interests) => onChange({ ...value, interests })}
+            // The last field: Return on nothing closes the keyboard.
+            onEmptyReturn={(input) => input.blur()}
+            disabled={disabled}
+          />
+          <div className="flex flex-col gap-1.5">
+            {/* The disclosure is the switch's description, so a screen
+                reader hears what it exposes before turning it on. */}
+            <SwitchRow
+              label={UW_LISTED_LABEL}
+              checked={value.listed}
+              disabled={disabled}
+              describedBy={disclosureId}
+              onCheckedChange={(listed) => onChange({ ...value, listed })}
             />
-            {/* A visible Add, because Enter is invisible on a phone keyboard. */}
-            <button
-              type="button"
-              onClick={() => clubDraft.trim() && addClub(clubDraft)}
-              disabled={!clubDraft.trim()}
-              className="bg-brand text-primary-foreground h-9 shrink-0 rounded-[11px] px-4 text-xs font-semibold transition-transform active:scale-95 disabled:opacity-40"
-            >
-              Add
-            </button>
+            <Caption id={disclosureId}>
+              {UW_LISTED_DISCLOSURE} {UW_UNLISTED_NOTE}
+            </Caption>
           </div>
-        )}
-        <p className="text-caption pt-2 text-[11px] leading-snug">
-          Write them however you say them — we&apos;ll work out who else is in
-          the same one.
-        </p>
-      </Field>
+        </>
+      )}
+    </div>
+  );
+}
 
-      <Field label="Your goals">
-        <CheckTile
-          name="Show what I'm working on"
-          color={TILE}
-          on={shareGoals}
-          onToggle={() => onShareGoals(!shareGoals)}
-        />
-        <p className="text-caption pt-2 text-[11px] leading-snug">
-          {shareGoals
-            ? "When a UW student is working on the same thing as you, you'll each see that one goal of the other's — never your private ones, and never the rest."
-            : "Your goals stay between you and your friends, and aren't used to match you. You'll still be matched on your major and clubs."}
-        </p>
-      </Field>
-    </>
+// The sheet's switch row: the label, then the 44×26 switch. The label is a
+// real <label> for the switch, so tapping the words flips it too, and it is
+// the switch's name, so what a screen reader or Voice Control says matches
+// what's on screen.
+function SwitchRow({
+  label,
+  checked,
+  disabled,
+  describedBy,
+  onCheckedChange,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  describedBy?: string;
+  onCheckedChange: (next: boolean) => void;
+}) {
+  const id = useId();
+  const switchId = `${id}-switch`;
+  const labelId = `${id}-label`;
+  return (
+    <div className="flex items-center gap-3">
+      <label
+        id={labelId}
+        htmlFor={switchId}
+        className="text-body min-w-0 flex-1 text-[13.5px] font-medium"
+      >
+        {label}
+      </label>
+      <ToggleSwitch
+        id={switchId}
+        labelledBy={labelId}
+        describedBy={describedBy}
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={onCheckedChange}
+      />
+    </div>
+  );
+}
+
+function Caption({ id, children }: { id?: string; children: React.ReactNode }) {
+  return (
+    <p id={id} className="text-caption text-[11px] leading-snug text-pretty">
+      {children}
+    </p>
   );
 }

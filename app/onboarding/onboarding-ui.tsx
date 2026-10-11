@@ -64,12 +64,15 @@ export function Field({
   label,
   hint,
   error,
+  errorId,
   children,
 }: {
   label: string;
   // A quiet note ("Optional"); `error` is the same slot in terracotta.
   hint?: string;
   error?: string;
+  // The error's id, for an input to point aria-describedby at.
+  errorId?: string;
   children: ReactNode;
 }) {
   return (
@@ -77,7 +80,10 @@ export function Field({
       <div className="flex items-baseline justify-between gap-2">
         <span className="section-label">{label}</span>
         {(error || hint) && (
-          <span className={cn("text-[11px]", error ? "text-destructive" : "text-faint")}>
+          <span
+            id={error ? errorId : undefined}
+            className={cn("text-[11px]", error ? "text-destructive" : "text-faint")}
+          >
             {error ?? hint}
           </span>
         )}

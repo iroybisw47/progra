@@ -1,4 +1,5 @@
 import { aggregateRangeByGoal } from "@/lib/aggregate";
+import { isoDateInTimeZone, weekWindow, type WeekWindow } from "@/lib/dates";
 import type { PublicUser } from "@/lib/db/friends";
 import type { Session } from "@/lib/storage";
 
@@ -35,6 +36,33 @@ export type FriendsLeaderboardRow = {
   otherMs: number;
 };
 
+// A row before ranking: one per person, zero-hour people included.
+export type FriendsWeekRow = Omit<FriendsLeaderboardRow, "rank">;
+
+// The week every row is measured over: the CALLER's Monday to Sunday, in their
+// stored timezone. That is the window the Progress tab uses
+// (lib/db/progress.ts), so "this week" here is the week Progress shows, and it
+// is the week the board's "resets in" label counts down to on the device
+// (EnsureProfileSync keeps the stored zone equal to the device's). Until
+// 2026-10-09 it was the server's own timezone — UTC on Vercel — which turned a
+// Los Angeles user's week over at 5pm on Sunday.
+//
+// Pinned to `now` rather than weekWindow's own clock so a test can fix the
+// instant. No timezone falls back to UTC, which is what the server window
+// always was. So does an unparseable one: Intl throws a RangeError on a bad
+// zone, and a bad string in profiles.timezone must not take /friends down.
+export function leaderboardWeekWindow(
+  tz: string | null | undefined,
+  now: number
+): WeekWindow {
+  const zone = tz || "UTC";
+  try {
+    return weekWindow(zone, isoDateInTimeZone(now, zone));
+  } catch {
+    return weekWindow("UTC", isoDateInTimeZone(now, "UTC"));
+  }
+}
+
 // Builds one leaderboard row from a person's sessions.
 //
 // A goal is only present when it's visible to us: RLS drops a
@@ -50,9 +78,12 @@ export function buildLeaderboardRow(
   weekStartMs: number,
   weekEndMs: number,
   now: number
-): Omit<FriendsLeaderboardRow, "rank"> {
-  // The same function the Goals page, recaps and rollups use, so these numbers
-  // agree with those surfaces by construction rather than by replication.
+): FriendsWeekRow {
+  // The same bucketing function the Goals page, recaps and rollups use, so
+  // these numbers can't drift from theirs by replication. Agreement with a
+  // given surface still needs the same window: the caller passes the
+  // caller's-timezone week (leaderboardWeekWindow), which is Progress's, while
+  // the Goals page and the Dashboard still use the server's (UTC) week.
   const { perGoal, total } = aggregateRangeByGoal(
     sessions,
     weekStartMs,
@@ -79,11 +110,38 @@ export function buildLeaderboardRow(
   };
 }
 
+// One unranked row per person, in the order given — nobody is dropped, and a
+// person with no sessions gets an all-zero row. Ranking, and dropping the
+// zeros, is rankLeaderboard's job; onboarding v3 and the v3 Friends tab read
+// these rows as they are (friends only — getFriendsWeekRows drops the
+// caller's row), because a friend who hasn't tracked anything this week still
+// belongs in "Your friends". Every row is measured over the same window
+// (leaderboardWeekWindow), so the rows compare.
+export function buildFriendsWeekRows(
+  people: readonly { user: PublicUser; isMe: boolean }[],
+  sessionsByUser: ReadonlyMap<string, Session[]>,
+  goalById: Map<string, { title: string; color: string | null }>,
+  week: Pick<WeekWindow, "weekStartMs" | "weekEndMs">,
+  now: number
+): FriendsWeekRow[] {
+  return people.map((p) =>
+    buildLeaderboardRow(
+      p.user,
+      p.isMe,
+      sessionsByUser.get(p.user.userId) ?? [],
+      goalById,
+      week.weekStartMs,
+      week.weekEndMs,
+      now
+    )
+  );
+}
+
 // Ranks people by total, drops anyone at zero, and always keeps the caller —
 // vanishing from your own leaderboard is disorienting, and seeing yourself at
 // the bottom on zero is the nudge the feature exists for.
 export function rankLeaderboard(
-  rows: Omit<FriendsLeaderboardRow, "rank">[]
+  rows: readonly FriendsWeekRow[]
 ): FriendsLeaderboardRow[] {
   return rows
     .filter((r) => r.totalMs > 0 || r.isMe)

@@ -5,7 +5,6 @@ import { SignInButtons } from "@/app/login/sign-in-buttons";
 import { APP_STORE_URL } from "@/lib/app-store";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { getPublicProfileByUsername } from "@/lib/db/profiles";
-import { createClient } from "@/lib/supabase/server";
 import { SOCIAL_ENABLED } from "@/lib/flags";
 
 export const metadata = {
@@ -13,9 +12,11 @@ export const metadata = {
 };
 
 // Public invite landing (social v2). Reachable while signed out — uses
-// getOptionalUser, never requireUser. A stranger taps /i/{username}, signs up
-// with Google, and lands already friends with the inviter (the referrer rides
-// through OAuth as `?ref=`, consumed by /auth/callback → claim_invite).
+// getOptionalUser, never requireUser. A stranger taps /i/{username}, signs up,
+// and their new account sends the inviter a friend request that the inviter
+// accepts in-app (the referrer rides through OAuth as `?ref=`, consumed by
+// /auth/callback → claim_invite). Until 2026-10-09 the claim made them friends
+// outright, with no consent from the inviter — see .claude/plans/invite-hotfix.sql.
 //
 // Since 2026-09-17 a new share hands out the App Store link instead of this
 // route, so what arrives here is a link already in the wild. It keeps working —
@@ -35,16 +36,13 @@ export default async function InvitePage({
   // Their own invite link is meaningless → send them home.
   if (me && target && me.id === target.userId) redirect("/me");
 
-  // Already signed in as a different user: claim the invite now (friendship +
-  // attribution) and land on the inviter's profile. claim_invite is idempotent
-  // and rejects self/blocked, so a repeat or a stale link is harmless.
+  // Already signed in as a different user: just land on the inviter's
+  // profile, where Add friend is one deliberate tap. This branch used to call
+  // claim_invite, which made a plain GET write: the session cookie is
+  // SameSite=Lax, so any site could load this URL in the background and file
+  // a friend request (once, a friendship) in the visitor's name. Claims now
+  // happen only at sign-in, where the person is in the flow on purpose.
   if (me && target) {
-    const supabase = await createClient();
-    try {
-      await supabase.rpc("claim_invite", { p_username: username });
-    } catch {
-      // never block navigation on attribution
-    }
     redirect(`/profile/${target.username}`);
   }
 
@@ -96,8 +94,8 @@ export default async function InvitePage({
         </header>
 
         <p className="text-caption text-center text-sm text-pretty">
-          {name} is tracking their study time on Progra. Join and you&rsquo;ll be
-          friends automatically.
+          {name} is tracking their study time on Progra. Join, and they&rsquo;ll
+          get a friend request from you.
         </p>
 
         <SignInButtons referrer={target.username} next="/" />

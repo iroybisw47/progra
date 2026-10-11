@@ -155,3 +155,21 @@ export function revalidateFriendSurfaces() {
 export function revalidatePatchNoteSurfaces() {
   revalidatePath("/", "layout");
 }
+
+// Finishing onboarding (the profiles.onboarded_at stamp). The ROOT LAYOUT reads
+// that column: it mounts the BottomNav, and it is one of the What's New modal's
+// gates — so, like the patch-note stamp above, this names the layout.
+//
+// That states intent; it is not what makes the nav appear today. In Next
+// 16.2.6 ANY revalidatePath from a Server Action marks the action as having
+// revalidated (spec-extension/revalidate.js: "TODO: only revalidate if the
+// path matches"), the server renders the current route from the root, and the
+// client refreshes everything. So the old revalidatePath("/") re-rendered the
+// layout as well, from any route — it was never unsafe. Naming the layout just
+// keeps onboarding v3's finish (stamped from the Clock tab) right if Next ever
+// starts honouring the path.
+// Safe for the What's New gate: completeOnboarding stamps a new account current
+// BEFORE revalidating, so the re-rendered layout already reads the note as seen.
+export function revalidateOnboardingSurfaces() {
+  revalidatePath("/", "layout");
+}

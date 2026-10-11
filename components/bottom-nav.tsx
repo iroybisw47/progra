@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   CheckSquareIcon,
   ClockIcon,
@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { navRiseAfter, play } from "@/lib/motion";
+import { navRiseElapsed, sessionFlagStore, takeNavRise } from "@/lib/nav-rise";
 import { Ticking } from "@/components/ticking";
 import { sessionWorkedMs, isPaused, type SessionTiming } from "@/lib/session";
 import { REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
@@ -100,6 +102,31 @@ export function BottomNav({
   const onFeed = realPathname.startsWith("/feed");
   const onFriends = realPathname.startsWith("/friends");
   const onOnboarding = realPathname.startsWith("/onboarding");
+  // The wizard owns the viewport there; see the early return below.
+  const wizardOwnsViewport = onOnboarding && activePath === undefined;
+
+  // Onboarding v3's handoff (lib/nav-rise.ts): the first time the bar shows
+  // after Screen 6's "Start session", it rises from 110px below over 640ms,
+  // 240ms after the tap, or fades in under reduced motion. One shot,
+  // consuming the flag. Without the flag nothing plays, which is every other
+  // render of this nav, and a bar the server painted (a load after the tap)
+  // stays where it is. A layout effect, so the frame it first paints in is
+  // already the animation's (its backwards fill holds it down through any
+  // delay left). Reduced motion is read here rather than from
+  // usePrefersReducedMotion: this can run in the hydration commit, where the
+  // hook still holds the server's "false", and the flag is gone by the time
+  // it corrects itself.
+  const navRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    if (wizardOwnsViewport) return;
+    const now = Date.now();
+    const tappedAt = takeNavRise(sessionFlagStore(), now);
+    if (tappedAt === null) return;
+    const elapsed = navRiseElapsed(tappedAt, now, performance.timeOrigin);
+    if (elapsed === null) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    play(navRef.current, navRiseAfter(reduced, elapsed));
+  }, [wizardOwnsViewport]);
 
   // Poll for new activity (paused while hidden; immediate check on refocus).
   useEffect(() => {
@@ -161,7 +188,7 @@ export function BottomNav({
   // The onboarding wizard owns the whole viewport (steps have a bottom-pinned
   // CTA where the nav would sit). Its tour screens opt back in by passing the
   // path they're recreating, which also drives the active-tab highlight.
-  if (realPathname.startsWith("/onboarding") && activePath === undefined) {
+  if (wizardOwnsViewport) {
     return null;
   }
   const pathname = activePath ?? realPathname;
@@ -178,6 +205,7 @@ export function BottomNav({
 
   return (
     <nav
+      ref={navRef}
       aria-label="Primary"
       // The bar clears the home indicator, but not by the full 34pt inset —
       // sitting on all of it made the tabs read as floating above the bottom of

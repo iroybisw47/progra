@@ -289,7 +289,16 @@ export type NotificationStats = {
 
 export type OnboardingStats = {
   generated_at: string;
-  steps: { step: string; provider: string; reached: number; stuck: number; median_seconds: number | string | null }[];
+  steps: {
+    step: string;
+    provider: string;
+    reached: number;
+    stuck: number;
+    median_seconds: number | string | null;
+    // Onboarding v3 first runs only (phase4.sql, admin_onboarding_stats).
+    reached_v3: number;
+    median_seconds_v3: number | string | null;
+  }[];
   stuck_users: {
     id: string;
     username: string | null;

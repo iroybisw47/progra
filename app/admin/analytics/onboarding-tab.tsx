@@ -2,7 +2,8 @@ import Link from "next/link";
 
 import type { GhostBehavior, OnboardingStats, Roster as RosterData } from "@/lib/admin-dashboard";
 import { num, pct } from "@/lib/admin-dashboard";
-import { STEPS } from "@/lib/onboarding";
+import { ONBOARDING_V3 } from "@/lib/flags";
+import { STEPS, V3_STEPS } from "@/lib/onboarding";
 
 import { HBars, SLOT } from "./charts";
 import { Roster } from "./roster";
@@ -31,6 +32,14 @@ export function OnboardingTab({
 
 function OnboardingSections({ stats, nowMs }: { stats: OnboardingStats; nowMs: number }) {
   const all = STEPS.map((step) => stats.steps.find((s) => s.step === step && s.provider === "all")).filter((s): s is NonNullable<typeof s> => !!s);
+  // Onboarding v3 reports under v2's step names in its own order, so its
+  // funnel is read along V3_STEPS, numbered as its screens — from the RPC's
+  // v3-only counts, never `reached`, which also holds every v2 sign-up.
+  // Shown only once v3 can be running, so the tab is unchanged until the flip.
+  const v3 = V3_STEPS.flatMap((step, i) => {
+    const s = all.find((x) => x.step === step);
+    return s ? [{ label: `${i + 1} · ${step}`, value: s.reached_v3, note: `median ${num(s.median_seconds_v3) ?? "—"}s on screen` }] : [];
+  });
   const providers = [...new Set(stats.steps.map((s) => s.provider).filter((p) => p !== "all"))];
   const stuckByStep = all.map((s) => ({ label: s.step, value: s.stuck }));
   return (
@@ -38,6 +47,14 @@ function OnboardingSections({ stats, nowMs }: { stats: OnboardingStats; nowMs: n
       <Section title="Drop-off by screen" hint="Users who reached each screen (a view event, a step at or past it, or finishing). notify is native-only; uw is UW students only.">
         <HBars rows={all.map((s) => ({ label: s.step, value: s.reached, note: `median ${num(s.median_seconds) ?? "—"}s on screen` }))} height={all.length * 26 + 8} />
       </Section>
+      {ONBOARDING_V3 && (
+        <Section
+          title="Drop-off by screen, v3"
+          hint="Onboarding v3 first runs only, screens 1–6 in v3's order: a screen counts when it was viewed. v2 sign-ups, and v2 users replaying in v3, are not included."
+        >
+          <HBars rows={v3} height={v3.length * 26 + 8} />
+        </Section>
+      )}
       <Section title="Stuck, by last screen" hint="Not onboarded and unseen for 48h+.">
         {stuckByStep.every((s) => s.value === 0) ? (
           <p className="text-caption text-sm">Nobody is stuck.</p>

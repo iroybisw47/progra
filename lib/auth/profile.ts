@@ -86,21 +86,30 @@ export type Profile = {
   john_enabled?: boolean | null;
   // The UW cohort (lib/uw.ts, .claude/plans/uw-cohort.sql).
   //
-  // UNLIKE john_enabled and seat_no, these four ARE user-writable: membership
-  // is self-declared, which is the feature. setUwProfile is the only writer,
-  // and there is deliberately no guard trigger.
+  // UNLIKE john_enabled and seat_no, these ARE user-writable: membership is
+  // self-declared, which is the feature. setUwProfile is the only writer, and
+  // there is deliberately no guard trigger.
   //
   //   is_uw          — not null default false in the DB
-  //   uw_major       — a lib/uw.ts entry, or free text from the "Other" option
-  //   uw_clubs       — lib/uw.ts entries only, at most MAX_UW_CLUBS
-  //   uw_share_goals — not null default true; false withholds this user's goal
-  //                    titles from uw_peers' results
+  //   uw_majors      — STEP 5. At most MAX_UW_MAJORS, each a lib/uw.ts entry
+  //                    in its spelling or the student's own free text
+  //   uw_interests   — STEP 5. At most MAX_UW_INTERESTS, free text, tidied
+  //   uw_listed      — STEP 5, not null default false: whether this student
+  //                    appears in other students' UW groups at all (plan D2)
+  //   uw_share_goals — retired (D3): always false, and STEP 5 makes false the
+  //                    default. Still written, so no row keeps a true
+  //   uw_major       — retired: v2's single major, nulled on every save
+  //   uw_clubs       — retired: v2's clubs, nulled on every save, never moved
+  //                    into interests. STEP 6 (P11) drops the retired three
   //
   // Optional for seat_no's reason, and failing CLOSED like john_enabled: an
-  // absent key reads `undefined`, and every caller tests `=== true`, so a
-  // database without the migration means "not in the cohort" rather than a
-  // half-rendered UW surface.
+  // absent key reads `undefined`, and every caller tests `=== true` or falls
+  // back to an empty list, so a database without STEP 5 means "not in the
+  // cohort" rather than a half-rendered UW surface.
   is_uw?: boolean | null;
+  uw_majors?: string[] | null;
+  uw_interests?: string[] | null;
+  uw_listed?: boolean | null;
   uw_major?: string | null;
   uw_clubs?: string[] | null;
   uw_share_goals?: boolean | null;

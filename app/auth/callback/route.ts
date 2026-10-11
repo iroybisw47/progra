@@ -34,8 +34,10 @@ export async function GET(request: Request) {
 
   // Invite attribution: if the user arrived via /i/{username} the referrer is
   // carried as `?ref=`. claim_invite (SECURITY DEFINER) derives the caller from
-  // auth.uid() and does all the friendship/referred_by writes + self/blocked
-  // checks. Attribution must NEVER block sign-in, so swallow every failure.
+  // auth.uid(); for a first-run account it records referred_by and sends the
+  // inviter a PENDING friend request (never a friendship — the inviter
+  // accepts in-app), and it does nothing for anyone already onboarded.
+  // Attribution must NEVER block sign-in, so swallow every failure.
   const ref = searchParams.get("ref");
   if (ref) {
     try {

@@ -436,3 +436,15 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Onboarding v3 (.claude/plans/onboarding-v3.md P3). Its root carries
+   data-onboarding-v3, which the rule above never matches, so it has its own:
+   under reduced motion every CSS keyframe animation inside it stops outright,
+   loops included (WeekPulse's infinite bar-pulse, the handle spinner).
+   Transitions and the WAAPI one-shots are left alone here because each one
+   already picks its reduced-motion spec from lib/motion.ts. */
+@media (prefers-reduced-motion: reduce) {
+  [data-onboarding-v3] * {
+    animation: none !important;
+  }
+}

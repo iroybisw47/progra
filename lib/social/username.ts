@@ -63,6 +63,50 @@ export function normalizeUsername(input: string): string {
   return input.trim().toLowerCase();
 }
 
+// People search (searchUsers): the shortest query worth a round-trip, and the
+// most rows one search returns. Five is the redesign's number (onboarding v3's
+// find-friends screen and the v3 Friends tab, handoff README R:134): a short
+// list that fits above the keyboard, where a longer one would scroll under it.
+export const SEARCH_QUERY_MIN = 2;
+export const SEARCH_RESULTS_MAX = 5;
+
+// A search box's text as the search_users RPC should see it: normalized like a
+// handle, minus any leading "@". People type "@maya" because that is how the
+// app writes a handle everywhere, and no handle can contain "@" (checkUsername
+// below), so the "@" can only ever stop a match. Trimmed again after the strip
+// so "@ maya" searches for "maya", not " maya".
+export function normalizeSearchQuery(input: string): string {
+  return normalizeUsername(input).replace(/^@+/, "").trim();
+}
+
+// Search rows in match order, before searchUsers caps them at
+// SEARCH_RESULTS_MAX: the handle exactly as typed, then handles that start with
+// it, then everything else (a display-name match). Stable, so each group keeps
+// the RPC's own order. This is SQL-2's ORDER BY done in the app, so the cap
+// can't cut the person someone typed in full whichever search_users body is
+// live. `q` is normalizeSearchQuery's output.
+export function orderSearchMatches<T extends { username: string | null }>(
+  rows: readonly T[],
+  q: string
+): T[] {
+  const rank = (username: string | null): number => {
+    const u = (username ?? "").toLowerCase();
+    if (u === q) return 0;
+    return u.startsWith(q) ? 1 : 2;
+  };
+  return rows
+    .map((row, i) => ({ row, i, r: rank(row.username) }))
+    .sort((a, b) => a.r - b.r || a.i - b.i)
+    .map((x) => x.row);
+}
+
+// What setUsername says when the unique index refuses a handle (23505): the
+// one error a client can act on without a round-trip of its own, by showing
+// it under the Username field instead of as a toast (onboarding v3's welcome,
+// OWNER-FIX-3). Here rather than in the action because a "use server" file
+// may only export async functions.
+export const USERNAME_TAKEN_ERROR = "That username is taken.";
+
 // Validates a raw input and returns the normalized handle on success. The DB's
 // unique index is the final word on *availability* (see setUsername) — this
 // only enforces shape and reserved words.

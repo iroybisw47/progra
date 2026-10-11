@@ -61,13 +61,12 @@ export default async function SettingsPage({
       nudgesEnabled={profile?.nudges_enabled !== false}
       // Fails CLOSED, like john_enabled: an absent key (a database without the
       // uw-cohort migration) reads as "not in the cohort" rather than showing a
-      // half-wired UW block.
+      // half-wired UW block. The three STEP 5 columns are absent until it runs
+      // (UW off), and read as no majors, no interests, not listed.
       isUw={profile?.is_uw === true}
-      uwMajor={profile?.uw_major ?? null}
-      uwClubs={profile?.uw_clubs ?? []}
-      // NOT NULL with default true in the DB; `!== false` also covers a profile
-      // read from before the column existed.
-      uwShareGoals={profile?.uw_share_goals !== false}
+      uwMajors={profile?.uw_majors ?? []}
+      uwInterests={profile?.uw_interests ?? []}
+      uwListed={profile?.uw_listed === true}
       calendarStatus={
         params.calendar === "connected" || params.calendar === "error"
           ? params.calendar

@@ -25,6 +25,8 @@ export type Step = (typeof STEPS)[number];
 //
 //   notify — native-only; there are no notifications on the website.
 //   uw     — only for a student who ticked "I'm a UW student" on `welcome`.
+//            The tick is gone (plan P9a): v2 always passes false, and the
+//            parameter goes with v2 itself in P11.
 //
 // BOTH predicates resolve while the user is still on `welcome` at index 0,
 // which is the load-bearing reason a list that changes length underneath
@@ -47,7 +49,42 @@ export function eyebrowFor(step: Step, steps: readonly Step[]): string | null {
   return `Step ${numbered.indexOf(step) + 1} of ${numbered.length}${practice ? " · Practice" : ""}`;
 }
 
+// Onboarding v3's six screens, named with the step names analytics already
+// accepts: the prod CHECK on profiles.onboarding_step and the event allowlist
+// both list exactly STEPS (.claude/plans/analytics/phase1.sql), so reusing
+// them is what lets v3 report without any SQL. Each screen takes the v2 step
+// closest to its job:
+//
+//   welcome  1 · who you are: name, handle, photo (and the UW question)
+//   goal     2 · up to three goals
+//   habit    3 · habits
+//   how      4 · the three-beat intro to what Progra is
+//   friends  5 · find your friends
+//   clock    6 · "Ready?", then the real Clock tab
+//
+// The ORDER is v3's own: `how` moves from second to fourth. Anything that
+// infers "reached step N" from a position has to use the list for the flow it
+// is counting. v2's practice steps (notify, post) and its separate uw step have
+// no v3 screen.
+export const V3_STEPS = [
+  "welcome",
+  "goal",
+  "habit",
+  "how",
+  "friends",
+  "clock",
+] as const satisfies readonly Step[];
+export type V3Step = (typeof V3_STEPS)[number];
+
 export const DEFAULT_GOAL_COLOR = PALETTE[7].fill; // Dark blue
+
+// The weekly quota a goal made in onboarding starts with. Since OWNER-FIX-2
+// it seeds each of v3's Screen 2 hours boxes, which the person can change
+// before Continue (lib/onboarding-v3.ts, goalHoursOrDefault), and it's v2's
+// default too, so a goal nobody adjusts lands on Progress as a v2 one does.
+// createGoal rejects anything that isn't positive, so it always needs a
+// value. Editable on the Goals page like any other quota.
+export const DEFAULT_GOAL_QUOTA_HOURS = 5;
 
 export type HabitPick = { name: string; color: string };
 

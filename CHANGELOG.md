@@ -5,6 +5,679 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-11
+
+### 16:45 · Onboarding v3: Yes to UW opens a full page, not the pop-up (OWNER-FIX-4)
+- **Owner's request:** "It should load to the full page, not just a popup when you say Yes to being a UW student". The sheet now only asks the question. Yes holds its selected state, then the sheet goes and a full page comes in its place, the purple tile flying up into the "UW student ✓ Change" bar at its top. The page has the wizard's top row (Back, progress on step 1, the avatar), "Your school" over "Are you a UW student?", the bar, the D2 disclosure, and the optional Major and Interests fields, with the wizard's own "Skip for now" / "Continue" at the bottom. No is unchanged: it saves and goes to Screen 2.
+- **Getting around:** Back from the page goes to the welcome, and Continue there goes straight back to the page (no second question) with what was typed still there. Back from Screen 2 lands on the page. Change on the bar asks the question again, the sheet back up over the welcome. A UW student replaying onboarding goes from the welcome straight to their page.
+- **Code:** new `app/onboarding/v3/uw-screen.tsx` (the page, from the sheet's former Yes path); `uw-sheet.tsx` cut to the question (no fields, so no keyboard handling, height animation or `max-height` transition any more); the reducer's new `uwPage` (`openUw` closes the sheet and opens the page; `back` from the page; `openUwSheet` goes to the page for a settled Yes; `changeUw` re-asks; any move off Screen 1 clears it); `UW_PAGE_STAGGER`, `uwPageCta`, `boxOf`, and `aboveLiftedCta` back in `frame.ts` for the page's scroll area. Removed: `sheetMorph`, `relativeBox`, `uwOpenPhase`, `UW_STAGGER`, `sheetResize`, the sheet's keyboard lift and caps. Dev preview: `uw-sheet-open` is now `uw-page`.
+- **Checked** in the dev preview at 393×852 and 375×667 (reduced motion too): Continue → sheet → Yes → page (Major focused, "Skip for now"); typing turns it to "Continue"; Back → welcome → Continue → page with the draft kept; Change → the question; No → Screen 2; Back → welcome. No console errors. Gate: tsc, eslint, vitest 1249 passed, `npm run build`, signed-out smoke.
+
+### 16:25 · OWNER-FIX-3 review fixes: the UW sheet's taps, keyboard and failures; the welcome's typing
+Two reviewers (correctness; interaction and accessibility). Still dark behind `ONBOARDING_V3` + `UW`, still uncommitted.
+- **A double tap on Continue no longer answers the UW question.** The sheet rises over where Continue was, so the second tap landed on a tile (saving No and moving on, the question never seen) or on the dimmed welcome (putting the sheet away). Taps now count only once the sheet has finished rising, and only if the finger went down after that (`sheetTapCounts`). Checked by double-tapping in the preview at 250, 450 and 650ms.
+- **No one is held on the welcome by a failing UW save.** A No from someone not in the cohort now moves on even if its write fails, quietly, since there was nothing to take out. A cohort member's failed No still toasts and asks again. Before, any lasting `setUwProfile` failure (P11 dropping the old columns under today's code, say) stopped every new user at Screen 1. The plan's P11 now says to ship the code that stops writing those columns first.
+- **The tiles warn a UW student what No clears:** "Choosing No takes you out of UW groups and clears your majors and interests.", as Settings does, read with the No tile.
+- **Typing on the welcome is ~6× cheaper.** Its fields lived in the wizard shell, so every keystroke re-rendered all six screens: ~25ms a keystroke in dev (~85ms with the CPU slowed 4×), now ~4ms (~16ms). The screen keeps its own fields and tells the shell only whether Continue can go, and whether it's saving.
+- **The sheet and the keyboard:** it rides the keyboard only while one of its own fields is focused, so it no longer shoots up and drops when raised with the welcome's keyboard up, and the closed sheet stays put while other screens type. Its height cap now follows the keyboard at the lift's own pace, so its top stays still and its bottom rises, instead of the bottom jumping ~150px in a frame. That's a `max-height` transition, the one layout animation in v3, so it's on the device checklist.
+- **Accessibility:** focus stays in the sheet while Yes turns into the bar; the D2 disclosure is read with the Major field; Tab wraps inside the sheet; a hidden Close button for VoiceOver and Switch Control; a taken handle moves focus to Username, and its error is linked to the field (in v2 too); tapping above the sheet while typing only closes the keyboard; focusing Major shows its suggestions too.
+- **The sheet loads as its own chunk** (`next/dynamic`, AGENTS.md's dialog rule); its write hook moved to `app/onboarding/v3/uw-writes.ts`.
+- **Saves:** the welcome's handle-then-name save is `saveIdentity` (pure, tested with fakes, including a name failing after the handle saved). A save left in flight when someone goes Back and comes forward again no longer pushes the re-entered screen on.
+- **Deleted, now unused:** the `checkUsernames` action, `listTakenUsernames`, the username-batch helpers, and the avatar's centre-crop upload path. `lib/db/profiles.ts` and `lib/images/crop.ts` are back to their committed state.
+- Gate: tsc, eslint (changed files), vitest 1251 passed, `npm run build`, signed-out smoke.
+
+### 15:34 · Onboarding v3: the welcome screen that's live today, then the UW question as a sheet (OWNER-FIX-3)
+- **Owner's request:** "can you keep the original welcome to Progra screen, but then once complete pops up the UW student thing, and then has the new onboarding from there on out". Screen 1 is now v2's welcome screen (`app/onboarding/steps/welcome-step.tsx`, reused, not forked) with the rainbow app icon in place of the navy mark. The UW question is a bottom sheet raised over it once its Continue saves. Screens 2-6 are unchanged.
+- **The welcome:** name (optional), username with v2's check, photo through the step's own picker. "Continue" stays disabled until the handle passes `checkUsername`, and is busy while it saves (only what changed). A handle someone else holds shows "That username is taken." under Username and stays; other failures toast. There's no top row on it apart from a replayer's ✕. Back, progress and the 28px avatar fade in from Screen 2. With the keyboard up, the screen moves so both fields clear the lifted CTA.
+- **The sheet (UW on):** white, 26px top radius, grab handle. It rises on the keyboard easing and only fades under reduced motion. The tiles, the Yes tile morphing into the purple bar (now measured against the sheet as it grows), the D2 disclosure and the majors/interests quick-add work as before. No saves and moves on. "Skip for now" (or "Continue", once anything is added or typed) saves Yes and moves on, listing the student only on a Yes tapped in the sheet. A tap on the dimmed welcome, a drag down or Escape puts the sheet away unanswered, and Continue brings it back as it was left. A replayer already at UW gets it open on their saved answer. With UW off, Continue goes straight to Screen 2.
+- **Removed:** the old Screen 1 (live handle check, suggestions, taken alternatives, the in-screen tiles and keyboard slide-away, the travelling 84px avatar), the helpers only it used, their tests, and the services' `checkUsernames`. The `checkUsernames` action and `listTakenUsernames` are left in place, now unused. v2 is unchanged: the step's new props are all optional, as are `AvatarPicker`'s new `upload`/`remove`. `setUsername`'s taken message moved into a shared constant, with the same words. The `/onboarding` loading skeleton now draws the welcome.
+- **Dev preview:** fixtures `welcome`, `welcome-filled`, `taken` (shows the taken path on Continue), `replay`, `uw-sheet`, `uw-sheet-open` and `uw-sheet-no`. The photo picker in the preview writes nothing.
+- **Tests:** the welcome's handle rule against v2's, what Continue does with UW on and off, the sheet's state machine (tiles, selecting, open, Change, put away, reopen, Back), each exit's payload, where a replayer starts, and the sheet's motion tokens. Checked in the dev preview at 393×852, with a simulated keyboard and under reduced motion.
+
+## 2026-10-10
+
+### 01:24 · Onboarding v3: review fixes for Screen 2's hours boxes (OWNER-FIX-2)
+- **Data integrity (D1):** goals were matched to rows by title on every Continue. With repeated or loosely equal titles, a Back → Continue that changed nothing could move a goal to another row, write its quota to a different account goal (the hidden fourth included), and point Screen 6 and the colors at the wrong row. Each goal now keeps the row it's on: `goalRowIds` in the reducer, aligned with `goals` and `goalHours`. It's filled from the account's ids on prefill, from the row `newGoalHours` matches when a title is typed (it now returns `{ hours, rowId }`), and after every save, full or partial (`savedRowIds` → `setGoalRowIds`). `goalSteps`, `goalColors` and `readyGoal` place a goal by its row first. Only a goal with no row is matched by title.
+- **One rule beyond the review's spec:** a goal with no row matches an account goal by title only when its box already holds that goal's quota. Before, typing a listed goal's title a second time and then removing the first copy overwrote that goal's quota with the copy's untouched 5h. Now the copy becomes a goal of its own.
+- **The box:** focus keeps the hours in the field and selects them, so screen readers read them and typing replaces them. −, + and the arrow keys leave the new hours selected. Return commits and leaves the field, and Escape puts the hours back. A field left as focus filled it keeps a stored 2.5h or 60h exactly. Whole hours only: "2.5", typed key by key or pasted, commits as 2, not 25, and ".5" keeps the hours (the field shows the point as typed, `hoursFieldText`, and commits `hoursInput`'s whole hours). Three digits are allowed, so 100 snaps to 40 instead of reading as 10. The `pattern` is gone, so a stored 2.5 isn't marked invalid. A full-width IME's text is left alone until the composition ends ("１２" used to come out as 11).
+- **Continue** now applies typed hours from every box, not just the first.
+- **Layout:** with the keyboard up and a box focused, the rows below it and the title field fade out and go inert (160ms). Nothing sits under the lifted CTA, and a lower row's ✕ can't be hit by a near-miss on Continue. At the cap the title field fades out without moving anything, so "Three is plenty" no longer sits under Continue in Safari on an SE. Return on the third goal moves focus to its hours box. The example chips now also hide at rest when they'd cover the field (`KeyboardFit` `atRest`).
+- **Tests:** a seeded property test runs 400 random sessions of adds, removes, hours changes and saves, with injected failures and reloads, duplicate and loose titles, a hidden fourth goal and 2.5h/60h quotas. It checks that a landed save leaves nothing to write, and that account goals are never renamed, recolored or archived and only get quota writes for boxes the person changed. It fails against the old title-only matching. Also new: a reducer fuzz that keeps the three arrays aligned, and the hours-input cases. Checked in the dev preview at 393×852, 375×667 and 375×548, with a simulated keyboard and an IME composition.
+
+### 00:04 · Onboarding v3: weekly hours per goal on Screen 2 (OWNER-FIX-2)
+- **Owner's request (2026-10-09):** each goal on Screen 2 gets its weekly-hours quota set in place. A committed goal (Return, or now also leaving the title field) gets a full-width box under its title: − on the left, + on the right in 1-hour steps, and the hours typeable in between. Whole hours 1–40, default 5. Typed hours out of range snap to the nearest limit when the box is left.
+- **Motion, in the wizard's own style:** the box rises in 90ms behind its row (`goalHoursIn`; nothing of its own under reduced motion), the number pops on each change, and the box shakes at a limit or on a snap. Rows are two lines now (92px), and the field moves down with them.
+- **Writes:** new goals are created at their box's hours, and a goal this run made gets one update with whatever changed. A replayer's existing goal gets a quota-only update when its box changes (the main loop's call), and is still never renamed, recolored or archived. A box left alone writes nothing, even for a stored quota the box can't set (2.5h, 60h). A goal removed and typed back starts at its saved hours (`newGoalHours`), so it writes nothing either.
+- **Continue** applies hours still being typed into a box before it saves. With the keyboard up, the focused hours box is kept clear of the CTA, and the example chips hide while it has focus.
+- Dev preview: the two fixture goals now hold 10h and 4h, and a new `goals-full` fixture shows Screen 2 at the cap (10, 4 and 6h). Plan: OWNER-FIX-2 note at the end of §3. No SQL: `updateGoal` already takes `weeklyQuotaHours`.
+- Tests: the reducer keeps goals and hours aligned, every hours helper, quota-aware `goalSteps`, `afterGoalStep` and `newGoalHours`, the preview fixtures and the `goalHoursIn` spec.
+
+## 2026-10-09
+
+### 22:17 · Owner fix visual check: Screen 6's goal pill
+- Screenshotted Screen 6 in the dev preview (`habits`, `friends-added`, `ready-added`, reduced motion). It matches the P7 render at the README's offsets, with the pill naming the first goal in its Screen 2 colour. Tapping "Start session" restarts the preview on Screen 1 and never requests `/clock`. `/dev/first-session-clock` 404s.
+- A goal title that wraps (up to 60 characters) now sits left-aligned beside its square, not centered under it (`app/onboarding/v3/ready-screen.tsx`). A one-line title renders exactly as before.
+
+### 22:05 · Owner fix review: D5's flag-off ask and the stamp retry on the normal Clock tab
+- **D5 is flag-aware again**, which supersedes the 21:48 D5 bullet. With CLOCK_REMINDERS off, the Clock-in tap on the `?welcome=1` arrival asks for notifications alongside the clock-in. It asks on native only and only if the device has never answered, and nothing on screen changes. A grant turns on the habit-reminder default (`asksOnClockIn`, and `askNotificationsOnClockIn` in `app/clock/finish-onboarding.tsx`). This is legal caller #4 in `lib/notification-permission.ts`. With the flag on, the live timer's band still asks.
+- **Stamp retry:** if both of the arrival's stamp tries fail, Clock in tries once more before it clocks in (`settleOnboardingStamp`), because clocking in leaves the page. Before, the account stayed un-onboarded and `/` reopened the wizard after the first session. `onboardingStamper` shares one stamp between the mount and the tap, so `onboarding_completed` is still counted once.
+- Plan: new OWNER-FIX-1 entry at the end of §3. D4, D7, P7 and their Schoolwork lines are marked superseded.
+- Tests: `asksOnClockIn` and `onboardingStamper` in `lib/clock-handoff.test.ts`.
+
+### 21:48 · Onboarding v3: "Start session" opens the normal Clock tab (owner fix)
+- **Owner's call:** "onboarding should just load to the normal clock screen, but with the goal auto selected, not this new one that is generated." This replaces P7's generated first-session Clock and the Schoolwork category (plan D4/D7, R:146-158).
+- **Screen 6:** the pill shows the first goal from Screen 2 (its title, in the color Screen 2 drew it), not "Schoolwork". "Start session" is `<Link prefetch={true}>` to `/clock?goal=<id>&welcome=1`, prefetched as soon as Screen 6 is in front, since the screen writes nothing now. The id is the goal's real row after Screen 2's save, for first runs and replays alike (`readyGoal`). The exit animation, the nav-rise flag and the onNavigate cancel are unchanged.
+- **`/clock`:** the `?welcome=1` branch is gone. The page is the normal Clock tab for everyone, with the existing `?goal=` preselect. With ONBOARDING_V3 on, `?welcome=1`, and `onboarded_at` still unset, a new leaf (`app/clock/finish-onboarding.tsx`) stamps it once on mount, retries once quietly, and renders nothing. Replayers have nothing to stamp, so the wizard counts their `onboarding_completed` on the tap.
+- **Deleted:** `ensureSchoolworkCategory`, `SCHOOLWORK`, `findCategoryByName`, `getWeekMsByTarget`, the first-session Clock and its services, `/dev/first-session-clock`, `lib/first-session*.ts` and their tests, and the Clock-CTA motion (`CLOCK_CTA_IN`, `clockCtaRings`). Beat 2's sample "Schoolwork" segment stays as sample data. `/dev/onboarding-v3`'s "Start session" now plays the exit and restarts on Screen 1.
+- **D5:** with CLOCK_REMINDERS off, v3 users get no notification ask during onboarding. The native Clock-in ask lived in the deleted screen. With it on, the live timer's band still asks and turns on the habit default.
+- Tests: `lib/clock-handoff.test.ts` (href with and without a goal, when to stamp, the single retry) and `readyGoal` in `lib/onboarding-v3-goals-habits.test.ts`.
+
+### 20:16 · P9d review fixes: UW groups
+- Screen 5 fetches the groups as soon as the wizard leaves Screen 1, so
+  they're usually in before the screen is. A failure retries on entering
+  Screen 5. The wait keeps the plain subtitle: the UW line ("A few people
+  from UW are already here") only shows over groups, so it's never shown and
+  then taken back.
+- Friends tab: "Show more" loads on a tap only. Auto-loading pushed "Your
+  friends" and Sent · Blocked down through the whole cohort. Screen 5 still
+  loads ahead, now measured against its own scrolling list.
+- The Friends tab drops a paged-in person once the fresh first page covers
+  their place but leaves them out, i.e. they unlisted, blocked, left or lost
+  their seat. Before, they stayed listed with a live Add until the tab
+  remounted. Each peer now carries its `onboarded_at`, compared to the
+  microsecond. Blocked people are hidden on later pages too.
+- A failed UW read on refresh keeps the groups already shown, rather than
+  swapping in People on Progra.
+- a11y: when a page lands while "Show more" has focus, focus moves to the
+  first new row, including when the last page removes the button. Screen 5
+  has a status line that stays mounted ("Finding people from UW", then what
+  it found). Group counts are part of the heading's name.
+- "Show more" and the spoken lines are this build's own copy. Neither R nor
+  the plan has them, so the owner should confirm.
+
+### 19:56 · P9d: UW groups on Screen 5 and the Friends tab
+Dark behind `NEXT_PUBLIC_UW` (plus `ONBOARDING_V3` / `FRIENDS_V3`); no SQL
+run. With UW off, or for anyone not in the cohort, both screens are unchanged.
+- Screen 5, for a student who said Yes: the R:131 subtitle and three groups,
+  "In {majors joined with &}", "Shares your interests" and "More at UW". Each
+  has a count and a reason line under every name. Fetched through the
+  services seam when the screen comes into view, since Screen 1 saved the
+  answer moments earlier. Fetched again only if that answer changes, so added
+  people stay listed as "✓ Added" (P:1199-1200). Quiet placeholder rows while
+  loading. "You're early" plus the invite preview when every group is empty.
+  The non-UW screen if the fetch fails.
+- Friends tab: the groups sit between Requests and Your friends (R:168),
+  read in `page.tsx` only for an `is_uw` caller. Add takes a person out of
+  their group at once, and the RPC leaves them out after revalidation. For
+  these students the groups replace People on Progra, which comes back once
+  the groups are empty.
+- "More at UW" (and any long group) loads its next page as its last row
+  scrolls into view, or on a "Show more" tap. Pages merge without losing or
+  repeating anyone when the first page refreshes underneath.
+- New `lib/uw-groups.ts` holds the logic, `components/v2/uw-groups.tsx` the
+  paging hook and rows, `lib/uw-peers-preview.ts` a fake `list_uw_peers` over
+  a made-up cohort. Dev previews: `/dev/onboarding-v3?fixture=uw-groups|uw-early`,
+  `/dev/friends-v3?fixture=uw`. No analytics carry majors or interests.
+
+### 19:22 · P9c review fixes: Screen 1 UW
+- "Change" is ignored while a Skip/Continue save is in flight, and that save
+  only moves on if Yes is still open. Change also blurs the quick-add field.
+- A replayer in the cohort starts from their stored answer, so a Skip that
+  changes nothing writes nothing. If the wizard sends a replayer back to the
+  tiles itself (missing name, lost handle), tapping Yes again keeps their
+  listing as it was.
+- With UW on, the name gets focus on first load again (R:64). An unlisted
+  replayer sees no line under the bar, since only approved copy goes there.
+- The bar shows and fades in place, outside the stagger (P:1389). The tile
+  press now eases. Header fields stay hidden until placed, so loading on the
+  open bar doesn't flash. The focused quick-add field stays in view on short
+  phones. Tabbing past the hidden CTA lands on the Yes tile. The answered
+  question and the eyebrow are aria-hidden.
+
+### 18:58 · P9c: Screen 1's UW half (tiles, Yes bar, quick-add)
+Dark behind `NEXT_PUBLIC_UW` (and `ONBOARDING_V3`); no SQL run. With UW off,
+Screen 1 is unchanged (D11).
+- "Are you a UW student?" with Yes/No tiles. A tap with an incomplete identity
+  shakes and focuses that field. No saves the identity plus `{ isUw: false }`
+  during its 780ms hold, then goes to Screen 2. Yes FLIP-morphs into the bar.
+  The name and handle shrink into a header beside a 40px avatar, and the
+  majors/interests quick-add staggers in on the shared chip field.
+- Skip/Continue saves `{ isUw: true, majors, interests, listed }`. `listed` is
+  true after a Yes tap, which shows D2's disclosure under the bar. A replayer
+  already in the cohort starts on the open bar with their listing as stored.
+  Errors toast and stay. A repeat exit with nothing changed writes nothing.
+- While the name/handle is focused, the question and tiles slide away (R:72),
+  and Continue/Return only close the keyboard. Reduced motion crossfades.
+- `setUwProfile` is on the services seam. `/` and `/onboarding` pass the
+  profile's UW columns. Dev preview: `uw=1`/`uw=0`, plus `uw-choose`, `uw-open`
+  and `uw-no`. New `lib/onboarding-v3-uw.ts` + tests.
+
+### 17:44 · UW SQL (uw-cohort.sql STEP 5) applied to prod
+`profiles` gains `uw_majors text[]` (≤3), `uw_interests text[]` (≤6) and
+`uw_listed boolean not null default false` (opt-in, D2), with shape CHECKs.
+`uw_share_goals` now defaults to false and was set false on all 93 rows (D3).
+The one legacy `uw_major` was copied into `uw_majors`, and clubs were left untouched.
+New `list_uw_peers(p_bucket, p_limit, p_after_ts, p_after_id)`, a plain-SQL
+STABLE definer RPC, buckets listed, seated UW members into same_major /
+shared_interest / rest, with per-bucket keyset paging. The caller must be
+UW and seated; peers must be UW, listed, seated, onboarded and unlinked.
+`uw_peers(int)` is revoked from authenticated. Proven by `nudges-harness/uw.mjs`
+(225 checks; 34/34 STEP 5 mutants caught), then STEP 5V 23/23 in prod.
+Nothing is visible yet: UW stays off.
+
+### 17:38 · P9b review fixes: chip field focus, paste, radius; the UW save
+Dark behind `NEXT_PUBLIC_UW`; no SQL run.
+- Chip box radius is 12px (R:85); `rounded-xl` is ~20px in this theme.
+- Major suggestions start with R:86's order (Economics, Computer Science, …)
+  via `UW_MAJOR_SUGGESTIONS`, a reordering of `UW_MAJORS`, which stays the one
+  canonical list.
+- Focus never drops to the page: Add hands it to the input, a picked
+  suggestion to the one in its place, and at the cap to the box (described by
+  "3 of 3…"), not to a ✕ a repeated Return would press. Refused ("Other"),
+  duplicate and full outcomes are announced, repeats included.
+- A pasted interest list is no longer cut at 48 characters by the input; a
+  comma'd duplicate pops its chip; a paste that fills the field leaves no
+  hidden draft and says the rest didn't fit.
+- Touch targets: ✕ 38×34, Add and suggestions 44px tall.
+- UW switches are named by their visible `<label>` (tap the words to flip),
+  described by the disclosure / leaving note, which is a live region.
+- Settings: the block compares against the profile as the sheet opened, so an
+  avatar change mid-sheet can't make an untouched block re-write a stale
+  copy; the block is locked while Save runs.
+
+### 17:24 · Settings UW block on chip fields (onboarding v3 P9b, dark behind UW)
+No SQL run; nothing changes while `NEXT_PUBLIC_UW` is off (the block isn't rendered).
+- **New `components/v2/chip-field.tsx`** (shared with P9c's quick-add), built to
+  R:85-87: 44px box, 28px navy chips with a 22px ✕, Return/Add/suggestion adds,
+  Return on empty → `onEmptyReturn`, Backspace takes back the last chip, comma
+  commits for interests, "Add another" placeholder, `+ {item}` suggestion row
+  (substring, picked excluded, none at the cap), new chips pop (opacity-only
+  under reduced motion), a polite live region. What gets in is decided by the
+  action's own cleaner (`cleanMajors`/`cleanInterests`), via pure
+  `lib/chip-field.ts`, so the field can't show a list the DB stores differently.
+- **`components/uw-fields.tsx` rebuilt on it:** UW student switch, Major (max 3,
+  "Double major? Add both", canonicalized), Interests (max 6, D3 line), and a
+  "Show me in More at UW" switch bound to `uw_listed` with the D2 disclosure,
+  replacing the goals tile. Specs, block state and `saveUwBlock` in
+  `lib/uw-fields.ts`. Still saved by Edit profile's Save (only when the block
+  changed; typed drafts committed; leaving clears everything); an error toasts
+  and leaves the sheet open. P9a's stopgap bindings are gone, and the block no
+  longer imports `onboarding-ui`.
+- **Dev preview** `/dev/uw-settings?fixture=member|unlisted|new&save=fail`
+  (404 in production), on a fake `setUwProfile` that shows the payload stored.
+
+### 17:08 · P9a review fixes: the Other sentinel, page counts, the Settings save
+All dark behind `NEXT_PUBLIC_UW`; no SQL run.
+- `cleanMajor` drops "other"/"OTHER"/" Other " too, so typed "other" can't
+  match two students on it.
+- An empty follow-up page of a UW group reports `total: null` (keep the count
+  you had), not 0. A first call still counts an empty bucket as 0.
+- Settings' interim tag field runs on the interest limits (6, 48 chars,
+  `cleanInterests`), not the clubs ones, so it can't shrink or truncate what
+  Screen 1 wrote. Edit profile calls `setUwProfile` only when the UW block
+  changed (`isUwProfileChange`), so a stale tab's bio-only save can't re-join
+  or re-list anyone.
+- **For the SQL workflow / owner (not done here):** `list_uw_peers` returns the
+  raw first major, so off-list majors are only hidden *in the app* (comments
+  now say "never rendered"); the fix is a SQL whitelist or dropping `major`.
+  Its `cand` CTE also lacks `p.seat_no is not null`, so a waitlisted, listed
+  account can appear in seated students' groups.
+
+### 16:56 · UW groups: server and lib layer (onboarding v3 P9a, dark behind UW)
+Code against `uw-cohort.sql` STEP 5's `list_uw_peers` contract; inert while
+`NEXT_PUBLIC_UW` is off (no UW column named, no RPC called). No SQL run.
+- **`lib/uw.ts`:** `UW_INTERESTS` (R:87), `cleanMajors`/`cleanInterests`
+  (tidy, case-insensitive dedupe, majors canonicalized, caps 3/6, interests
+  48 chars so six fit the 300-char CHECK), `listedMajor`/`isListedMajor`, and
+  `uwProfilePayload`, the pure join/leave rule. The major list gains Design and
+  Environmental Science (R:86). Caps cut by code point now, never mid-emoji.
+- **`setUwProfile({isUw, majors, interests, listed})`:** join writes
+  `uw_majors`, `uw_interests`, `uw_listed` (true only when sent `true`, D2),
+  `uw_share_goals=false`, and nulls `uw_major`/`uw_clubs`; leave clears every UW
+  field and unlists. New `fetchUwPeerGroups()` / `fetchMoreUwPeers(bucket,
+  cursor)` validate the bucket, UUID and ISO timestamp (kept verbatim: Postgres
+  has microseconds).
+- **`lib/db/uw.ts` + new `lib/uw-peers.ts`:** `listUwPeerGroups()` (cached)
+  builds `{sameMajor, sharedInterest, rest, totals, cursors}`, pages each
+  bucket on its own (fetches one extra row to know if there's more), and shows
+  a "More at UW" major only when it's on the list (D3). Null on a failed read,
+  so the UI never says "You're early" because a request broke.
+- **Removed:** v2's UW tick, `uw` step, `saveUw` and UW friends variant (v2 now
+  runs without UW), plus the dead `fetchUwPeers`/`listUwPeers`/`matchReason`/
+  `UwPeer` that only they used. Nothing calls `uw_peers` any more.
+- `Profile` gains the three STEP 5 columns; Settings passes them, and its old
+  UW block edits them as an interim until P9b. `UW`'s flag comment now means
+  "STEP 5 ran and 5V/5A passed". `docs/SCREENS.md` S12/S14/S14b/S14c/S70.
+
+### 15:45 · Invite links: a request, never a friendship (claim_invite hotfix)
+The live `claim_invite` (body captured from prod today) made **any** signed-in
+caller of `/i/{username}` an *accepted* friend of that user, with no consent
+from them, which opened every friend-only read (sessions, goals, photos, feed).
+It also upgraded any pending row to accepted, returned 'blocked' (a block
+oracle), and set `referred_by` on long-onboarded accounts.
+- **SQL (hand-run, RUN IN PROD 2026-10-09, STEP 1V all ok):** `.claude/plans/invite-hotfix.sql`. A claim
+  by a seated, first-run account sends the inviter a *pending* request; an
+  onboarded caller sends nothing; no existing row is ever touched; every
+  outcome returns 'ok'. Same signature, so `create or replace` keeps grants.
+  Proven by `.claude/plans/nudges-harness/invite.mjs`, which first reproduces
+  the hole on the live body, then passes the matrix with and without the pair
+  index, and catches 14/14 planted bugs.
+- **App (needs deploy):** `/i/{u}` no longer calls `claim_invite` for a
+  signed-in visitor, since a GET that writes can be triggered by any site
+  (SameSite=Lax); it just opens their profile. The signed-out landing now says
+  "Join, and they'll get a friend request from you" instead of promising an
+  automatic friendship. Caller comments updated.
+
+### 15:10 · Owner decisions on the v3 build (font, logo, photo upload)
+Five calls left open by P3–P6, decided by the owner (all as recommended):
+- **Newsreader loads its optical-size axis** (`axes: ["opsz"]`, `app/layout.tsx`).
+  Every serif line had rendered at the 16px cut, ~4% wider than the handoffs;
+  now display sizes cut tighter, as designed (the intro's "And friends keep
+  each other going." fits one line again). **App-wide**: every serif heading
+  shifts slightly; the font file grows.
+- **`/` traces sharp** (`next.config.ts`). First runs onboard at `/`, so the
+  avatar upload there could only fail before. Watch Home's cold-start TTFB.
+- **Screen 5's invite card shows the rainbow app icon** (`/progra-logo.png`)
+  instead of `PrograMark`, which is still the old navy clock.
+- Kept as built: the photo saves on pick, not on Continue; a replay's ✕ on an
+  existing goal hides it from the wizard but never archives it.
+
+### 07:09 · P8 visual check: the Friends tab against the prototype
+Still dark behind `FRIENDS_V3`. No SQL ran. Screenshots of `/dev/friends-v3` (default, empty, search, sheet, reduced motion, with and without the 54/34 safe area) measured against the prototype's Friends tab at 393×852.
+- **The search sits 12px under the header text, as in the prototype.** The bell makes the header row 32px where the prototype's is 15px, which pushed the field and everything under it 8.5px lower. The field now sits `pt-1` under the row, and the v3 skeleton does the same (`app/friends/friends-client-v3.tsx`, `components/page-skeleton.tsx`).
+- **"Results" in the tab gets the tab's 16px header padding** (P:428), not Screen 5's 14px: `PeopleSearchResults` takes `headerTop="tab"`. Screen 5 is unchanged (`components/v2/people-search.tsx`).
+- Everything else matches within a pixel: the invite tile (68px, 38px circle, 15/700), section headers (16/20/8), rows (36px avatar, 13/600 name, 11px subline, 30px ✕ + Accept), hours (13/600 `--body`) and the empty copy. Under reduced motion the invite tile doesn't pulse. No horizontal scroll and no dev overlay. The eyebrow is still ~14px below the prototype's on purpose (`pt-7`, the same on every tab).
+
+### 06:57 · P8 review fixes: the sheet's first open, focus, "Working on"
+Still dark behind `FRIENDS_V3`. No SQL ran.
+- **The sheet's first tap no longer flashes the tab to its skeleton:** `SentBlockedSheet` is `dynamic(..., { ssr: false })` like every other v2 sheet, so its lazy chunk suspends into its own boundary rather than `/friends`' `loading.tsx`.
+- **"Working on" never names a deleted goal:** the week's top goal must still be one of the friend's active shared goals (`FriendGoal` carries `id`), else the next one down, else the oldest shared goal (`lib/friends-tab.ts`, new test).
+- **Focus and screen readers:** when a tap removes the focused control (a request answered, Add → "Requested"), focus goes to the row's link or a section heading. Send, decline and cancel are now said through a hidden status line; the sheet has its own, since the modal hides the tab (and the pill) from VoiceOver. Closing the sheet after its row has gone returns focus to "Your friends".
+- **Rows** (`components/v2/person-row.tsx`): 11px between ✕ and Accept (P:437-439), the ✕'s touch target widened to 44×44, and the profile links fill the row's full height.
+- The sheet fades instead of rising under reduced motion. `/friends` gets a v3 skeleton (`PageSkeleton` `friends-v3`: search, invite tile, rows) so nothing shifts as it streams in. The header keeps the shared `pt-7` tab frame (about 17px lower than R:162's 22px), on purpose.
+
+### 06:40 · Friends tab v3 (P8), dark behind `FRIENDS_V3`
+No SQL ran, no patch note yet (it's written at flip time). With the flag off, `/friends` renders exactly as before; the v3 branch returns early in `app/friends/page.tsx` with its own reads.
+- **Layout** (`app/friends/friends-client-v3.tsx`, R:161-169, D12): "Friends" + "{n} FRIENDS" ("1 FRIEND") with the NotificationsBell, the people search (while searching, everything else hides), the 68px breathing invite, Requests (✕ decline, Accept → pill "You and {first name} are now friends"), Your friends (links to the profile, "Working on {goal}", this week's hours as "6h 05m", zero-hour friends kept, the README's empty copy), People on Progra, and a quiet "Sent requests · Blocked" row opening a `next/dynamic` sheet (`sent-blocked-sheet.tsx`) with Cancel and Unblock, still the only unblock UI. FeedLivePoll kept; FriendsLeaderboard dropped in v3 only.
+- **Rows know the relationship:** search results and People on Progra show Friends / Accept / Requested / Add from the page's own friends and request reads. Every tap shows at once through `useOptimistic` and reverts with a sonner error if the action fails. Writes are the existing actions; a cancel uses `cancelFriendRequest`, so it can't unfriend someone who just accepted.
+- **"Working on":** this week's top goal (`getFriendsWeekRows`), else the oldest shared active goal from new `listActiveGoalsForUsers` (`lib/db/goals.ts`, `cache()`d on a canonical id key). It asks only for `is_private = false` and never the caller's rows, filters again in `friendVisibleGoals`, and RLS backs both. The invite names the viewer's oldest non-private goal.
+- `PersonRow` gains a plain outlined-button action. Pure rules in `lib/friends-tab.ts`. Dev preview at `/dev/friends-v3?fixture=default|empty|search|sheet` (404 in production; fake services, a stand-in bell). Tests: `lib/friends-tab.test.ts` (including a DST week), `lib/friends-v3-preview.test.ts`.
+
+### 06:22 · P7 visual check: Screen 6 and the first-session Clock against the prototype
+Still dark behind `ONBOARDING_V3`. No SQL ran. Screenshots of both screens, normal and reduced motion, measured against the prototype at 393×852.
+- **The "Clock in" eyebrow is in Hanken.** It's an `h1`, so the base heading rule gave it Newsreader; `font-sans` puts it back with every other section label (`app/clock/first-session-clock.tsx`).
+- **Screen 6's note sits at y=452** (R:151): 25px under the pill instead of 24 (`app/onboarding/v3/ready-screen.tsx`).
+- Every other position lands within 0.5px of the prototype: the strip, "Ready?", the pill, the CTAs at y=758 and y=698, the rows, the nav. No skeleton between the exit and the Clock in dev.
+- **Left for a decision:** the app loads Newsreader without its `opsz` axis (`app/layout.tsx`), so serif text renders at optical size 16 everywhere; the prototype's is sized to the text. "Ready?" comes out 11px narrower and 17–24px lines about 4% wider. It touches every screen, so it isn't part of P7.
+
+### 06:13 · P7 review fixes: the handoff's timing, focus and redirects
+Still dark behind `ONBOARDING_V3`. No SQL ran. Supersedes parts of the 05:49 entry.
+- **One CTA through the handoff:** Screen 6's "Start session" no longer hides on the tap. It stays put through the exit, and the Clock's CTA arrives where it was and rides up 60px over 440ms KB at full opacity (`CLOCK_CTA_IN`; a fade under reduced motion), as the prototype's single CTA does (P:1228).
+- **Timed from the tap, as R:152 is:** the BottomNav's 240ms delay counts from the tap (`takeNavRise` now returns its time, `navRiseAfter`), so a first run's nav, which mounts only once the stamp lands, rises at once instead of a further 240ms late. The rings start 1100ms after the tap (`clockCtaRingsOnArrival`).
+- **The nav never re-rises a bar the server painted** (a load after the tap, `navRiseElapsed`), and reads reduced motion directly, since the hook still says "false" in the hydration commit that consumes the flag.
+- **Focus:** the CTA is one `<Link>` on Screen 6 from the start, its `prefetch` flipping from false to true once Schoolwork settles, so the settle no longer swaps a button for a link under a focused user. The first-session Clock focuses its "Clock in" heading when it arrives with focus nowhere.
+- **Redirects:** the welcome branch's redirect to `/clock/live` is an explicit `RedirectType.replace` (an action's re-render defaults it to push). A session running on an account whose `onboarded_at` is still unset (`welcomeOutcome` → `"finish"`) now stamps first (`FirstSessionFinish`) instead of redirecting into a loop with no BottomNav. Clock in also retries a stamp still in flight if it then fails. The profile and active-session reads come first, so a redirecting render reads nothing more.
+- **Screen 6's pill** shows the Schoolwork row as stored (`ensureSchoolworkCategory` now returns `name` and `color`), matching the Clock's row for a replayer's recolored one.
+- **Reduced-motion rings** are drawn 5px outside the button, where an opacity-only pulse can be seen.
+- **Device checks to add:** a tap on "Start session" before Schoolwork settles skips the prefetch, so the Clock can arrive through its skeleton (known path); if the ensure fails, Screen 6 still says "Schoolwork" while the Clock preselects the first goal.
+
+### 05:49 · Onboarding v3 P7: Screen 6 and the Clock handoff
+Still dark behind `ONBOARDING_V3`. No SQL ran.
+- **Screen 6** (`app/onboarding/v3/ready-screen.tsx`, replaces the placeholder): WeekPulse, "Ready?", the Schoolwork pill and `readyNote` with D13's "once they accept" wording. Arriving runs `ensureSchoolworkCategory()` once through the services seam (it replaces `completeOnboarding` there); once it settles, "Start session" becomes a `<Link prefetch={true}>` to `/clock?welcome=1`. A failure toasts nothing; the Clock just opens without Schoolwork.
+- **Handoff:** the tap cancels the link's navigation, exits the screen's items, fades the top row, avatar and CTA, sets a one-shot sessionStorage flag, and pushes after the exit (`handoffExitMs`) and the ensure (capped at 5s).
+- **`/clock?welcome=1`** (only with the flag on): slim reads (categories, goals, profile; this week's session time only for a replayer via new `getWeekMsByTarget`), redirects to `/clock/live` if a session is running, and renders the new `app/clock/first-session-clock.tsx`. Plain `/clock` is unchanged.
+- **First-session Clock:** Schoolwork preselected, then goals (fallbacks: goals alone, then every category), "0h this week" or real hours, the Session section only with `TIMED_SESSIONS`, staggered entrance and 1100ms CTA rings (opacity-only under reduced motion). It stamps `onboarded_at` on arrival (retried on Clock in), clocks in with the item's title as the task name, and replaces to `/clock/live` without `?capture=photo`.
+- **D5, flag-aware:** with `CLOCK_REMINDERS` off, the native Clock-in tap asks for notifications beside the clock-in; with it on, the live timer's band asks. Either grant turns on the habit-reminder default (`habitDefaultOnGrant`).
+- **BottomNav:** a one-shot rise (110px, 640ms E after 240ms; a fade under reduced motion) when the flag is fresh (`lib/nav-rise.ts`, 15s TTL), consuming it.
+- **Live code touched, not behind the flag:** the BottomNav (inert without the flag), `PrimaryButton` (classes moved into `primaryButtonClass`, same output), and the reminders band's grant, which reaches a never-asked device on a `CLOCK_REMINDERS` build and only restates the habit reminder's untouched default.
+- Dev preview: `fixture=ready|ready-added` on `/dev/onboarding-v3`, whose Screen 6 now hands off to the new `/dev/first-session-clock?fixture=new|replay|no-school|nothing&timed=0|1`. Tests: `lib/first-session.test.ts`, `lib/first-session-preview.test.ts`, `lib/nav-rise.test.ts`, plus motion, habit-pref and preview additions.
+
+### 05:22 · P6 visual check: invite tile line heights
+Rendered Screen 5 (at rest, searching, added, no hits, the hint, reduced motion) against the prototype at 393×852. Layout, type, colours and copy match. The pulse runs only at rest and is off under reduced motion.
+- **Fixed:** `InviteTile`'s sub line used `leading-tight` (15px). Both lines now keep the inherited 1.5, as P:294 does, so the title sits at y=211.5 like the prototype's instead of 1.5px lower.
+- Expected differences: the link card shows the App Store URL (D9). The serif title is about 4% wider because Newsreader loads without its `opsz` axis, which is app-wide and was already noted under P4.
+
+### 05:14 · P6 review fixes: Screen 5 knows existing friendships
+Still dark behind `ONBOARDING_V3`. No SQL ran. Supersedes two points in the 04:57 entry.
+- **Results know who you already know.** New `getFriendRelations()` (`lib/db/friends.ts`, `cache()`d) is read by `/` and `/onboarding`. Search rows show "Friends", Accept (new `acceptFriendRequest` in the services seam), or "✓ Added" for a request already out, so a reload, a replay or an `/i/` link's request no longer offers an Add that can only fail.
+- **Undo can't unfriend.** New `cancelFriendRequest(id)` deletes only the caller's own *pending* row; if the other person already accepted, it says so and the toggle stays on. Onboarding no longer uses `removeFriendship`.
+- **First-add ring is off under reduced motion** (`MOTION.firstAddRing.reduced = null`, as P:1177).
+- **Taps and a11y:** the search wrapper's 44px dead band over the results is gone (`pointer-events`). The 30px row buttons now have a 44px-tall hit area. Add's accessible name is the visible word plus the name, with no `aria-pressed`. Focus on Cancel counts as field focus, and Return, Escape and Cancel park focus on the field row instead of `<body>`. Row errors drop the keyboard before the toast so it can be read.
+- Dev preview: `fixture=friends-added` now seeds through `relations`, and a new `friends-known` shows Friends/Accept rows.
+
+### 04:57 · Onboarding v3 P6: Screen 5, find your friends (non-UW)
+Still dark behind `ONBOARDING_V3`. No SQL ran.
+- **Screen 5 replaces its placeholder** (`app/onboarding/v3/find-friends-screen.tsx`):
+  the title, the breathing navy "Invite your friends" button, search, and a
+  note over a preview of what the group chat gets (the message in a navy
+  bubble, then a link card with the App Store URL that is actually sent, D9).
+  The UW groups wait for P9d.
+- **Inviting** goes through `shareInvite` with `inviteText(goal 1)`. Toasts
+  are the pill's "Invite shared" / "Invite link copied"; after a share the
+  button reads "Sent. Send it to another chat" (no chat name, D9). The pulse
+  is on a wrapper so the press scale still works, and stops off-screen, on a
+  hidden page, while searching and on unmount; never under reduced motion.
+- **Search mode** (focused or non-empty): the title and invite exit up, the
+  field slides up 174px, results list from y=168 with "Cancel". Two
+  characters after "@", at most 5, the README's hint and no-hit copy.
+  Prefix match only, since SQL-2 isn't run (D10).
+- **Add sends a real request on the tap**, and "✓ Added" takes it back
+  (`removeFriendship(requestId)`). Taps queue per person, and a failure
+  toasts and reverts. A result who's already a friend or pending can't be
+  told apart by `searchUsers`, so its Add fails with the generic toast.
+  Added people live in the shell, so they survive Back. The CTA is "Skip for
+  now", then "Continue · {n} added", with a ring pulse on the first add
+  (opacity-only under reduced motion; `MOTION.firstAddRing.reduced` was null).
+- **Shared with P8's Friends tab:** `components/v2/{invite-tile,people-search,person-row}.tsx`
+  (a 68px tile size; Friends / Requested / Accept / hours row variants) and
+  the pure `lib/find-friends.ts`, tested in `lib/find-friends.test.ts`.
+- Services seam gains `searchUsers`, `sendFriendRequest`, `removeFriendship`
+  and `shareInvite`; the dev preview fakes them (seven made-up people) and
+  adds `fixture=friends-search|friends-added|friends-nohits` and `q=`.
+
+### 04:38 · P5 visual pass (Screen 4)
+Still dark behind `ONBOARDING_V3`. No SQL ran.
+- Rendered all three beats (and Beat 2 under reduced motion) against the
+  prototype at 393 × 852: boxes, fonts, colors and strings match, glyph for
+  glyph on Beats 1 and 3. One fix: the post, week and activity cards are
+  16px radius (R:113, R:114, R:122). `rounded-2xl` resolves to 25.92px in
+  this theme.
+- Not changed: with two goals, Beat 2's five legend rows don't fit the panel.
+  The prototype cuts off the last row; ours scales the beat to 0.92, as
+  planned. Beat 3's caption wraps to two lines because of the app-wide
+  Newsreader `opsz` gap noted under P4: it measures 363px against a 353px box.
+
+### 04:29 · P5 review fixes (Screen 4)
+Still dark behind `ONBOARDING_V3`. No SQL ran. Supersedes two lines of the
+04:14 entry below.
+- **Beat 1's caption keeps "■ {goal 1}" on one line**, as the prototype
+  does; only a run wider than the caption lets the title wrap after its
+  first word. The post's goal title wraps instead of truncating.
+- **Daniel's "nudged you" card is back with `NUDGES` off**: D15 hides only
+  Screen 3's nudge pill and line, and R:122 has four cards.
+- **Reduced motion: the kudos avatars fade in together** at 500ms (plan P5,
+  R:54 "no list stagger"), not 150ms apart.
+- Beat 2's card no longer shrinks on the 852 frame (the beat's bottom
+  padding stopped counting toward fit-to-panel), and leaving Beat 2 lets
+  the donut and legend finish under the fade instead of flashing whole.
+- Screen readers: the live region is filled just after Screen 4 turns
+  active and says "1 of 3." first; the made-up feed and activity are hidden
+  behind a one-line "Example: …" summary (a replayer's real week is still
+  read out); hidden Previous/Next buttons give VoiceOver and Switch Control
+  the panel's moves. A photo in the panel can't start a native image drag.
+- `getWeekCategorySegs` takes its window from `weekWindow`, and
+  `/onboarding` reads it only for a replayer. A replay still re-reads it on
+  each Screen 2 and 3 save (they revalidate the route); accepted.
+
+### 04:14 · Onboarding v3 P5: Screen 4, the intro
+Still dark behind `ONBOARDING_V3`. No SQL ran.
+- **The intro replaces Screen 4's placeholder** (`app/onboarding/v3/intro-screen.tsx`):
+  three beats under a 3-segment progress, each a caption over a 420px
+  preview panel. Beat 1 is the person's own post ("Day one", their name and
+  avatar, goal 1 in its color) collecting three kudos; Beat 2 is the real
+  `CategoryDonut`, spinning in with staggered legend rows; Beat 3 is the four
+  activity cards, Daniel's naming their first habit. "Next" pages the beats
+  and "Continue" (or "Skip intro") goes on to Screen 5. No auto-advance.
+- **Moving:** tap the panel's right two thirds or left third, swipe more than
+  36px across, or use the arrow keys. Back from beat 1 bumps the panel. A
+  drag that's neither a tap nor a swipe does nothing (the prototype counted
+  it as a tap, which could go the wrong way). The caption is read out
+  through a live region.
+- **Beat 2 shows a replayer's real week** when they've tracked time
+  (`getWeekCategorySegs` in `lib/db/progress.ts`, the Week tab's own
+  numbers, read only by `/onboarding`); otherwise the sample split.
+- Reduced motion: crossfades only, with no donut spin, list stagger or bump
+  (the kudos avatars keep the prototype's sequenced fade-in). On a
+  short phone the beats scale to fit the panel and a long goal steps the
+  caption's font down instead of overflowing. With `NUDGES` off, Daniel's
+  "nudged you" card is left out, as Screen 3's nudge line is.
+- Dev preview: `?beat=1..3`, and a `tracked` fixture for a real week.
+
+### 03:55 · P4 visual pass (Screens 2 and 3)
+Still dark behind `ONBOARDING_V3`. No SQL ran.
+- Rendered Screens 2 and 3 against the prototype at 393 × 852: every box,
+  font, color and string matches. Three sub-pixel fixes: the goals list and
+  field sit at y=240, not 240.5; the Return hint uses the prototype's 1.5
+  line height; Screen 3's chips start at y=244, not 242.85.
+- Open, not P4's to change: the app's Newsreader has no optical-size axis
+  (`app/layout.tsx`), so serif text draws at opsz 16 and runs about 4% wider
+  than the prototype's auto optical sizing. That's app-wide.
+
+### 03:42 · P4 review fixes
+Still dark behind `ONBOARDING_V3`. No SQL ran.
+- **Onboarding never archives a goal or habit the account already had.**
+  Removing a prefilled goal or deselecting a prefilled habit (including via
+  "Skip for now") used to archive the real row, with no confirm and no way
+  back. Now only rows this run created are archived; an account row taken
+  off the list stays active. Archiving a replayer's rows from onboarding
+  needs the owner's sign-off first.
+- **Goal order survives a reload.** Reusing a row this run made is limited
+  to slots that keep created_at in list order, so "remove the first, add a
+  new one" no longer swaps the goals and their colors after a reload.
+- **Short phones with the keyboard up** (`app/onboarding/v3/keyboard-fit.tsx`):
+  Screen 2's example chips fade out while they'd cover the field, and the
+  content moves up when the lifted CTA would. Screen 3's chips end above
+  the lifted CTA and scroll the open "Your own" into view. Unchanged on the
+  852 frame with the prototype's keyboard.
+- Return that confirms an IME conversion no longer adds or continues
+  (WebKit's keyCode 229). Focus no longer drops to the page after removing a
+  goal or closing "Your own" from a keyboard. ✕ and "Add" get 44px targets;
+  the goals list keeps its list semantics in WebKit.
+- The nudge line is anchored by its top (R:103), so a wrapped line grows
+  toward the CTA instead of into the chips. Popping chips no longer clip or
+  flash a sideways scrollbar.
+
+### 03:21 · Onboarding v3 P4: Screens 2 and 3 (goals, habits)
+Still dark behind `ONBOARDING_V3`. No SQL ran.
+- **Screen 2** (`app/onboarding/v3/goal-screen.tsx`): up to three goals in
+  R:95's colors, the field that rides under the list, the next-goal marker,
+  example chips that ride up with the keyboard and type themselves in
+  (instant under reduced motion). Return adds; Return on empty continues.
+- **Screen 3** (`habits-screen.tsx`): the five presets and "+ Your own", the
+  nudge line (hidden with `NUDGES` off), "Skip for now" until a pick.
+- **Writes are a diff** (`lib/onboarding-v3-goals-habits.ts`), made on
+  Continue through the existing goal and habit actions: create what's new,
+  rename or recolor a goal this run made, archive what was removed. Back and
+  Continue again writes nothing. With the flag on, `/` and `/onboarding`
+  read the active goals and habits and the screens start from them, so a
+  replay or a mid-wizard reload never duplicates. An account goal is never renamed, and one past the first
+  three is never archived. A failed write toasts and stays.
+- Dev preview fixtures `goals`, `habits` and `habit-custom`.
+
+### 02:59 · P3 visual check against the prototype
+Still dark behind `ONBOARDING_V3`. No SQL ran. Screen 1 (empty, filled,
+taken, replay, reduced motion) and Screen 2's top row were shot at 393×852
+and diffed against the prototype. Every box lands within 0.5px of it.
+- The progress bar sat at y=78.5. It's at 79 now (R:36), in the wizard and
+  its skeleton both (`PROGRESS_TRACK` in `frame.ts`).
+- The photo-landed ring is 1.5px, the prototype's 3px scaled to the 84px
+  avatar as the badge already was. It was 2px.
+- Not changed, and for the owner to decide: the app loads Newsreader without
+  its `opsz` axis (`app/layout.tsx`). The prototype loads it with the axis,
+  so its 28px serif is about 2.6% narrower. That affects every Newsreader
+  heading in the app, not only onboarding.
+
+### 02:46 · P3 review fixes
+Still dark behind `ONBOARDING_V3`. No SQL ran.
+- **The shared avatar shows on Screen 1 in production.** It measured its
+  slots in a layout effect of its own, and on the first commit the parent's
+  and a later sibling's refs are still null (StrictMode's dev re-run hid
+  this). The shell now places it (`useSharedAvatarPlacement`).
+  `KeyboardInsetVar` writes to its own parent the same way.
+- `app/onboarding/v3/layout.ts` is now `frame.ts`. Under `app/`, that name is
+  a Next Layout, and `next build` would have failed its type check. The dev
+  preview's shell is now `onboarding-v3-client.tsx`.
+- **Photo:** one upload at a time. A failure goes back to the last confirmed
+  photo, and only a real pick plays the landing animation. Still uploads on
+  pick, as plan §6 says. That clashes with P3's "writes happen on Continue",
+  so the owner needs to decide which one governs.
+- **Screen 1:** the handle row fades in once there's a name or a handle. A
+  failed check is asked again when the field is focused (a new `retry`
+  action). Edits are ignored while Continue saves. Autofocus timing matches
+  prod in dev.
+- **Focus and targets:** a screen change that strands focus puts it on the
+  incoming screen. Continue stays focusable while busy (`aria-disabled`).
+  Back, ✕ and the alternative chips get 44px hit areas.
+- **Polish:** a hidden CTA doesn't slide under reduced motion. The
+  `/onboarding` skeleton keeps room for the replay ✕.
+
+### 02:26 · Onboarding v3 shell and Screen 1 (plan P3, dark)
+Behind `ONBOARDING_V3` (off in prod), so `/` and `/onboarding` still render
+v2 exactly as before. No SQL ran.
+- **`OnboardingClientV3`** keeps all six screens mounted (inactive ones
+  `inert` and aria-hidden) and navigates with P2's `wizardReducer`. It has
+  one top row (Back hidden on Screen 1, a progress bar filling to (i+1)/6),
+  one avatar that travels from Screen 1's 84px slot to the top row's 28px
+  one, and one CTA that rides above the keyboard. A leaf writes
+  `--kb-inset`, so the shell never re-renders for the keyboard. Screens 2–6
+  are placeholders until P4–P7.
+- **Screen 1, without UW (D11):** name, photo, and a handle suggested from
+  the name and checked live (650ms after a suggestion, 520ms while typing).
+  Stale answers are dropped by sequence number. A taken handle shakes and
+  offers 3 free alternatives. The name and handle are written on Continue,
+  and only if they changed; on an error the screen toasts and stays put. The
+  photo uploads when it's picked and reverts on failure.
+- **Replay** starts from the saved handle with auto-suggest off. It gets a
+  quiet ✕ that goes to `/` and writes nothing (D6).
+- `useAvatarUpload()` is extracted from `AvatarPicker`. Every upload is
+  downscaled to 1600px, then cropped to a 512px square (D14). Settings' crop
+  dialog works as before, and a rejected upload now toasts instead of
+  throwing.
+- New: `components/v2/pill-toast.tsx` (the navy success toast, for P6 and
+  P8), a v3 loading skeleton on `/onboarding`, and one v3-only
+  reduced-motion rule in `globals.css`.
+- **Dev-only preview:**
+  `/dev/onboarding-v3?screen=1..6&fixture=empty|filled|taken|replay`
+  renders the wizard on fake services, with no sign-in and no database. It
+  404s in production builds.
+
+### 02:04 · P2 review fixes
+Still dark: nothing imports these. No SQL ran.
+- **Handles fold to ASCII the same way everywhere.** One `foldToAscii` (NFKD,
+  accents stripped, then ø/ł/æ/œ/ß/đ/ð/þ/ı by hand) feeds both the suggestions
+  and `sanitizeUsernameInput`, so "Søren" gives `soren` and typing "José"
+  gives `jose`, as its suggestion does. `keepValid` now reuses
+  `cleanUsernameBatch` instead of a copy of it.
+- **Caps never split an emoji.** The name, habit and goal caps take whole
+  graphemes (`Intl.Segmenter`), still counting code points so the server caps
+  hold. A flag or skin-toned emoji at the limit is dropped whole.
+- **`keyboardInset` reads a pinch-zoomed page as no keyboard.** iOS Safari
+  ignores `maximum-scale=1`, and zoom shrinks the visual viewport just as a
+  keyboard does.
+- `useKeyboardInset` returns a number rather than setting `--kb-inset` (a
+  deviation from plan §6), so its comment now says to read it only in a leaf.
+- `MOTION.initialsIn` is pinned frame for frame to `globals.css`'s `pop-in`
+  by a test. The reduced-motion test now checks something real.
+
+### 01:52 · Onboarding v3 pure logic and motion (plan P2, dark)
+Nothing imports these yet, so no user sees a change. No SQL ran.
+- **`lib/onboarding-v3.ts`:**
+  - `usernameCandidates` and `usernameAlternatives` follow the README's lists,
+    but every handle goes through `checkUsername` (D8). That drops
+    `first.last`, `name_` and `{u}_`, reserved words and digit-only handles.
+    `firstAvailable` picks the free ones from a `checkUsernames` result.
+  - Input formatting: `formatNameInput` and `sanitizeUsernameInput` (no dots).
+    `precheckUsername` uses checkUsername's own messages.
+  - Copy for screens 2–6: goal colors 7/2/5, placeholder and hint,
+    `habitNudgeText`, the intro's captions and sample donut, `inviteText` and
+    `readyNote`. `inviteText` is message only; the App Store link is added by
+    `invite-share`, per D9. `readyNote` says "once they accept" while every
+    request is pending (D13).
+  - `wizardReducer`: going back to Screen 1 after No resets the UW choice;
+    entering Screen 4 resets the beat; limits are 3 goals, 3 majors and 6
+    interests.
+- **`lib/motion.ts`:** the E/KB/Spring easings, the item stagger
+  (140 + 55i ms), pops, the check pop, the shake, FLIP and the rest as WAAPI
+  keyframes. Each effect has a separate reduced-motion spec that changes
+  opacity only, or is null where the README drops the effect.
+- **`lib/keyboard.ts`** and `useKeyboardInset()` (`lib/hooks.ts`) read the
+  keyboard's height from `visualViewport`. This is unproven on a device until
+  the P0 spike.
+- `MAX_UW_MAJORS` and `MAX_UW_INTERESTS` are now in `lib/uw.ts`, where P9a
+  expects them.
+
+### 01:31 · P1b review fixes
+- **`getFriendsWeekRows()` is friends only now**, as the plan specifies: one
+  unranked row per accepted friend, never the caller. The leaderboard ranks
+  the whole circle (caller included) from a shared private read.
+- **`searchUsers` orders before capping** (`orderSearchMatches`): exact
+  handle, then handle prefix, then the rest, so the 5-row cap can't drop the
+  person whose full handle was typed. A non-string query returns no results
+  rather than throwing.
+- **Correction to 01:19:** `revalidatePath("/", "layout")` states intent but
+  doesn't change behaviour. In Next 16.2.6, any `revalidatePath` in an action
+  re-renders the current route from the root, so `revalidatePath("/")`
+  already mounted the nav. The comments now say so.
+- **Week mismatch is known:** `/goals` and the Dashboard (`/`, `/me`) still
+  use the server's UTC week, so near a week boundary they can differ from the
+  leaderboard. Check the leaderboard against Progress → This week.
+- `phase4.sql` (not run): `admin_onboarding_stats` adds `reached_v3` and
+  `median_seconds_v3` per step. The admin v3 funnel charts those, so v2
+  sign-ups no longer pad it. Before the file runs, the PGlite harness needs
+  v3 fixtures and a mutant for the `v3_users` guard.
+
+### 01:19 · Live server fixes ahead of onboarding v3 (plan P1b)
+These change live behaviour for every user. No SQL ran, and no v3 UI exists yet.
+- **Generic errors** (`app/actions/friends.ts`, `app/actions/profile.ts`): no
+  action there returns `error.message` any more. Each failure has fixed text,
+  like "Couldn't accept request." or "Couldn't save your profile.", so a
+  constraint, column or RPC exception never reaches a toast. `setUsername`
+  still maps 23505 to "That username is taken."
+- **`sendFriendRequest` returns `{ ok, requestId }`** (`.select("id")` on the
+  insert; RLS already shows the requester their own pending rows). This is
+  additive, so callers that read only `ok` are unchanged. v3 uses it for undo.
+- **`searchUsers`** strips a leading "@" (`normalizeSearchQuery`), checks the
+  2-character minimum after stripping, and returns at most 5 rows
+  (`SEARCH_RESULTS_MAX`). It is still a prefix search: SQL-2 has not run, and
+  that was accepted. The Friends tab's search therefore shows 5 results now.
+- **`completeOnboarding` revalidates the layout** through
+  `revalidateOnboardingSurfaces()`, because the root layout mounts the
+  BottomNav. A new account is stamped current before the re-render, so What's
+  New still never greets one. The layout comment now says so.
+- **The friends leaderboard uses the viewer's week.** The new `cache()`'d
+  `getFriendsWeekRows()` returns unranked rows (the caller plus every friend,
+  zero-hour friends included) measured over `leaderboardWeekWindow(tz)` →
+  `weekWindow`. `getFriendsLeaderboard` is `rankLeaderboard(rows)`. Before
+  this, the leaderboard used the server's UTC week, which rolled over at 5pm
+  Sunday in Los Angeles. A missing or invalid zone falls back to UTC. The
+  `/goals` page still uses the server's week and was left alone, so compare
+  leaderboard hours against Progress, not `/goals`.
+- **Telemetry**: `onboarding_step_viewed`/`_completed` accept
+  `flow: "v2" | "v3"`, and v2 now sends `"v2"`. In `phase4.sql` (not yet run),
+  `admin_onboarding_stats` counts a v3 first run as reaching a step only from
+  a view event; v2 keeps its ordinal and finished inference. A view with no
+  flow counts as v2, and so does a v2 user replaying in v3. The admin
+  Onboarding tab adds a v3-order funnel behind `ONBOARDING_V3`, so nothing
+  changes until the flip.
+- Tests cover the LA and Tokyo week boundaries, the 169-hour DST week, the UTC
+  fallback, unranked rows and rank parity, the "@" strip, and the `flow`
+  allowlist.
+
+### 00:59 · Onboarding v3 groundwork, dark (plan P1a)
+Server and lib pieces for the onboarding v3 + Friends tab redesign
+(`.claude/plans/onboarding-v3.md`). Nothing calls any of it yet, so no user can
+see or trigger a change. No SQL.
+- **Flags** (`lib/flags.ts`): `ONBOARDING_V3` (implies REDESIGN) and
+  `FRIENDS_V3` (implies SOCIAL_ENABLED). Neither needs SQL, and nothing reads
+  them yet.
+- **`checkUsernames(candidates)`** (`app/actions/profile.ts`): signed-in only,
+  runs the `checkUsername` rules over at most 12 candidates, returns
+  `{ ok, taken, available }`, and counts the caller's own handle as free. It
+  reads through a new `cache()`'d `listTakenUsernames` (`lib/db/profiles.ts`),
+  where a failed read is an error, never "all available". Pure
+  `cleanUsernameBatch` and `takenHandles` live in `lib/social/username.ts`. The
+  check is not block-aware, so it returns yes/no only, never who holds a
+  handle. `setUsername`'s 23505 catch is still the final word.
+- **`ensureSchoolworkCategory()`** (`app/actions/categories.ts`): returns the
+  caller's Schoolwork id, matched trimmed and case-insensitively
+  (`findCategoryByName`). It inserts `SCHOOLWORK` (`#6F4E93`,
+  `lib/default-categories.ts`) only when none exists, never recolors, treats a
+  23505 race as found, and revalidates only when it inserted.
+- `revalidateOnboardingSurfaces()` (layout), for `completeOnboarding` in P1b;
+  `V3_STEPS` and `DEFAULT_GOAL_QUOTA_HOURS = 5` in `lib/onboarding.ts`.
+- Tests for `V3_STEPS ⊆ STEPS`, the Schoolwork match, `cleanUsernameBatch` and
+  `takenHandles`.
+
 ## 2026-10-08
 
 ### 23:30 · Patch 1.03 notes: Live Activity, a survey, Instagram
@@ -31,6 +704,65 @@ before.
 - `npm run build` fails locally on the design-sync `node_modules/progra`
   self-link (Turbopack: "symlink … infinite loop"). Built clean with the link
   moved aside, then restored. Vercel never has the link.
+
+### 15:40 · Design system synced to Claude Design
+Uploaded to the "Progra" design-system project
+(`claude.ai/design/p/034ff31e-6522-4a93-a725-705d999802c9`) with
+`/design-sync`. The project now has 42 components, 221 files. The four retired
+components were removed, and the new sync anchor is written.
+- Re-staged the converter (the staged copy dated from August), then ran the
+  driver: build → diff → validate → capture. All 42 previews are graded good
+  on the absolute rubric.
+- Fixes found during grading: AvatarInitials now shows the real size scale;
+  ChipRail no longer stretches; RecapFeedCard's week no longer starts on a
+  Sunday (fixture timezone); dropped a ToggleSwitch cell that was identical to
+  Off; BottomSheet copy is neutral.
+- **Removed a real-looking email address from the August Label preview**
+  (`…@quantluxdigital.io` → `maya.chen@example.com`). It had been live in the
+  project since August.
+- **Pinned `guidelinesGlob` to `docs/SCREENS.md`.** The default pattern was
+  about to upload the App Store review docs, including the demo-account file.
+
+### 13:10 · Design-system export rebuilt for the live redesign
+The claude.ai/design project ("Progra Design System") was last synced on
+2026-08-04, eleven days before the editorial rebuild. Its components,
+conventions and flags all described an app nobody runs any more. Everything
+below is local; uploading it still takes a `/design-sync` run.
+- **42 components (was 20).** Added the redesign's building blocks from
+  `components/v2/`: PrimaryButton, SectionHeader, MenuRow, ChipRail,
+  ToggleSwitch, BackButton/BackLink, BottomSheet, Donut, CategoryDonut,
+  GoalQuotaRows, WeekSummary, HabitWeekGrid, FriendsLeaderboard, SessionCard,
+  RecapFeedCard, the nudges and WhatsNewModal. Also added AvatarInitials,
+  PrograMark, ClockedInStrip, InviteShare and SessionPlanPicker. Each has an
+  authored preview with realistic data.
+- **Retired WeekStrip, Tabs, Separator and WeekBreakdown.** The live app no
+  longer uses them.
+- **Server actions and `next/navigation` are stubbed** through a design-sync
+  tsconfig (`.design-sync/tsconfig.json` → `.design-sync/stubs/`). This is
+  what lets SessionCard, BottomNav and the nudges bundle. Each stub is typed
+  against the real action. The bundle metafile was verified to contain no
+  `app/actions`, `lib/db` or `lib/supabase` paths. App code is unchanged.
+- **The bundle runs production flags.** The process shim now sets
+  `REDESIGN` and `SOCIAL_ENABLED`. Without them BottomNav rendered the
+  retired Home/Search/Goals/Habits tabs.
+- **Rewrote `conventions.md`, the README header the design agent reads first.**
+  It now covers the no-cards/no-headline/flat rules, the token tables, the
+  11-color palette with fill and ink values, type sizes, screen and row
+  recipes, the app's structure, voice, and a full Progress-screen example.
+  Every class it quotes was checked against the compiled CSS.
+- The PageSkeleton preview had been broken since August (its props changed).
+  It is now rewritten.
+- Verified with a full local build and validate into a scratch dir: 42/42
+  previews render, `.d.ts` files parse, ESLint is clean, and previews
+  type-check against the real component types.
+
+### 09:58 · Internal analytics — deployed
+Commit `00d5cb7` (the five analytics phases + PostHog removal) and `c0a3184`
+(login/onboarding and history handoff packages, no code) pushed to `main`.
+`NEXT_PUBLIC_ANALYTICS=1` is set on Vercel, so the pipeline is live from this
+build: `app_events` fills from the next app open. `phase1.sql` STEP 1–3 were
+applied to prod earlier today (adversarial block 33/33). `phase4.sql` has not
+been run yet, so `/admin/analytics` shows "Not available" until it is.
 
 ## 2026-10-07
 

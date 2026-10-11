@@ -8,10 +8,14 @@ import {
 } from "@/lib/aggregate";
 import { listCategories } from "@/lib/db/categories";
 import { listEventsInRange } from "@/lib/db/calendar-events";
+import { getFriendRelations } from "@/lib/db/friends";
 import { listActiveGoals } from "@/lib/db/goals";
 import { listActiveHabits, listCompletionsInRange } from "@/lib/db/habits";
+import { getWeekCategorySegs } from "@/lib/db/progress";
 import { listRecentSessions } from "@/lib/db/sessions";
-import { REDESIGN } from "@/lib/flags";
+import { ONBOARDING_V3, REDESIGN, UW } from "@/lib/flags";
+import { accountGoalsFrom, accountHabitsFrom } from "@/lib/onboarding-v3-goals-habits";
+import { savedUwFrom } from "@/lib/onboarding-v3-uw";
 import {
   endOfWeek,
   formatRange,
@@ -22,6 +26,7 @@ import {
 
 import { OnboardingClient } from "./onboarding-client";
 import { OnboardingClientV2 } from "./onboarding-client-v2";
+import { OnboardingClientV3 } from "./onboarding-client-v3";
 import { STEPS, type Step } from "@/lib/onboarding";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -55,6 +60,55 @@ export default async function OnboardingPage({
   // clock-in → notifications (shell only) → practice post → habits → friends →
   // invite → go. Calendar connect lives in History/Settings, not here.
   if (REDESIGN) {
+    // Onboarding v3 (ONBOARDING_V3, which implies REDESIGN). This route is
+    // Replay's, so onboarded_at is normally set: the wizard then starts from
+    // the saved handle and offers its close control (plan D6). Off, v2 below
+    // is unchanged, `?step=` previews included.
+    //
+    // Screens 2 and 3 open on the replayer's own active goals and habits, and
+    // Continue writes only what they change, so a replay never adds a second
+    // copy of something they already have (lib/onboarding-v3-goals-habits.ts).
+    //
+    // Screen 4's Beat 2 draws this week's real hours by category when there
+    // are any (D15), read as the Week tab reads them. Only for a replayer: a
+    // first run (at `/`, or here before onboarded_at is set) hasn't clocked
+    // in yet, and shouldn't pay for a week read to find that out. A replay
+    // does pay for it again on every Screen 2 and 3 save, since those
+    // revalidate this route (lib/revalidate.ts); accepted, as the read is
+    // parallel with the goals and habits and Replay is rare.
+    //
+    // Screen 5 reads the viewer's friendships, so its search results show a
+    // replayer's friends as "Friends", their requests as "✓ Added" (and
+    // undoable), and requests waiting on them as Accept.
+    //
+    // With UW on, the welcome's Continue raises the "Are you a UW student?"
+    // sheet (P9c, OWNER-FIX-3), and a replayer already in the cohort finds it
+    // open on the Yes bar with their majors, interests and listing as stored.
+    // The columns come off the profile already read, and only with UW on:
+    // before STEP 5 they don't exist.
+    if (ONBOARDING_V3) {
+      const replay = profile?.onboarded_at != null;
+      const [goals, habits, week, relations] = await Promise.all([
+        listActiveGoals(),
+        listActiveHabits(),
+        replay ? getWeekCategorySegs() : [],
+        getFriendRelations(),
+      ]);
+      return (
+        <OnboardingClientV3
+          initialUsername={profile?.username ?? ""}
+          initialDisplayName={profile?.display_name ?? null}
+          avatarUrl={avatarPublicUrl(profile?.avatar_path ?? null)}
+          replay={replay}
+          existingGoals={accountGoalsFrom(goals)}
+          existingHabits={accountHabitsFrom(habits)}
+          weekSegments={week}
+          relations={relations}
+          uw={UW}
+          savedUw={UW ? savedUwFrom(profile) : undefined}
+        />
+      );
+    }
     return (
       <OnboardingClientV2
         initialUsername={profile?.username ?? ""}

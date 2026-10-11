@@ -5,7 +5,9 @@ import { cache } from "react";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { JOHN } from "@/lib/flags";
+import { friendVisibleGoals } from "@/lib/friends-tab";
 import { normalizeFill } from "@/lib/palette";
+import { isUuid } from "@/lib/validate";
 
 export type GoalStatus = "active" | "archived";
 
@@ -170,4 +172,54 @@ export async function listActiveGoalsForUser(userId: string): Promise<Goal[]> {
     .order("created_at", { ascending: true });
   if (!data) return [];
   return (data as GoalRow[]).map(rowToGoal);
+}
+
+// A goal with its owner, for reads that span several people.
+export type UserGoal = Goal & { userId: string };
+
+// Several FRIENDS' active goals in one round-trip, oldest first: the v3
+// Friends tab's "Working on {goal}" fallback, for a friend who hasn't put
+// time into a goal this week (lib/friends-tab.ts buildFriendRows, plan P8).
+//
+// It must never hand back a private goal, and it doesn't leave that to RLS
+// alone. Three layers, any one of which is enough on its own:
+//   1. the query asks only for `is_private = false`, and never for the
+//      caller's own rows (the owner branch of the policy would return their
+//      private goals);
+//   2. friendVisibleGoals drops anything private, or the caller's, from what
+//      came back (pinned by lib/friends-tab.test.ts);
+//   3. goals RLS is `owner OR are_friends AND NOT is_private`, so a friend's
+//      private goal and a stranger's goals don't arrive in the first place.
+// Unlike listActiveGoalsForUser (one friend's profile), which leans on RLS
+// by design because the owner viewing their own profile should see theirs.
+//
+// cache() keys its arguments by identity, so an array would never hit: two
+// readers building the same list of ids in one render would each pay for a
+// query. The ids are turned into one canonical string first (non-UUIDs
+// dropped, since they go into a filter, deduped, sorted), and THAT is the
+// cached call's argument.
+const listActiveGoalsForKey = cache(async (key: string): Promise<UserGoal[]> => {
+  if (!key) return [];
+  const me = await getCurrentUser();
+  if (!me) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("goals")
+    .select(`${GOAL_COLUMNS}, user_id`)
+    .in("user_id", key.split(","))
+    .neq("user_id", me.id)
+    .eq("status", "active")
+    .eq("is_private", false)
+    .order("created_at", { ascending: true });
+  if (!data) return [];
+  const goals = (data as (GoalRow & { user_id: string })[]).map((row) => ({
+    ...rowToGoal(row),
+    userId: row.user_id,
+  }));
+  return friendVisibleGoals(goals, me.id);
+});
+
+export function listActiveGoalsForUsers(userIds: readonly string[]): Promise<UserGoal[]> {
+  const key = [...new Set(userIds.filter((id) => isUuid(id)))].sort().join(",");
+  return listActiveGoalsForKey(key);
 }

@@ -62,6 +62,14 @@ export function normalizeRoute(pathname: string): (typeof ROUTES)[number] {
     : "/other";
 }
 
+// Which onboarding wizard sent a step event. v3 reuses v2's step NAMES (so the
+// prod CHECK and this allowlist needed no change) but not their ORDER or their
+// set — it has no notify, post or uw screen — so the funnel can't infer "reached
+// step N" for a v3 user the way it does for v2 (.claude/plans/analytics/
+// phase4.sql, admin_onboarding_stats). A step event without `flow` predates
+// this property and is v2's.
+export const ONBOARDING_FLOWS = ["v2", "v3"] as const;
+
 export const PERMISSION_STATES = [
   "granted",
   "denied",
@@ -125,8 +133,8 @@ export const EVENTS = {
   sign_in_started: { method: ["google", "apple", "password"] },
 
   // --- onboarding ------------------------------------------------------------
-  onboarding_step_viewed: { step_name: STEPS },
-  onboarding_step_completed: { step_name: STEPS },
+  onboarding_step_viewed: { step_name: STEPS, flow: ONBOARDING_FLOWS },
+  onboarding_step_completed: { step_name: STEPS, flow: ONBOARDING_FLOWS },
   onboarding_completed: {},
 
   // --- core actions. Metrics come from the real tables; these add timing and

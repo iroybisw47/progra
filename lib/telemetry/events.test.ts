@@ -4,6 +4,7 @@ import { STEPS } from "@/lib/onboarding";
 import {
   EVENTS,
   EVENT_NAMES,
+  ONBOARDING_FLOWS,
   SIGNED_OUT_EVENTS,
   isSignedOutEvent,
   normalizeRoute,
@@ -66,6 +67,26 @@ describe("validateEvent — no free text can pass", () => {
     expect(
       validateEvent("onboarding_step_viewed", { step_name: "Welcome to Progra" })
     ).toMatchObject({ ok: false });
+  });
+
+  // Which wizard sent a step event: a closed pair, on both step events, and
+  // optional — events from before the property existed carry no flow.
+  it("an onboarding step may say which flow sent it", () => {
+    for (const name of ["onboarding_step_viewed", "onboarding_step_completed"] as const) {
+      for (const flow of ONBOARDING_FLOWS) {
+        expect(validateEvent(name, { step_name: "goal", flow })).toEqual({
+          ok: true,
+          name,
+          props: { step_name: "goal", flow },
+        });
+      }
+      expect(validateEvent(name, { step_name: "goal" })).toMatchObject({ ok: true });
+      expect(validateEvent(name, { step_name: "goal", flow: "v4" })).toMatchObject({
+        ok: false,
+        reason: 'bad value for "flow"',
+      });
+    }
+    expect(ONBOARDING_FLOWS).toEqual(["v2", "v3"]);
   });
 
   it("an int property takes only a bounded integer", () => {

@@ -1,4 +1,5 @@
 import { parseReminderTime } from "@/lib/habit-reminders";
+import type { NotifyPermission } from "@/lib/notification-permission";
 
 // The daily habit reminder's on/off state and fire time, on THIS device.
 //
@@ -85,4 +86,27 @@ export function subscribeHabitReminderPref(onChange: () => void): () => void {
     window.removeEventListener(EVENT, onChange);
     window.removeEventListener("storage", onChange);
   };
+}
+
+// Whether a notification ask that just resolved should turn the daily habit
+// reminder on: only a fresh grant, and only with the feature live. Onboarding
+// v2 did this on its notify step (onboarding-client-v2.tsx's askNotifications).
+// v3 has no such step, so the first ask moved (.claude/plans/onboarding-v3.md
+// D5): to the live timer's "Turn on reminders" band with CLOCK_REMINDERS on,
+// and with it off (the band then shows nothing) to the Clock-in tap that ends
+// onboarding (app/clock/finish-onboarding.tsx). Both do the same.
+export function habitDefaultOnGrant(
+  result: NotifyPermission,
+  habitReminders: boolean
+): boolean {
+  return habitReminders && result === "granted";
+}
+
+// Turns the daily habit reminder on, keeping whatever time is stored. v2 wrote
+// the default time outright; keeping the stored one is the same thing on the
+// device this runs on (Settings only offers a time once permission is
+// granted, and this follows the FIRST grant), and can't undo a choice if that
+// ever stops being true.
+export function enableHabitReminderDefault(): void {
+  setHabitReminderPref({ ...habitReminderPref(), enabled: true });
 }

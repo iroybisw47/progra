@@ -2,7 +2,8 @@
 
 import { ToggleSwitch } from "@/components/v2/toggle-switch";
 import { track } from "@/lib/analytics";
-import { CLOCK_REMINDERS } from "@/lib/flags";
+import { CLOCK_REMINDERS, HABIT_REMINDERS } from "@/lib/flags";
+import { enableHabitReminderDefault, habitDefaultOnGrant } from "@/lib/habit-reminder-prefs";
 import {
   openNotificationSettings,
   requestNotificationPermission,
@@ -62,6 +63,12 @@ export function RemindersBand({
   // Never been asked. Offering here rather than pointing at Settings, because
   // this is the moment of maximum relevance — they are clocked in right now.
   // Legal caller #3 of the gesture-only ask.
+  //
+  // With onboarding v3 this is also where a new account is first asked: v3
+  // has no notify step (.claude/plans/onboarding-v3.md D5), and its first
+  // session lands here. So a grant turns the daily habit reminder on, as v2's
+  // notify step did. The device has never been asked, so the reminder is
+  // still at its untouched default, and this only states it.
   if (permission === "prompt") {
     return (
       <button
@@ -72,6 +79,9 @@ export function RemindersBand({
               source: "live_timer",
               result,
             });
+            if (habitDefaultOnGrant(result, HABIT_REMINDERS)) {
+              enableHabitReminderDefault();
+            }
           });
         }}
         className="border-hairline text-caption hover:text-ink mx-6 mb-2 self-center rounded-full border px-3 py-[7px] text-xs font-medium active:scale-95"

@@ -8,12 +8,17 @@ import { Dashboard } from "@/components/dashboard";
 import { Feed } from "@/components/feed";
 import { ProgressClient } from "@/components/v2/progress-client";
 import { OnboardingClientV2 } from "@/app/onboarding/onboarding-client-v2";
+import { OnboardingClientV3 } from "@/app/onboarding/onboarding-client-v3";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
-import { REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
+import { ONBOARDING_V3, REDESIGN, SOCIAL_ENABLED, UW } from "@/lib/flags";
 import { isJohnUser } from "@/lib/john/cohort";
-import { listUnansweredHabits } from "@/lib/db/habits";
+import { getFriendRelations } from "@/lib/db/friends";
+import { listActiveGoals } from "@/lib/db/goals";
+import { listActiveHabits, listUnansweredHabits } from "@/lib/db/habits";
+import { accountGoalsFrom, accountHabitsFrom } from "@/lib/onboarding-v3-goals-habits";
+import { savedUwFrom } from "@/lib/onboarding-v3-uw";
 import { addDaysISO, todayInTimeZone } from "@/lib/dates";
 import {
   currentWeekStart,
@@ -55,7 +60,39 @@ export default async function Page({
     //
     // /onboarding stays a real route: Settings → Replay pushes to it, which is
     // a soft navigation with no redirect and no flash.
+    //
+    // ONBOARDING_V3 swaps in the six-screen wizard. Off, this is v2 exactly
+    // as before. `replay` is false by definition here: this branch only runs
+    // while onboarded_at is null.
+    //
+    // v3 reads the active goals and habits too. A fresh account has none, but
+    // one that reloads after Screen 2 saved has, and the wizard has to start
+    // from them or Continue would create them all a second time. Likewise its
+    // friendships, so Screen 5 knows the requests it already sent (a reload,
+    // or an /i/ link's request to the inviter) and anyone already a friend.
+    // And with UW on, the profile's UW answer: one reloaded after the UW
+    // sheet saved Yes finds it open on the bar rather than asking again (P9c).
     if (!profile?.onboarded_at) {
+      if (ONBOARDING_V3) {
+        const [goals, habits, relations] = await Promise.all([
+          listActiveGoals(),
+          listActiveHabits(),
+          getFriendRelations(),
+        ]);
+        return (
+          <OnboardingClientV3
+            initialUsername={profile?.username ?? ""}
+            initialDisplayName={profile?.display_name ?? null}
+            avatarUrl={avatarPublicUrl(profile?.avatar_path ?? null)}
+            replay={false}
+            existingGoals={accountGoalsFrom(goals)}
+            existingHabits={accountHabitsFrom(habits)}
+            relations={relations}
+            uw={UW}
+            savedUw={UW ? savedUwFrom(profile) : undefined}
+          />
+        );
+      }
       return (
         <OnboardingClientV2
           initialUsername={profile?.username ?? ""}

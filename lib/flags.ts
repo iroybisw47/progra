@@ -152,20 +152,57 @@ export const COMMENT_REPLIES =
 // so flipping this false ends the test for everyone without touching the DB.
 export const JOHN = envFlag(process.env.NEXT_PUBLIC_JOHN);
 
-// Master switch for the UW cohort: the "I'm a UW student" toggle on the
-// onboarding welcome step, the major/clubs step behind it, the real suggestion
-// list on the final step, and the Settings block that lets an already-onboarded
-// user join.
+// Master switch for the UW cohort: onboarding v3's "UW student?" tiles and
+// majors/interests quick-add on Screen 1, the UW groups on Screen 5 and the
+// Friends tab ("In {major}", "Shares your interests", "More at UW"), and the
+// Settings block that lets an already-onboarded user join or leave. v2's UW
+// step is gone (plan P9a), so v2 runs without UW whatever this says.
 //
-// THIS FLAG MEANS "THE SQL HAS RUN", like JOHN. Flipping it on before
-// .claude/plans/uw-cohort.sql STEP 1 has run is the one dangerous ordering:
-// setUwProfile would 42703 on four unknown columns and uw_peers would not
-// exist. Off, no writer names a new column and no reader calls the RPC, so the
-// app is safe to deploy ahead of the SQL.
+// THIS FLAG MEANS ".claude/plans/uw-cohort.sql STEP 5 HAS RUN, AND ITS 5V AND
+// 5A BLOCKS PASSED" — not merely STEP 1. Flipping it on any earlier is the
+// one dangerous ordering: setUwProfile would name uw_majors, uw_interests and
+// uw_listed, which don't exist yet, list_uw_peers would not exist, and before
+// 5A the roster exposure it gates is unproven (plan D2). Off, no writer names
+// a UW column and no reader calls a UW RPC, so the app is safe to deploy ahead
+// of the SQL. Flip it after ONBOARDING_V3 is on and all of P9 is deployed.
 //
 // Unlike JOHN there is no per-user column deciding who sees it: membership IS
-// the per-user column (profiles.is_uw), and the user sets it themselves.
+// the per-user column (profiles.is_uw), and the user sets it themselves. Who
+// appears to OTHER students is a second one, profiles.uw_listed, off by
+// default and set only by the student.
 export const UW = envFlag(process.env.NEXT_PUBLIC_UW);
+
+// Master switch for onboarding v3: the six-screen wizard (who you are, goals,
+// habits, a three-beat intro, find friends, "Ready?") that hands off to the
+// normal Clock tab with the first goal preselected. On, it replaces v2 at `/`
+// (first run) and `/onboarding` (Replay). Off, v2 runs exactly as it does
+// today — and it stays the fallback for a release after the flip, so turning
+// this back off is the rollback. See .claude/plans/onboarding-v3.md.
+//
+// Implies REDESIGN: v3 replaces the v2 wizard, which only exists under REDESIGN,
+// and it lands on the redesign's Clock tab with the BottomNav rising in.
+//
+// THIS FLAG NEEDS NO SQL, unlike JOHN, UW and ANALYTICS. Every write it makes
+// goes through an action and a column that already exist (handles, goals,
+// habits, categories, friend requests), so it means "verified signed in", not
+// "the SQL has run". Its UW parts are gated on UW as well, and that one does.
+export const ONBOARDING_V3 =
+  envFlag(process.env.NEXT_PUBLIC_ONBOARDING_V3) && REDESIGN;
+
+// Master switch for the v3 Friends tab: search, the breathing invite button,
+// Requests, the UW groups and "Your friends" with this week's hours, in the
+// same visual language as onboarding v3's find-your-friends screen. Off,
+// /friends renders the current layout unchanged.
+//
+// Its own flag rather than ONBOARDING_V3's because the two reach different
+// people: onboarding only meets new signups and Replay, while every user opens
+// /friends every day. Each can be approved, and rolled back, on its own.
+//
+// Implies SOCIAL_ENABLED — /friends 404s with the social layer dark. NEEDS NO
+// SQL either: it reads the friendships, profiles and sessions the current tab
+// already reads, and its UW groups stay behind UW.
+export const FRIENDS_V3 =
+  envFlag(process.env.NEXT_PUBLIC_FRIENDS_V3) && SOCIAL_ENABLED;
 
 // Master switch for the iOS Live Activity: the Lock Screen / Dynamic Island card
 // for a running clock-in session.

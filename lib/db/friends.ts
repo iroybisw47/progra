@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { getCurrentUser } from "@/lib/auth/require-user";
+import { NO_RELATIONS, type FriendRelations } from "@/lib/find-friends";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validate";
@@ -205,6 +206,44 @@ export async function listOutgoingRequests(): Promise<RequestEntry[]> {
     return user ? [{ requestId: r.id, user }] : [];
   });
 }
+
+// Every pending and accepted row I'm part of, in the shape onboarding v3's
+// Screen 5 needs (lib/find-friends.ts FriendRelations): friends by id, the
+// requests I sent with the addressee's handle, the requests waiting on me.
+// One friendships read (RLS returns only my rows), plus a handle lookup only
+// when a request of mine is out, so a fresh first run costs one empty query.
+export const getFriendRelations = cache(async (): Promise<FriendRelations> => {
+  const me = await getCurrentUser();
+  if (!me) return NO_RELATIONS;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("friendships")
+    .select("id, requester_id, addressee_id, status, created_at")
+    .in("status", ["pending", "accepted"])
+    .order("created_at", { ascending: false });
+  if (!data) return NO_RELATIONS;
+
+  const friendIds: string[] = [];
+  const sent: FriendshipRow[] = [];
+  const incoming: { requestId: string; userId: string }[] = [];
+  for (const r of data as FriendshipRow[]) {
+    if (r.status === "accepted") {
+      friendIds.push(r.requester_id === me.id ? r.addressee_id : r.requester_id);
+    } else if (r.requester_id === me.id) {
+      sent.push(r);
+    } else if (r.addressee_id === me.id) {
+      incoming.push({ requestId: r.id, userId: r.requester_id });
+    }
+  }
+
+  const users = await hydrateUsers(sent.map((r) => r.addressee_id));
+  const outgoing = sent.flatMap((r) => {
+    const user = users.get(r.addressee_id);
+    return user ? [{ requestId: r.id, userId: r.addressee_id, username: user.username }] : [];
+  });
+  return { friendIds, outgoing, incoming };
+});
 
 // Users I've blocked. RLS shows a block row only to its blocker, so this is
 // inherently scoped to me; the extra blocked_by filter is defensive.

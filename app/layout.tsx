@@ -42,6 +42,13 @@ import { BetaFull } from "@/components/beta-full";
 // Newsreader (serif) for headings and the big display numbers. Both are
 // variable fonts, so no `weight` list — the whole 400–700 range ships in one
 // file and 500/600 render as designed rather than snapping to a nearest cut.
+//
+// Newsreader also loads its optical-size axis (`opsz`, 6–72), which the
+// designs assume: the browser's default `font-optical-sizing: auto` then cuts
+// each size its own way, tighter at display sizes. Without it every serif
+// line rendered at the 16px cut, ~4% wider than the handoffs (a 64px "Ready?"
+// 11px wider, a 25px caption wrapping onto an extra line). Costs a somewhat
+// larger font file; chosen by the owner on 2026-10-09.
 const hanken = Hanken_Grotesk({
   variable: "--font-hanken",
   subsets: ["latin"],
@@ -52,6 +59,7 @@ const newsreader = Newsreader({
   variable: "--font-newsreader",
   subsets: ["latin"],
   display: "swap",
+  axes: ["opsz"],
 });
 
 export const metadata: Metadata = {
@@ -247,10 +255,11 @@ export default async function RootLayout({
       )}
       {/* One release note, once. Three gates beyond `user`, all free:
           · onboarded_at — nobody is interrupted mid-wizard, and the decision is
-            baked into THIS payload. completeOnboarding revalidates the page, not
-            the layout, and onboarding then pushes to "/" — so the layout the
-            browser is still holding could otherwise leak the note to a brand-new
-            account. A path check in the leaf can only fail open; this fails closed.
+            baked into THIS payload: a path check in the leaf can only fail open;
+            this fails closed. completeOnboarding's revalidation does re-render
+            the layout (any action revalidation does, in Next 16.2), but only
+            after stamping a brand-new account current, so that payload already
+            reads the note as seen.
           · !planComplete — that modal outranks this one (it's about the user's
             own data and carries a CTA), and two Base UI dialogs would stack two
             backdrops and fight over the focus trap. Yielding costs nothing:

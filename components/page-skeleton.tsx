@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 type Variant =
   | "feed"
   | "friends"
+  | "friends-v3"
   | "profile"
   | "clock"
   | "rows"
@@ -147,6 +148,40 @@ function FriendsBody() {
             <Bar w="26%" h={9} />
           </div>
           <Bar w="58px" h={26} />
+        </div>
+      ))}
+    </>
+  );
+}
+
+// The v3 Friends tab (FRIENDS_V3, app/friends/friends-client-v3.tsx): the 44px
+// search field, the 68px navy invite button, then a section of person rows
+// with this week's hours on the right, so every row lands where it was drawn.
+function FriendsV3Body() {
+  return (
+    <>
+      {/* pt-1 under the bell's 32px header row, as the tab's own field. */}
+      <div className="px-5 pt-1">
+        <Frame h={44} className="rounded-[12px]" />
+      </div>
+      <div className="px-5 pt-3 pb-1">
+        {/* Navy-tinted like the Clock CTA's: the one navy element on screen. */}
+        <Block h={68} className="bg-brand/10 rounded-[18px]" />
+      </div>
+      <div className="px-5 pt-4 pb-2">
+        <LabelBar />
+      </div>
+      {["44%", "36%", "52%", "40%"].map((w, i) => (
+        <div
+          key={i}
+          className="border-divider flex items-center gap-[11px] border-t px-5 py-[9px]"
+        >
+          <Circle size={36} />
+          <div className="flex min-w-0 flex-1 flex-col gap-[5px]">
+            <Bar w={w} h={10} />
+            <Bar w="46%" h={9} />
+          </div>
+          <Bar w="44px" h={11} />
         </div>
       ))}
     </>
@@ -363,13 +398,20 @@ export function PageSkeleton({
       aria-busy="true"
     >
       <main className="flex w-full max-w-md flex-col">
-        <header className="flex items-center justify-between px-5">
+        {/* The v3 Friends header holds the 32px bell, so it's that tall. */}
+        <header
+          className={cn(
+            "flex items-center justify-between px-5",
+            variant === "friends-v3" && "min-h-8"
+          )}
+        >
           <span className="section-label">{title}</span>
           <span className="sr-only">Loading {title}…</span>
         </header>
 
         {variant === "feed" && <FeedBody />}
         {variant === "friends" && <FriendsBody />}
+        {variant === "friends-v3" && <FriendsV3Body />}
         {variant === "profile" && <ProfileBody />}
         {variant === "clock" && <ClockBody />}
         {variant === "rows" && <RowsBody rows={rows} />}

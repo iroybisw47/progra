@@ -28,6 +28,7 @@ import {
 } from "@/app/actions/profile";
 import { setUwProfile } from "@/app/actions/uw";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
+import { saveUwBlock, uwBlockState, type SavedUw } from "@/lib/uw-fields";
 import { ACCOUNTABILITY_INVITE_TEXT, shareInvite } from "@/lib/invite-share";
 import { track } from "@/lib/analytics";
 import {
@@ -115,9 +116,9 @@ export function SettingsClient({
   socialPushesEnabled,
   nudgesEnabled,
   isUw,
-  uwMajor,
-  uwClubs,
-  uwShareGoals,
+  uwMajors,
+  uwInterests,
+  uwListed,
   isAdmin,
   openReports,
 }: {
@@ -137,9 +138,9 @@ export function SettingsClient({
   // these are editable right here — onboarding is write-once, and without this
   // block every user who onboarded before the feature existed is locked out.
   isUw: boolean;
-  uwMajor: string | null;
-  uwClubs: readonly string[];
-  uwShareGoals: boolean;
+  uwMajors: readonly string[];
+  uwInterests: readonly string[];
+  uwListed: boolean;
   isAdmin: boolean;
   openReports: number;
 }) {
@@ -163,10 +164,18 @@ export function SettingsClient({
   const [dnDraft, setDnDraft] = useState(displayName ?? "");
   const [unDraft, setUnDraft] = useState(username ?? "");
   const [bioDraft, setBioDraft] = useState(bio ?? "");
-  const [uwDraft, setUwDraft] = useState(isUw);
-  const [majorDraft, setMajorDraft] = useState(uwMajor ?? "");
-  const [clubsDraft, setClubsDraft] = useState<string[]>([...uwClubs]);
-  const [shareDraft, setShareDraft] = useState(uwShareGoals);
+  // The UW block's draft (lib/uw-fields.ts): the switch, both chip fields
+  // with whatever is typed in them, and the listing opt-in. `saved` is the
+  // profile as the sheet opened, held beside the draft rather than read from
+  // the props at Save: an avatar change in the same sheet revalidates
+  // /settings, and fresh props would make an untouched block look edited, so
+  // a stale tab would write its old copy over a leave or an unlist made
+  // elsewhere. Compared with what it opened on, untouched means no write.
+  const uwSaved: SavedUw = { isUw, majors: uwMajors, interests: uwInterests, listed: uwListed };
+  const [uwBlock, setUwBlock] = useState(() => ({
+    saved: uwSaved,
+    state: uwBlockState(uwSaved),
+  }));
 
   const [tzOpen, setTzOpen] = useState(false);
   const [tzDraft, setTzDraft] = useState(timezone ?? "UTC");
@@ -195,10 +204,7 @@ export function SettingsClient({
     setDnDraft(displayName ?? "");
     setUnDraft(username ?? "");
     setBioDraft(bio ?? "");
-    setUwDraft(isUw);
-    setMajorDraft(uwMajor ?? "");
-    setClubsDraft([...uwClubs]);
-    setShareDraft(uwShareGoals);
+    setUwBlock({ saved: uwSaved, state: uwBlockState(uwSaved) });
     setEditing(true);
   }
 
@@ -219,14 +225,15 @@ export function SettingsClient({
         return;
       }
       // Only when the flag is on: with it off the block isn't rendered, and
-      // calling this would name four columns for nothing.
+      // calling this would name columns that may not exist yet. saveUwBlock
+      // writes only when the block changed (a stale tab's bio-only save must
+      // not re-join or re-list anyone), commits any chip typed but not
+      // Returned, and sends the listing opt-in as its switch shows it. On an
+      // error the sheet stays open with the draft as it was, the same as a
+      // name or username error above, so Save can simply be pressed again;
+      // nothing was shown as saved, so there is nothing to revert.
       if (UW) {
-        const u = await setUwProfile({
-          isUw: uwDraft,
-          major: majorDraft,
-          clubs: clubsDraft,
-          shareGoals: shareDraft,
-        });
+        const u = await saveUwBlock(uwBlock.saved, uwBlock.state, setUwProfile);
         if ("error" in u) {
           toast.error(u.error);
           return;
@@ -471,29 +478,20 @@ export function SettingsClient({
                 onChange={(e) => setBioDraft(e.target.value)}
               />
             </Field>
+            {/* The UW block (plan P9b): the switch, majors and interests,
+                and the listing opt-in. Saved with the rest of the sheet. */}
             {UW && (
               <>
                 <div className="bg-hairline h-px" />
-                <div className="flex items-center gap-3">
-                  <span className="text-body min-w-0 flex-1 text-[13.5px] font-medium">
-                    I&apos;m a UW student
-                  </span>
-                  <ToggleSwitch
-                    ariaLabel="UW student"
-                    checked={uwDraft}
-                    onCheckedChange={setUwDraft}
-                  />
-                </div>
-                {uwDraft && (
-                  <UwFields
-                    major={majorDraft}
-                    onMajor={setMajorDraft}
-                    clubs={clubsDraft}
-                    onClubs={setClubsDraft}
-                    shareGoals={shareDraft}
-                    onShareGoals={setShareDraft}
-                  />
-                )}
+                {/* Locked while Save runs: it saves the block as it was when
+                    pressed, so a change made meanwhile (the listing switch
+                    going off) would be dropped as the sheet closes. */}
+                <UwFields
+                  value={uwBlock.state}
+                  onChange={(state) => setUwBlock((b) => ({ ...b, state }))}
+                  savedIsUw={uwBlock.saved.isUw}
+                  disabled={pending}
+                />
               </>
             )}
             <PrimaryButton disabled={pending} onClick={saveIdentity}>

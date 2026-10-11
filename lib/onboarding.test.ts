@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_GOAL_QUOTA_HOURS,
   SIM_TARGET_MS,
   SIM_TOTAL_MS,
+  STEPS,
+  V3_STEPS,
   activeSteps,
   clockSimValue,
   doneSummary,
@@ -60,6 +63,38 @@ describe("steps", () => {
     const native = activeSteps(true, true);
     expect(native.indexOf("uw")).toBeGreaterThan(native.indexOf("goal"));
     expect(native.indexOf("uw")).toBeLessThan(native.indexOf("friends"));
+  });
+});
+
+describe("v3 steps", () => {
+  // The prod CHECK on profiles.onboarding_step and the telemetry allowlist both
+  // list STEPS; a v3 name outside it would be rejected by both.
+  it("only uses step names analytics already accepts", () => {
+    for (const step of V3_STEPS) expect(STEPS).toContain(step);
+  });
+
+  it("is six distinct screens, welcome first and clock last", () => {
+    expect(V3_STEPS).toHaveLength(6);
+    expect(new Set(V3_STEPS).size).toBe(6);
+    expect(V3_STEPS[0]).toBe("welcome");
+    expect(V3_STEPS[V3_STEPS.length - 1]).toBe("clock");
+  });
+
+  // v3's order differs from v2's, which is the reason it is its own list.
+  it("puts the intro after goals and habits, before friends", () => {
+    expect(V3_STEPS).toEqual(["welcome", "goal", "habit", "how", "friends", "clock"]);
+  });
+
+  it("drops the practice steps and folds uw into welcome", () => {
+    expect(V3_STEPS).not.toContain("notify");
+    expect(V3_STEPS).not.toContain("post");
+    expect(V3_STEPS).not.toContain("uw");
+  });
+
+  // createGoal rejects a quota that isn't positive.
+  it("defaults a v3 goal to a positive quota, the same 5h as v2", () => {
+    expect(DEFAULT_GOAL_QUOTA_HOURS).toBe(5);
+    expect(DEFAULT_GOAL_QUOTA_HOURS).toBeGreaterThan(0);
   });
 });
 

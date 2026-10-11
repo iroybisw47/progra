@@ -22,18 +22,19 @@ export function PrimaryButton({
   type = "button",
   ...props
 }: React.ComponentProps<"button"> & { size?: "sheet" | "screen" }) {
-  return (
-    <button
-      {...props}
-      type={type}
-      className={cn(
-        "bg-brand text-primary-foreground w-full font-semibold transition-transform active:scale-[.98] disabled:opacity-50",
-        "flex items-center justify-center gap-1.5 rounded-[15px]",
-        size === "screen"
-          ? "h-[52px] text-base shadow-[0_10px_22px_-10px_rgba(28,58,94,.55)] disabled:shadow-none"
-          : "h-12 text-sm",
-        className
-      )}
-    />
+  return <button {...props} type={type} className={primaryButtonClass(size, className)} />;
+}
+
+// The same look for a CTA that has to be a link: onboarding v3's "Start
+// session" is a prefetching <Link> (app/onboarding/v3/onboarding-cta.tsx).
+// Shared rather than copied, since copies are how the nine above came about.
+export function primaryButtonClass(size: "sheet" | "screen" = "sheet", className?: string): string {
+  return cn(
+    "bg-brand text-primary-foreground w-full font-semibold transition-transform active:scale-[.98] disabled:opacity-50",
+    "flex items-center justify-center gap-1.5 rounded-[15px]",
+    size === "screen"
+      ? "h-[52px] text-base shadow-[0_10px_22px_-10px_rgba(28,58,94,.55)] disabled:shadow-none"
+      : "h-12 text-sm",
+    className
   );
 }

@@ -9,12 +9,19 @@ export function ToggleSwitch({
   checked,
   onCheckedChange,
   ariaLabel,
+  labelledBy,
+  describedBy,
   disabled,
 }: {
   id?: string;
   checked: boolean;
   onCheckedChange: (value: boolean) => void;
   ariaLabel?: string;
+  // The id of visible text that names the switch, in place of ariaLabel, so
+  // its spoken name is the words on screen (the Settings UW block).
+  labelledBy?: string;
+  // The id of text saying what the switch changes, read after its state.
+  describedBy?: string;
   // A real `disabled` attribute, not just dimming: the state has to be
   // announced to a screen reader and the control has to stop taking taps.
   // The finish screen uses it for an auto-ended session, which is worth 0
@@ -28,6 +35,8 @@ export function ToggleSwitch({
       id={id}
       aria-checked={checked}
       aria-label={ariaLabel}
+      aria-labelledby={labelledBy}
+      aria-describedby={describedBy}
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
       className={cn(

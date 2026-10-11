@@ -6,17 +6,29 @@ import { listActiveGoals } from "@/lib/db/goals";
 import { listRecentSessions } from "@/lib/db/sessions";
 import { getSessionPhotoUrl } from "@/lib/db/session-photos";
 import { endOfWeek, startOfWeek } from "@/lib/dates";
+import { asksOnClockIn, finishesOnboarding } from "@/lib/clock-handoff";
+import { CLOCK_REMINDERS, ONBOARDING_V3 } from "@/lib/flags";
 
 import { ClockClient } from "./clock-client";
+import { FinishOnboarding } from "./finish-onboarding";
 
 export default async function ClockPage({
   searchParams,
 }: {
-  searchParams: Promise<{ goal?: string }>;
+  searchParams: Promise<{ goal?: string; welcome?: string | string[] }>;
 }) {
   // ?goal=<id> pre-selects that goal in the clock-in picker (tapped from the
-  // Progress tab's "Goals today"). Inert while a session is active.
-  const { goal } = await searchParams;
+  // Progress tab's "Goals today", and from onboarding v3's "Start session").
+  // Inert while a session is active.
+  //
+  // ?welcome=1 is that "Start session" (lib/clock-handoff.ts): the Clock tab
+  // below renders exactly as it does for anyone, and a leaf beside it stamps
+  // onboarded_at (finish-onboarding.tsx says why here). Only with
+  // ONBOARDING_V3 on and only while there's something to stamp; otherwise
+  // the leaf isn't there and this page is the Clock tab as it always was.
+  // With CLOCK_REMINDERS off, the same arrival's Clock-in tap also asks for
+  // notifications (plan D5), which changes nothing on screen.
+  const { goal, welcome } = await searchParams;
   // The redesign runs the active session on the full-screen /clock/live timer,
   // but /clock stays reachable while tracking (minimize lands here) so you can
   // manage categories, add past sessions, and see the week — with a compact
@@ -49,15 +61,32 @@ export default async function ClockPage({
     ? await getSessionPhotoUrl(activeSession)
     : null;
 
+  const finishing = finishesOnboarding({
+    enabled: ONBOARDING_V3,
+    welcome,
+    onboarded: profile?.onboarded_at != null,
+  });
+  const askNotifications = asksOnClockIn({
+    enabled: ONBOARDING_V3,
+    clockReminders: CLOCK_REMINDERS,
+    welcome,
+  });
+
+  // The same shape with the leaf or without, so the stamp's re-render, which
+  // drops it, can't remount the Clock under someone already using it.
   return (
-    <ClockClient
-      categories={categories}
-      sessions={sessions}
-      events={events}
-      goals={goals}
-      activePhotoUrl={activePhotoUrl}
-      initialGoalId={goal ?? null}
-      john={isJohnUser(profile)}
-    />
+    <>
+      <ClockClient
+        categories={categories}
+        sessions={sessions}
+        events={events}
+        goals={goals}
+        activePhotoUrl={activePhotoUrl}
+        initialGoalId={goal ?? null}
+        john={isJohnUser(profile)}
+        askNotifications={askNotifications}
+      />
+      {finishing && <FinishOnboarding />}
+    </>
   );
 }

@@ -152,8 +152,10 @@ async function signInWithProviderIdToken(
   }
 
   // Invite attribution, mirroring app/auth/callback/route.ts: the same
-  // SECURITY DEFINER RPC, which derives the caller from auth.uid(). Attribution
-  // must NEVER block sign-in, so every failure is swallowed.
+  // SECURITY DEFINER RPC, which derives the caller from auth.uid() and, for a
+  // first-run account only, records referred_by and sends the inviter a
+  // pending request. Attribution must NEVER block sign-in, so every failure
+  // is swallowed.
   if (input.ref) {
     try {
       await supabase.rpc("claim_invite", { p_username: input.ref });

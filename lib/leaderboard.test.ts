@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   MAX_GOAL_LINES,
+  buildFriendsWeekRows,
   buildLeaderboardRow,
+  leaderboardWeekWindow,
   rankLeaderboard,
 } from "@/lib/leaderboard";
 import type { PublicUser } from "@/lib/db/friends";
@@ -180,5 +182,147 @@ describe("rankLeaderboard", () => {
 
   it("returns nothing when nobody tracked and there's no viewer row", () => {
     expect(rankLeaderboard([row("a", 0), row("b", 0)])).toEqual([]);
+  });
+});
+
+// The week the rows are measured over is the CALLER's, in their stored zone —
+// it used to be the server's (UTC on Vercel), which put a Los Angeles user's
+// Sunday evening in the NEXT week.
+describe("leaderboardWeekWindow", () => {
+  const LA = "America/Los_Angeles";
+  const at = (iso: string) => Date.parse(iso);
+
+  it("is the caller's Monday to Sunday, not the server's", () => {
+    // Sunday Oct 11, 8pm in Los Angeles — already Monday Oct 12 in UTC.
+    const now = at("2026-10-12T03:00:00Z");
+    const w = leaderboardWeekWindow(LA, now);
+    expect(w.weekStartISO).toBe("2026-10-05");
+    expect(w.weekStartMs).toBe(at("2026-10-05T07:00:00Z")); // Mon 00:00 PDT
+    expect(w.weekEndMs).toBe(at("2026-10-12T07:00:00Z") - 1); // Sun 23:59:59.999 PDT
+    // The old window had already rolled over.
+    expect(leaderboardWeekWindow("UTC", now).weekStartISO).toBe("2026-10-12");
+  });
+
+  it("works east of UTC too", () => {
+    // Monday Oct 12, 1am in Tokyo — still Sunday in UTC.
+    const w = leaderboardWeekWindow("Asia/Tokyo", at("2026-10-11T16:00:00Z"));
+    expect(w.weekStartISO).toBe("2026-10-12");
+    expect(w.weekStartMs).toBe(at("2026-10-11T15:00:00Z"));
+  });
+
+  // US clocks fall back on Sunday Nov 1 2026, so that week is 169 hours long.
+  it("spans a DST week's extra hour", () => {
+    const w = leaderboardWeekWindow(LA, at("2026-10-30T19:00:00Z"));
+    expect(w.weekStartISO).toBe("2026-10-26");
+    expect(w.weekStartMs).toBe(at("2026-10-26T07:00:00Z")); // PDT
+    expect(w.weekEndMs).toBe(at("2026-11-02T08:00:00Z") - 1); // PST
+    expect(w.weekEndMs + 1 - w.weekStartMs).toBe(169 * HOUR);
+  });
+
+  // UTC is what the window always was before the fix, so a profile with no
+  // zone sees no change; a bad zone must not throw and take /friends down.
+  it("falls back to UTC for a missing or unparseable zone", () => {
+    const now = at("2026-10-12T03:00:00Z");
+    const utc = leaderboardWeekWindow("UTC", now);
+    expect(leaderboardWeekWindow(null, now)).toEqual(utc);
+    expect(leaderboardWeekWindow(undefined, now)).toEqual(utc);
+    expect(leaderboardWeekWindow("", now)).toEqual(utc);
+    expect(leaderboardWeekWindow("Not/AZone", now)).toEqual(utc);
+  });
+});
+
+describe("buildFriendsWeekRows", () => {
+  const LA = "America/Los_Angeles";
+  const at = (iso: string) => Date.parse(iso);
+  const person = (id: string, isMe = false) => ({
+    user: { ...user, userId: id, username: id },
+    isMe,
+  });
+  const span = (from: string, to: string, goalId: string | null = null) =>
+    sess({
+      goalId,
+      categoryId: goalId ? null : "c1",
+      startedAt: at(from),
+      endedAt: at(to),
+    });
+  const noGoals = new Map<string, { title: string; color: string | null }>();
+
+  it("keeps one row per person, in order, zero-hour friends included", () => {
+    const rows = buildFriendsWeekRows(
+      [person("me", true), person("f1"), person("f2")],
+      new Map([["f1", [work(2 * HOUR)]]]),
+      noGoals,
+      { weekStartMs: WEEK_START, weekEndMs: WEEK_END },
+      NOW
+    );
+    expect(rows.map((r) => [r.user.userId, r.isMe, r.totalMs])).toEqual([
+      ["me", true, 0],
+      ["f1", false, 2 * HOUR],
+      ["f2", false, 0],
+    ]);
+    expect(rows.every((r) => !("rank" in r))).toBe(true);
+    // Ranking them is exactly what the live leaderboard did before the split:
+    // the zero-hour friend drops, the caller stays.
+    expect(rankLeaderboard(rows).map((r) => [r.user.userId, r.rank])).toEqual([
+      ["f1", 1],
+      ["me", 2],
+    ]);
+  });
+
+  // The bug the window fixes, end to end: on Sunday evening in Los Angeles a
+  // Wednesday session is still this week's, where the UTC week had already
+  // turned over and showed nothing.
+  it("counts the caller's week, not the server's", () => {
+    const now = at("2026-10-12T03:00:00Z"); // Sun 8pm PDT
+    const wed = span("2026-10-07T17:00:00Z", "2026-10-07T19:00:00Z"); // Wed 10am–noon PDT
+    const people = [person("me", true)];
+    const sessions = new Map([["me", [wed]]]);
+    const la = buildFriendsWeekRows(people, sessions, noGoals, leaderboardWeekWindow(LA, now), now);
+    const utc = buildFriendsWeekRows(people, sessions, noGoals, leaderboardWeekWindow("UTC", now), now);
+    expect(la[0].totalMs).toBe(2 * HOUR);
+    expect(utc[0].totalMs).toBe(0);
+  });
+
+  it("attributes across a DST week by the local boundaries", () => {
+    const now = at("2026-11-02T07:59:00Z"); // Sun Nov 1, 11:59pm PST
+    const week = leaderboardWeekWindow(LA, now);
+    const sessions = new Map([
+      [
+        "me",
+        [
+          // Sun Oct 25, 11pm PDT: the week before.
+          span("2026-10-26T06:00:00Z", "2026-10-26T06:45:00Z"),
+          // Mon Oct 26, 12:30am PDT: the first hour of this week.
+          span("2026-10-26T07:30:00Z", "2026-10-26T08:00:00Z"),
+          // Sun Nov 1, 11pm PST: the last hour, after the clocks fell back.
+          span("2026-11-02T07:00:00Z", "2026-11-02T07:30:00Z", "g1"),
+        ],
+      ],
+    ]);
+    const [row] = buildFriendsWeekRows(
+      [person("me", true)],
+      sessions,
+      new Map([["g1", { title: "Thesis", color: null }]]),
+      week,
+      now
+    );
+    expect(row.totalMs).toBe(HOUR);
+    expect(row.goals).toEqual([
+      { id: "g1", title: "Thesis", color: null, ms: HOUR / 2 },
+    ]);
+    expect(row.otherMs).toBe(HOUR / 2);
+  });
+
+  it("counts a session that is still running up to now", () => {
+    const now = at("2026-10-07T20:00:00Z");
+    const running = sess({ startedAt: at("2026-10-07T18:30:00Z"), endedAt: null });
+    const [row] = buildFriendsWeekRows(
+      [person("f1")],
+      new Map([["f1", [running]]]),
+      noGoals,
+      leaderboardWeekWindow(LA, now),
+      now
+    );
+    expect(row.totalMs).toBe(1.5 * HOUR);
   });
 });

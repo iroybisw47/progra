@@ -12,15 +12,21 @@ import type { NextConfig } from "next";
 // actions into ONE module, that killed every action on the route, not just the
 // upload (see CHANGELOG 2026-08-19).
 //
-// Scoped to the five routes that mount AvatarPicker / SessionPhotoStep rather
+// Scoped to the six routes that mount AvatarPicker / SessionPhotoStep rather
 // than "/**": it's ~18MB per function. A route that starts taking photo
 // uploads must be added here — the symptom would be an upload that fails with
 // "Photo uploads are temporarily unavailable" (lib/images/sharp.ts) while the
 // rest of the route keeps working.
+//
+// "/" joined on 2026-10-09 (owner's call): a first run onboards AT "/", and
+// both the v2 and v3 wizards upload the avatar from there. Without it that
+// upload could only ever fail. The cost is a bigger function for the home
+// page — watch Home's cold-start TTFB after the deploy.
 const SHARP_NATIVE = ["node_modules/@img/**/*", "node_modules/sharp/**/*"];
 
 const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
+    "/": SHARP_NATIVE,
     "/onboarding": SHARP_NATIVE,
     "/settings": SHARP_NATIVE,
     "/clock": SHARP_NATIVE,

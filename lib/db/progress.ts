@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { aggregateRange, buildCategoryBreakdown } from "@/lib/aggregate";
 import { categorizeEvents, fetchEventsRaw } from "@/lib/db/calendar-events";
 import { listCategories } from "@/lib/db/categories";
@@ -19,9 +21,11 @@ import {
   isRecapReady,
   mondayOfDateISO,
   todayInTimeZone,
+  weekWindow,
   zonedDayStartMs,
 } from "@/lib/dates";
 import { sessionWorkedMs } from "@/lib/session";
+import type { CatSeg } from "@/components/v2/category-donut";
 import type {
   GoalRow,
   HabitToday,
@@ -255,6 +259,25 @@ export async function loadProgressData(): Promise<ProgressData> {
     autoEndNudge: autoEnd ? { sessionId: autoEnd.id } : null,
   };
 }
+
+// This week's time by category, exactly as the This-week donut above draws it
+// (weekSegs), for onboarding v3's Beat 2 (app/onboarding/page.tsx, plan D15):
+// a replayer who has tracked time this week sees their own week rather than
+// the sample. Same window (Monday to Sunday in the user's own timezone), same
+// cached reads and same attribution (computeWeekRecap), so the two can't
+// disagree, and categories with no time are already dropped. Empty for a week
+// with nothing in it.
+export const getWeekCategorySegs = cache(async (): Promise<CatSeg[]> => {
+  const profile = await getProfile();
+  const { weekStartMs, weekEndMs } = weekWindow(profile?.timezone ?? "UTC");
+  const { categoryRows } = await computeWeekRecap(weekStartMs, weekEndMs);
+  return categoryRows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    color: r.color ?? CHART_FALLBACK,
+    ms: r.ms,
+  }));
+});
 
 // How many weeks of completion history the Manage-habits editor can page back
 // through (including the current week). Kept small so the read stays cheap —

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_HABIT_REMINDER_TIME,
+  habitDefaultOnGrant,
   habitReminderPrefFor,
 } from "@/lib/habit-reminder-prefs";
 
@@ -51,5 +52,20 @@ describe("habitReminderPrefFor", () => {
       enabled: true,
       time: DEFAULT_HABIT_REMINDER_TIME,
     });
+  });
+});
+
+describe("habitDefaultOnGrant", () => {
+  // Onboarding v3 D5: the first ask moved out of the wizard, and both of its
+  // new homes turn the reminder on as v2's notify step did, on a grant only.
+  it("turns the reminder on for a fresh grant with the feature live", () => {
+    expect(habitDefaultOnGrant("granted", true)).toBe(true);
+  });
+
+  it("leaves it alone for any other answer, or with the feature dark", () => {
+    for (const result of ["denied", "prompt", "unavailable"] as const) {
+      expect(habitDefaultOnGrant(result, true)).toBe(false);
+    }
+    expect(habitDefaultOnGrant("granted", false)).toBe(false);
   });
 });

@@ -15,12 +15,18 @@ import {
   revalidateCalendarSurfaces,
   revalidateCategorySurfaces,
   revalidateIdentitySurfaces,
+  revalidateOnboardingSurfaces,
   revalidatePatchNoteSurfaces,
 } from "@/lib/revalidate";
-import { checkUsername } from "@/lib/social/username";
+import { USERNAME_TAKEN_ERROR, checkUsername } from "@/lib/social/username";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { requireSeat } from "@/lib/auth/require-seat";
+
+// Failures here return fixed text, never `error.message`: a PostgREST error
+// can name a column, a constraint or a trigger's exception, and the client
+// shows whatever comes back in a toast. The one specific mapping kept is
+// setUsername's 23505 → "taken", which is the answer the user actually needs.
 
 // Account-level, unlike the per-device reminder prefs: the push is sent by the
 // server, which knows accounts, not phones. Null = on, so the column's default
@@ -37,7 +43,7 @@ export async function setSocialPushesEnabled(
     .update({ social_pushes_enabled: enabled })
     .eq("id", user.id);
 
-  if (error) return { error: error.message };
+  if (error) return { error: "Couldn't save that." };
   // Settings re-reads the profile for the row's initial state on next visit.
   revalidatePath("/settings");
   return { ok: true };
@@ -60,7 +66,7 @@ export async function setNudgesEnabled(
     .update({ nudges_enabled: enabled })
     .eq("id", user.id);
 
-  if (error) return { error: error.message };
+  if (error) return { error: "Couldn't save that." };
   revalidatePath("/settings");
   return { ok: true };
 }
@@ -91,7 +97,7 @@ export async function setProfileTimezone(
     .update({ timezone })
     .eq("id", user.id);
 
-  if (error) return { error: error.message };
+  if (error) return { error: "Couldn't update your timezone." };
   // A real timezone change shifts every day/week boundary in the app, so
   // re-render everything. Rare: EnsureProfileSync only calls this when the
   // browser tz differs from the stored one.
@@ -135,7 +141,7 @@ export async function disconnectGoogleCalendar(): Promise<
       google_scopes: null,
     })
     .eq("id", user.id);
-  if (error) return { error: error.message };
+  if (error) return { error: "Couldn't disconnect Google Calendar." };
 
   revalidateCalendarSurfaces();
   return { ok: true };
@@ -165,8 +171,8 @@ export async function setUsername(
 
   if (error) {
     // 23505 = unique_violation → the handle is already taken by someone else.
-    if (error.code === "23505") return { error: "That username is taken." };
-    return { error: error.message };
+    if (error.code === "23505") return { error: USERNAME_TAKEN_ERROR };
+    return { error: "Couldn't save your username." };
   }
   revalidateIdentitySurfaces();
   return { ok: true, username: check.username };
@@ -206,7 +212,7 @@ export async function setProfileIdentity(input: {
     .from("profiles")
     .update(update)
     .eq("id", user.id);
-  if (error) return { error: error.message };
+  if (error) return { error: "Couldn't save your profile." };
   revalidateIdentitySurfaces();
   return { ok: true };
 }
@@ -232,7 +238,7 @@ export async function completeOnboarding(): Promise<
     .is("onboarded_at", null)
     .select("id");
 
-  if (error) return { error: error.message };
+  if (error) return { error: "Couldn't finish onboarding. Try again." };
 
   // Only the FIRST completion seeds — `.select()` returns the stamped row, and
   // the write-once filter above means a replay matches nothing. A replayer has
@@ -247,7 +253,14 @@ export async function completeOnboarding(): Promise<
     await stampPatchNotesCurrent(user.id);
   }
 
-  revalidatePath("/");
+  // Names the LAYOUT because the root layout is what reads onboarded_at (it
+  // mounts the BottomNav and gates What's New). That states intent; it isn't
+  // what makes the nav mount — in Next 16.2 any revalidatePath from an action
+  // re-renders the current route from the root, so revalidatePath("/") did
+  // too. It runs after the patch-note stamp above on purpose, so the
+  // re-rendered layout already reads a brand-new account as current and the
+  // What's New gate stays shut for them. See revalidateOnboardingSurfaces.
+  revalidateOnboardingSurfaces();
   return { ok: true };
 }
 
@@ -375,8 +388,8 @@ export async function markPatchNotesSeen(
 // a column is missing — folded in, it would take onboarding down for every new
 // user until the SQL ran. Errors swallowed for seedDefaultCategories' reason.
 //
-// No revalidation: the caller is about to hard-navigate to "/", and the only
-// reader is the layout gate, which re-reads the profile there.
+// No revalidation of its own: the only reader is the layout gate, and
+// completeOnboarding revalidates the layout right after this returns.
 async function stampPatchNotesCurrent(userId: string): Promise<void> {
   if (LATEST_PATCH_VERSION == null) return;
   const supabase = await createClient();

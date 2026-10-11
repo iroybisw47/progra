@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react";
 
+import { keyboardInset, readViewportMetrics } from "@/lib/keyboard";
+
 // useNow: ticks once a second so the live clock-in timer stays current.
 // Returns 0 during SSR; treat 0 as "not hydrated yet" in components.
 
@@ -72,4 +74,45 @@ export function usePrefersReducedMotion(): boolean {
     () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     () => false
   );
+}
+
+// useKeyboardInset: how many CSS px the on-screen keyboard covers at the
+// bottom of the page, live (lib/keyboard.ts has the arithmetic and why it's
+// computed from the visual viewport). 0 on the server, before hydration, with
+// no keyboard up, on a pinch-zoomed page, and in browsers without
+// VisualViewport. A layout that reads it degrades to "the CTA sits at the
+// bottom", which is right everywhere except above a keyboard.
+//
+// Read it in a LEAF, never at the top of the wizard shell. It returns a
+// number, so whatever calls it re-renders on every keyboard open, close and
+// pan, and onboarding v3 keeps all six screens mounted (plan P3): a shell-level
+// call would re-render the whole wizard each time, the same trap as useNow().
+// Plan §6 has the hook set --kb-inset itself. It returns the number instead so
+// it stays testable and reusable, and the intended use is a tiny leaf that
+// writes it to --kb-inset on the v3 root (or the CTA wrapper reading it
+// directly), so the CTA sits at max(safe-area, var(--kb-inset) + 12px) in CSS.
+//
+// Both events matter: "resize" fires as the keyboard opens and closes, and
+// "scroll" fires when iOS pans the visual viewport to keep a focused field in
+// view, which moves its bottom edge without resizing it. The snapshot is a
+// rounded number, so useSyncExternalStore only re-renders when the inset
+// actually changes, not on every scroll event.
+function subscribeKeyboardInset(cb: () => void): () => void {
+  const vv = window.visualViewport;
+  if (!vv) return () => {};
+  vv.addEventListener("resize", cb);
+  vv.addEventListener("scroll", cb);
+  return () => {
+    vv.removeEventListener("resize", cb);
+    vv.removeEventListener("scroll", cb);
+  };
+}
+
+function getKeyboardInsetSnap(): number {
+  const metrics = readViewportMetrics(window);
+  return metrics ? keyboardInset(metrics) : 0;
+}
+
+export function useKeyboardInset(): number {
+  return useSyncExternalStore(subscribeKeyboardInset, getKeyboardInsetSnap, () => 0);
 }

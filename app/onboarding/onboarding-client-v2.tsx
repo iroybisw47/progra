@@ -8,8 +8,6 @@ import { ChevronLeftIcon } from "lucide-react";
 import { setOnboardingStep } from "@/app/actions/telemetry";
 import { archiveHabit, createHabit } from "@/app/actions/habits";
 import { createGoal, updateGoal } from "@/app/actions/goals";
-import { fetchUwPeers, setUwProfile } from "@/app/actions/uw";
-import { sendFriendRequest } from "@/app/actions/friends";
 import {
   completeOnboarding,
   setProfileIdentity,
@@ -34,7 +32,6 @@ import {
   type HabitPick,
   type Step,
 } from "@/lib/onboarding";
-import { type UwPeer } from "@/lib/uw";
 import { checkUsername } from "@/lib/social/username";
 import { useIsNativeApp } from "@/lib/use-is-native-app";
 import { useNotificationPermission } from "@/lib/use-notification-permission";
@@ -48,7 +45,6 @@ import { HabitStep } from "./steps/habit-step";
 import { HowStep } from "./steps/how-step";
 import { NotifyStep } from "./steps/notify-step";
 import { PostStep } from "./steps/post-step";
-import { UwStep } from "./steps/uw-step";
 import { WelcomeStep } from "./steps/welcome-step";
 
 // How long the Done splash holds before home (long enough for GO! and the
@@ -83,6 +79,12 @@ type Props = {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// v2 runs without UW (plan P9a): the cohort moved to onboarding v3's Screen 1,
+// so `uw` is never in this wizard's list. The name stays in STEPS because
+// analytics' CHECK lists them all; this narrows it out of the shell's types.
+type V2Step = Exclude<Step, "uw">;
+const isV2Step = (s: Step): s is V2Step => s !== "uw";
+
 export function OnboardingClientV2({
   initialUsername,
   initialDisplayName,
@@ -99,26 +101,13 @@ export function OnboardingClientV2({
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
 
-  // Both conditional steps resolve while the user is still on `welcome` at
+  // The one conditional step resolves while the user is still on `welcome` at
   // index 0 — the load-bearing reason the list changing length underneath
   // stepIndex is safe. It can never shift a step the user is partway through.
-  // `native` flips at most once, immediately after hydration; `isUw` is a tick
-  // on the welcome step itself. See activeSteps() in lib/onboarding.ts.
+  // `native` flips at most once, immediately after hydration. See
+  // activeSteps() in lib/onboarding.ts.
   const native = useIsNativeApp();
-  // UW cohort (welcome tick → the `uw` step → setUwProfile). Seeded from
-  // `?step=uw`, or previewing that step would land on whatever else sits at its
-  // index in the list a non-UW student gets.
-  const [isUw, setIsUw] = useState(initialStep === "uw");
-  const [uwMajor, setUwMajor] = useState("");
-  const [uwClubs, setUwClubs] = useState<string[]>([]);
-  const [shareGoals, setShareGoals] = useState(true);
-  // Suggested peers for the final step. null until the UW step has been
-  // answered — which is also what FriendsStep reads to tell "not a UW student"
-  // apart from "a UW student with no matches yet".
-  const [peers, setPeers] = useState<UwPeer[] | null>(null);
-  const [added, setAdded] = useState<string[]>([]);
-  const [addPending, setAddPending] = useState<string | null>(null);
-  const steps = activeSteps(native, isUw);
+  const steps = activeSteps(native, false).filter(isV2Step);
   // -1 means "not navigated yet", so the starting point is resolved by NAME
   // against the live list on every render until the user moves. An index
   // captured once would be wrong the moment `steps` changes length — which it
@@ -129,7 +118,7 @@ export function OnboardingClientV2({
   const stepIndex =
     navIndex >= 0
       ? Math.min(navIndex, steps.length - 1)
-      : Math.max(0, steps.indexOf(initialStep ?? "welcome"));
+      : Math.max(0, steps.findIndex((s) => s === (initialStep ?? "welcome")));
   const step = steps[stepIndex];
   const [done, setDone] = useState(initialDone);
 
@@ -177,7 +166,9 @@ export function OnboardingClientV2({
 
   const go = (i: number) => {
     // Moving FORWARD completes the current screen; Back does not.
-    if (i > stepIndex) track("onboarding_step_completed", { step_name: step });
+    if (i > stepIndex) {
+      track("onboarding_step_completed", { step_name: step, flow: "v2" });
+    }
     setClockRunning(false);
     setNavIndex(Math.max(0, Math.min(steps.length - 1, i)));
   };
@@ -185,10 +176,12 @@ export function OnboardingClientV2({
   // Analytics: the screen just entered, as a STEP NAME. Re-fires on Back (a
   // real re-entry) and never during the Done splash. setOnboardingStep is the
   // per-user "where did they stop" the dashboard reads; the event is the
-  // timeline. Both no-op while ANALYTICS is off.
+  // timeline. Both no-op while ANALYTICS is off. `flow` tells the funnel this
+  // is v2's order, which it may infer from; v3 reuses the names in another
+  // order and sends "v3".
   useEffect(() => {
     if (done) return;
-    track("onboarding_step_viewed", { step_name: step });
+    track("onboarding_step_viewed", { step_name: step, flow: "v2" });
     void setOnboardingStep(step);
   }, [step, done]);
   const next = () => go(stepIndex + 1);
@@ -262,48 +255,6 @@ export function OnboardingClientV2({
         track("goal_created", { goal_id: r.id });
       }
       next();
-    });
-  }
-
-  // Joins the cohort. Validation of the major and the clubs is setUwProfile's
-  // job, not this one's — it is the only writer of those columns and the only
-  // place that knows what lib/uw.ts considers valid.
-  function saveUw(details: boolean) {
-    startTransition(async () => {
-      const r = await setUwProfile(
-        details
-          ? { isUw: true, major: uwMajor, clubs: uwClubs, shareGoals }
-          : // Skipping still joins the cohort — they said they're at UW on the
-            // welcome step, and that answer shouldn't quietly evaporate. With
-            // no major or clubs they simply match on shared goals alone.
-            { isUw: true }
-      );
-      if ("error" in r) {
-        toast.error(r.error);
-        return;
-      }
-      // Loaded here rather than on the next step's render: this is already an
-      // await, and arriving at a list that pops in after a beat reads as a bug.
-      // An empty list is a real answer (nobody matches yet), not a failure.
-      const { peers: found } = await fetchUwPeers();
-      setPeers(found);
-      next();
-    });
-  }
-
-  // Add a suggested peer. A real friend request, through the same action
-  // /friends uses — the one thing on the old final step that was a rehearsal.
-  function addPeer(userId: string) {
-    setAddPending(userId);
-    startTransition(async () => {
-      const r = await sendFriendRequest(userId);
-      setAddPending(null);
-      if ("error" in r) {
-        toast.error(r.error);
-        return;
-      }
-      track("friend_request_sent", { target_id: userId });
-      setAdded((list) => (list.includes(userId) ? list : [...list, userId]));
     });
   }
 
@@ -427,7 +378,7 @@ export function OnboardingClientV2({
 
   // ── The primary CTA per step ─────────────────────────────────────────────
 
-  const cta: Record<Step, { label: string; onClick: () => void; dim?: boolean }> = {
+  const cta: Record<V2Step, { label: string; onClick: () => void; dim?: boolean }> = {
     welcome: {
       label: "Get started",
       onClick: () =>
@@ -456,23 +407,13 @@ export function OnboardingClientV2({
       onClick: () => (posted ? next() : toast.info("Try posting — it's just practice")),
       dim: !posted,
     },
-    uw: {
-      label: "Continue",
-      onClick: () =>
-        uwMajor.trim() || uwClubs.length > 0
-          ? saveUw(true)
-          : toast.error("Pick a major or a club — or skip"),
-      dim: !uwMajor.trim() && uwClubs.length === 0,
-    },
     friends: {
-      // A UW student who has already added someone has done the thing this
-      // step exists for, so finishing stops being the quiet secondary option.
-      label: shared || added.length > 0 ? "Start my week" : "Share with friends",
-      onClick: () => (shared || added.length > 0 ? finish() : void share()),
+      label: shared ? "Start my week" : "Share with friends",
+      onClick: () => (shared ? finish() : void share()),
     },
   };
 
-  const quietSkip: Partial<Record<Step, { label: string; onClick: () => void }>> = {
+  const quietSkip: Partial<Record<V2Step, { label: string; onClick: () => void }>> = {
     habit: {
       label: "Skip for now",
       onClick: () => {
@@ -495,13 +436,7 @@ export function OnboardingClientV2({
         next();
       },
     },
-    uw: { label: "Skip for now", onClick: () => saveUw(false) },
-    // Dropped once a peer has been added: the primary CTA already finishes, and
-    // two buttons that do the same thing is just something to parse. Left in
-    // place for the `shared` case, which behaved this way before any of this.
-    ...(added.length > 0
-      ? {}
-      : { friends: { label: "Start my week without sharing", onClick: finish } }),
+    friends: { label: "Start my week without sharing", onClick: finish },
   };
 
   const eyebrow = eyebrowFor(step, steps);
@@ -563,8 +498,6 @@ export function OnboardingClientV2({
             initialDisplayName={initialDisplayName}
             initialUsername={initialUsername}
             avatarUrl={avatarUrl}
-            isUw={isUw}
-            onIsUw={setIsUw}
             onSubmit={claimUsername}
             pending={pending}
           />
@@ -621,24 +554,9 @@ export function OnboardingClientV2({
             onPost={() => setPosted(true)}
           />
         )}
-        {step === "uw" && (
-          <UwStep
-            eyebrow={eyebrow}
-            major={uwMajor}
-            onMajor={setUwMajor}
-            clubs={uwClubs}
-            onClubs={setUwClubs}
-            shareGoals={shareGoals}
-            onShareGoals={setShareGoals}
-          />
-        )}
         {step === "friends" && (
           <FriendsStep
             eyebrow={eyebrow}
-            peers={peers}
-            added={added}
-            onAdd={addPeer}
-            addPending={addPending}
             nudgeOpen={nudgeOpen}
             onOpenNudge={() => setNudgeOpen(true)}
             nudged={nudged}
