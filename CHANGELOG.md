@@ -7,6 +7,11 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-11
 
+### 16:58 · The weekly recap's "Your week is ready" nudge is off (RECAP_NUDGE)
+- **Owner's request:** "implementing new weekly review, disable the one upcoming". Tonight (Sunday) at 6pm local the week of Oct 5's recap would have unlocked and its nudge appeared at the top of Progress. A new weekly review is being built instead, so the nudge now sits behind a new flag, `NEXT_PUBLIC_RECAP_NUDGE`, off unless set: deployed, no nudge tonight or any Sunday after, until the new review replaces it. Setting it to `1` and redeploying brings the old nudge back exactly as it was.
+- Off, Progress doesn't read whether the week was opened (`hasOpenedRecap`), so it's one query lighter. Untouched: the recap story (`/recap/[weekStart]`, no in-app link left to a new one), the `/recap` browse page that History links, posted recaps in the feed, and the recap push (already off behind `RECAP_PUSH`, never scheduled).
+- Gate: tsc, eslint, vitest (1249), `npm run build`.
+
 ### 16:45 · Onboarding v3: Yes to UW opens a full page, not the pop-up (OWNER-FIX-4)
 - **Owner's request:** "It should load to the full page, not just a popup when you say Yes to being a UW student". The sheet now only asks the question. Yes holds its selected state, then the sheet goes and a full page comes in its place, the purple tile flying up into the "UW student ✓ Change" bar at its top. The page has the wizard's top row (Back, progress on step 1, the avatar), "Your school" over "Are you a UW student?", the bar, the D2 disclosure, and the optional Major and Interests fields, with the wizard's own "Skip for now" / "Continue" at the bottom. No is unchanged: it saves and goes to Screen 2.
 - **Getting around:** Back from the page goes to the welcome, and Continue there goes straight back to the page (no second question) with what was typed still there. Back from Screen 2 lands on the page. Change on the bar asks the question again, the sheet back up over the welcome. A UW student replaying onboarding goes from the welcome straight to their page.

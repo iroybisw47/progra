@@ -115,6 +115,16 @@ export const SOCIAL_PUSH = envFlag(process.env.NEXT_PUBLIC_SOCIAL_PUSH);
 // lib/push/send-recap-push.ts.
 export const RECAP_PUSH = envFlag(process.env.NEXT_PUBLIC_RECAP_PUSH);
 
+// Master switch for the "Your week is ready" nudge at the top of Progress, the
+// in-app way into the weekly recap story (/recap/[weekStart], where a week is
+// posted to the feed). Off since 2026-10-11, the Sunday a new weekly review
+// started being built: that evening's recap, and each one after it, goes
+// unannounced until the new review replaces it. On brings the nudge back
+// exactly as it was. Off, Progress doesn't even read whether the week was
+// opened. Nothing else changes: the story and the /recap browse page (History
+// links it) still work, and the push this would pair with is RECAP_PUSH.
+export const RECAP_NUDGE = envFlag(process.env.NEXT_PUBLIC_RECAP_NUDGE);
+
 // Master switch for nudges: the button on a friend's profile, the target/preset
 // sheet, the rows in the notifications panel and the Settings opt-out. Implies
 // SOCIAL_ENABLED — a nudge is friends-only, so it can't mean anything with the

@@ -16,6 +16,7 @@ import { computeWeekRecap } from "@/lib/db/recap";
 import { hasOpenedRecap } from "@/lib/db/recap-views";
 import { getUnreviewedAutoEnd, listSessionsInRange } from "@/lib/db/sessions";
 import { getProfile } from "@/lib/auth/profile";
+import { RECAP_NUDGE } from "@/lib/flags";
 import {
   addDaysISO,
   isRecapReady,
@@ -127,7 +128,8 @@ export async function loadProgressData(): Promise<ProgressData> {
     listSessionsInRange(dayStartMs, dayEndMs),
     fetchEventsRaw(dayStartMs, dayEndMs),
     listActiveGoals(),
-    hasOpenedRecap(recapWeekStartMs),
+    // Not read at all with the nudge off (lib/flags.ts RECAP_NUDGE).
+    RECAP_NUDGE ? hasOpenedRecap(recapWeekStartMs) : true,
     getUnreviewedAutoEnd(),
   ]);
 
@@ -255,7 +257,7 @@ export async function loadProgressData(): Promise<ProgressData> {
     weekStart: monday,
     today,
     recapNudge:
-      recapOpened || !recapWeekExisted ? null : { weekStart: recapMonday },
+      !RECAP_NUDGE || recapOpened || !recapWeekExisted ? null : { weekStart: recapMonday },
     autoEndNudge: autoEnd ? { sessionId: autoEnd.id } : null,
   };
 }
