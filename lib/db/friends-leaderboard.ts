@@ -20,7 +20,7 @@ import type { Session } from "@/lib/storage";
 
 type Row = SessionRow & { user_id: string };
 
-// This week's hours for the caller's circle: one UNRANKED row per person, the
+// A week's hours for the caller's circle: one UNRANKED row per person, the
 // caller first (isMe), then each accepted friend in listFriends' order, with
 // zero-hour friends kept. Module-private: the leaderboard ranks the whole
 // circle (getFriendsLeaderboard), and everything else reads friends only
@@ -40,20 +40,19 @@ type Row = SessionRow & { user_id: string };
 // decides what actually returns. A friend's private sessions never arrive here
 // at all. Calendar events are excluded for free — they're a different table,
 // matching the RPC's deliberate "a packed calendar shouldn't win".
-const getCircleWeekRows = cache(
-  async (): Promise<FriendsWeekRow[]> => {
+//
+// Takes the window so any week can be read — the weekly review (RECAP_V2) ranks
+// the week that just ended. `now` is capped at the week's end, as
+// computeWeekRecap caps it, so a past week reads exactly as it closed; for the
+// current week (getCircleWeekRows) the cap never bites. Cached on the window.
+const getCircleRowsInWindow = cache(
+  async (weekStartMs: number, weekEndMs: number): Promise<FriendsWeekRow[]> => {
     const me = await getCurrentUser();
     if (!me) return [];
 
-    // getProfile is cache()-wrapped and the layout already fetched it, so it
-    // costs nothing here; it is read up front now because the week depends on
-    // the caller's timezone. It also builds the caller's own row below.
+    // The profile also builds the caller's own row below.
     const [friends, profile] = await Promise.all([listFriends(), getProfile()]);
-    const now = Date.now();
-    const { weekStartMs, weekEndMs } = leaderboardWeekWindow(
-      profile?.timezone,
-      now
-    );
+    const now = Math.min(Date.now(), weekEndMs);
 
     const userIds = [me.id, ...friends.map((f) => f.user.userId)];
 
@@ -113,6 +112,21 @@ const getCircleWeekRows = cache(
   }
 );
 
+// The current week's rows (the Friends tab, onboarding, Progress).
+const getCircleWeekRows = cache(
+  async (): Promise<FriendsWeekRow[]> => {
+    // getProfile is cache()-wrapped and the layout already fetched it, so it
+    // costs nothing here; it is read up front because the week depends on the
+    // caller's timezone.
+    const profile = await getProfile();
+    const { weekStartMs, weekEndMs } = leaderboardWeekWindow(
+      profile?.timezone,
+      Date.now()
+    );
+    return getCircleRowsInWindow(weekStartMs, weekEndMs);
+  }
+);
+
 // One unranked row per accepted friend — never the caller — in listFriends'
 // order, zero-hour friends kept. What onboarding v3's Screen 5 and the v3
 // Friends tab's "Your friends" list read: rankLeaderboard drops anyone at zero,
@@ -128,4 +142,11 @@ export const getFriendsWeekRows = cache(
 export const getFriendsLeaderboard = cache(
   async (): Promise<FriendsLeaderboardRow[]> =>
     rankLeaderboard(await getCircleWeekRows())
+);
+
+// A given week's leaderboard (the weekly review's rank slide and its "active
+// friends"): ranked like getFriendsLeaderboard, over [weekStartMs, weekEndMs].
+export const getFriendsLeaderboardForWeek = cache(
+  async (weekStartMs: number, weekEndMs: number): Promise<FriendsLeaderboardRow[]> =>
+    rankLeaderboard(await getCircleRowsInWindow(weekStartMs, weekEndMs))
 );

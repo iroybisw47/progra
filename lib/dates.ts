@@ -218,10 +218,44 @@ export const RECAP_READY_HOUR = 18;
 // `zonedDayStartMs(sunday) + 18h` is an hour off on spring-forward Sundays).
 export function recapReadyMs(weekStart: string, tz: string): number {
   const sunday = addDaysISO(mondayOfDateISO(weekStart), 6);
-  const [y, m, d] = sunday.split("-").map(Number);
-  const wallAsUtc = Date.UTC(y, m - 1, d, RECAP_READY_HOUR);
+  return zonedWallClockMs(sunday, RECAP_READY_HOUR, tz);
+}
+
+// Epoch ms of `hour`:00 wall-clock on the YYYY-MM-DD `dateStr` in `tz`. Same
+// two-pass offset as zonedDayStartMs, so the hour lands right on a DST day.
+function zonedWallClockMs(dateStr: string, hour: number, tz: string): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const wallAsUtc = Date.UTC(y, m - 1, d, hour);
   const ts = wallAsUtc - tzOffsetMs(wallAsUtc, tz);
   return wallAsUtc - tzOffsetMs(ts, tz);
+}
+
+// The weekly review (RECAP_V2) of a Monday-to-Sunday week unlocks at 06:00
+// wall-clock on the FOLLOWING Monday, in the user's own timezone — the owner's
+// "available at Monday 6am of that person's time". Independent of
+// RECAP_READY_HOUR, which still dates the old Sunday-6pm nudge and push.
+export const REVIEW_READY_HOUR = 6;
+
+export function reviewReadyMs(weekStart: string, tz: string): number {
+  const nextMonday = addDaysISO(mondayOfDateISO(weekStart), 7);
+  return zonedWallClockMs(nextMonday, REVIEW_READY_HOUR, tz);
+}
+
+// The week whose review is due at `nowMs`: the last COMPLETED week, once its
+// Monday-6am unlock has passed, and only if the account existed by its end (a
+// brand-new account isn't shown an empty pre-signup week). Between Monday
+// 00:00 and 05:59 nothing is due — the week before last had its whole week.
+// Whether it has already been opened is the caller's read (recap_views).
+export function dueReviewWeek(
+  tz: string,
+  nowMs: number,
+  createdMs: number
+): WeekWindow | null {
+  const monday = mondayOfDateISO(isoDateInTimeZone(nowMs, tz));
+  const week = weekWindow(tz, addDaysISO(monday, -7));
+  if (nowMs < reviewReadyMs(week.weekStartISO, tz)) return null;
+  if (week.weekEndMs < createdMs) return null;
+  return week;
 }
 
 // Has the given week's recap unlocked as of `nowMs`? (Sunday 6pm local in `tz`.)

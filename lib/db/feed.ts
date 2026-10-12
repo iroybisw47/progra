@@ -8,6 +8,7 @@ import {
   type SessionRow,
 } from "@/lib/db/sessions";
 import { hydrateSessionPhotoUrls } from "@/lib/db/session-photos";
+import { rowToRecapItem, selectRecapPosts } from "@/lib/db/weekly-reviews";
 import { isOverSessionCap, sessionWorkedMs } from "@/lib/session";
 import { goalColorOf } from "@/lib/colors";
 import { normalizeFill } from "@/lib/palette";
@@ -83,6 +84,12 @@ export type RecapFeedItem = {
   circleSize: number;
   categories: RecapCategorySlice[];
   postedAt: number; // created_at, epoch ms
+  // The weekly review's stats (RECAP_V2). Null on a post from the old story,
+  // which shows hours only.
+  goalPct: number | null;
+  goalCount: number | null;
+  habitPct: number | null;
+  habitCount: number | null;
 };
 
 // Anything that can appear in the merged Home feed.
@@ -350,18 +357,6 @@ export async function listFriendJoins(daysBack = 7): Promise<JoinFeedItem[]> {
   });
 }
 
-type RecapPostRow = {
-  id: string;
-  user_id: string;
-  week_start_ms: number | string;
-  caption: string | null;
-  total_tracked_ms: number | string;
-  rank: number | null;
-  circle_size: number;
-  categories: RecapCategorySlice[] | null;
-  created_at: string;
-};
-
 // Friends' posted weekly recaps from the last `daysBack` days, newest-first. Own
 // posts aren't shown here (mirrors listFriendFeed, which is friends-only — you
 // see your own recap via the story). RLS on recap_posts already scopes to
@@ -378,33 +373,20 @@ export async function listRecapPosts(daysBack = 7): Promise<RecapFeedItem[]> {
   const since = new Date();
   since.setDate(since.getDate() - daysBack);
 
-  const { data } = await supabase
-    .from("recap_posts")
-    .select(
-      "id, user_id, week_start_ms, caption, total_tracked_ms, rank, circle_size, categories, created_at"
-    )
-    .in("user_id", friendIds)
-    .gte("created_at", since.toISOString())
-    .order("created_at", { ascending: false });
-  if (!data) return [];
+  // The weekly review's columns under RECAP_V2 (selectRecapPosts falls back
+  // to the old ones if the SQL hasn't run); flag off, the select is unchanged.
+  const rows = await selectRecapPosts((cols) =>
+    supabase
+      .from("recap_posts")
+      .select(cols)
+      .in("user_id", friendIds)
+      .gte("created_at", since.toISOString())
+      .order("created_at", { ascending: false })
+  );
 
-  return (data as RecapPostRow[]).flatMap((row) => {
+  return rows.flatMap((row) => {
     const author = authorById.get(row.user_id);
-    if (!author) return [];
-    return [
-      {
-        kind: "recap" as const,
-        id: row.id,
-        author,
-        weekStartMs: Number(row.week_start_ms),
-        caption: row.caption,
-        totalTrackedMs: Number(row.total_tracked_ms),
-        rank: row.rank,
-        circleSize: row.circle_size,
-        categories: row.categories ?? [],
-        postedAt: new Date(row.created_at).getTime(),
-      },
-    ];
+    return author ? [rowToRecapItem(row, author)] : [];
   });
 }
 

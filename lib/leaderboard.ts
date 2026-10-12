@@ -30,6 +30,9 @@ export type FriendsLeaderboardRow = {
   totalMs: number;
   // Named, visible goals, biggest first, at most MAX_GOAL_LINES.
   goals: LeaderboardGoal[];
+  // How many named, visible goals had time, UNCAPPED — the weekly review's
+  // "4 goals this week" line. goals.length stops at MAX_GOAL_LINES.
+  goalCount: number;
   // Everything not itemised above: category-tracked time, private goals, and
   // goals past the cap. Always exactly totalMs − Σ(goals), so the numbers
   // reconcile no matter what fell into it.
@@ -104,6 +107,7 @@ export function buildLeaderboardRow(
     isMe,
     totalMs: total,
     goals,
+    goalCount: named.length,
     // Derived, never accumulated: whatever didn't get a line — categories,
     // private goals, goals past the cap — is exactly the remainder.
     otherMs: Math.max(0, total - goals.reduce((sum, g) => sum + g.ms, 0)),

@@ -20,7 +20,9 @@ import { createClient } from "@supabase/supabase-js";
 //    recipient is precisely not the caller. It runs only inside after() from
 //    an action whose like/comment write already succeeded under RLS, which is
 //    the proof the actor may see that session. lib/push/send-nudge-push.ts is
-//    the same shape.
+//    the same shape. A like or comment on a posted weekly review (RECAP_V2)
+//    goes through it too: the recipient is the recap_posts row's owner, after
+//    toggle_recap_reaction's can_see_recap or the comment insert policy passed.
 // 3. The scheduled recap sender (lib/push/send-recap-push.ts). The odd one
 //    out: it has NO CALLER — a clock triggers it — so there is no identity to
 //    check and no prior RLS-passing write to inherit a warrant from. Its

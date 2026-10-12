@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatDuration } from "@/lib/duration";
+import { useTakeoverActive } from "@/lib/takeover";
 
 // "Your session finished" — shown once, on the first load after a timed session
 // reached its target while nobody was watching.
@@ -38,6 +39,9 @@ export function PlanCompleteModal({
   const router = useRouter();
   const [open, setOpen] = useState(true);
   const [pending, startTransition] = useTransition();
+  // Not over the weekly review drawn in place of Progress (lib/takeover.ts):
+  // it waits, unstamped, and opens once the review is closed.
+  const takenOver = useTakeoverActive();
 
   function dismiss(then?: () => void) {
     setOpen(false);
@@ -49,6 +53,8 @@ export function PlanCompleteModal({
       router.refresh();
     });
   }
+
+  if (takenOver) return null;
 
   return (
     <Dialog

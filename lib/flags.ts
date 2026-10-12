@@ -125,6 +125,34 @@ export const RECAP_PUSH = envFlag(process.env.NEXT_PUBLIC_RECAP_PUSH);
 // links it) still work, and the push this would pair with is RECAP_PUSH.
 export const RECAP_NUDGE = envFlag(process.env.NEXT_PUBLIC_RECAP_NUDGE);
 
+// Master switch for the weekly review: the eight-slide recap story built from
+// design_handoff_weekly_recap (Loading, Hours tracked, Where it went, Weekly
+// goals, Habits, Friends, Your rank, Closing; plan .claude/plans/recap-v2.md).
+// On:
+//   - From Monday 06:00 in the user's own timezone, the review of the week that
+//     just ended OPENS BY ITSELF the next time Progress (`/`) renders, in place
+//     of the Progress tab, until the user closes it once (recap_views marks it,
+//     on close rather than on open, so quitting the app mid-story shows it again).
+//   - /recap/[weekStart] renders the new story instead of the old one.
+// Off, both are exactly as before: the old five-panel story at
+// /recap/[weekStart], no auto-open. The old nudge stays behind RECAP_NUDGE.
+//
+// THIS FLAG MEANS ".claude/plans/recap-v2.sql STEP 1 HAS RUN" (since the Share
+// slide, 2026-10-12): posting a week writes recap_posts' new goal/habit
+// columns. Flipped early, nothing breaks — a post toasts a generic error and
+// the feed falls back to the old columns — but nobody can post. Everything
+// else is existing tables under RLS (recap_reactions.created_at was already
+// there: STEP 0, 2026-10-12).
+//
+// Also: the Share slide ("Share your week", just before Closing) posts the
+// week to friends' feeds; the post shows on You and profiles and opens at
+// /review/[id]; likes and comments on it reach the notifications panel, and
+// a push when SOCIAL_PUSH is on.
+// Implies REDESIGN: it replaces what the redesign's Progress tab renders.
+// Needs no new binary either: the navy slides' light status bar goes through
+// Capacitor's built-in SystemBars plugin, in every shipped build.
+export const RECAP_V2 = envFlag(process.env.NEXT_PUBLIC_RECAP_V2) && REDESIGN;
+
 // Master switch for nudges: the button on a friend's profile, the target/preset
 // sheet, the rows in the notifications panel and the Settings opt-out. Implies
 // SOCIAL_ENABLED — a nudge is friends-only, so it can't mean anything with the

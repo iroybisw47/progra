@@ -1,5 +1,9 @@
 "use server";
 
+import { after } from "next/server";
+
+import { RECAP_V2 } from "@/lib/flags";
+import { sendSocialPush } from "@/lib/push/send-social-push";
 import { revalidateSocialSurfaces } from "@/lib/revalidate";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
@@ -28,6 +32,13 @@ export async function toggleRecapKudos(recapId: string): Promise<ToggleResult> {
   });
   if (error) return { error: "Couldn't react." };
 
+  // The weekly review (RECAP_V2): the post's owner hears about a new like
+  // after the response, as a session's owner does. The RPC succeeding (its
+  // can_see_recap check) is what the push's admin reads rest on.
+  if (RECAP_V2 && data === true) {
+    after(() => sendSocialPush({ kind: "recap_like", recapId, actorId: user.id }));
+  }
+
   revalidateSocialSurfaces();
   return { ok: true, reacted: data === true };
 }
@@ -53,12 +64,24 @@ export async function addRecapComment(
   }
   if (!recapId) return { error: "Couldn't post comment." };
 
-  const { error } = await supabase.from("recap_comments").insert({
-    recap_post_id: recapId,
-    author_id: user.id,
-    body: trimmed,
-  });
+  const { data, error } = await supabase
+    .from("recap_comments")
+    .insert({
+      recap_post_id: recapId,
+      author_id: user.id,
+      body: trimmed,
+    })
+    .select("id")
+    .single();
   if (error) return { error: "Couldn't post comment." };
+
+  // RECAP_V2: the post's owner is pushed, the tap landing on this comment.
+  if (RECAP_V2) {
+    const commentId = (data as { id: string } | null)?.id ?? null;
+    after(() =>
+      sendSocialPush({ kind: "recap_comment", recapId, actorId: user.id, commentId, body: trimmed })
+    );
+  }
 
   revalidateSocialSurfaces();
   return { ok: true };

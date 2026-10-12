@@ -8,7 +8,9 @@ import { hydrateUsers, type PublicUser } from "@/lib/db/friends";
 import { hydrateGoals } from "@/lib/db/feed";
 import { createClient } from "@/lib/supabase/server";
 import { LIKE_EMOJI } from "@/lib/social/reactions";
-import { COMMENT_REPLIES, NUDGES } from "@/lib/flags";
+import { COMMENT_REPLIES, NUDGES, RECAP_V2 } from "@/lib/flags";
+import { weekOfLabel } from "@/lib/recap-story";
+import { reviewWeekISO } from "@/lib/weekly-review";
 import { mergeReplyNotifications } from "@/lib/social/reply-notifications";
 import { isNudgeTargetKind, type NudgeTargetKind } from "@/lib/social/nudges";
 
@@ -77,11 +79,64 @@ export type NudgeNotification = {
   unread: boolean;
 };
 
+// Likes on one of my posted weekly reviews (RECAP_V2), collapsed per post like
+// session likes. `weekLabel` names the week ("Week of Oct 5").
+export type RecapLikeNotification = {
+  kind: "recap_like";
+  key: string; // `recap-like:${recapId}`
+  recapId: string;
+  weekLabel: string;
+  actors: PublicUser[];
+  totalActors: number;
+  latestAt: number;
+  unread: boolean;
+};
+
+// One comment on one of my posted weekly reviews — never collapsed.
+export type RecapCommentNotification = {
+  kind: "recap_comment";
+  key: string; // `recap-comment:${commentId}`
+  commentId: string;
+  recapId: string;
+  weekLabel: string;
+  author: PublicUser;
+  body: string;
+  latestAt: number;
+  unread: boolean;
+};
+
 export type NotificationItem =
   | LikeNotification
   | CommentNotification
   | ReplyNotification
-  | NudgeNotification;
+  | NudgeNotification
+  | RecapLikeNotification
+  | RecapCommentNotification;
+
+type EmbeddedRecap = { user_id: string; week_start_ms: number | string };
+type RecapLikeRow = {
+  recap_post_id: string;
+  user_id: string;
+  created_at: string;
+  recap_posts: EmbeddedRecap | EmbeddedRecap[] | null;
+};
+type RecapCommentRow = {
+  id: string;
+  recap_post_id: string;
+  author_id: string;
+  body: string;
+  created_at: string;
+  recap_posts: EmbeddedRecap | EmbeddedRecap[] | null;
+};
+
+function embeddedRecap(r: EmbeddedRecap | EmbeddedRecap[] | null): EmbeddedRecap | null {
+  if (!r) return null;
+  return Array.isArray(r) ? (r[0] ?? null) : r;
+}
+
+function recapWeekLabel(r: EmbeddedRecap): string {
+  return weekOfLabel(reviewWeekISO(Number(r.week_start_ms)));
+}
 
 // The embedded session shape (many-to-one FK). PostgREST returns it as a single
 // object; normalize defensively in case a config surfaces it as a one-element
@@ -167,7 +222,7 @@ export const listMyNotifications = cache(
     const sinceIso = windowStartIso();
     const supabase = await createClient();
 
-    const [likeRes, commentRes, nudgeRes, replyRes] = await Promise.all([
+    const [likeRes, commentRes, nudgeRes, replyRes, recapLikeRes, recapCommentRes] = await Promise.all([
       supabase
         .from("session_reactions")
         .select("session_id, user_id, created_at, sessions!inner(user_id, task_name, goal_id)")
@@ -209,9 +264,37 @@ export const listMyNotifications = cache(
             .order("created_at", { ascending: false })
             .limit(NOTIF_MAX)
         : Promise.resolve({ data: null, error: null }),
+      // Likes and comments on MY posted weekly reviews (RECAP_V2), the same
+      // shape as the session arms: the post's owner comes through the
+      // embedded recap_posts, and RLS (can_see_recap) gates the rest. Prod's
+      // recap_reactions has had created_at all along (recap-v2.sql STEP 0). An
+      // error degrades to no rows.
+      RECAP_V2
+        ? supabase
+            .from("recap_reactions")
+            .select("recap_post_id, user_id, created_at, recap_posts!inner(user_id, week_start_ms)")
+            .eq("recap_posts.user_id", me.id)
+            .eq("emoji", LIKE_EMOJI)
+            .neq("user_id", me.id)
+            .gte("created_at", sinceIso)
+            .order("created_at", { ascending: false })
+            .limit(NOTIF_MAX)
+        : Promise.resolve({ data: null, error: null }),
+      RECAP_V2
+        ? supabase
+            .from("recap_comments")
+            .select("id, recap_post_id, author_id, body, created_at, recap_posts!inner(user_id, week_start_ms)")
+            .eq("recap_posts.user_id", me.id)
+            .neq("author_id", me.id)
+            .gte("created_at", sinceIso)
+            .order("created_at", { ascending: false })
+            .limit(NOTIF_MAX)
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
     const likeRows = (likeRes.data ?? []) as LikeRow[];
+    const recapLikeRows = (recapLikeRes.error ? [] : (recapLikeRes.data ?? [])) as RecapLikeRow[];
+    const recapCommentRows = (recapCommentRes.error ? [] : (recapCommentRes.data ?? [])) as RecapCommentRow[];
     const nudgeRows = (nudgeRes.error ? [] : (nudgeRes.data ?? [])) as NudgeRow[];
     const rawReplyRows = (replyRes.error ? [] : (replyRes.data ?? [])) as CommentRow[];
     const { commentRows, replyRows } = mergeReplyNotifications({
@@ -254,6 +337,29 @@ export const listMyNotifications = cache(
       }
     }
 
+    // Recap likes, grouped per post the same way.
+    type RecapLikeGroup = { recapId: string; actorIds: string[]; seen: Set<string>; latestAt: number; weekLabel: string };
+    const likeByRecap = new Map<string, RecapLikeGroup>();
+    for (const row of recapLikeRows) {
+      const r = embeddedRecap(row.recap_posts);
+      if (!r) continue;
+      let g = likeByRecap.get(row.recap_post_id);
+      if (!g) {
+        g = {
+          recapId: row.recap_post_id,
+          actorIds: [],
+          seen: new Set(),
+          latestAt: ms(row.created_at),
+          weekLabel: recapWeekLabel(r),
+        };
+        likeByRecap.set(row.recap_post_id, g);
+      }
+      if (!g.seen.has(row.user_id)) {
+        g.seen.add(row.user_id);
+        g.actorIds.push(row.user_id);
+      }
+    }
+
     // One batched goal-title + user hydration across both result sets. My own
     // goals are always visible to me, so the label rule matches session-detail:
     // goal title when goal-tracked, else the task name.
@@ -271,6 +377,8 @@ export const listMyNotifications = cache(
         ...commentRows.map((r) => r.author_id),
         ...replyRows.map((r) => r.author_id),
         ...nudgeRows.map((r) => r.sender_id),
+        ...[...likeByRecap.values()].flatMap((g) => g.actorIds),
+        ...recapCommentRows.map((r) => r.author_id),
       ]),
     ];
     const [goalById, usersById] = await Promise.all([
@@ -356,6 +464,41 @@ export const listMyNotifications = cache(
       });
     }
 
+    for (const g of likeByRecap.values()) {
+      const actors = g.actorIds
+        .map((id) => usersById.get(id))
+        .filter((u): u is PublicUser => u != null);
+      if (actors.length === 0) continue;
+      items.push({
+        kind: "recap_like",
+        key: `recap-like:${g.recapId}`,
+        recapId: g.recapId,
+        weekLabel: g.weekLabel,
+        actors,
+        totalActors: actors.length,
+        latestAt: g.latestAt,
+        unread: g.latestAt > seenMs,
+      });
+    }
+
+    for (const row of recapCommentRows) {
+      const r = embeddedRecap(row.recap_posts);
+      const author = usersById.get(row.author_id);
+      if (!r || !author) continue;
+      const at = ms(row.created_at);
+      items.push({
+        kind: "recap_comment",
+        key: `recap-comment:${row.id}`,
+        commentId: row.id,
+        recapId: row.recap_post_id,
+        weekLabel: recapWeekLabel(r),
+        author,
+        body: row.body,
+        latestAt: at,
+        unread: at > seenMs,
+      });
+    }
+
     items.sort((a, b) => b.latestAt - a.latestAt);
     return items.slice(0, NOTIF_MAX);
   }
@@ -373,7 +516,7 @@ export const hasUnseenNotifications = cache(async (): Promise<boolean> => {
   const sinceIso = windowStartIso();
   const supabase = await createClient();
 
-  const [latestLike, latestComment, latestNudge, latestReply] = await Promise.all([
+  const [latestLike, latestComment, latestNudge, latestReply, latestRecap] = await Promise.all([
     supabase
       .from("session_reactions")
       .select("created_at, sessions!inner(user_id)")
@@ -424,7 +567,35 @@ export const hasUnseenNotifications = cache(async (): Promise<boolean> => {
             return ms(rows.find((row) => !blocked.has(row.author_id))?.created_at);
           })
       : Promise.resolve(0),
+    // Weekly reviews (RECAP_V2): the newest like or comment on my posts.
+    RECAP_V2
+      ? Promise.all([
+          supabase
+            .from("recap_reactions")
+            .select("created_at, recap_posts!inner(user_id)")
+            .eq("recap_posts.user_id", me.id)
+            .eq("emoji", LIKE_EMOJI)
+            .neq("user_id", me.id)
+            .gte("created_at", sinceIso)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from("recap_comments")
+            .select("created_at, recap_posts!inner(user_id)")
+            .eq("recap_posts.user_id", me.id)
+            .neq("author_id", me.id)
+            .gte("created_at", sinceIso)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ]).then((rs) =>
+          Math.max(
+            ...rs.map((r) => (r.error ? 0 : ms((r.data as { created_at: string } | null)?.created_at)))
+          )
+        )
+      : Promise.resolve(0),
   ]);
 
-  return Math.max(latestLike, latestComment, latestNudge, latestReply) > seenMs;
+  return Math.max(latestLike, latestComment, latestNudge, latestReply, latestRecap) > seenMs;
 });

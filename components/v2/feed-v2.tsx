@@ -6,6 +6,8 @@ import { FeedLivePoll } from "@/components/feed-live-poll";
 import { InviteShare } from "@/components/v2/invite-share";
 import { RecapFeedCard } from "@/components/v2/recap-feed-card";
 import { SessionCard } from "@/components/v2/session-card";
+import { WeeklyReviewCard } from "@/components/v2/weekly-review-card";
+import { RECAP_V2 } from "@/lib/flags";
 import {
   listClockedInNow,
   listFriendFeed,
@@ -152,7 +154,19 @@ export async function FeedV2() {
               );
             }
 
-            // Posted weekly recap — its own distinct card.
+            // Posted weekly recap — its own distinct card. RECAP_V2: the weekly
+            // review's (hours, goals %, habits %), linking to /review/[id].
+            if (entry.kind === "recap" && RECAP_V2) {
+              return (
+                <WeeklyReviewCard
+                  key={entry.id}
+                  entry={entry}
+                  now={now}
+                  kudos={recapKudosById.get(entry.id) ?? { count: 0, mine: false }}
+                  commentCount={(recapCommentsById.get(entry.id) ?? []).length}
+                />
+              );
+            }
             if (entry.kind === "recap") {
               return (
                 <RecapFeedCard

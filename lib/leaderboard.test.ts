@@ -110,6 +110,8 @@ describe("buildLeaderboardRow", () => {
       { id: "g1", title: "Thesis", color: null, ms: HOUR },
     ]);
     expect(row.otherMs).toBe(2 * HOUR);
+    // Nor is it counted: "1 goal this week" can't hint that a hidden one exists.
+    expect(row.goalCount).toBe(1);
     expect(JSON.stringify(row)).not.toContain("gPrivate");
   });
 
@@ -127,6 +129,8 @@ describe("buildLeaderboardRow", () => {
     expect(row.goals).toHaveLength(MAX_GOAL_LINES);
     expect(row.goals.map((g) => g.title)).toEqual(["A", "B", "C"]);
     expect(row.otherMs).toBe(3 * HOUR); // D + E
+    // The count isn't capped with the lines.
+    expect(row.goalCount).toBe(5);
   });
 
   // The invariant that stops Other ever looking like a bug, whatever it absorbs.
@@ -158,6 +162,7 @@ describe("rankLeaderboard", () => {
     isMe,
     totalMs,
     goals: [],
+    goalCount: 0,
     otherMs: totalMs,
   });
 

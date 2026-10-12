@@ -5,6 +5,8 @@ import { HeartIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { toggleRecapKudos } from "@/app/actions/recap-social";
+import { track } from "@/lib/analytics";
+import { RECAP_V2 } from "@/lib/flags";
 import { cn } from "@/lib/utils";
 
 // Kudos heart for a recap post — the recap analogue of KudosButton. Optimistic
@@ -36,6 +38,7 @@ export function RecapKudosButton({
         toast.error(r.error);
         return;
       }
+      if (RECAP_V2 && r.reacted) track("like_given", { recap_ref: recapId });
     });
   }
 

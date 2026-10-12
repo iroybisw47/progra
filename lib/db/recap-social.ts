@@ -58,8 +58,12 @@ export async function listRecapKudos(
 // as every other cross-user read. `canDelete` is the author-self check (the feed
 // never shows your own posts, so recap-owner deletes don't arise here — RLS still
 // permits them). Parallel to listCommentsForSessions.
+//
+// `ownPostIds`: posts the viewer owns (the weekly review's /review/[id]), on
+// which they can delete anyone's comment — RLS allows the post owner that.
 export async function listRecapComments(
-  recapIds: string[]
+  recapIds: string[],
+  ownPostIds: ReadonlySet<string> = new Set()
 ): Promise<Map<string, RecapComment[]>> {
   const out = new Map<string, RecapComment[]>();
   if (recapIds.length === 0) return out;
@@ -85,9 +89,25 @@ export async function listRecapComments(
       author,
       body: row.body,
       createdAt: new Date(row.created_at).getTime(),
-      canDelete: !!me && row.author_id === me.id,
+      canDelete: !!me && (row.author_id === me.id || ownPostIds.has(row.recap_post_id)),
     });
     out.set(row.recap_post_id, list);
+  }
+  return out;
+}
+
+// Comment counts per post, for the compact rows on You and profiles (no
+// bodies, no authors). RLS returns only comments on visible posts.
+export async function listRecapCommentCounts(recapIds: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (recapIds.length === 0) return out;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("recap_comments")
+    .select("recap_post_id")
+    .in("recap_post_id", recapIds);
+  for (const row of (data ?? []) as { recap_post_id: string }[]) {
+    out.set(row.recap_post_id, (out.get(row.recap_post_id) ?? 0) + 1);
   }
   return out;
 }

@@ -101,7 +101,7 @@ const HOUR = 60 * MINUTE;
 
 function weekRow(user: PublicUser, totalMs: number, goal: string | null): FriendsWeekRow {
   const goals = goal ? [{ id: `preview-goal-${user.username}`, title: goal, color: null, ms: totalMs }] : [];
-  return { user, isMe: false, totalMs, goals, otherMs: goal ? 0 : totalMs };
+  return { user, isMe: false, totalMs, goals, goalCount: goals.length, otherMs: goal ? 0 : totalMs };
 }
 
 // Priya worked on a goal this week (its title wins); Marcus tracked nothing,

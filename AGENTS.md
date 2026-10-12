@@ -58,7 +58,9 @@ params are `Promise<{...}>` and must be `await`ed.
   succeeded under RLS or a definer RPC, and derives the recipient from the DB
   row rather than the caller (for a reply: the `reply_to_author_id` the
   thread-guard trigger stamped from the replied-to row, re-checked for
-  visibility and blocks at send time). **(3) The scheduled recap sender**
+  visibility and blocks at send time; for a like or comment on a posted weekly
+  review, the `recap_posts` row's owner, after `toggle_recap_reaction`'s
+  `can_see_recap` or the comment insert policy passed — `app/actions/recap-social.ts`). **(3) The scheduled recap sender**
   (`lib/push/send-recap-push.ts`) — the odd one out, because it has **no caller
   at all**: a clock triggers it, not a person, so there is no identity to check
   and no prior RLS-passing write to inherit a warrant from. Its authorization is

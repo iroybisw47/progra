@@ -7,6 +7,9 @@ import {
   likeDedupeKey,
   planReplyPushes,
   replyDedupeKey,
+  composeRecapPush,
+  recapCommentDedupeKey,
+  recapLikeDedupeKey,
 } from "@/lib/push/social-push";
 
 describe("composeSocialPush", () => {
@@ -143,5 +146,23 @@ describe("dedupe keys", () => {
   it("a reply's key can't collide with its own comment key", () => {
     expect(replyDedupeKey("c1")).toBe("reply:c1");
     expect(replyDedupeKey("c1")).not.toBe(commentDedupeKey("c1"));
+  });
+});
+
+describe("composeRecapPush", () => {
+  it("names the weekly review and lands on its post, or on the comment", () => {
+    expect(composeRecapPush({ kind: "like", actorName: "Sam", recapId: "r1" })).toEqual({
+      title: "Sam",
+      body: "liked your weekly review",
+      url: "/review/r1",
+    });
+    expect(
+      composeRecapPush({ kind: "comment", actorName: "Sam", recapId: "r1", commentBody: "Huge!", commentId: "c9" })
+    ).toEqual({ title: "Sam", body: "commented on your weekly review: Huge!", url: "/review/r1#c-c9" });
+  });
+  it("dedupes in its own namespace", () => {
+    expect(recapLikeDedupeKey("a", "r")).toBe("recap-like:a:r");
+    expect(recapCommentDedupeKey("c")).toBe("recap-comment:c");
+    expect(recapLikeDedupeKey("a", "r")).not.toBe(likeDedupeKey("a", "r"));
   });
 });

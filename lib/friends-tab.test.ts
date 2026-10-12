@@ -39,6 +39,7 @@ function weekRow(u: PublicUser, totalMs: number, goals: string[] = []): FriendsW
     isMe: false,
     totalMs,
     goals: goals.map((title, i) => ({ id: `${u.userId}-g${i}`, title, color: null, ms: totalMs })),
+    goalCount: goals.length,
     otherMs: goals.length ? 0 : totalMs,
   };
 }

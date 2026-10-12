@@ -195,3 +195,18 @@ describe("normalizeRoute", () => {
     ).toMatchObject({ ok: true });
   });
 });
+
+describe("weekly review routes and refs", () => {
+  it("templates /review/[id]", () => {
+    expect(normalizeRoute("/review/0b9a4c2e-6f1d-4a3b-9c8e-1f2a3b4c5d6e")).toBe("/review/[id]");
+  });
+  it("a like or comment can name a weekly review instead of a session", () => {
+    expect(validateEvent("like_given", { recap_ref: UUID })).toMatchObject({ ok: true });
+    expect(validateEvent("comment_given", { recap_ref: UUID, depth: "root" })).toMatchObject({
+      ok: true,
+    });
+    expect(
+      validateEvent("recap_posted", { recap_ref: UUID, edited: false, has_caption: true })
+    ).toMatchObject({ ok: true });
+  });
+});

@@ -448,3 +448,169 @@
     animation: none !important;
   }
 }
+
+/* Weekly review (RECAP_V2, components/recap-story). The handoff's motion,
+   keyframe for keyframe (design_handoff_weekly_recap/RecapSlide.dc.html),
+   prefixed rc- so nothing else in the app can collide with them. Each element
+   carries its own `animation` shorthand inline (lib/recap-story-nav.ts anim()),
+   fill-mode both, so the delay holds the "from" frame and the end holds the
+   last one. */
+
+/* The logo's clock face fills clockwise from 12: a conic mask whose angle
+   animates. Animating a custom property needs it registered as an <angle>
+   (WKWebView iOS 16.4+); without that the reveal snaps and the ghost still
+   resolves on time. */
+@property --rc-sweep {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes rc-sweep {
+  from {
+    --rc-sweep: 0deg;
+  }
+  to {
+    --rc-sweep: 360deg;
+  }
+}
+@keyframes rc-unghost {
+  to {
+    opacity: 1;
+    filter: none;
+  }
+}
+@keyframes rc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes rc-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes rc-word {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes rc-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  70% {
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes rc-check {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes rc-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+/* A ring's stroke drawn from nothing to its final dasharray; --c is the
+   circumference, set on the circle. */
+@keyframes rc-ring {
+  from {
+    stroke-dasharray: 0 var(--c);
+  }
+}
+@keyframes rc-curtain {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-100%);
+  }
+}
+@keyframes rc-flood {
+  from {
+    clip-path: circle(0% at 50% 100%);
+  }
+  to {
+    clip-path: circle(150% at 50% 100%);
+  }
+}
+@keyframes rc-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes rc-slide {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes rc-settle {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* Every animation jumps to its end state: under reduced motion, and in the dev
+   preview's still mode (the handoff's settled frames, for screenshots). The
+   count-ups and the curtain have their own JS paths for both. */
+[data-recap-still] *,
+[data-recap-still] *::before,
+[data-recap-still] *::after {
+  animation-duration: 0.001ms !important;
+  animation-delay: 0s !important;
+  transition-duration: 0.001ms !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-recap] *,
+  [data-recap] *::before,
+  [data-recap] *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

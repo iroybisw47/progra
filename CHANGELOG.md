@@ -5,7 +5,125 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-12
+
+### 08:02 · Weekly review: recap-v2.sql fully applied in prod
+- **STEP 2 passes in prod: 27/27, all rolled back.** STEP 1 and 1V had already passed.
+- Prod is now ready for the code: `recap_posts` has the four new columns and their CHECKs, and the caption CHECK is in.
+- **What's left before `NEXT_PUBLIC_RECAP_V2` goes on:**
+  - deploy the code (uncommitted), with the flag still off;
+  - a signed-in check;
+  - flip the flag early on a Monday PT, with a patch note.
+
+### 08:00 · Weekly review: STEP 1 and 1V run in prod; STEP 2 made self-sufficient
+- **Owner ran STEP 1 and 1V:** all `ok`.
+- **STEP 2 stopped at setup** ("a fixture account is missing"): one of review@ / demo@ / support@progra.world isn't in prod. It now fills any missing fixture account with another existing one. That's safe because the block always ends by raising, so the friendships and posts it sets up are rolled back.
+- The two "panel shape" counts (T03, T11) are now scoped to the test's own post, so a real account's real likes can't throw them off.
+- Harness: green normally and with demo@ deleted (`--missing-fixture`); 8/8 mutants caught.
+
+### 07:58 · Weekly review: recap-v2.sql STEP 0 checked against prod
+- **The owner ran STEP 0.** Prod has 16 posts, 24 likes, 7 comments and no out-of-range captions.
+- **Already in prod,** so those parts of STEP 1 are no-ops there:
+  - `recap_reactions.created_at` (not null default now()), so every existing like has a real time and the notifications panel needs no SQL;
+  - `recap_comments_post_created_idx`, the same definition as STEP 1's;
+  - an update-own policy on `recap_posts`, with WITH CHECK;
+  - a delete-own policy on `recap_posts`, which leaves room for a later "Delete post" with no SQL.
+- **`can_see_recap` and `toggle_recap_reaction`** match the design: owner or accepted friend; true on add and false on remove.
+- **The harness mock is now prod, verbatim** (`nudges-harness/recap-v2-mock.sql`).
+  - STEP 1 runs twice cleanly, 1V passes, and STEP 2 passes 28/28 locally (27/27 expected in prod). The old like and comment are untouched.
+  - All 8 planted bugs are caught, four of them in prod's own policies and functions: visibility ignoring friendship, an update that hands a post away, a toggle without its visibility check, and anyone deleting a comment.
+
+### 07:37 · Weekly review (RECAP_V2): "Share your week" — post it, see it on You, hear about likes and comments
+- **Owner's request:** "Page for users to post their weekly review at the end — hours tracked, % towards goals and % habit completion, with a caption. It should show up on You as a post, so you can go back and see it, and you should see when people like and comment on it."
+- **Owner's calls:**
+  - The page is a slide just before Closing.
+  - Friends see the post in their feed and on your profile; you see it on You.
+  - Likes and comments reach the notifications panel, and push when SOCIAL_PUSH is on.
+- **The Share slide** (`components/recap-story/share-slide.tsx`):
+  - "Share your week" over a preview panel: the week, hours tracked, goal % ("of 3 goals"), habit % ("of 4 habits").
+  - An optional caption (280 characters, one line). "Post to feed", then "✓ Posted", then on to Closing after a beat. "Not this week" skips it, and so does any tap outside the composer.
+  - Revisiting a posted week shows it posted, and the caption can be edited ("Update caption").
+  - Typing never turns a page; a tap elsewhere just closes the keyboard. A failed post toasts and keeps the draft.
+  - The slide shows only when the week can be posted: its review is out (Monday 6am after it) and the account existed that week.
+- **The numbers are the story's:**
+  - Goal % is the Weekly goals ring (each goal capped at its quota; 100 only when all are met).
+  - Habit % is every tick over every habit-day.
+  - Hours is the total tracked.
+  - `postWeeklyReview` recomputes all of it on the server from the same reads (`loadReviewPost`); the client sends only the week and the caption. A re-post upserts and keeps `created_at`.
+- **Where it shows:**
+  - The feed card (`WeeklyReviewCard`, replacing `RecapFeedCard` under the flag) and a "Weekly reviews" section on You and on profiles.
+  - **A new page `/review/[id]`**: the post in full, the like pill and the whole comment thread. The owner can delete any comment; non-owners can report. `#c-<id>` lands on a comment.
+- **Notifications:**
+  - New panel rows "liked your weekly review" (collapsed per post) and "commented on your weekly review", reading recap_reactions/recap_comments on your posts. Each degrades to nothing on error.
+  - Pushes for both (`composeRecapPush`, `recap-like:`/`recap-comment:` dedupe keys, `related_kind 'recap'`). The recipient is the recap_posts row's owner, read with the admin client inside `after()` — AGENTS.md exception (2), wording updated.
+- **SQL needed: `.claude/plans/recap-v2.sql`, hand-run.**
+  - STEP 0 is read-only pre-flight.
+  - STEP 1 adds `goal_pct`/`habit_pct`/`goal_count`/`habit_count` with CHECKs, a caption CHECK (NOT VALID), `recap_reactions.created_at` (added without a default first, so old likes don't all read "just now"), two indexes, and an update-own policy only if none exists.
+  - Proven on a PGlite mock (`nudges-harness/recap-v2.mjs`): STEP 2 passes 29/29 with and without an existing update policy and with created_at already present, and catches 8/8 planted bugs.
+  - The mock was written from the docs (the DDL was never committed), so STEP 0's output has to confirm it before STEP 1 runs in prod.
+  - `NEXT_PUBLIC_RECAP_V2` now means "STEP 1 has run". Flipped early, nothing breaks, but nobody can post.
+- **Also:**
+  - `hasOpenedRecap` and the old card's week labels: the review card labels weeks from `week_start_ms` (`reviewWeekISO`), not `toLocaleDateString`, which put India's weeks a day early.
+  - `like_given`/`comment_given` take a `recap_ref`, and there's a new `recap_posted` event.
+  - Dev previews: `/dev/recap-story?slide=share[&posted=1][&fail=1]`, `/dev/weekly-review?view=feed|rows|post`.
+- **Gate:**
+  - tsc, eslint (no new errors), vitest 1325, `npm run build`.
+  - Signed-out smoke: `/review/<id>` 404s with the flag off, and the dev previews 404 in prod.
+  - Browser checks over CDP: 42/42 across the story, Welcome and Share.
+  - Not checked signed in or on a phone.
+
+### 06:51 · Weekly review (RECAP_V2): a welcome on the first one
+- **Owner's request:** "should include a welcome to your weekly recap page. Every Monday at 6am You will see how your past week went". A new slide, **Welcome**, sits between Loading and Hours: "Welcome to your weekly recap" over the week's dates, the week as seven tiles with Monday's lit navy and marked 6am, "Every Monday at 6am, you will see how your past week went.", and one line on how to move ("Tap the right side to keep going, and the left side to go back." — this build's own copy).
+- **First review only.** It shows until the person has closed a weekly review once. `hasClosedWeeklyReview()` looks for any `recap_views` row from the week of Oct 5 on (the floor splits that week from the week before in every timezone; the old nudge was already off). It fails closed: an error means no welcome. Quitting mid-story leaves it to show again, like the rest of the review.
+- The intro curtain now lifts off whichever slide comes first. Preview: `/dev/recap-story?slide=welcome` or `&welcome=1` on any fixture. `recap_slide_viewed` gained `welcome`.
+- Gate: tsc, eslint, vitest 1310, CDP checks (Loading → Welcome under the curtain, back stays, on to Hours, 8 pips).
+
 ## 2026-10-11
+
+### 22:12 · Weekly review (RECAP_V2), P2–P5: data, the story, opening by itself, the preview
+Still dark behind `NEXT_PUBLIC_RECAP_V2`, still uncommitted, and still no SQL.
+- **How it opens.** From Monday 06:00 in the user's own timezone, the review of the week that just ended is drawn **in place of Progress** at `/` (no redirect, for the same Next bug the onboarding gate avoids), every time Progress renders, until it's closed once.
+  - Closing writes `recap_views` (on close, not on open), and that action's revalidation re-renders `/` as Progress.
+  - Quitting the app mid-story brings it back.
+  - `getDueReview` fails closed: a bad stored timezone or a failed read means no takeover. `hasOpenedRecap` now fails closed too.
+  - Progress's own reads start first and the due check runs beside them, so the usual load waits for nothing new.
+  - `?review=later` is the escape hatch if the write fails.
+- **`/recap/[weekStart]`** renders the new story under the flag. Its close records the week only once the review is out, and only if it isn't recorded already; the old story is the flag-off fallback.
+- **Status bar: no new dependency after all.** The navy slides switch it to light text through Capacitor 8's **built-in** SystemBars plugin.
+  - It ships in every binary already: the SPM package has pinned capacitor-swift-pm 8.5.0 since the first build, and CapacitorBridge registers CAPSystemBarsPlugin.
+  - Its `setStyle` is the call `@capacitor/status-bar` would have made, so the owner's choice of that plugin isn't needed. Nothing to install, sync or submit.
+  - The style goes back to DEFAULT on the way out.
+- **Data** (`lib/db/recap-story.ts`, all `cache()`d, all existing tables under RLS):
+  - The week from `computeWeekRecap`. Goals and habits created after the week are dropped, and time under a since-deleted category counts as Uncategorized.
+  - The friends leaderboard for any week: `getFriendsLeaderboardForWeek`. `getCircleWeekRows` now takes a window; the current week is unchanged.
+  - The week's 👍 likes, given and received, in the notifications panel's query shape, current friends only.
+  - The 8-week average, read once over the span and then put through `aggregateRange` week by week.
+- **The story** (`components/recap-story/`): one file per slide, a header with pips and ✕, a rAF count-up leaf, and the navy ground.
+  - The `rc-*` keyframes and `@property --rc-sweep` live in `app/globals.css`, with a `[data-recap]` reduced-motion rule that keeps end states.
+  - The view is frozen on mount, so a re-render can't change it mid-read.
+  - Taps on controls never turn a page. Exit puts up a white cover at once.
+  - Analytics events: `recap_viewed`, `recap_slide_viewed`, `recap_closed`.
+  - WhatsNewModal and PlanCompleteModal defer while it holds the screen (`lib/takeover.ts`).
+  - A 336px copy of the app icon: `public/progra-logo-336.png`.
+- **Dev preview** `/dev/recap-story` (404 in production): fixtures for all 14 handoff frames plus first-week, no-goals, no-habits, solo, quiet and crowd; `&slide=`, `&still=1` and `&inset=59`.
+- **Checked:**
+  - **Screenshots:** every board frame, taken with headless Chromium at 402×874 @2x, set beside the handoff PNGs. They match.
+  - **Fixes from those screenshots:** "5.0h · 43%" stays on one line (the handoff's own frame wraps it), and the habit cells are 8px squares.
+  - **Interaction, driven over CDP (22/22):** auto-advance, the curtain, taps by half, swipes, drag slop, keys, the end stops, the pips, the live announcement, ✕ / Esc / CTA, invite taps that don't turn the page, and reduced motion.
+  - **Small screens:** no horizontal overflow at 320, 375 or 390pt; long slides scroll.
+  - **Gate:** tsc, eslint, vitest 1309, `npm run build`. Signed-out smoke on `next start`: `/` 200, `/recap/2026-10-05` redirects to /login, `/dev/recap-story` 404s.
+- **Not checked (needs a signed-in session or a phone):** the in-place open and close on a real account, the What's New deferral, the status bar on a device, and the logo sweep in WKWebView.
+
+### 21:55 · Weekly review (RECAP_V2), P1: the pure core
+- **What's being built:** the weekly recap story from `design_handoff_weekly_recap/` (eight slides: Loading, Hours tracked, Where it went, Weekly goals, Habits, Friends, Your rank, Closing), dark behind a new flag `NEXT_PUBLIC_RECAP_V2` (implies REDESIGN, needs no SQL). Plan: `.claude/plans/recap-v2.md`.
+- **Owner's calls (2026-10-11):** it opens by itself when someone loads Progra, from **Monday 6am in their own timezone**, for the week that just ended. The owner picked `@capacitor/status-bar` for the navy slides (superseded at 22:12 by the built-in SystemBars plugin, which needs nothing installed). "Weekly average" means the last 8 weeks since signup, quiet weeks included. The closing quote starts with Thomas Edison's "Opportunity is missed by most…"; more are to come from the owner.
+- **New, all pure and tested:**
+  - `lib/recap-story.ts`: `buildRecapStory` decides every number, line of copy and skipped slide.
+  - `lib/recap-story-nav.ts`: the position reducer, tap/swipe classification, status-bar timing and donut arcs.
+  - `lib/recap-quotes.ts`: the list is the schedule, from the week of Oct 5.
+  - `lib/status-bar.ts`, plus a native-plugin accessor in `lib/native-plugins.ts`.
+  - `lib/dates.ts`: `reviewReadyMs` and `dueReviewWeek` (Monday 06:00 local, DST-safe). `recapReadyMs` now shares their wall-clock helper, with no change in behaviour.
+- **Leaderboard rows** carry an uncapped `goalCount` (the review's "4 goals this week"). A friend's private goal still isn't counted.
 
 ### 16:58 · The weekly recap's "Your week is ready" nudge is off (RECAP_NUDGE)
 - **Owner's request:** "implementing new weekly review, disable the one upcoming". Tonight (Sunday) at 6pm local the week of Oct 5's recap would have unlocked and its nudge appeared at the top of Progress. A new weekly review is being built instead, so the nudge now sits behind a new flag, `NEXT_PUBLIC_RECAP_NUDGE`, off unless set: deployed, no nudge tonight or any Sunday after, until the new review replaces it. Setting it to `1` and redeploying brings the old nudge back exactly as it was.

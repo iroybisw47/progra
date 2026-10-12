@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 import { TrackView } from "@/components/track-view";
 import { AddToHomeHint } from "@/components/add-to-home-hint";
@@ -7,16 +8,19 @@ import { SignInButtons } from "@/app/login/sign-in-buttons";
 import { Dashboard } from "@/components/dashboard";
 import { Feed } from "@/components/feed";
 import { ProgressClient } from "@/components/v2/progress-client";
+import { RecapGround } from "@/components/recap-story/recap-ground";
+import { RecapStoryV2 } from "@/components/recap-story/recap-story-v2";
 import { OnboardingClientV2 } from "@/app/onboarding/onboarding-client-v2";
 import { OnboardingClientV3 } from "@/app/onboarding/onboarding-client-v3";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
-import { ONBOARDING_V3, REDESIGN, SOCIAL_ENABLED, UW } from "@/lib/flags";
+import { ONBOARDING_V3, RECAP_V2, REDESIGN, SOCIAL_ENABLED, UW } from "@/lib/flags";
 import { isJohnUser } from "@/lib/john/cohort";
 import { getFriendRelations } from "@/lib/db/friends";
 import { listActiveGoals } from "@/lib/db/goals";
 import { listActiveHabits, listUnansweredHabits } from "@/lib/db/habits";
+import { getDueReview, loadRecapStory } from "@/lib/db/recap-story";
 import { accountGoalsFrom, accountHabitsFrom } from "@/lib/onboarding-v3-goals-habits";
 import { savedUwFrom } from "@/lib/onboarding-v3-uw";
 import { addDaysISO, todayInTimeZone } from "@/lib/dates";
@@ -33,7 +37,7 @@ export const dynamic = "force-dynamic";
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; review?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) return <SignedOutLanding />;
@@ -104,8 +108,14 @@ export default async function Page({
     // `?tab=week` opens the Week sub-tab directly. History is no longer a
     // sub-tab (the Sessions header links straight to /history), so an old
     // `?tab=history` link just lands on Today.
-    const { tab } = await searchParams;
+    const { tab, review } = await searchParams;
     const initialTab = tab === "week" ? "week" : undefined;
+    // The weekly review (RECAP_V2): from Monday 6am local, the week that just
+    // ended opens BY ITSELF the next time Progress renders, until it's been
+    // closed once. It's drawn here, in place of Progress, rather than
+    // redirected to — the same reason the onboarding gate above renders instead
+    // of redirecting. `?review=later` is the escape hatch the story takes if
+    // recording the week fails.
     // The week start is derivable from the profile alone, so both loaders run
     // in parallel instead of habits waiting on the full progress read.
     const weekStart = currentWeekStart(profile.timezone ?? "UTC");
@@ -113,12 +123,29 @@ export default async function Page({
     // were neither ticked nor already explained. listUnansweredHabits returns []
     // with the flag off, so this costs the other ~50 users nothing.
     const missDate = addDaysISO(todayInTimeZone(profile.timezone ?? "UTC"), -1);
-    const [data, { habits, completions, minWeekStart }, missHabits] =
-      await Promise.all([
-        loadProgressData(),
-        loadWeekHabits(weekStart),
-        listUnansweredHabits(missDate),
-      ]);
+    //
+    // Progress's reads start FIRST and the due check (one small query) runs
+    // beside them, so the usual load waits for nothing extra; when a review is
+    // due it doesn't wait for Progress either. Those reads are then spent,
+    // once a week, on this one render. The catch is attached up front so a
+    // rejection while the check is in flight is never unhandled — the await
+    // below still sees it.
+    const progress = Promise.all([
+      loadProgressData(),
+      loadWeekHabits(weekStart),
+      listUnansweredHabits(missDate),
+    ]);
+    progress.catch(() => {});
+    const dueReview = RECAP_V2 && review !== "later" ? await getDueReview() : null;
+    if (dueReview) {
+      // Navy straight away while the review's own reads run.
+      return (
+        <Suspense fallback={<RecapGround />}>
+          <DueReview weekStartISO={dueReview.weekStartISO} />
+        </Suspense>
+      );
+    }
+    const [data, { habits, completions, minWeekStart }, missHabits] = await progress;
     return (
       <ProgressClient
         {...data}
@@ -143,6 +170,13 @@ export default async function Page({
   }
 
   return <Dashboard email={user.email ?? ""} />;
+}
+
+// The review that's due, in place of Progress. Closing it records the week, and
+// that action's re-render of "/" is Progress again (components/recap-story).
+async function DueReview({ weekStartISO }: { weekStartISO: string }) {
+  const view = await loadRecapStory(weekStartISO);
+  return <RecapStoryV2 view={view} entry="auto" markOnExit />;
 }
 
 function SignedOutLanding() {

@@ -11,7 +11,10 @@ import { getProfile } from "@/lib/auth/profile";
 import { isJohnUser } from "@/lib/john/cohort";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { createClient } from "@/lib/supabase/server";
-import { REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
+import { RECAP_V2, REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
+import { WeeklyReviewsSection } from "@/components/v2/weekly-review-card";
+import { listRecapCommentCounts, listRecapKudos } from "@/lib/db/recap-social";
+import { listRecapPostsForUser } from "@/lib/db/weekly-reviews";
 import { countFriendsForUser } from "@/lib/db/friends";
 import { listActiveGoalsForUser } from "@/lib/db/goals";
 import {
@@ -77,6 +80,14 @@ export default async function MePage() {
   const reactionsPromise = pastSessionsPromise.then((items) =>
     listReactionsForSessions(items.map((i) => i.sessionId))
   );
+  // Your posted weekly reviews (RECAP_V2), with their likes and comment
+  // counts chained off them the same way. Nothing is read with the flag off.
+  const reviewsPromise = RECAP_V2 ? listRecapPostsForUser(user.id, 8) : Promise.resolve([]);
+  const reviewSocialPromise = reviewsPromise.then(async (items) => {
+    const ids = items.map((i) => i.id);
+    const [kudos, comments] = await Promise.all([listRecapKudos(ids), listRecapCommentCounts(ids)]);
+    return { kudos, comments };
+  });
   const [
     goals,
     sessions,
@@ -87,6 +98,8 @@ export default async function MePage() {
     sessionCount,
     trackedMs,
     friendCount,
+    reviews,
+    reviewSocial,
   ] = await Promise.all([
     listActiveGoalsForUser(user.id),
     listRecentSessionsForUser(user.id),
@@ -97,6 +110,8 @@ export default async function MePage() {
     sessionCountPromise,
     trackedMsPromise,
     friendCountPromise,
+    reviewsPromise,
+    reviewSocialPromise,
   ]);
 
   // "Habits done" and the section count are this-week numbers; habitHistory
@@ -200,6 +215,19 @@ export default async function MePage() {
         />
 
         <div className="bg-track border-hairline mt-[18px] h-1.5 border-t" />
+
+        {/* Your posted weekly reviews — tap one for its likes and comments. */}
+        {reviews.length > 0 && (
+          <>
+            <WeeklyReviewsSection
+              title="Weekly reviews"
+              items={reviews}
+              kudos={reviewSocial.kudos}
+              commentCounts={reviewSocial.comments}
+            />
+            <div className="bg-track border-hairline mt-3 h-1.5 border-t" />
+          </>
+        )}
 
         {/* Sessions — your history. Private ones are included here (this is
             your own profile); friends only ever see the non-private ones. */}

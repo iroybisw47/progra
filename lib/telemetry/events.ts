@@ -34,6 +34,7 @@ export const ROUTES = [
   "/recap/[weekStart]/card",
   "/sessions",
   "/session/[id]",
+  "/review/[id]",
   "/categories",
   "/settings",
   "/onboarding",
@@ -54,6 +55,7 @@ export function normalizeRoute(pathname: string): (typeof ROUTES)[number] {
   const templated = path
     .replace(/^\/profile\/[^/]+$/, "/profile/[username]")
     .replace(/^\/session\/[^/]+$/, "/session/[id]")
+    .replace(/^\/review\/[^/]+$/, "/review/[id]")
     .replace(/^\/recap\/[^/]+\/card$/, "/recap/[weekStart]/card")
     .replace(/^\/recap\/[^/]+$/, "/recap/[weekStart]")
     .replace(/^\/i\/[^/]+$/, "/i/[username]");
@@ -109,6 +111,24 @@ export const NOTIFICATION_TYPES = [
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 const NUDGE_PRESETS_ALL = [...NUDGE_PRESET_KEYS, ...PRAISE_PRESET_KEYS] as const;
 
+// The weekly review's slides (RECAP_V2) — lib/recap-story.ts SLIDE_IDS, kept
+// here as a literal so the client logger doesn't pull the story's rules in;
+// lib/recap-story-nav.test.ts pins the two together. `auto` is the review
+// opening by itself on Progress; `link` is /recap/[weekStart].
+export const RECAP_SLIDES = [
+  "loading",
+  "welcome",
+  "hours",
+  "where",
+  "goals",
+  "habits",
+  "friends",
+  "rank",
+  "share",
+  "closing",
+] as const;
+export const RECAP_ENTRIES = ["auto", "link"] as const;
+
 // A property's type. A readonly string array is a closed enum.
 export type PropType =
   | "uuid"
@@ -157,8 +177,10 @@ export const EVENTS = {
   clock_in_screen_opened: {},
   feed_viewed: {},
   habit_checked: { habit_id: "uuid", backfilled: "bool" },
-  like_given: { session_ref: "uuid" },
-  comment_given: { session_ref: "uuid", depth: ["root", "reply"] },
+  // Exactly one of session_ref / recap_ref: a like or comment on a session
+  // post, or on a posted weekly review (RECAP_V2).
+  like_given: { session_ref: "uuid", recap_ref: "uuid" },
+  comment_given: { session_ref: "uuid", recap_ref: "uuid", depth: ["root", "reply"] },
   friend_request_sent: { target_id: "uuid" },
   friend_added: {
     friendship_id: "uuid",
@@ -199,6 +221,15 @@ export const EVENTS = {
 
   // --- comments. The post itself is comment_given above. --------------------
   comment_reply_opened: {},
+
+  // --- weekly review (RECAP_V2). Did people get to the end, and where did
+  //     they stop? `slides` is how many this week's story had. ---------------
+  recap_viewed: { entry: RECAP_ENTRIES, slides: "int" },
+  recap_slide_viewed: { slide: RECAP_SLIDES, index: "int" },
+  recap_closed: { slide: RECAP_SLIDES, via: ["close", "start"] },
+  // Posting the week from the Share slide. `edited`: an update of a week
+  // already posted (a caption change), not a first post.
+  recap_posted: { recap_ref: "uuid", edited: "bool", has_caption: "bool" },
 
   // --- feedback. `length` only — the body lives behind an admin RPC. ---------
   bug_report_submitted: { route: ROUTES },

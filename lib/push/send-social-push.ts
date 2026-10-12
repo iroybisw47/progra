@@ -6,9 +6,12 @@ import { sendApnsAlert } from "@/lib/push/apns";
 import { logRemoteNotification, newNotificationId } from "@/lib/push/notification-log";
 import {
   commentDedupeKey,
+  composeRecapPush,
   composeSocialPush,
   likeDedupeKey,
   planReplyPushes,
+  recapCommentDedupeKey,
+  recapLikeDedupeKey,
   replyDedupeKey,
   type SocialPushContent,
 } from "@/lib/push/social-push";
@@ -28,7 +31,10 @@ import {
 //
 // Recipients always come from DB rows, never from the caller: the session's
 // owner, and — for a reply — the reply_to_author_id the thread-guard trigger
-// stamped on the stored comment from the row it answered.
+// stamped on the stored comment from the row it answered. For a like or
+// comment on a posted weekly review (RECAP_V2), the recap_posts row's owner,
+// after the like (toggle_recap_reaction's can_see_recap) or the comment
+// (recap_comments' insert policy) already passed.
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -43,7 +49,9 @@ export type SocialPushEvent =
       commentId: string | null;
       body: string;
     }
-  | { kind: "reply"; sessionId: string; actorId: string; commentId: string; body: string };
+  | { kind: "reply"; sessionId: string; actorId: string; commentId: string; body: string }
+  | { kind: "recap_like"; recapId: string; actorId: string }
+  | { kind: "recap_comment"; recapId: string; actorId: string; commentId: string | null; body: string };
 
 type SessionRow = { user_id: string; task_name: string; is_private: boolean };
 
@@ -51,6 +59,11 @@ export async function sendSocialPush(event: SocialPushEvent): Promise<void> {
   try {
     if (!SOCIAL_PUSH) return;
     const admin = createAdminClient();
+
+    if (event.kind === "recap_like" || event.kind === "recap_comment") {
+      await sendRecapPush(admin, event);
+      return;
+    }
 
     // Recipient + label from the session row, resolved HERE rather than in the
     // action, so the action adds zero pre-response work.
@@ -109,7 +122,7 @@ export async function sendSocialPush(event: SocialPushEvent): Promise<void> {
           commentBody: event.kind === "comment" ? event.body : undefined,
           commentId: event.kind === "comment" ? (event.commentId ?? undefined) : undefined,
         }),
-      event.sessionId
+      { kind: "session", id: event.sessionId }
     );
   } catch (err) {
     // A push may never break anything — including the after() callback.
@@ -179,9 +192,51 @@ async function sendReplyPushes(
           commentBody: event.body,
           commentId: event.commentId,
         }),
-      event.sessionId
+      { kind: "session", id: event.sessionId }
     );
   }
+}
+
+// A like or comment on a posted weekly review: one push, to the post's owner.
+async function sendRecapPush(
+  admin: AdminClient,
+  event: Extract<SocialPushEvent, { kind: "recap_like" | "recap_comment" }>
+): Promise<void> {
+  const { data, error } = await admin
+    .from("recap_posts")
+    .select("user_id")
+    .eq("id", event.recapId)
+    .maybeSingle();
+  if (error || !data) {
+    console.error("[push] recap read failed:", error?.message ?? "not found");
+    return;
+  }
+  const recipient = (data as { user_id: string }).user_id;
+  if (recipient === event.actorId) {
+    console.log("[push] self-event, skipping");
+    return;
+  }
+  const key =
+    event.kind === "recap_like"
+      ? recapLikeDedupeKey(event.actorId, event.recapId)
+      : event.commentId !== null
+        ? recapCommentDedupeKey(event.commentId)
+        : `recap-comment:${event.actorId}:${event.recapId}`;
+  await deliver(
+    admin,
+    recipient,
+    key,
+    event.kind === "recap_like" ? "like" : "comment",
+    async () =>
+      composeRecapPush({
+        kind: event.kind === "recap_like" ? "like" : "comment",
+        actorName: await readActorName(admin, event.actorId),
+        recapId: event.recapId,
+        commentBody: event.kind === "recap_comment" ? event.body : undefined,
+        commentId: event.kind === "recap_comment" ? (event.commentId ?? undefined) : undefined,
+      }),
+    { kind: "recap", id: event.recapId }
+  );
 }
 
 // The session-visibility rule (can_see_session) for someone who isn't the
@@ -223,7 +278,8 @@ async function deliver(
   key: string,
   label: "like" | "comment" | "reply",
   compose: () => Promise<SocialPushContent>,
-  sessionId: string
+  // What the push is about, for notification_log (a tap attributes to it).
+  related: { kind: "session" | "recap"; id: string }
 ): Promise<void> {
   // Opt-out before the dedupe claim, so an opted-out user's slots aren't
   // burned — turning pushes on later still delivers a first-time like.
@@ -302,7 +358,7 @@ async function deliver(
     userId: recipient,
     type: label,
     status: accepted ? "sent" : "failed",
-    relatedKind: "session",
-    relatedId: sessionId,
+    relatedKind: related.kind,
+    relatedId: related.id,
   });
 }

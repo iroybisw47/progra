@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { noteSegments } from "@/lib/patch-notes";
+import { useTakeoverActive } from "@/lib/takeover";
 
 // "What's new" — one release note, shown once, on the first Progress load after
 // a release this user hasn't been stamped for. The server already decided this
@@ -44,6 +45,7 @@ export function WhatsNewModal({
   const pathname = usePathname();
   const [open, setOpen] = useState(true);
   const [pending, startTransition] = useTransition();
+  const takenOver = useTakeoverActive();
 
   function dismiss() {
     setOpen(false);
@@ -65,7 +67,11 @@ export function WhatsNewModal({
   //
   // After the hooks, never before them: this component survives navigation away
   // from "/", so an early return above would change the hook order.
-  if (pathname !== "/") return null;
+  //
+  // Nor over the weekly review, which RECAP_V2 draws AT "/" in place of
+  // Progress (lib/takeover.ts): the note waits, unstamped, for the Progress it
+  // hands back to.
+  if (pathname !== "/" || takenOver) return null;
 
   return (
     <Dialog

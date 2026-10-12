@@ -71,7 +71,19 @@ type AppPlugin = {
   getInfo(): Promise<{ name: string; id: string; build: string; version: string }>;
 };
 
+// Capacitor 8's BUILT-IN SystemBars plugin (CAPSystemBarsPlugin, registered by
+// CapacitorBridge with the core plugins — no npm package, nothing to sync).
+// Every binary has it: ios/App/CapApp-SPM/Package.swift has pinned
+// capacitor-swift-pm 8.5.0 since the first build. setStyle sets
+// bridge.statusBarStyle, the same thing @capacitor/status-bar does. Typed by
+// hand for the one method used; "DARK" means LIGHT text (lib/status-bar.ts
+// names them by the text instead).
+type SystemBarsPlugin = {
+  setStyle(options: { style: "DARK" | "LIGHT" | "DEFAULT" }): Promise<void>;
+};
+
 type Plugins = {
+  SystemBars?: SystemBarsPlugin;
   LocalNotifications?: LocalNotificationsPlugin;
   PushNotifications?: PushNotificationsPlugin;
   PrograLiveActivity?: LiveActivityPlugin;
@@ -112,4 +124,10 @@ export function liveActivityPlugin(): LiveActivityPlugin | null {
 
 export function appPlugin(): AppPlugin | null {
   return plugins()?.App ?? null;
+}
+
+// The status bar's text colour (the weekly review's navy slides, RECAP_V2).
+// Null on the website, where callers do nothing.
+export function systemBarsPlugin(): SystemBarsPlugin | null {
+  return plugins()?.SystemBars ?? null;
 }

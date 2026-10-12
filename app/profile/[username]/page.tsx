@@ -10,7 +10,7 @@ import { KudosButton } from "@/components/kudos-button";
 import { requireUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
-import { NUDGES, SOCIAL_ENABLED } from "@/lib/flags";
+import { NUDGES, RECAP_V2, SOCIAL_ENABLED } from "@/lib/flags";
 import { getPublicProfileByUsername, getRelationship } from "@/lib/db/profiles";
 import { countFriendsForUser } from "@/lib/db/friends";
 import { listActiveGoalsForUser } from "@/lib/db/goals";
@@ -27,6 +27,9 @@ import {
   listProfileSessions,
 } from "@/lib/db/profile-sessions";
 import { listReactionsForSessions } from "@/lib/db/reactions";
+import { WeeklyReviewsSection } from "@/components/v2/weekly-review-card";
+import { listRecapCommentCounts, listRecapKudos } from "@/lib/db/recap-social";
+import { listRecapPostsForUser } from "@/lib/db/weekly-reviews";
 import { LIKE_EMOJI } from "@/lib/social/reactions";
 import { aggregateWeekByGoal } from "@/lib/aggregate";
 import { entityColor, goalColorOf } from "@/lib/colors";
@@ -171,6 +174,13 @@ async function ProfileContent({
   const reactionsPromise = pastSessionsPromise.then((items) =>
     listReactionsForSessions(items.map((i) => i.sessionId))
   );
+  // Their posted weekly reviews (RECAP_V2) — RLS shows them to friends only.
+  const reviewsPromise = RECAP_V2 ? listRecapPostsForUser(userId, 4) : Promise.resolve([]);
+  const reviewSocialPromise = reviewsPromise.then(async (items) => {
+    const ids = items.map((i) => i.id);
+    const [kudos, comments] = await Promise.all([listRecapKudos(ids), listRecapCommentCounts(ids)]);
+    return { kudos, comments };
+  });
   const [
     goals,
     sessions,
@@ -181,6 +191,8 @@ async function ProfileContent({
     sessionCount,
     trackedMs,
     friendCount,
+    reviews,
+    reviewSocial,
   ] =
     await Promise.all([
       listActiveGoalsForUser(userId),
@@ -192,6 +204,8 @@ async function ProfileContent({
       sessionCountPromise,
       trackedMsPromise,
       friendCountPromise,
+      reviewsPromise,
+      reviewSocialPromise,
     ]);
 
   const goalWeekly = aggregateWeekByGoal(sessions, now);
@@ -280,6 +294,18 @@ async function ProfileContent({
       </section>
 
       <div className="bg-track border-hairline mt-[18px] h-1.5 border-t" />
+
+      {reviews.length > 0 && (
+        <>
+          <WeeklyReviewsSection
+            title="Weekly reviews"
+            items={reviews}
+            kudos={reviewSocial.kudos}
+            commentCounts={reviewSocial.comments}
+          />
+          <div className="bg-track border-hairline mt-3 h-1.5 border-t" />
+        </>
+      )}
 
       {/* Sessions: their finished, non-private sessions. RLS does the
           filtering — private ones never reach us. */}

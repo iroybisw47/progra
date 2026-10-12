@@ -104,3 +104,40 @@ export function planReplyPushes(input: {
   if (ownerId !== actorId && ownerId !== replied) plan.push({ recipient: ownerId, kind: "comment" });
   return plan;
 }
+
+// --- weekly reviews (RECAP_V2) ----------------------------------------------
+// A like or comment on a posted weekly review. It names the review, not a
+// session, and a tap lands on the post (/review/{id}), or ON the comment.
+
+export type RecapPushInput = {
+  kind: "like" | "comment";
+  actorName: string;
+  recapId: string;
+  commentBody?: string;
+  commentId?: string;
+};
+
+export function composeRecapPush(input: RecapPushInput): SocialPushContent {
+  const url =
+    input.commentId === undefined
+      ? `/review/${input.recapId}`
+      : `/review/${input.recapId}#c-${input.commentId}`;
+  if (input.kind === "comment") {
+    return {
+      title: input.actorName,
+      body: `commented on your weekly review: ${commentSnippet(input.commentBody ?? "")}`,
+      url,
+    };
+  }
+  return { title: input.actorName, body: "liked your weekly review", url };
+}
+
+// Same rules as the session keys (a like once per actor per post; a comment
+// per comment), in their own namespace so a review and a session can't collide.
+export function recapLikeDedupeKey(actorId: string, recapId: string): string {
+  return `recap-like:${actorId}:${recapId}`;
+}
+
+export function recapCommentDedupeKey(commentId: string): string {
+  return `recap-comment:${commentId}`;
+}

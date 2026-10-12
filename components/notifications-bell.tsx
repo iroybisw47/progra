@@ -143,7 +143,7 @@ function nameOf(u: { displayName: string | null; username: string }): string {
 }
 
 // "A", "A and B", "A, B and 3 others" — from the most-recent-first reactor list.
-function likeSummary(item: LikeNotification): string {
+function likeSummary(item: Pick<LikeNotification, "actors" | "totalActors">): string {
   const names = item.actors.map(nameOf);
   const total = item.totalActors;
   if (total <= 1) return names[0] ?? "Someone";
@@ -168,6 +168,11 @@ function hrefFor(item: NotificationItem): string {
   if (item.kind === "comment" || item.kind === "reply") {
     return `/session/${item.sessionId}#${commentAnchorId(item.commentId)}`;
   }
+  // A posted weekly review (RECAP_V2): its own page, or on the comment.
+  if (item.kind === "recap_comment") {
+    return `/review/${item.recapId}#${commentAnchorId(item.commentId)}`;
+  }
+  if (item.kind === "recap_like") return `/review/${item.recapId}`;
   return `/session/${item.sessionId}`;
 }
 
@@ -183,7 +188,7 @@ function NotificationRow({
   onReport: (nudgeId: string) => void;
 }) {
   const actor =
-    item.kind === "like"
+    item.kind === "like" || item.kind === "recap_like"
       ? item.actors[0]
       : item.kind === "nudge"
         ? item.sender
@@ -218,6 +223,23 @@ function NotificationRow({
               liked your session
             </p>
           )}
+          {item.kind === "recap_like" && (
+            <p className="text-sm leading-snug">
+              <span className="font-semibold">{likeSummary(item)}</span>{" "}
+              liked your weekly review
+            </p>
+          )}
+          {item.kind === "recap_comment" && (
+            <>
+              <p className="text-sm leading-snug">
+                <span className="font-semibold">{nameOf(item.author)}</span>{" "}
+                commented on your weekly review
+              </p>
+              <p className="text-ink/80 mt-0.5 line-clamp-2 text-sm leading-snug">
+                {item.body}
+              </p>
+            </>
+          )}
           {(item.kind === "comment" || item.kind === "reply") && (
             <>
               <p className="text-sm leading-snug">
@@ -248,7 +270,9 @@ function NotificationRow({
               ? item.targetKind === "habits"
                 ? "Habits"
                 : `Goal · ${item.targetLabel}`
-              : item.sessionLabel}{" "}
+              : item.kind === "recap_like" || item.kind === "recap_comment"
+                ? item.weekLabel
+                : item.sessionLabel}{" "}
             · {time}
           </p>
         </div>

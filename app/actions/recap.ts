@@ -11,6 +11,10 @@ import { weekWindow } from "@/lib/dates";
 import { computeWeekRecap } from "@/lib/db/recap";
 import { getWeekLeaderboard } from "@/lib/db/leaderboard";
 import { requireSeat } from "@/lib/auth/require-seat";
+import { loadReviewPost } from "@/lib/db/recap-story";
+import { getMyRecapPostForWeek } from "@/lib/db/weekly-reviews";
+import { RECAP_V2 } from "@/lib/flags";
+import { normalizeCaption, reviewPostRow } from "@/lib/weekly-review";
 
 type Result = { ok: true } | { error: string };
 
@@ -91,4 +95,48 @@ export async function postRecap(
 
   revalidateSocialSurfaces();
   return { ok: true };
+}
+
+// Posts (or re-posts) the week from the weekly review's Share slide (RECAP_V2):
+// hours tracked, % towards goals and % of habits done, plus an optional
+// caption. Every number is recomputed here from the same reads and rules as
+// the story (loadReviewPost); the client sends only the week and the caption.
+// Refused for a week whose review isn't out yet. A re-post (a caption edit)
+// upserts and keeps created_at, so it doesn't jump up the feed. Errors are
+// generic: the DB's own text never reaches the client.
+export async function postWeeklyReview(
+  weekStart: string,
+  caption: string
+): Promise<{ ok: true; recapId: string; edited: boolean } | { error: string }> {
+  const failed = { error: "Couldn't post your week. Try again." };
+  if (!RECAP_V2) return failed;
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+  const seat = await requireSeat();
+  if ("error" in seat) return seat;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) return { error: "Invalid week" };
+  const normalized = normalizeCaption(caption);
+  if ("error" in normalized) return normalized;
+
+  let post: Awaited<ReturnType<typeof loadReviewPost>>;
+  try {
+    post = await loadReviewPost(weekStart);
+  } catch {
+    return failed;
+  }
+  if (!post) return { error: "This week can't be posted yet." };
+
+  const existing = await getMyRecapPostForWeek(post.weekStartMs);
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("recap_posts")
+    .upsert(reviewPostRow(post.summary, post.extras, user.id, post.weekStartMs, normalized.caption), {
+      onConflict: "user_id,week_start_ms",
+    })
+    .select("id")
+    .single();
+  if (error || !data) return failed;
+
+  revalidateSocialSurfaces();
+  return { ok: true, recapId: (data as { id: string }).id, edited: existing !== null };
 }

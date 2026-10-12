@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  dueReviewWeek,
   endOfMonth,
   endOfWeek,
   endOfYear,
   isRecapReady,
   mondayOfDateISO,
   recapReadyMs,
+  reviewReadyMs,
   startOfMonth,
   startOfWeek,
   startOfYear,
@@ -168,5 +170,90 @@ describe("recapReadyMs / isRecapReady (Sunday 6pm local)", () => {
     );
     // UTC has no offset: 18:00 Sunday 2026-07-12 UTC.
     expect(recapReadyMs("2026-07-06", "UTC")).toBe(Date.UTC(2026, 6, 12, 18));
+  });
+});
+
+describe("reviewReadyMs (the weekly review: the following Monday, 6am local)", () => {
+  it("resolves Monday 06:00 after the week, west and east of UTC", () => {
+    // Week of Mon 2026-10-05 → Monday 2026-10-12 06:00.
+    // LA is PDT (UTC−7) in October: 06:00 PDT = 13:00 UTC.
+    expect(reviewReadyMs("2026-10-05", "America/Los_Angeles")).toBe(
+      Date.UTC(2026, 9, 12, 13)
+    );
+    // Tokyo (UTC+9): 06:00 JST Monday = 21:00 UTC Sunday.
+    expect(reviewReadyMs("2026-10-05", "Asia/Tokyo")).toBe(
+      Date.UTC(2026, 9, 11, 21)
+    );
+    // Kolkata (UTC+5:30): 06:00 IST = 00:30 UTC.
+    expect(reviewReadyMs("2026-10-05", "Asia/Kolkata")).toBe(
+      Date.UTC(2026, 9, 12, 0, 30)
+    );
+  });
+
+  it("snaps any day of the week to that week's following Monday", () => {
+    expect(reviewReadyMs("2026-10-11", "UTC")).toBe(
+      reviewReadyMs("2026-10-05", "UTC")
+    );
+    expect(reviewReadyMs("2026-10-05", "UTC")).toBe(Date.UTC(2026, 9, 12, 6));
+  });
+
+  it("lands on 6am wall-clock across DST changes inside the week", () => {
+    // LA springs forward Sun 2026-03-08: Monday 03-09 06:00 is PDT (UTC−7).
+    expect(reviewReadyMs("2026-03-02", "America/Los_Angeles")).toBe(
+      Date.UTC(2026, 2, 9, 13)
+    );
+    // LA falls back Sun 2026-11-01: Monday 11-02 06:00 is PST (UTC−8).
+    expect(reviewReadyMs("2026-10-26", "America/Los_Angeles")).toBe(
+      Date.UTC(2026, 10, 2, 14)
+    );
+    // London springs forward Sun 2026-03-29: Monday 03-30 06:00 BST = 05:00 UTC.
+    expect(reviewReadyMs("2026-03-23", "Europe/London")).toBe(
+      Date.UTC(2026, 2, 30, 5)
+    );
+  });
+});
+
+describe("dueReviewWeek", () => {
+  const LA = "America/Los_Angeles";
+  const created = Date.UTC(2026, 0, 1);
+
+  it("is the just-ended week from Monday 06:00 local, and nothing before", () => {
+    // Monday 2026-10-12 05:59 PDT = 12:59 UTC.
+    expect(dueReviewWeek(LA, Date.UTC(2026, 9, 12, 12, 59), created)).toBeNull();
+    const due = dueReviewWeek(LA, Date.UTC(2026, 9, 12, 13), created);
+    expect(due).toEqual(weekWindow(LA, "2026-10-05"));
+  });
+
+  it("stays the same week all week, until the next Monday", () => {
+    // Sunday 2026-10-11 23:00 PDT: the week of Oct 5 isn't ready yet, so the
+    // due week is still the one before it.
+    const sundayNight = Date.UTC(2026, 9, 12, 6);
+    expect(dueReviewWeek(LA, sundayNight, created)?.weekStartISO).toBe(
+      "2026-09-28"
+    );
+    // Saturday 2026-10-17 noon PDT: still the week of Oct 5.
+    expect(
+      dueReviewWeek(LA, Date.UTC(2026, 9, 17, 19), created)?.weekStartISO
+    ).toBe("2026-10-05");
+  });
+
+  it("uses the user's own Monday, not UTC's", () => {
+    // 21:00 UTC Sunday is already 06:00 Monday in Tokyo.
+    expect(
+      dueReviewWeek("Asia/Tokyo", Date.UTC(2026, 9, 11, 21), created)
+        ?.weekStartISO
+    ).toBe("2026-10-05");
+    // 20:59 UTC is 05:59 Monday in Tokyo: inside the quiet 00:00–05:59 gap.
+    expect(
+      dueReviewWeek("Asia/Tokyo", Date.UTC(2026, 9, 11, 20, 59), created)
+    ).toBeNull();
+  });
+
+  it("skips a week that ended before the account existed", () => {
+    const now = Date.UTC(2026, 9, 12, 13);
+    // Signed up Wednesday of the reviewed week: due.
+    expect(dueReviewWeek(LA, now, Date.UTC(2026, 9, 7, 18))).not.toBeNull();
+    // Signed up this Monday morning: the reviewed week predates the account.
+    expect(dueReviewWeek(LA, now, Date.UTC(2026, 9, 12, 8))).toBeNull();
   });
 });

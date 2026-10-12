@@ -114,6 +114,8 @@ export function revalidateSocialSurfaces() {
   revalidatePath("/feed");
   revalidatePath("/me");
   revalidateDynamicSessionPages();
+  // A posted weekly review's own page (RECAP_V2): its likes and comments.
+  revalidatePath("/review/[id]", "page");
 }
 
 // Username / display name / bio — anywhere an author is shown.
