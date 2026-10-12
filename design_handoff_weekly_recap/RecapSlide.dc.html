@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/_ds_bundle.css">
+  <link rel="stylesheet" href="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/styles.css">
+  <script src="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/_ds_bundle.js"></script>
+  <style>
+    a{color:#1c3a5e}a:hover{color:#142c49}
+    @property --rc-sweep{syntax:'<angle>';inherits:false;initial-value:0deg}
+    @keyframes rc-sweep{from{--rc-sweep:0deg}to{--rc-sweep:360deg}}
+    @keyframes rc-unghost{to{opacity:1;filter:none}}
+    @keyframes rc-rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+    @keyframes rc-fade{from{opacity:0}to{opacity:1}}
+    @keyframes rc-word{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+    @keyframes rc-pop{0%{opacity:0;transform:scale(.5)}70%{transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
+    @keyframes rc-check{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+    @keyframes rc-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+    @keyframes rc-ring{from{stroke-dasharray:0 var(--c)}}
+    @keyframes rc-curtain{from{transform:translateY(0)}to{transform:translateY(-100%)}}
+    @keyframes rc-flood{from{clip-path:circle(0% at 50% 100%)}to{clip-path:circle(150% at 50% 100%)}}
+    @keyframes rc-scale{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+    @keyframes rc-slide{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+    @keyframes rc-drop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+    @keyframes rc-settle{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+    [data-recap-still] *,[data-recap-still] *::before,[data-recap-still] *::after{animation-duration:.001ms!important;animation-delay:0s!important;transition-duration:.001ms!important}
+    @media (prefers-reduced-motion:reduce){[data-recap] *,[data-recap] *::before,[data-recap] *::after{animation-duration:.001ms!important;animation-delay:0s!important;transition-duration:.001ms!important}}
+  </style>
+</helmet>
+<div data-recap="" data-recap-still="{{ stillAttr }}" style="position:relative; width:100%; height:100%; overflow:hidden; background:#ffffff; color:var(--body); font-family:var(--font-hanken); -webkit-font-smoothing:antialiased; user-select:none; -webkit-user-select:none">
+
+  <sc-if value="{{ is0 }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="00 Loading" style="position:absolute; inset:0; background:var(--brand-deep); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px; padding-bottom:20px">
+      <div style="position:relative; width:112px; height:112px; border-radius:25px; overflow:hidden; animation:rc-scale .5s cubic-bezier(.22,1,.36,1) both, rc-settle .45s ease-in-out 1.65s">
+        <img src="assets/progra-logo.png" alt="" style="position:absolute; inset:0; width:100%; height:100%; display:block; opacity:.2; filter:grayscale(1); animation:rc-unghost .2s ease 1.6s both">
+        <img src="assets/progra-logo.png" alt="Progra" style="position:absolute; inset:0; width:100%; height:100%; display:block; -webkit-mask-image:conic-gradient(#000 var(--rc-sweep), transparent 0); mask-image:conic-gradient(#000 var(--rc-sweep), transparent 0); animation:rc-sweep 1.5s cubic-bezier(.65,0,.35,1) .15s both">
+      </div>
+      <span style="color:rgba(255,255,255,.62); font-size:13px; font-weight:500; letter-spacing:.01em; white-space:nowrap; animation:rc-rise .45s cubic-bezier(.22,1,.36,1) .35s both">Week of Oct 5</span>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ is1 }}" hint-placeholder-val="{{ true }}">
+    <div data-screen-label="01 Hours tracked" style="position:absolute; inset:0; display:flex; flex-direction:column; padding:99px 24px 44px">
+      <div style="display:flex; flex-direction:column; gap:6px; animation:rc-rise .5s cubic-bezier(.22,1,.36,1) .05s both">
+        <h2 style="margin:0; font-family:var(--font-newsreader); font-size:36px; line-height:1.04; font-weight:500; letter-spacing:-0.022em; color:var(--ink)">Hours tracked</h2>
+        <span style="font-size:13px; line-height:1.3; color:var(--caption); white-space:nowrap">Week of Oct 5 – 11</span>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:26px; padding-bottom:36px">
+        <div style="display:flex; align-items:baseline; gap:10px; transform-origin:left bottom; animation:rc-scale .6s cubic-bezier(.22,1,.36,1) .25s both">
+          <span style="font-family:var(--font-newsreader); font-weight:500; letter-spacing:-0.045em; font-variant-numeric:tabular-nums; color:var(--ink); font-size:148px; line-height:.85">{{ hoursCount }}</span>
+          <span style="font-family:var(--font-newsreader); font-size:40px; font-weight:500; letter-spacing:-0.02em; color:var(--secondary-ink); animation:rc-fade .5s ease 1.25s both">hrs</span>
+        </div>
+        <p style="margin:0; font-size:17px; line-height:1.4; color:var(--body); text-wrap:pretty; animation:rc-rise .5s cubic-bezier(.22,1,.36,1) 1.45s both">{{ hoursLine }}</p>
+      </div>
+    </div>
+    <sc-if value="{{ showCurtain }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; inset:0; z-index:40; background:var(--brand-deep); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px; padding-bottom:20px; pointer-events:none; animation:rc-curtain .8s cubic-bezier(.76,0,.24,1) .05s both">
+        <img src="assets/progra-logo.png" alt="Progra" style="width:112px; height:112px; border-radius:25px; display:block">
+        <span style="color:rgba(255,255,255,.62); font-size:13px; font-weight:500; letter-spacing:.01em; white-space:nowrap">Week of Oct 5</span>
+      </div>
+    </sc-if>
+  </sc-if>
+
+  <sc-if value="{{ is2 }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="02 Where it went" style="position:absolute; inset:0; display:flex; flex-direction:column; gap:22px; padding:99px 24px 44px">
+      <div style="display:flex; flex-direction:column; gap:6px; animation:rc-rise .5s cubic-bezier(.22,1,.36,1) .05s both">
+        <h2 style="margin:0; font-family:var(--font-newsreader); font-size:36px; line-height:1.04; font-weight:500; letter-spacing:-0.022em; color:var(--ink)">Where it went</h2>
+        <span style="font-size:13px; line-height:1.3; color:var(--caption); white-space:nowrap">5 categories</span>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:26px; padding-bottom:12px">
+        <div style="display:flex; justify-content:center">
+          <div style="position:relative; width:180px; height:180px; flex-shrink:0">
+            <svg width="180" height="180" viewBox="0 0 180 180" style="display:block; transform:rotate(-90deg)">
+              <circle cx="90" cy="90" r="80" style="fill:none; stroke:var(--track); stroke-width:20; animation:rc-fade .4s ease .1s both"></circle>
+              <circle cx="90" cy="90" r="80" style="--c:502.65; fill:none; stroke:{{ d0.color }}; stroke-width:20; stroke-dasharray:{{ d0.dash }}; stroke-dashoffset:{{ d0.offset }}; animation:rc-ring {{ d0.dur }} linear {{ d0.delay }} both"></circle>
+              <circle cx="90" cy="90" r="80" style="--c:502.65; fill:none; stroke:{{ d1.color }}; stroke-width:20; stroke-dasharray:{{ d1.dash }}; stroke-dashoffset:{{ d1.offset }}; animation:rc-ring {{ d1.dur }} linear {{ d1.delay }} both"></circle>
+              <circle cx="90" cy="90" r="80" style="--c:502.65; fill:none; stroke:{{ d2.color }}; stroke-width:20; stroke-dasharray:{{ d2.dash }}; stroke-dashoffset:{{ d2.offset }}; animation:rc-ring {{ d2.dur }} linear {{ d2.delay }} both"></circle>
+              <circle cx="90" cy="90" r="80" style="--c:502.65; fill:none; stroke:{{ d3.color }}; stroke-width:20; stroke-dasharray:{{ d3.dash }}; stroke-dashoffset:{{ d3.offset }}; animation:rc-ring {{ d3.dur }} linear {{ d3.delay }} both"></circle>
+              <circle cx="90" cy="90" r="80" style="--c:502.65; fill:none; stroke:{{ d4.color }}; stroke-width:20; stroke-dasharray:{{ d4.dash }}; stroke-dashoffset:{{ d4.offset }}; animation:rc-ring {{ d4.dur }} linear {{ d4.delay }} both"></circle>
+            </svg>
+            <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; animation:rc-fade .5s ease 1.05s both">
+              <span style="color:var(--ink); font-size:24px; font-weight:600; line-height:1; font-variant-numeric:tabular-nums; white-space:nowrap">11h 30m</span>
+              <span style="color:var(--disabled); font-size:8px; font-weight:600; text-transform:uppercase; letter-spacing:.12em">Tracked</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px">
+          <sc-for list="{{ catRows }}" as="c" hint-placeholder-count="5">
+            <div style="display:flex; flex-direction:column; gap:4px; animation:rc-rise .45s cubic-bezier(.22,1,.36,1) {{ c.delay }} both">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:14px; line-height:20px">
+                <span style="display:flex; min-width:0; align-items:center; gap:8px">
+                  <span style="width:10px; height:10px; flex-shrink:0; border-radius:9999px; background:{{ c.color }}"></span>
+                  <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ c.name }}</span>
+                </span>
+                <span style="color:var(--caption); flex-shrink:0; font-size:12px; line-height:16px; font-variant-numeric:tabular-nums">{{ c.meta }}</span>
+              </div>
+              <div style="background:var(--track); height:6px; width:100%; overflow:hidden; border-radius:9999px">
+                <div style="height:100%; border-radius:9999px; background:{{ c.color }}; width:{{ c.w }}; transform-origin:left center; animation:rc-grow .7s cubic-bezier(.22,1,.36,1) {{ c.barDelay }} both"></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ is3 }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="03 Weekly goals" style="position:absolute; inset:0; display:flex; flex-direction:column; padding:99px 24px 44px">
+      <div style="display:flex; flex-direction:column; gap:6px; animation:rc-rise .5s cubic-bezier(.22,1,.36,1) .05s both">
+        <h2 style="margin:0; font-family:var(--font-newsreader); font-size:36px; line-height:1.04; font-weight:500; letter-spacing:-0.022em; color:var(--ink)">Weekly goals</h2>
+        <span style="font-size:13px; line-height:1.3; color:var(--caption); white-space:nowrap">{{ goalMeta }}</span>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:4px 0 14px">
+        <div style="position:relative; width:172px; height:172px; flex-shrink:0; animation:{{ goalSettle }}">
+          <svg width="172" height="172" viewBox="0 0 172 172" style="display:block; transform:rotate(-90deg)">
+            <circle cx="86" cy="86" r="78" style="fill:none; stroke:var(--track); stroke-width:13; animation:rc-fade .4s ease .1s both"></circle>
+            <circle cx="86" cy="86" r="78" style="--c:490.09; fill:none; stroke:var(--brand); stroke-width:13; stroke-linecap:round; stroke-dasharray:{{ goalDash }}; animation:rc-ring 1.4s cubic-bezier(.22,1,.36,1) .3s both"></circle>
+          </svg>
+          <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px">
+            <span style="font-family:var(--font-newsreader); font-weight:500; letter-spacing:-0.035em; font-variant-numeric:tabular-nums; color:var(--ink); font-size:54px; line-height:.85; white-space:nowrap">{{ goalCount }}<span style="font-size:26px; letter-spacing:-0.01em; color:var(--secondary-ink)">%</span></span>
+            <span style="color:var(--disabled); font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:.12em; white-space:nowrap; animation:rc-fade .4s ease .6s both">across 3 goals</span>
+          </div>
+        </div>
+        <p style="margin:0; max-width:310px; text-align:center; font-family:var(--font-newsreader); font-size:21px; line-height:1.22; font-weight:500; letter-spacing:-0.015em; color:var(--ink); text-wrap:balance; animation:rc-rise .5s cubic-bezier(.22,1,.36,1) 1.25s both">{{ goalCopy }}</p>
+      </div>
+      <sc-if value="{{ showDoneCallout }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; align-items:center; gap:14px; border-radius:25.92px; background:rgba(38,107,77,.08); padding:14px 18px; margin-bottom:18px; animation:rc-rise .55s cubic-bezier(.22,1,.36,1) 1.5s both">
+          <span style="width:36px; height:36px; flex-shrink:0; border-radius:9999px; background:var(--done); color:#ffffff; display:flex; align-items:center; justify-content:center; animation:rc-check .4s ease 1.8s both">
+            <svg viewBox="0 0 24 24" width="18" height="18" style="fill:none; stroke:currentColor; stroke-width:3; stroke-linecap:round; stroke-linejoin:round"><path d="M20 6 9 17l-5-5"></path></svg>
+          </span>
+          <p style="margin:0; font-family:var(--font-newsreader); font-size:19px; line-height:1.25; font-weight:500; letter-spacing:-0.01em; color:var(--ink); text-wrap:pretty">{{ doneCopy }}</p>
+        </div>
+      </sc-if>
+      <div style="display:flex; flex-direction:column; gap:12px; border-top:1px solid var(--hairline); padding-top:14px; animation:rc-rise .5s cubic-bezier(.22,1,.36,1) 1.65s both">
+        <span style="font-size:10px; line-height:1; font-weight:600; text-transform:uppercase; letter-spacing:.14em; color:var(--faint); white-space:nowrap">By goal</span>
+        <div style="display:flex; flex-direction:column; gap:11px">
+          <sc-for list="{{ goalRows }}" as="g" hint-placeholder-count="3">
+            <div style="display:flex; flex-direction:column; gap:5px">
+              <div style="display:flex; align-items:center; gap:8px">
+                <span style="width:9px; height:9px; flex-shrink:0; border-radius:2px; background:{{ g.color }}"></span>
+                <span style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--body); font-size:14px; font-weight:600">{{ g.title }}</span>
+                <sc-if value="{{ g.done }}" hint-placeholder-val="{{ false }}">
+                  <span style="display:flex; align-items:center; gap:3px; flex-shrink:0; border-radius:9999px; background:rgba(38,107,77,.1); color:var(--done); padding:2px 8px 2px 6px; font-size:10.5px; font-weight:700; letter-spacing:.02em; animation:rc-check .4s ease {{ g.pillDelay }} both">
+                    <svg viewBox="0 0 24 24" width="11" height="11" style="fill:none; stroke:currentColor; stroke-width:3.4; stroke-linecap:round; stroke-linejoin:round"><path d="M20 6 9 17l-5-5"></path></svg>
+                    100%
+                  </span>
+                </sc-if>
+                <span style="flex:1"></span>
+                <span style="flex-shrink:0; color:var(--ink); font-size:14px; font-weight:600; font-variant-numeric:tabular-nums">{{ g.actual }}</span>
+                <span style="flex-shrink:0; white-space:nowrap; color:var(--caption); font-size:12px; font-variant-numeric:tabular-nums">/ {{ g.quota }}</span>
+              </div>
+              <div style="background:var(--track); height:6px; width:100%; overflow:hidden; border-radius:9999px">
+                <div style="height:100%; border-radius:9999px; background:{{ g.color }}; width:{{ g.w }}; transform-origin:left center; animation:rc-grow .8s cubic-bezier(.22,1,.36,1) {{ g.barDelay }} both"></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ is4 }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="04 Habits" style="position:absolute; inset:0; display:flex; flex-direction:column; padding:99px 24px 44px">
+      <div style="display:flex; flex-direction:column; gap:6px; animation:rc-rise .5s cubic-bezier(.22,1,.36,1) .05s both">
+        <h2 style="margin:0; font-family:var(--font-newsreader); font-size:36px; line-height:1.04; font-weight:500; letter-spacing:-0.022em; color:var(--ink)">Habits</h2>
+        <span style="font-size:13px; line-height:1.3; color:var(--caption); white-space:nowrap">{{ habitsMeta }}</span>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:26px; padding-bottom:20px">
+        <div style="position:relative; display:flex; flex-direction:column">
+          <div style="position:absolute; top:-8px; bottom:-6px; left:{{ bestColLeft }}; width:30px; border-radius:10px; background:rgba(28,58,94,.06); animation:rc-fade .5s ease 1.25s both"></div>
+          <div style="position:relative; display:flex; align-items:center; gap:4px; padding-bottom:8px">
+            <span style="flex:1; min-width:0"></span>
+            <sc-for list="{{ dayHeads }}" as="d" hint-placeholder-count="7">
+              <span style="width:26px; flex-shrink:0; text-align:center; font-size:10px; font-weight:700; letter-spacing:.06em; color:{{ d.ink }}">{{ d.letter }}</span>
+            </sc-for>
+            <span style="width:40px; flex-shrink:0; text-align:right; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:.12em; color:var(--disabled)">Week</span>
+          </div>
+          <sc-for list="{{ habitRows }}" as="h" hint-placeholder-count="4">
+            <div style="position:relative; display:flex; align-items:center; gap:4px; padding:7px 0; border-top:1px solid var(--divider); animation:rc-rise .45s cubic-bezier(.22,1,.36,1) {{ h.delay }} both">
+              <div style="display:flex; flex:1; min-width:0; align-items:center; gap:7px; padding-right:4px">
+                <span style="width:8px; height:8px; flex-shrink:0; border-radius:2px; background:{{ h.color }}"></span>
+                <span style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--body); font-size:13px; font-weight:600">{{ h.name }}</span>
+              </div>
+              <sc-for list="{{ h.days }}" as="c" hint-placeholder-count="7">
+                <span style="width:26px; height:26px; flex-shrink:0; box-sizing:border-box; border-radius:8px; border:1.5px solid {{ c.border }}; background:{{ c.bg }}; color:#ffffff; display:flex; align-items:center; justify-content:center; animation:rc-check .35s ease {{ c.delay }} both">
+                  <sc-if value="{{ c.done }}" hint-placeholder-val="{{ false }}">
+                    <svg viewBox="0 0 24 24" width="13" height="13" style="display:block; fill:none; stroke:currentColor; stroke-width:3.4; stroke-linecap:round; stroke-linejoin:round"><path d="M20 6 9 17l-5-5"></path></svg>
+                  </sc-if>
+                </span>
+              </sc-for>
+              <span style="width:40px; flex-shrink:0; text-align:right; font-family:var(--font-newsreader); font-weight:500; letter-spacing:-0.03em; font-variant-numeric:tabular-nums; color:var(--ink); font-size:19px; line-height:1; white-space:nowrap">{{ h.count }}<span style="font-size:11px; letter-spacing:0; color:var(--secondary-ink)">%</span></span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; border-radius:25.92px; background:rgba(28,58,94,.05); padding:16px 18px; animation:rc-rise .55s cubic-bezier(.22,1,.36,1) 1.35s both">
+          <sc-if value="{{ bestAll }}" hint-placeholder-val="{{ true }}">
+            <span style="width:36px; height:36px; flex-shrink:0; border-radius:9999px; background:var(--done); color:#ffffff; display:flex; align-items:center; justify-content:center; animation:rc-check .4s ease 1.65s both">
+              <svg viewBox="0 0 24 24" width="18" height="18" style="fill:none; stroke:currentColor; stroke-width:3; stroke-linecap:round; stroke-linejoin:round"><path d="M20 6 9 17l-5-5"></path></svg>
+            </span>
+          </sc-if>
+          <sc-if value="{{ bestPartial }}" hint-placeholder-val="{{ false }}">
+            <span style="width:36px; height:36px; flex-shrink:0; border-radius:9999px; background:var(--sand); color:var(--brand-deep); display:flex; align-items:center; justify-content:center; font-family:var(--font-newsreader); font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; animation:rc-check .4s ease 1.65s both">4/5</span>
+          </sc-if>
+          <p style="margin:0; font-family:var(--font-newsreader); font-size:18px; line-height:1.3; font-weight:500; letter-spacing:-0.01em; color:var(--ink); text-wrap:pretty">{{ bestCopy }}</p>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ is6 }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="05 Friends" style="position:absolute; inset:0; display:flex; flex-direction:column; padding:99px 24px 44px">
+      <div style="display:flex; flex-direction:column; gap:6px; animation:rc-rise .5s cubic-bezier(.22,1,.36,1) .05s both">
+        <h2 style="margin:0; font-family:var(--font-newsreader); font-size:36px; line-height:1.04; font-weight:500; letter-spacing:-0.022em; color:var(--ink)">Friends</h2>
+        <span style="font-size:13px; line-height:1.3; color:var(--caption); white-space:nowrap">{{ friendsMeta }}</span>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:26px; padding-bottom:16px">
+        <p style="margin:0; font-family:var(--font-newsreader); font-size:29px; line-height:1.18; font-weight:500; letter-spacing:-0.02em; color:var(--ink); text-wrap:pretty; animation:rc-rise .55s cubic-bezier(.22,1,.36,1) .2s both">Your group logged <span style="font-variant-numeric:tabular-nums">{{ groupCount }}</span> hours together this week.</p>
+        <div style="display:flex; flex-direction:column; border-bottom:1px solid var(--divider)">
+          <div style="display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid var(--hairline); animation:rc-slide .5s cubic-bezier(.22,1,.36,1) .95s both">
+            <x-import component-from-global-scope="Progra.AvatarInitials" name="Sam Rivera" username="samr" class-name="size-10 shrink-0 text-[13px]" hint-size="40px,40px"></x-import>
+            <div style="display:flex; min-width:0; flex:1; flex-direction:column; gap:3px">
+              <span style="color:var(--body); font-size:14px; font-weight:600; line-height:1.25">You liked Sam’s posts the most</span>
+              <span style="display:flex; align-items:center; gap:4px; color:var(--brand); font-size:12px; font-weight:500; font-variant-numeric:tabular-nums">
+                <svg viewBox="0 0 24 24" width="13" height="13" style="fill:currentColor; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"></path></svg>
+                12 likes
+              </span>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid var(--divider); animation:rc-slide .5s cubic-bezier(.22,1,.36,1) 1.12s both">
+            <x-import component-from-global-scope="Progra.AvatarInitials" name="Jordan Lee" username="jordanl" class-name="size-10 shrink-0 text-[13px]" hint-size="40px,40px"></x-import>
+            <span style="min-width:0; flex:1; color:var(--body); font-size:14px; font-weight:600; line-height:1.25">Jordan liked your posts the most.</span>
+          </div>
+        </div>
+        <sc-if value="{{ showTop3 }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex; align-items:center; gap:14px; border-radius:25.92px; background:rgba(28,58,94,.05); padding:14px 18px; animation:rc-rise .5s cubic-bezier(.22,1,.36,1) 1.45s both">
+            <span style="font-family:var(--font-newsreader); font-weight:500; letter-spacing:-0.03em; font-variant-numeric:tabular-nums; color:var(--brand); font-size:30px; line-height:1; animation:rc-check .4s ease 1.7s both">#2</span>
+            <div style="display:flex; min-width:0; flex:1; flex-direction:column; gap:2px">
+              <span style="color:var(--body); font-size:14px; font-weight:600; line-height:1.25">You were in the top three this week.</span>
+              <span style="color:var(--faint); font-size:11px; line-height:1.3">of 8 in your circle</span>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ showInvite }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; gap:14px; animation:rc-rise .5s cubic-bezier(.22,1,.36,1) 1.45s both">
+            <p style="margin:0; font-size:13.5px; line-height:1.45; color:var(--secondary-ink); text-wrap:pretty">Leaderboards start at three active friends — invite one more and you’ll see how your weeks stack up.</p>
+            <div onPointerDown="{{ stop }}" onPointerUp="{{ stop }}">
+              <x-import component-from-global-scope="Progra.InviteShare" hint-size="100%,74px"></x-import>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ is7 }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="06 Your rank" style="position:absolute; inset:0; display:flex; flex-direction:column; padding:99px 0 44px">
+      <div style="display:flex; flex-direction:column; gap:6px; padding:0 24px; animation:rc-rise .5s cubic-bezier(.22,1,.36,1) .05s both">
+        <h2 style="margin:0; font-family:var(--font-newsreader); font-size:36px; line-height:1.04; font-weight:500; letter-spacing:-0.022em; color:var(--ink)">Your rank</h2>
+        <span style="font-size:13px; line-height:1.3; color:var(--caption); white-space:nowrap">By clocked time</span>
+      </div>
+      <div style="display:flex; align-items:baseline; gap:10px; padding:18px 24px 16px">
+        <span style="font-family:var(--font-newsreader); font-weight:500; letter-spacing:-0.035em; font-variant-numeric:tabular-nums; color:var(--brand); font-size:68px; line-height:.9; transform-origin:left bottom; animation:rc-pop .5s ease .25s both">{{ rankHero }}</span>
+        <span style="color:var(--caption); font-size:14px; animation:rc-fade .4s ease .55s both">of 8 in your circle</span>
+      </div>
+      <div style="display:flex; flex-direction:column">
+        <sc-for list="{{ rankRows }}" as="r" hint-placeholder-count="8">
+          <div style="display:flex; align-items:center; gap:10px; padding:9px 24px; border-top:1px solid var(--divider); background:{{ r.bg }}; animation:rc-rise .45s cubic-bezier(.22,1,.36,1) {{ r.delay }} both">
+            <span style="width:22px; height:22px; flex-shrink:0; border-radius:9999px; display:flex; align-items:center; justify-content:center; font-family:var(--font-newsreader); font-size:12px; font-weight:600; font-variant-numeric:tabular-nums; background:{{ r.badgeBg }}; color:{{ r.badgeInk }}">{{ r.rank }}</span>
+            <x-import component-from-global-scope="Progra.AvatarInitials" name="{{ r.name }}" username="{{ r.username }}" class-name="size-[30px] shrink-0 text-[11px]" hint-size="30px,30px"></x-import>
+            <div style="display:flex; min-width:0; flex:1; flex-direction:column">
+              <span style="color:var(--body); font-size:13px; font-weight:600; line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ r.label }}</span>
+              <span style="color:var(--faint); font-size:10.5px; line-height:1.3">{{ r.sub }}</span>
+            </div>
+            <span style="color:var(--ink); width:56px; flex-shrink:0; text-align:right; font-size:12.5px; font-weight:600; font-variant-numeric:tabular-nums">{{ r.dur }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ is8 }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="07 Closing" style="position:absolute; inset:0; background:var(--brand-deep); display:flex; flex-direction:column; padding:99px 28px 46px; animation:rc-flood .75s cubic-bezier(.65,0,.35,1) both">
+      <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:40px; padding-bottom:24px">
+        <h1 style="margin:0; font-family:var(--font-newsreader); font-size:52px; line-height:1.02; font-weight:500; letter-spacing:-0.025em; color:{{ accentInk }}">
+          <span style="display:flex; flex-wrap:wrap">
+            <sc-for list="{{ closeLine1 }}" as="w" hint-placeholder-count="6">
+              <span style="display:inline-block; margin-right:.2em; animation:rc-word .55s cubic-bezier(.22,1,.36,1) {{ w.delay }} both">{{ w.text }}</span>
+            </sc-for>
+          </span>
+          <span style="display:flex; flex-wrap:wrap">
+            <sc-for list="{{ closeLine2 }}" as="w" hint-placeholder-count="2">
+              <span style="display:inline-block; margin-right:.2em; animation:rc-word .55s cubic-bezier(.22,1,.36,1) {{ w.delay }} both">{{ w.text }}</span>
+            </sc-for>
+          </span>
+        </h1>
+        <figure style="margin:0; display:flex; flex-direction:column; gap:12px; animation:rc-rise .6s cubic-bezier(.22,1,.36,1) 1.45s both">
+          <blockquote style="margin:0; font-family:var(--font-newsreader); font-style:italic; font-size:21px; line-height:1.35; color:rgba(255,255,255,.86)">“Well begun is half done.”</blockquote>
+          <figcaption style="font-size:10px; line-height:1; font-weight:600; text-transform:uppercase; letter-spacing:.14em; color:rgba(255,255,255,.5)">Aristotle</figcaption>
+        </figure>
+      </div>
+      <div onPointerDown="{{ stop }}" onPointerUp="{{ stop }}" style="animation:rc-rise .6s cubic-bezier(.22,1,.36,1) 1.85s both">
+        <button type="button" onClick="{{ onStart }}" style="width:100%; height:52px; border:0; border-radius:15px; background:#ffffff; color:var(--brand-deep); font-family:var(--font-hanken); font-size:16px; font-weight:600; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .15s ease" style-active="transform:scale(.98)">Start your next session</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showChrome }}" hint-placeholder-val="{{ true }}">
+    <header style="position:absolute; top:0; left:0; right:0; z-index:20; display:flex; align-items:center; gap:8px; padding:59px 6px 0 16px; animation:{{ chromeAnim }}">
+      <div style="display:flex; flex:1; align-items:center; gap:6px">
+        <sc-for list="{{ pips }}" as="pip" hint-placeholder-count="8">
+          <span style="display:block; height:4px; flex:1; overflow:hidden; border-radius:9999px; background:{{ chromeTrack }}">
+            <span style="display:block; height:100%; border-radius:9999px; background:{{ chromeFill }}; width:{{ pip.w }}; transition:width .3s ease"></span>
+          </span>
+        </sc-for>
+      </div>
+      <button type="button" aria-label="Close recap" onClick="{{ onClose }}" onPointerDown="{{ stop }}" onPointerUp="{{ stop }}" style="flex-shrink:0; width:44px; height:28px; display:flex; align-items:center; justify-content:center; background:none; border:0; padding:0; cursor:pointer; color:{{ chromeX }}">
+        <svg viewBox="0 0 24 24" width="20" height="20" style="fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+      </button>
+    </header>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 402, &quot;height&quot;: 874}, &quot;slide&quot;: {&quot;editor&quot;: &quot;int&quot;, &quot;default&quot;: 1, &quot;min&quot;: 0, &quot;max&quot;: 8, &quot;tsType&quot;: &quot;number&quot;}, &quot;hours&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;above&quot;, &quot;lighter&quot;], &quot;default&quot;: &quot;above&quot;, &quot;tsType&quot;: &quot;string&quot;}, &quot;goal&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;100&quot;, &quot;86&quot;, &quot;62&quot;], &quot;default&quot;: &quot;86&quot;, &quot;tsType&quot;: &quot;string&quot;}, &quot;bestDay&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;all&quot;, &quot;partial&quot;], &quot;default&quot;: &quot;all&quot;, &quot;tsType&quot;: &quot;string&quot;}, &quot;friends&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;top3&quot;, &quot;outside&quot;, &quot;few&quot;], &quot;default&quot;: &quot;top3&quot;, &quot;tsType&quot;: &quot;string&quot;}, &quot;accent&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;goal&quot;, &quot;sand&quot;], &quot;default&quot;: &quot;goal&quot;, &quot;tsType&quot;: &quot;string&quot;}, &quot;still&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: false, &quot;tsType&quot;: &quot;boolean&quot;}, &quot;fromIntro&quot;: {&quot;editor&quot;: null, &quot;tsType&quot;: &quot;boolean&quot;}, &quot;onClose&quot;: {&quot;editor&quot;: null, &quot;tsType&quot;: &quot;() =&gt; void&quot;}, &quot;onStart&quot;: {&quot;editor&quot;: null, &quot;tsType&quot;: &quot;() =&gt; void&quot;}}">
+const H = 3600000;
+const ORANGE = '#E07042';
+const SEQ_FULL = [0, 1, 2, 3, 4, 6, 7, 8];
+const SEQ_FEW = [0, 1, 2, 3, 4, 6, 8];
+const REDUCE = typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// lib/colors.ts mixToWhite — lifts a palette fill for a navy ground (entityOnDark uses 0.45).
+function mixToWhite(hex, amount) {
+  const h = hex.replace('#', '');
+  const ch = (i) => parseInt(h.slice(i, i + 2), 16);
+  const lift = (c) => Math.round(c + (255 - c) * amount).toString(16).padStart(2, '0');
+  return `#${lift(ch(0))}${lift(ch(2))}${lift(ch(4))}`;
+}
+
+// Eased count-up; renders a plain string so the template owns all styling.
+function CountUp(props) {
+  const target = Number(props.to) || 0;
+  const decimals = props.decimals || 0;
+  const duration = props.duration || 1100;
+  const delay = props.delay || 0;
+  const still = !!props.still;
+  const [v, setV] = React.useState(still ? target : 0);
+  React.useEffect(() => {
+    if (still) { setV(target); return undefined; }
+    let raf = 0;
+    let start = null;
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
+    const tick = (now) => {
+      if (start === null) start = now + delay;
+      const t = Math.min(1, Math.max(0, (now - start) / duration));
+      setV(target * ease(t));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, still, duration, delay]);
+  return v.toFixed(decimals);
+}
+
+// Goals: [title, color, quotaHours, actual hours] per state.
+const GOALS = {
+  100: [['Thesis', ORANGE, 6, 6.2], ['Spanish', '#77B7C6', 2, 2.3], ['Reading', '#2E8B50', 2, 2.1]],
+  86: [['Thesis', ORANGE, 6, 5.0], ['Spanish', '#77B7C6', 2, 1.6], ['Reading', '#2E8B50', 2, 2.0]],
+  62: [['Thesis', ORANGE, 6, 2.8], ['Spanish', '#77B7C6', 2, 1.4], ['Reading', '#2E8B50', 2, 2.0]],
+};
+
+// Habits: [name, color, Mon→Sun completions]. "all" has Wednesday as the only
+// full day; "partial" peaks on Tuesday at 4 of 5.
+const HABITS = {
+  all: { best: 2, list: [
+    ['Flashcards', '#D6A728', [1, 1, 1, 1, 1, 0, 1]],
+    ['Sleep by 11', '#6F4E93', [1, 0, 1, 1, 0, 1, 1]],
+    ['Gym', '#7CBE6D', [1, 0, 1, 0, 1, 1, 0]],
+    ['Read 20 min', '#D06DA1', [0, 1, 1, 0, 1, 0, 0]],
+  ] },
+  partial: { best: 1, list: [
+    ['Flashcards', '#D6A728', [1, 1, 1, 0, 1, 0, 1]],
+    ['Sleep by 11', '#6F4E93', [0, 1, 1, 1, 0, 1, 0]],
+    ['Read 20 min', '#D06DA1', [1, 1, 0, 1, 0, 0, 1]],
+    ['Gym', '#7CBE6D', [1, 1, 0, 0, 1, 0, 0]],
+    ['Journal', '#395AA0', [0, 0, 1, 0, 0, 1, 0]],
+  ] },
+};
+const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+const BOARD_TOP = [
+  ['Maya Chen', 'mayac', 1120, '4 goals this week'], ['You', 'raek', 690, '3 goals this week'],
+  ['Sam Rivera', 'samr', 665, '2 goals this week'], ['Jordan Lee', 'jordanl', 640, '3 goals this week'],
+  ['Priya Natarajan', 'priyan', 590, '1 goal this week'], ['Theo Brooks', 'theob', 515, '2 goals this week'],
+  ['Ana Souza', 'anas', 475, 'Tracked outside goals'], ['Leo Park', 'leop', 345, '1 goal this week'],
+];
+const BOARD_OUT = [
+  ['Maya Chen', 'mayac', 1120, '4 goals this week'], ['Sam Rivera', 'samr', 905, '2 goals this week'],
+  ['Jordan Lee', 'jordanl', 800, '3 goals this week'], ['Priya Natarajan', 'priyan', 730, '1 goal this week'],
+  ['You', 'raek', 690, '3 goals this week'], ['Theo Brooks', 'theob', 395, '2 goals this week'],
+  ['Ana Souza', 'anas', 295, 'Tracked outside goals'], ['Leo Park', 'leop', 105, '1 goal this week'],
+];
+
+class Component extends DCLogic {
+  stop = (e) => { e.stopPropagation(); };
+  onCloseClick = () => { if (this.props.onClose) this.props.onClose(); };
+  onStartClick = () => { if (this.props.onStart) this.props.onStart(); };
+
+  renderVals() {
+    const p = this.props;
+    const b = (v) => v === true || v === 'true' || v === '';
+    const slide = Number(p.slide ?? 1);
+    const hours = p.hours ?? 'above';
+    const goalKey = [100, 86, 62].includes(Number(p.goal)) ? Number(p.goal) : 86;
+    const bestDay = p.bestDay ?? 'all';
+    const friends = p.friends ?? 'top3';
+    const accent = p.accent ?? 'goal';
+    const still = b(p.still) || REDUCE;
+
+    const seq = friends === 'few' ? SEQ_FEW : SEQ_FULL;
+    const cur = Math.max(0, seq.indexOf(slide)) - 1;
+    const pips = Array.from({ length: seq.length - 1 }, (_, i) => ({ w: i <= cur ? '100%' : '0%' }));
+    const dark = slide === 8;
+    const count = (to, o) => React.createElement(CountUp, Object.assign({ to, still }, o));
+
+    const lighter = hours === 'lighter';
+
+    const cats = [['Thesis', ORANGE, 5.0], ['Reading', '#2E8B50', 2.0], ['Spanish', '#77B7C6', 1.6], ['Class', '#A084B3', 1.6], ['Uncategorized', '#c3c8ce', 1.3]];
+    const C2 = 2 * Math.PI * 80;
+    let acc = 0;
+    const donut = cats.map(([, color, h]) => {
+      const len = (h / 11.5) * C2;
+      const seg = { color, dash: `${len.toFixed(2)} ${(C2 - len).toFixed(2)}`, offset: (-acc).toFixed(2), delay: `${(0.25 + (acc / C2) * 0.9).toFixed(3)}s`, dur: `${((len / C2) * 0.9).toFixed(3)}s` };
+      acc += len;
+      return seg;
+    });
+    const catRows = cats.map(([name, color, h], i) => {
+      const pct = Math.round((h / 11.5) * 100);
+      const d = 0.75 + i * 0.08;
+      return { name, color, meta: `${h.toFixed(1)}h · ${pct}%`, w: `${Math.max(2, pct)}%`, delay: `${d.toFixed(2)}s`, barDelay: `${(d + 0.12).toFixed(2)}s` };
+    });
+
+    // Overall progress across goals: each goal capped at its own quota, so one
+    // over-achieved goal can't hide another that fell short.
+    const goals = GOALS[goalKey];
+    const quota = goals.reduce((s, g) => s + g[2], 0);
+    const capped = goals.reduce((s, g) => s + Math.min(g[3], g[2]), 0);
+    const goalPct = Math.round((capped / quota) * 100);
+    const C3 = 2 * Math.PI * 78;
+    const gLen = Math.min(1, goalPct / 100) * C3;
+
+    const partial = bestDay === 'partial';
+    const hset = HABITS[partial ? 'partial' : 'all'];
+    const habitRows = hset.list.map(([name, color, days], i) => {
+      const pct = Math.round((days.reduce((s, x) => s + x, 0) / 7) * 100);
+      return {
+        name, color,
+        delay: `${(0.2 + i * 0.07).toFixed(2)}s`,
+        days: days.map((x, j) => ({
+          done: !!x,
+          bg: x ? color : 'transparent',
+          border: x ? color : 'var(--hairline)',
+          delay: `${(0.35 + j * 0.07 + i * 0.03).toFixed(2)}s`,
+        })),
+        count: count(pct, { duration: 700, delay: 900 }),
+      };
+    });
+    const dayHeads = LETTERS.map((letter, j) => ({ letter, ink: j === hset.best ? 'var(--brand)' : 'var(--disabled)' }));
+
+    const board = friends === 'outside' ? BOARD_OUT : BOARD_TOP;
+    const fmt = (m) => (m % 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m / 60}h`);
+    const rankRows = board.map(([label, username, m, sub], i) => ({
+      rank: i + 1, label, sub, dur: fmt(m),
+      name: label === 'You' ? 'Rae Kim' : label, username,
+      bg: label === 'You' ? 'var(--tint-you)' : 'transparent',
+      badgeBg: i === 0 ? 'var(--brand)' : i < 3 ? 'var(--track)' : 'transparent',
+      badgeInk: i === 0 ? '#ffffff' : i < 3 ? 'var(--body)' : 'var(--faint)',
+      delay: `${(0.55 + i * 0.07).toFixed(2)}s`,
+    }));
+    const meRank = board.findIndex((r) => r[0] === 'You') + 1;
+
+    const words = (list, start) => list.map((text, i) => ({ text, delay: `${(start + i * 0.075).toFixed(3)}s` }));
+    const line1 = ['It’s', 'time', 'for', 'a', 'new', 'week.'];
+
+    return {
+      stillAttr: still ? 'true' : undefined,
+      stop: this.stop,
+      onClose: this.onCloseClick,
+      onStart: this.onStartClick,
+      showChrome: slide !== 0,
+      chromeTrack: dark ? 'rgba(255,255,255,.2)' : 'var(--track)',
+      chromeFill: dark ? '#ffffff' : 'var(--brand)',
+      chromeX: dark ? 'rgba(255,255,255,.65)' : 'var(--caption)',
+      chromeAnim: dark ? 'rc-fade .35s ease .55s both' : 'none',
+      pips,
+      is0: slide === 0, is1: slide === 1, is2: slide === 2, is3: slide === 3, is4: slide === 4,
+      is6: slide === 6, is7: slide === 7, is8: slide === 8,
+
+      showCurtain: b(p.fromIntro) && !still,
+      hoursCount: count(lighter ? 6.4 : 11.5, { decimals: 1, duration: 1300, delay: 300 }),
+      hoursLine: lighter ? 'Your weekly average is 8.2 hrs.' : 'Above your weekly average of 8.2 hrs.',
+
+      d0: donut[0], d1: donut[1], d2: donut[2], d3: donut[3], d4: donut[4],
+      catRows,
+
+      goalMeta: `${capped.toFixed(1)}h of ${quota}h`,
+      goalDash: `${gLen.toFixed(2)} ${C3.toFixed(2)}`,
+      goalSettle: goalPct >= 100 ? 'rc-settle .5s ease-in-out 1.75s' : 'none',
+      goalCount: count(Math.min(goalPct, 100), { duration: 1400, delay: 300 }),
+      goalCopy: goalPct >= 100 ? 'Goals complete. Want to raise them?'
+        : goalPct >= 80 ? `${goalPct}% done. Great job! Let’s aim for 100 next week.`
+          : `You were ${goalPct}% done with your weekly goals. Let’s try and hit them next week!`,
+      goalRows: goals.map(([title, color, q, h], i) => ({
+        title, color, done: h >= q,
+        actual: `${h.toFixed(1)}h`, quota: `${q}h`,
+        w: `${Math.max(2, Math.min(100, (h / q) * 100))}%`,
+        barDelay: `${(1.75 + i * 0.08).toFixed(2)}s`, pillDelay: `${(2.35 + i * 0.08).toFixed(2)}s`,
+      })),
+      showDoneCallout: goals.some((g) => g[3] >= g[2]),
+      doneCopy: (() => {
+        const done = goals.filter((g) => g[3] >= g[2]).map((g) => g[0]);
+        if (done.length === goals.length) return 'You did 100% of all three goals, good job!!';
+        const names = done.length > 1 ? `${done.slice(0, -1).join(', ')} and ${done[done.length - 1]}` : done[0];
+        return `You did 100% of your ${names}, good job!!`;
+      })(),
+
+      habitsMeta: `${hset.list.length} habits this week`,
+      habitRows,
+      dayHeads,
+      bestColLeft: `calc(100% - ${252 - hset.best * 30}px)`,
+      bestAll: !partial, bestPartial: partial,
+      bestCopy: partial ? 'Your best day was Tuesday, with 4 of 5 habits done.' : 'Your best day was Wednesday, when you completed every habit.',
+
+      friendsMeta: friends === 'few' ? '2 active friends' : '8 in your circle',
+      groupCount: count(friends === 'few' ? 19 : 84, { duration: 1100, delay: 350 }),
+      showTop3: friends === 'top3',
+      showInvite: friends === 'few',
+
+      rankHero: `#${meRank}`,
+      rankRows,
+
+      accentInk: accent === 'sand' ? 'var(--sand)' : mixToWhite(ORANGE, 0.45),
+      closeLine1: words(line1, 0.6),
+      closeLine2: words(['Let’s', 'go!'], 0.6 + line1.length * 0.075 + 0.12),
+    };
+  }
+}
+</script>
+</body>
+</html>

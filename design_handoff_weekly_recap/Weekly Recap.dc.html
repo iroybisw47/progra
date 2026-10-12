@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="stylesheet" href="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/_ds_bundle.css">
+  <link rel="stylesheet" href="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/styles.css">
+  <script src="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/_ds_bundle.js"></script>
+  <style>body{margin:0;background:#e9ebef}a{color:#1c3a5e}a:hover{color:#142c49}</style>
+</helmet>
+<div style="padding:64px 64px 120px; font-family:var(--font-hanken); color:var(--body); display:flex; flex-direction:column; gap:72px; width:max-content">
+
+  <section style="display:flex; flex-direction:column; gap:14px; width:860px">
+    <span style="font-size:10px; line-height:1; font-weight:600; text-transform:uppercase; letter-spacing:.14em; color:var(--faint)">Progra · Sunday recap</span>
+    <h1 style="margin:0; font-family:var(--font-newsreader); font-size:36px; line-height:1.1; font-weight:500; letter-spacing:-0.02em; color:var(--ink)">Weekly recap — story redesign</h1>
+    <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px 36px; padding-top:6px; font-size:13px; line-height:1.5; color:var(--secondary-ink)">
+      <p style="margin:0; text-wrap:pretty">Eight slides: your six, plus Where it went after Hours and the full rank list after Friends, both kept from today’s story. The rank slide drops out when fewer than three friends are active.</p>
+      <p style="margin:0; text-wrap:pretty">Tap to move: right half advances, left half goes back (swipe and arrow keys too). Nothing advances on its own except the loading screen, which hands off once the logo’s clock fills.</p>
+      <p style="margin:0; text-wrap:pretty">“Dark” is brand-deep navy (#142c49), the surface the share card and Live Activity already use. The closing headline takes your top goal’s color, lifted for navy the way the Live Activity does it.</p>
+      <p style="margin:0; text-wrap:pretty">Goals: the ring shows progress across every goal (each capped at its quota), with each goal listed underneath. Placeholders: the quote and the invite line.</p>
+    </div>
+  </section>
+
+  <section style="display:flex; gap:56px; align-items:flex-start">
+    <div data-screen-label="Prototype" style="display:flex; flex-direction:column; gap:12px">
+      <span style="font-size:12px; font-weight:600; color:var(--secondary-ink)">Prototype — tap through it</span>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ statusDark }}" hint-size="402px,874px">
+        <div onPointerDown="{{ onDown }}" onPointerUp="{{ onUp }}" onPointerCancel="{{ onCancel }}" onPointerLeave="{{ onCancel }}" onContextMenu="{{ noMenu }}" style="position:relative; width:100%; height:100%; cursor:pointer; touch-action:manipulation; background:#ffffff">
+          <sc-if value="{{ mountA }}" hint-placeholder-val="{{ true }}">
+            <dc-import name="RecapSlide" slide="{{ slide }}" hours="{{ hours }}" goal="{{ goal }}" best-day="{{ bestDay }}" friends="{{ friends }}" accent="{{ accent }}" from-intro="{{ fromIntro }}" on-close="{{ onClose }}" on-start="{{ onStart }}" style="position:absolute; inset:0" hint-size="402px,874px"></dc-import>
+          </sc-if>
+          <sc-if value="{{ mountB }}" hint-placeholder-val="{{ false }}">
+            <dc-import name="RecapSlide" slide="{{ slide }}" hours="{{ hours }}" goal="{{ goal }}" best-day="{{ bestDay }}" friends="{{ friends }}" accent="{{ accent }}" from-intro="{{ fromIntro }}" on-close="{{ onClose }}" on-start="{{ onStart }}" style="position:absolute; inset:0" hint-size="402px,874px"></dc-import>
+          </sc-if>
+          <sc-if value="{{ ended }}" hint-placeholder-val="{{ false }}">
+            <div onPointerDown="{{ stop }}" onPointerUp="{{ stop }}" style="position:absolute; inset:0; background:#ffffff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:0 44px; text-align:center; cursor:default">
+              <img src="assets/progra-logo.png" alt="Progra" style="width:58px; height:58px; border-radius:13px; display:block">
+              <span style="padding-top:6px; font-family:var(--font-newsreader); font-size:21px; font-weight:500; letter-spacing:-0.015em; color:var(--ink)">{{ endTitle }}</span>
+              <span style="font-size:13px; line-height:1.45; color:var(--caption); text-wrap:pretty">{{ endSub }}</span>
+              <button type="button" onClick="{{ replay }}" style="margin-top:10px; height:48px; width:100%; border-radius:15px; border:1.5px solid var(--control-border); background:#ffffff; color:var(--body); font-family:var(--font-hanken); font-size:14px; font-weight:600; cursor:pointer" style-active="transform:scale(.98)">Replay recap</button>
+            </div>
+          </sc-if>
+        </div>
+      </x-import>
+    </div>
+
+    <aside style="display:flex; flex-direction:column; gap:26px; width:300px; padding-top:30px">
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <span style="font-size:10px; line-height:1; font-weight:600; text-transform:uppercase; letter-spacing:.14em; color:var(--faint)">Slides</span>
+        <div style="display:flex; flex-direction:column; gap:2px">
+          <sc-for list="{{ slideList }}" as="s" hint-placeholder-count="8">
+            <button type="button" onClick="{{ s.go }}" disabled="{{ s.skipped }}" style="display:flex; align-items:center; gap:12px; width:100%; padding:9px 12px; border:0; border-radius:10px; text-align:left; font-family:var(--font-hanken); cursor:{{ s.cursor }}; background:{{ s.bg }}">
+              <span style="width:3px; height:18px; border-radius:2px; flex-shrink:0; background:{{ s.bar }}"></span>
+              <span style="width:20px; flex-shrink:0; font-size:11px; font-weight:600; font-variant-numeric:tabular-nums; color:var(--faint)">{{ s.num }}</span>
+              <span style="flex:1; min-width:0; font-size:13px; font-weight:600; color:{{ s.ink }}">{{ s.name }}</span>
+              <span style="flex-shrink:0; font-size:11px; color:var(--caption)">{{ s.note }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px">
+        <button type="button" onClick="{{ replay }}" style="flex:1; height:36px; border-radius:10px; border:1.5px solid var(--control-border); background:#ffffff; color:var(--body); font-family:var(--font-hanken); font-size:12px; font-weight:600; cursor:pointer">Replay</button>
+      </div>
+      <p style="margin:0; font-size:12px; line-height:1.55; color:var(--caption); text-wrap:pretty">Data states (hours, goals, best day, friends) and the closing accent live in Tweaks.</p>
+    </aside>
+  </section>
+
+  <section style="display:flex; flex-direction:column; gap:24px">
+    <div style="display:flex; flex-direction:column; gap:6px">
+      <span style="font-size:10px; line-height:1; font-weight:600; text-transform:uppercase; letter-spacing:.14em; color:var(--faint)">Board</span>
+      <span style="font-family:var(--font-newsreader); font-size:26px; font-weight:500; letter-spacing:-0.015em; color:var(--ink)">Every slide and state</span>
+      <span style="font-size:13px; color:var(--caption)">Final frames, after each slide’s choreography settles.</span>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:56px 40px; width:2170px">
+      <sc-for list="{{ board }}" as="f" hint-placeholder-count="15">
+        <div data-screen-label="{{ f.label }}" style="display:flex; flex-direction:column; gap:12px">
+          <span style="font-size:12px; font-weight:600; color:var(--secondary-ink)">{{ f.label }}</span>
+          <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ f.dark }}" hint-size="402px,874px">
+            <dc-import name="RecapSlide" slide="{{ f.slide }}" hours="{{ f.hours }}" goal="{{ f.goal }}" best-day="{{ f.bestDay }}" friends="{{ f.friends }}" accent="{{ accent }}" still="{{ true }}" style="display:block; width:100%; height:100%" hint-size="402px,874px"></dc-import>
+          </x-import>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;hours&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;Above average&quot;, &quot;Lighter week&quot;], &quot;default&quot;: &quot;Above average&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Data state&quot;}, &quot;goal&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;Complete (100%)&quot;, &quot;80% and up (86%)&quot;, &quot;Under 80% (62%)&quot;], &quot;default&quot;: &quot;80% and up (86%)&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Data state&quot;}, &quot;bestDay&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;Every habit&quot;, &quot;Partial (4 of 5)&quot;], &quot;default&quot;: &quot;Every habit&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Data state&quot;}, &quot;friends&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;Top three&quot;, &quot;Outside top three&quot;, &quot;Fewer than 3 friends&quot;], &quot;default&quot;: &quot;Top three&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Data state&quot;}, &quot;closingAccent&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;Top goal color&quot;, &quot;Sand&quot;], &quot;default&quot;: &quot;Top goal color&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Look&quot;}}">
+const SEQ_FULL = [0, 1, 2, 3, 4, 6, 7, 8];
+const SEQ_FEW = [0, 1, 2, 3, 4, 6, 8];
+const NAMES = { 0: 'Loading', 1: 'Hours tracked', 2: 'Where it went', 3: 'Weekly goals', 4: 'Habits', 6: 'Friends', 7: 'Your rank', 8: 'Closing' };
+const INTRO_MS = 2050;
+
+const BOARD = [
+  { slide: 0, label: '00 · Loading', dark: true },
+  { slide: 1, label: '01 · Hours — above average' },
+  { slide: 1, label: '01 · Hours — lighter week', hours: 'lighter' },
+  { slide: 2, label: '02 · Where it went (kept from today)' },
+  { slide: 3, label: '03 · Goals — all complete', goal: 100 },
+  { slide: 3, label: '03 · Goals — 80% and up', goal: 86 },
+  { slide: 3, label: '03 · Goals — under 80%', goal: 62 },
+  { slide: 4, label: '04 · Habits — every habit on the best day' },
+  { slide: 4, label: '04 · Habits — partial best day', bestDay: 'partial' },
+  { slide: 6, label: '05 · Friends — top three' },
+  { slide: 6, label: '05 · Friends — outside top three', friends: 'outside' },
+  { slide: 6, label: '05 · Friends — fewer than 3 active friends', friends: 'few' },
+  { slide: 7, label: '06 · Your rank (kept from today)' },
+  { slide: 8, label: '07 · Closing', dark: true },
+].map((f) => Object.assign({ hours: 'above', goal: 86, bestDay: 'all', friends: 'top3', dark: false }, f));
+
+class Component extends DCLogic {
+  state = { pos: 0, cycle: 0, fromIntro: false, ended: null, statusDark: true };
+
+  componentDidMount() {
+    this.armIntro();
+    window.addEventListener('keydown', this.onKey);
+  }
+  componentWillUnmount() {
+    clearTimeout(this.introT); clearTimeout(this.statusT);
+    window.removeEventListener('keydown', this.onKey);
+  }
+
+  cfg() {
+    const p = this.props;
+    const friends = { 'Top three': 'top3', 'Outside top three': 'outside', 'Fewer than 3 friends': 'few' }[p.friends] || 'top3';
+    return {
+      hours: p.hours === 'Lighter week' ? 'lighter' : 'above',
+      goal: { 'Complete (100%)': 100, '80% and up (86%)': 86, 'Under 80% (62%)': 62 }[p.goal] || 86,
+      bestDay: p.bestDay === 'Partial (4 of 5)' ? 'partial' : 'all',
+      friends,
+      accent: p.closingAccent === 'Sand' ? 'sand' : 'goal',
+      seq: friends === 'few' ? SEQ_FEW : SEQ_FULL,
+    };
+  }
+
+  armIntro() {
+    clearTimeout(this.introT);
+    this.introT = setTimeout(() => {
+      if (this.state.pos === 0 && !this.state.ended) this.go(1, true);
+    }, INTRO_MS);
+  }
+
+  syncStatus(slide, fromIntro) {
+    clearTimeout(this.statusT);
+    if (slide === 8) this.statusT = setTimeout(() => this.setState({ statusDark: true }), 380);
+    else if (fromIntro) this.statusT = setTimeout(() => this.setState({ statusDark: false }), 700);
+    else this.setState({ statusDark: slide === 0 });
+  }
+
+  go(pos, fromIntro) {
+    const seq = this.cfg().seq;
+    const p = Math.max(0, Math.min(seq.length - 1, pos));
+    clearTimeout(this.introT);
+    this.setState((s) => ({ pos: p, cycle: s.cycle + 1, fromIntro: !!fromIntro, ended: null }));
+    this.syncStatus(seq[p], fromIntro);
+    if (p === 0) this.armIntro();
+  }
+
+  curSlide() {
+    const seq = this.cfg().seq;
+    return seq[Math.min(this.state.pos, seq.length - 1)];
+  }
+
+  next = () => {
+    if (this.state.ended) return;
+    if (this.state.pos === 0) { this.go(1, true); return; }
+    if (this.curSlide() === 8) return;
+    this.go(this.state.pos + 1);
+  };
+  prev = () => {
+    if (this.state.ended) return;
+    if (this.state.pos === 0) { this.go(1, true); return; }
+    this.go(this.state.pos <= 1 ? 1 : this.state.pos - 1);
+  };
+  close = () => { clearTimeout(this.introT); clearTimeout(this.statusT); this.setState({ ended: 'close', statusDark: false }); };
+  start = () => { clearTimeout(this.statusT); this.setState({ ended: 'cta', statusDark: false }); };
+  replay = () => { this.go(0); };
+  stop = (e) => { e.stopPropagation(); };
+  noMenu = (e) => { e.preventDefault(); };
+
+  onDown = (e) => {
+    if (this.state.ended) return;
+    this.down = { x: e.clientX, y: e.clientY };
+  };
+  onUp = (e) => {
+    const d = this.down;
+    this.down = null;
+    if (!d || this.state.ended) return;
+    const dx = e.clientX - d.x;
+    const dy = e.clientY - d.y;
+    if (Math.abs(dx) >= 45 && Math.abs(dx) > Math.abs(dy)) { if (dx < 0) this.next(); else this.prev(); return; }
+    const r = e.currentTarget.getBoundingClientRect();
+    if (e.clientX - r.left < r.width / 2) this.prev(); else this.next();
+  };
+  onCancel = () => { this.down = null; };
+  onKey = (e) => {
+    const t = e.target && e.target.tagName;
+    if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return;
+    if (e.key === 'ArrowRight') this.next();
+    else if (e.key === 'ArrowLeft') this.prev();
+    else if (e.key === 'Escape') this.close();
+  };
+
+  renderVals() {
+    const c = this.cfg();
+    const seq = c.seq;
+    const pos = Math.min(this.state.pos, seq.length - 1);
+    const slide = seq[pos];
+    const ended = this.state.ended;
+    const live = !ended;
+    return {
+      statusDark: live ? this.state.statusDark : false,
+      mountA: live && this.state.cycle % 2 === 0,
+      mountB: live && this.state.cycle % 2 === 1,
+      slide,
+      hours: c.hours, goal: c.goal, bestDay: c.bestDay, friends: c.friends, accent: c.accent,
+      fromIntro: this.state.fromIntro && slide === 1,
+      onClose: this.close, onStart: this.start,
+      onDown: this.onDown, onUp: this.onUp, onCancel: this.onCancel, noMenu: this.noMenu, stop: this.stop,
+      ended: !!ended,
+      endTitle: ended === 'cta' ? 'Clock opens next' : 'Recap closed',
+      endSub: ended === 'cta' ? 'In the app, Start your next session lands on the Clock tab.' : 'In the app, closing returns to Progress.',
+      replay: this.replay,
+      slideList: SEQ_FULL.map((i, k) => {
+        const name = NAMES[i];
+        const at = seq.indexOf(i);
+        const skipped = at === -1;
+        const current = live && i === slide;
+        return {
+          name, num: String(k).padStart(2, '0'), skipped,
+          note: skipped ? 'skipped' : i === 2 || i === 7 ? 'kept' : '',
+          bg: current ? '#ffffff' : 'transparent',
+          bar: current ? 'var(--brand)' : 'transparent',
+          ink: skipped ? 'var(--disabled)' : current ? 'var(--ink)' : 'var(--body)',
+          cursor: skipped ? 'default' : 'pointer',
+          go: () => { if (!skipped) this.go(at, at === 1); },
+        };
+      }),
+      accent: c.accent,
+      board: BOARD,
+    };
+  }
+}
+</script>
+</body>
+</html>

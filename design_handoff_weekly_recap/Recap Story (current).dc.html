@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="stylesheet" href="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/_ds_bundle.css">
+  <link rel="stylesheet" href="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/styles.css">
+  <script src="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/_ds_bundle.js"></script>
+  <style>body{margin:0;background:#e9ebef}a{color:#1c3a5e}a:hover{color:#142c49}</style>
+</helmet>
+<div style="padding:56px 56px 80px; font-family:var(--font-hanken); color:var(--body); display:flex; flex-direction:column; gap:28px; width:max-content">
+  <div style="display:flex; flex-direction:column; gap:6px">
+    <span style="font-size:10px; line-height:1; font-weight:600; text-transform:uppercase; letter-spacing:0.14em; color:var(--faint)">Today on main</span>
+    <span style="font-family:var(--font-newsreader); font-size:26px; font-weight:500; letter-spacing:-0.015em; color:var(--ink)">Recap story — current</span>
+    <span style="font-size:13px; color:var(--caption)">Recreated from app/recap/[weekStart]/recap-story.tsx: five panels, progress pips, close, Back / Next footer.</span>
+  </div>
+  <div style="display:flex; gap:40px; align-items:flex-start">
+    <sc-for list="{{ panels }}" as="p" hint-placeholder-count="5">
+      <div style="display:flex; flex-direction:column; gap:12px" data-screen-label="{{ p.label }}">
+        <span style="font-size:12px; font-weight:600; color:var(--secondary-ink)">{{ p.label }}</span>
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+          <div style="display:flex; flex-direction:column; height:100%; background:var(--background); color:var(--foreground); font-family:var(--font-hanken)">
+            <header style="display:flex; align-items:center; gap:12px; padding:59px 16px 8px">
+              <div style="display:flex; flex:1; align-items:center; gap:6px">
+                <sc-for list="{{ p.pips }}" as="pip" hint-placeholder-count="5">
+                  <span style="display:block; height:4px; flex:1; overflow:hidden; border-radius:9999px; background:var(--track)">
+                    <span style="display:block; height:100%; border-radius:9999px; background:var(--brand); width:{{ pip.w }}"></span>
+                  </span>
+                </sc-for>
+              </div>
+              <span style="color:var(--caption); margin-right:-4px; flex-shrink:0; padding:4px; display:flex">
+                <svg viewBox="0 0 24 24" width="20" height="20" style="fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+              </span>
+            </header>
+            <div style="position:relative; flex:1; overflow:hidden">
+              <div style="position:absolute; inset:0; overflow-y:auto">
+                <sc-if value="{{ p.is0 }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; min-height:100%; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:0 32px; text-align:center">
+                    <span style="color:var(--caption); font-size:14px; line-height:20px">Week of {{ range }}</span>
+                    <span style="color:var(--ink); font-size:64px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums">{{ totalLabel }}</span>
+                    <span style="color:var(--body); font-size:18px; line-height:28px">tracked this week</span>
+                    <span style="color:var(--caption); font-size:14px; line-height:20px">14 sessions · 3 imported</span>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ p.is1 }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; min-height:100%; flex-direction:column; gap:24px; padding:24px 24px 96px">
+                    <h2 style="font-family:var(--font-newsreader); font-size:24px; line-height:32px; font-weight:700; letter-spacing:-0.02em; text-align:center; color:var(--ink); margin:0">Where it went</h2>
+                    <x-import component-from-global-scope="Progra.CategoryDonut" segs="{{ donutSegs }}" total-ms="{{ totalMs }}" hint-size="100%,420px"></x-import>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ p.is2 }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; min-height:100%; flex-direction:column; gap:20px; padding:24px 24px 96px">
+                    <h2 style="font-family:var(--font-newsreader); font-size:24px; line-height:32px; font-weight:700; letter-spacing:-0.02em; text-align:center; color:var(--ink); margin:0">Goals</h2>
+                    <div style="display:flex; flex-direction:column; gap:16px">
+                      <sc-for list="{{ goals }}" as="g" hint-placeholder-count="3">
+                        <x-import component-from-global-scope="Progra.GoalProgressBar" title="{{ g.title }}" quota-hours="{{ g.quotaHours }}" actual-ms="{{ g.actualMs }}" hint-size="100%,30px"></x-import>
+                      </sc-for>
+                    </div>
+                    <div style="border:1px solid var(--hairline); color:var(--body); display:flex; flex-direction:column; align-items:center; gap:6px; border-radius:25.92px; padding:16px; text-align:center; font-size:14px; line-height:20px">
+                      <p style="display:flex; align-items:center; gap:6px; margin:0">
+                        <svg viewBox="0 0 24 24" width="16" height="16" style="color:var(--brand); flex-shrink:0; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path><path d="M20 2v4"></path><path d="M22 4h-4"></path><circle cx="4" cy="20" r="2"></circle></svg>
+                        Hit quota on Reading.
+                      </p>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ p.is3 }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; min-height:100%; flex-direction:column; gap:20px; padding:24px 24px 96px">
+                    <h2 style="font-family:var(--font-newsreader); font-size:24px; line-height:32px; font-weight:700; letter-spacing:-0.02em; text-align:center; color:var(--ink); margin:0">Your rank</h2>
+                    <div style="text-align:center">
+                      <div style="color:var(--brand); font-size:56px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums">#2</div>
+                      <div style="color:var(--caption); font-size:14px; line-height:20px">of 8 in your circle</div>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:6px">
+                      <sc-for list="{{ ranks }}" as="r" hint-placeholder-count="8">
+                        <div style="display:flex; align-items:center; gap:12px; border-radius:20.16px; padding:10px 12px; background:{{ r.bg }}">
+                          <span style="color:var(--caption); width:20px; flex-shrink:0; text-align:center; font-size:14px; font-weight:700; font-variant-numeric:tabular-nums">{{ r.rank }}</span>
+                          <x-import component-from-global-scope="Progra.AvatarInitials" name="{{ r.name }}" username="{{ r.username }}" class-name="size-8 text-xs" hint-size="32px,32px"></x-import>
+                          <span style="min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; font-weight:500">{{ r.label }}</span>
+                          <span style="color:var(--body); flex-shrink:0; font-size:14px; font-variant-numeric:tabular-nums">{{ r.dur }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ p.is4 }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; min-height:100%; flex-direction:column; align-items:center; gap:24px; padding:24px 24px 96px">
+                    <h2 style="font-family:var(--font-newsreader); font-size:24px; line-height:32px; font-weight:700; letter-spacing:-0.02em; text-align:center; color:var(--ink); margin:0">Your week, in a card</h2>
+                    <div style="width:100%">
+                      <x-import component-from-global-scope="Progra.Card" class-name="overflow-hidden" hint-size="100%,760px">
+                        <x-import component-from-global-scope="Progra.CardContent" class-name="flex flex-col gap-8 px-7 py-10" hint-size="100%,740px">
+                          <div style="display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center">
+                            <span style="color:var(--muted-foreground); font-size:10px; text-transform:uppercase; letter-spacing:0.2em">Week of</span>
+                            <h2 style="font-family:var(--font-newsreader); font-size:18px; line-height:28px; font-weight:500; letter-spacing:-0.025em; margin:0">Oct 5 – 11, 2026</h2>
+                          </div>
+                          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center">
+                            <div style="font-size:48px; line-height:1; font-variant-numeric:tabular-nums; letter-spacing:-0.025em">11.5h</div>
+                            <div style="color:var(--muted-foreground); font-size:14px; line-height:20px">in total across 5 categories</div>
+                          </div>
+                          <div style="display:flex; flex-direction:column; gap:12px">
+                            <span style="color:var(--muted-foreground); font-size:10px; text-transform:uppercase; letter-spacing:0.2em">By category · 11.5h</span>
+                            <sc-for list="{{ cardCats }}" as="c" hint-placeholder-count="5">
+                              <div style="display:flex; flex-direction:column; gap:4px">
+                                <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px; font-size:14px; line-height:20px">
+                                  <span style="display:flex; align-items:center; gap:6px; overflow:hidden">
+                                    <x-import component-from-global-scope="Progra.CategoryMarker" is-goal="{{ c.isGoal }}" color="{{ c.color }}" hint-size="8px,8px"></x-import>
+                                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ c.name }}</span>
+                                  </span>
+                                  <span style="color:var(--muted-foreground); flex-shrink:0; font-variant-numeric:tabular-nums">{{ c.h }}</span>
+                                </div>
+                                <div style="background:var(--muted); height:6px; width:100%; overflow:hidden; border-radius:9999px">
+                                  <div style="height:100%; background:rgb(28 58 94 / 0.6); width:{{ c.w }}"></div>
+                                </div>
+                              </div>
+                            </sc-for>
+                          </div>
+                          <div style="display:flex; flex-direction:column; gap:12px">
+                            <span style="color:var(--muted-foreground); font-size:10px; text-transform:uppercase; letter-spacing:0.2em">By goal · 8.6h focused</span>
+                            <sc-for list="{{ goals }}" as="g" hint-placeholder-count="3">
+                              <x-import component-from-global-scope="Progra.GoalProgressBar" title="{{ g.title }}" quota-hours="{{ g.quotaHours }}" actual-ms="{{ g.actualMs }}" hint-size="100%,30px"></x-import>
+                            </sc-for>
+                          </div>
+                          <div style="display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center; font-size:14px; line-height:20px">
+                            <p style="margin:0">Hit quota on Reading.</p>
+                          </div>
+                          <div style="display:flex; flex-direction:column; align-items:center; gap:4px; padding-top:8px; text-align:center">
+                            <p style="font-size:14px; line-height:20px; margin:0">That’s a wrap on your week.</p>
+                          </div>
+                        </x-import>
+                      </x-import>
+                    </div>
+                    <div style="border:1px solid var(--hairline); display:flex; width:100%; box-sizing:border-box; flex-direction:column; gap:12px; border-radius:25.92px; padding:16px">
+                      <span style="color:var(--ink); font-size:14px; line-height:20px; font-weight:700">Post to your feed</span>
+                      <textarea rows="2" maxlength="280" placeholder="Add a caption (optional)" style="background:rgb(241 243 245 / 0.4); color:var(--body); resize:none; border-radius:20.16px; padding:8px 12px; font-size:14px; line-height:20px; outline:none; border:0; font-family:inherit"></textarea>
+                      <x-import component-from-global-scope="Progra.Button" class-name="h-10 w-full" hint-size="100%,40px">Post to feed</x-import>
+                    </div>
+                    <x-import component-from-global-scope="Progra.Button" variant="outline" class-name="h-11 w-full" hint-size="100%,44px">
+                      <svg viewBox="0 0 24 24" width="16" height="16" style="fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"></line><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"></line></svg>
+                      Share this week
+                    </x-import>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+            <footer style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 24px 34px">
+              <span style="color:var(--caption); display:flex; align-items:center; gap:4px; font-size:14px; line-height:20px; font-weight:500; opacity:{{ p.backOpacity }}">
+                <svg viewBox="0 0 24 24" width="16" height="16" style="fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round"><path d="m15 18-6-6 6-6"></path></svg>
+                Back
+              </span>
+              <span style="background:var(--brand); border-radius:9999px; padding:10px 24px; font-size:14px; line-height:20px; font-weight:700; color:#fff">{{ p.nextLabel }}</span>
+            </footer>
+          </div>
+        </x-import>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const H = 3600000;
+class Component extends DCLogic {
+  renderVals() {
+    const labels = ['1 · The number', '2 · Where it went', '3 · Goals', '4 · Your rank', '5 · The card'];
+    const panels = labels.map((label, i) => ({
+      label, is0: i === 0, is1: i === 1, is2: i === 2, is3: i === 3, is4: i === 4,
+      pips: [0, 1, 2, 3, 4].map((j) => ({ w: j <= i ? '100%' : '0%' })),
+      backOpacity: i === 0 ? '0' : '1',
+      nextLabel: i === 4 ? 'Done' : 'Next',
+    }));
+    const cats = [
+      { id: 'goal:thesis', name: 'Thesis', color: '#E07042', ms: 4.6 * H, isGoal: true },
+      { id: 'goal:spanish', name: 'Spanish', color: '#77B7C6', ms: 2.2 * H, isGoal: true },
+      { id: 'goal:reading', name: 'Reading', color: '#2E8B50', ms: 1.8 * H, isGoal: true },
+      { id: 'class', name: 'Class', color: '#A084B3', ms: 1.6 * H, isGoal: false },
+      { id: null, name: 'Uncategorized', color: null, ms: 1.3 * H, isGoal: false },
+    ];
+    const max = cats[0].ms;
+    const people = [
+      ['Maya Chen', 'mayac', 18 * 60 + 40], ['You', 'you', 11 * 60 + 30], ['Sam Rivera', 'samr', 11 * 60 + 5],
+      ['Jordan Lee', 'jordanl', 10 * 60 + 40], ['Priya Natarajan', 'priyan', 9 * 60 + 50], ['Theo Brooks', 'theob', 8 * 60 + 35],
+      ['Ana Souza', 'anas', 7 * 60 + 55], ['Leo Park', 'leop', 5 * 60 + 45],
+    ];
+    const fmt = (m) => (m % 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m / 60}h`);
+    return {
+      panels,
+      range: 'Oct 5 – Oct 11',
+      totalLabel: '11h 30m',
+      totalMs: 11.5 * H,
+      donutSegs: cats.map((c) => ({ id: c.id, name: c.name, color: c.color ?? 'var(--chart-5)', ms: c.ms })),
+      cardCats: cats.map((c) => ({ ...c, h: `${(c.ms / H).toFixed(1)}h`, w: `${Math.max(2, (c.ms / max) * 100)}%` })),
+      goals: [
+        { title: 'Thesis', quotaHours: 6, actualMs: 4.6 * H },
+        { title: 'Spanish', quotaHours: 2.5, actualMs: 2.2 * H },
+        { title: 'Reading', quotaHours: 1.5, actualMs: 1.8 * H },
+      ],
+      ranks: people.map(([name, username, m], i) => ({
+        rank: i + 1, name: i === 1 ? 'Rae Kim' : name, username: i === 1 ? 'raek' : username,
+        label: name, dur: fmt(m), bg: i === 1 ? 'rgb(28 58 94 / 0.1)' : 'transparent',
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>

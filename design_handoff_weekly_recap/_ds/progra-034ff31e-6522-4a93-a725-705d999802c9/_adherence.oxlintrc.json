@@ -1,0 +1,295 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "components/general/AlertDialog/**",
+              "components/general/Badge/**",
+              "components/general/BottomNav/**",
+              "components/general/Button/**",
+              "components/general/Card/**",
+              "components/general/CategoryMarker/**",
+              "components/general/CategoryPicker/**",
+              "components/general/Checkbox/**",
+              "components/general/ColorSwatches/**",
+              "components/general/Dialog/**",
+              "components/general/GoalProgressBar/**",
+              "components/general/Input/**",
+              "components/general/Label/**",
+              "components/general/PageSkeleton/**",
+              "components/general/Separator/**",
+              "components/general/Tabs/**",
+              "components/general/Textarea/**",
+              "components/general/Toaster/**",
+              "components/general/WeekBreakdown/**",
+              "components/general/WeekStrip/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      },
+      {
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:Hanken Grotesk|Newsreader))/i]",
+        "message": "Font not provided by the design system. Available: Hanken Grotesk, Newsreader."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {
+      "AlertDialog": {
+        "replaces": []
+      },
+      "Badge": {
+        "replaces": []
+      },
+      "BottomNav": {
+        "replaces": []
+      },
+      "Button": {
+        "replaces": []
+      },
+      "Card": {
+        "replaces": []
+      },
+      "CategoryMarker": {
+        "replaces": []
+      },
+      "CategoryPicker": {
+        "replaces": []
+      },
+      "Checkbox": {
+        "replaces": []
+      },
+      "ColorSwatches": {
+        "replaces": []
+      },
+      "Dialog": {
+        "replaces": []
+      },
+      "GoalProgressBar": {
+        "replaces": []
+      },
+      "Input": {
+        "replaces": []
+      },
+      "Label": {
+        "replaces": []
+      },
+      "PageSkeleton": {
+        "replaces": []
+      },
+      "Separator": {
+        "replaces": []
+      },
+      "Tabs": {
+        "replaces": []
+      },
+      "Textarea": {
+        "replaces": []
+      },
+      "Toaster": {
+        "replaces": []
+      },
+      "WeekBreakdown": {
+        "replaces": []
+      },
+      "WeekStrip": {
+        "replaces": []
+      }
+    },
+    "tokens": [
+      "--animate-ping",
+      "--animate-pulse",
+      "--animate-spin",
+      "--blur-xs",
+      "--color-amber-500",
+      "--color-black",
+      "--color-emerald-500",
+      "--color-white",
+      "--container-2xl",
+      "--container-md",
+      "--container-sm",
+      "--container-xs",
+      "--default-font-family",
+      "--default-mono-font-family",
+      "--default-transition-duration",
+      "--default-transition-timing-function",
+      "--ease-in-out",
+      "--font-hanken",
+      "--font-newsreader",
+      "--font-weight-bold",
+      "--font-weight-medium",
+      "--font-weight-normal",
+      "--font-weight-semibold",
+      "--leading-normal",
+      "--leading-relaxed",
+      "--leading-snug",
+      "--leading-tight",
+      "--radius-md",
+      "--spacing",
+      "--text-2xl",
+      "--text-2xl--line-height",
+      "--text-3xl",
+      "--text-3xl--line-height",
+      "--text-4xl",
+      "--text-4xl--line-height",
+      "--text-5xl",
+      "--text-5xl--line-height",
+      "--text-base",
+      "--text-base--line-height",
+      "--text-lg",
+      "--text-lg--line-height",
+      "--text-sm",
+      "--text-sm--line-height",
+      "--text-xl",
+      "--text-xl--line-height",
+      "--text-xs",
+      "--text-xs--line-height",
+      "--tracking-tight",
+      "--tracking-wide",
+      "--tracking-wider",
+      "--tw-backdrop-blur",
+      "--tw-border-style",
+      "--tw-duration",
+      "--tw-ease",
+      "--tw-font-weight",
+      "--tw-gradient-from",
+      "--tw-gradient-position",
+      "--tw-gradient-stops",
+      "--tw-gradient-to",
+      "--tw-gradient-via",
+      "--tw-gradient-via-stops",
+      "--tw-leading",
+      "--tw-numeric-spacing",
+      "--tw-outline-style",
+      "--tw-ring-color",
+      "--tw-ring-offset-color",
+      "--tw-ring-offset-shadow",
+      "--tw-ring-offset-width",
+      "--tw-ring-shadow",
+      "--tw-scale-x",
+      "--tw-scale-y",
+      "--tw-scale-z",
+      "--tw-shadow",
+      "--tw-tracking",
+      "--tw-translate-x",
+      "--tw-translate-y"
+    ],
+    "tokenKinds": {
+      "--font-hanken": "font",
+      "--font-newsreader": "font",
+      "--color-amber-500": "color",
+      "--color-emerald-500": "color",
+      "--color-black": "color",
+      "--color-white": "color",
+      "--spacing": "spacing",
+      "--container-xs": "spacing",
+      "--container-sm": "spacing",
+      "--container-md": "spacing",
+      "--container-2xl": "spacing",
+      "--text-xs": "font",
+      "--text-xs--line-height": "font",
+      "--text-sm": "font",
+      "--text-sm--line-height": "font",
+      "--text-base": "font",
+      "--text-base--line-height": "font",
+      "--text-lg": "font",
+      "--text-lg--line-height": "font",
+      "--text-xl": "font",
+      "--text-xl--line-height": "font",
+      "--text-2xl": "font",
+      "--text-2xl--line-height": "font",
+      "--text-3xl": "font",
+      "--text-3xl--line-height": "font",
+      "--text-4xl": "font",
+      "--text-4xl--line-height": "font",
+      "--text-5xl": "font",
+      "--text-5xl--line-height": "font",
+      "--font-weight-normal": "font",
+      "--font-weight-medium": "font",
+      "--font-weight-semibold": "font",
+      "--font-weight-bold": "font",
+      "--tracking-tight": "font",
+      "--tracking-wide": "font",
+      "--tracking-wider": "font",
+      "--leading-tight": "font",
+      "--leading-snug": "font",
+      "--leading-normal": "font",
+      "--leading-relaxed": "font",
+      "--radius-md": "radius",
+      "--ease-in-out": "other",
+      "--animate-spin": "other",
+      "--animate-ping": "other",
+      "--animate-pulse": "other",
+      "--blur-xs": "spacing",
+      "--default-transition-duration": "other",
+      "--default-transition-timing-function": "other",
+      "--default-font-family": "font",
+      "--default-mono-font-family": "font",
+      "--tw-translate-x": "spacing",
+      "--tw-translate-y": "color",
+      "--tw-scale-x": "spacing",
+      "--tw-scale-y": "spacing",
+      "--tw-scale-z": "spacing",
+      "--tw-border-style": "other",
+      "--tw-gradient-position": "other",
+      "--tw-gradient-from": "color",
+      "--tw-gradient-stops": "color",
+      "--tw-gradient-via": "color",
+      "--tw-gradient-via-stops": "color",
+      "--tw-gradient-to": "color",
+      "--tw-leading": "font",
+      "--tw-font-weight": "font",
+      "--tw-tracking": "font",
+      "--tw-numeric-spacing": "spacing",
+      "--tw-shadow": "shadow",
+      "--tw-ring-shadow": "shadow",
+      "--tw-ring-color": "color",
+      "--tw-ring-offset-width": "spacing",
+      "--tw-ring-offset-shadow": "shadow",
+      "--tw-ring-offset-color": "color",
+      "--tw-backdrop-blur": "other",
+      "--tw-duration": "other",
+      "--tw-ease": "color",
+      "--tw-outline-style": "other"
+    },
+    "fontFamilies": [
+      "Hanken Grotesk",
+      "Newsreader"
+    ]
+  }
+}
