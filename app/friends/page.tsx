@@ -19,6 +19,8 @@ import { hasUnseenNotifications } from "@/lib/db/notifications-activity";
 import { listUwPeerGroups } from "@/lib/db/uw";
 import { buildFriendRows, inviteGoalTitle } from "@/lib/friends-tab";
 import { friendsTabUw } from "@/lib/uw-groups";
+import { uwPromptFor } from "@/lib/uw-prompt";
+import { UwPromptCard } from "@/components/v2/uw-prompt-card";
 
 import { FriendsClient } from "./friends-client";
 import { FriendsClientV3 } from "./friends-client-v3";
@@ -40,6 +42,7 @@ export default async function FriendsPage() {
     suggested,
     unseenNotifications,
     leaderboard,
+    uwPrompt,
   ] = await Promise.all([
     listFriends(),
     listIncomingRequests(),
@@ -50,6 +53,7 @@ export default async function FriendsPage() {
     // Shares listFriends() and getProfile() via cache(), so it adds one
     // sessions read and one goals read rather than a whole new wave.
     getFriendsLeaderboard(),
+    readUwPromptCard(),
   ]);
 
   return (
@@ -61,6 +65,7 @@ export default async function FriendsPage() {
       suggested={suggested}
       initialUnseen={unseenNotifications}
       leaderboard={leaderboard}
+      uwPrompt={uwPrompt}
     />
   );
 }
@@ -103,6 +108,7 @@ async function FriendsPageV3() {
     friendGoals,
     myGoals,
     uw,
+    uwPrompt,
   ] = await Promise.all([
     friendsRead,
     listIncomingRequests(),
@@ -114,6 +120,7 @@ async function FriendsPageV3() {
     friendsRead.then((f) => listActiveGoalsForUsers(f.map((x) => x.user.userId))),
     listActiveGoals(),
     uwRead,
+    readUwPromptCard(),
   ]);
 
   return (
@@ -126,6 +133,22 @@ async function FriendsPageV3() {
       initialUnseen={unseenNotifications}
       inviteGoal={inviteGoalTitle(myGoals)}
       uw={uw}
+      uwPrompt={uwPrompt}
+    />
+  );
+}
+
+// The UW info prompt's card (lib/uw-prompt.ts), on either tab, while the
+// viewer hasn't answered. getProfile() is cache()d and the layout's own read,
+// so this costs nothing.
+async function readUwPromptCard() {
+  if (!UW) return null;
+  const profile = await getProfile();
+  if (!profile || !uwPromptFor(profile, UW).card) return null;
+  return (
+    <UwPromptCard
+      stamped={profile.uw_prompt === "later"}
+      groupsLive={FRIENDS_V3}
     />
   );
 }

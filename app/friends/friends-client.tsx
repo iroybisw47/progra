@@ -37,6 +37,9 @@ type Props = {
   suggested: PublicUser[];
   initialUnseen: boolean;
   leaderboard: FriendsLeaderboardRow[];
+  // The UW info prompt's card (components/v2/uw-prompt-card.tsx), rendered by
+  // the page while the viewer hasn't answered; null otherwise.
+  uwPrompt?: React.ReactNode;
 };
 
 type ActionResult = { ok: true } | { error: string };
@@ -49,6 +52,7 @@ export function FriendsClient({
   suggested,
   initialUnseen,
   leaderboard,
+  uwPrompt = null,
 }: Props) {
   const [pending, startTransition] = useTransition();
 
@@ -198,6 +202,8 @@ export function FriendsClient({
             Invite friends to Progra
           </button>
         </div>
+
+        {uwPrompt && <div className="px-5 pt-2.5">{uwPrompt}</div>}
 
         {/* Search */}
         <div className="px-5 pt-2.5">

@@ -137,6 +137,9 @@ type Props = {
   // absent for everyone else, which leaves the tab as it is outside the
   // cohort.
   uw?: FriendsTabUw | null;
+  // The UW info prompt's card (components/v2/uw-prompt-card.tsx), rendered by
+  // the page while the viewer hasn't answered; null otherwise.
+  uwPrompt?: ReactNode;
   services?: FriendsTabServices;
   // Dev preview only: the search opens with this typed, or the sheet open,
   // and a stand-in for the bell, whose panel reads and stamps the signed-in
@@ -155,6 +158,7 @@ export function FriendsClientV3({
   initialUnseen,
   inviteGoal,
   uw = null,
+  uwPrompt = null,
   services = REAL_FRIENDS_SERVICES,
   initialQuery,
   initialSheetOpen = false,
@@ -440,6 +444,9 @@ export function FriendsClientV3({
             />
           </div>
         )}
+
+        {/* Hidden while searching, with the invite above it. */}
+        {show.invite && uwPrompt && <div className="px-5 pt-2.5 pb-1">{uwPrompt}</div>}
 
         {/* Renders nothing; refreshes the page's reads every 60s and on
             refocus, as on the old tab. */}

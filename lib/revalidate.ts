@@ -158,6 +158,13 @@ export function revalidatePatchNoteSurfaces() {
   revalidatePath("/", "layout");
 }
 
+// The UW info prompt (profiles.uw_prompt). The root layout decides whether the
+// sheet opens and /friends whether its card shows, so this names the layout,
+// which covers both.
+export function revalidateUwPromptSurfaces() {
+  revalidatePath("/", "layout");
+}
+
 // Finishing onboarding (the profiles.onboarded_at stamp). The ROOT LAYOUT reads
 // that column: it mounts the BottomNav, and it is one of the What's New modal's
 // gates — so, like the patch-note stamp above, this names the layout.

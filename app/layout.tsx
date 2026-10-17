@@ -24,16 +24,18 @@ import {
 import { SyncHabitReminders } from "@/components/sync-habit-reminders";
 import { PlanCompleteModal } from "@/components/v2/plan-complete-modal";
 import { WhatsNewModal } from "@/components/v2/whats-new-modal";
+import { UwPromptOnLoad } from "@/components/v2/uw-prompt-on-load";
 import {
   getActiveSession,
   getUnreviewedPlanComplete,
 } from "@/lib/db/sessions";
 import { getHabitReminderData } from "@/lib/db/habits";
 import { getNavBadges } from "@/lib/db/notifications";
-import { HABIT_REMINDERS, LIVE_ACTIVITY } from "@/lib/flags";
+import { FRIENDS_V3, HABIT_REMINDERS, LIVE_ACTIVITY, UW } from "@/lib/flags";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 import { patchNoteToShow } from "@/lib/patch-notes";
+import { uwPromptFor } from "@/lib/uw-prompt";
 import { isWaitlisted } from "@/lib/auth/seat";
 import { createClient } from "@/lib/supabase/server";
 import { BetaFull } from "@/components/beta-full";
@@ -165,6 +167,8 @@ export default async function RootLayout({
   // Free: the profile is already read above. `undefined` (the column doesn't
   // exist yet) deliberately yields null — see patchNoteToShow.
   const patchNote = patchNoteToShow(profile?.patch_notes_seen_version);
+  // Free too, off the same profile: whether to ask for UW info (lib/uw-prompt.ts).
+  const uwPrompt = uwPromptFor(profile, UW);
 
   // The 250-seat beta cap. Only the seat-less path costs anything: getProfile()
   // is already fetched above, so members pay nothing here.
@@ -277,6 +281,13 @@ export default async function RootLayout({
           items={patchNote.items}
           outro={patchNote.outro}
         />
+      )}
+      {/* The UW info prompt, once (lib/uw-prompt.ts). Last in line behind the
+          plan-complete modal and the release note, for the same no-stacking
+          reason: suppressing doesn't stamp, so it waits for the next load.
+          uwPromptFor() already requires onboarded_at. */}
+      {user && uwPrompt.sheet && !planComplete && !patchNote && (
+        <UwPromptOnLoad groupsLive={FRIENDS_V3} />
       )}
       {/* Flat primitives again: an object literal is a fresh reference every
           render and would re-sync the device's notification schedule on every

@@ -113,6 +113,12 @@ export type Profile = {
   uw_major?: string | null;
   uw_clubs?: string[] | null;
   uw_share_goals?: boolean | null;
+  // Whether this member has been asked for their UW info (lib/uw-prompt.ts,
+  // .claude/plans/uw-prompt.sql): null never, 'later' put away unanswered,
+  // 'done' answered. User-writable like patch_notes_seen_version, and optional
+  // for its reason with the same polarity: uwPromptFor() reads an absent key
+  // as "don't ask", so a database without the column shows nothing.
+  uw_prompt?: string | null;
   // "Last opened", for the admin analytics roster. Written by touch_last_seen()
   // and, once ANALYTICS is on, by the ingest RPC on every app_opened event.
   // Never shown to anyone but the admin. (May be absent until the column SQL is

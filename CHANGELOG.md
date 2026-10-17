@@ -5,6 +5,57 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-17
+
+### 13:37 · UW info prompt: never shown to registered UW students
+- **Owner's request:** "it should not show up to anyone who is already registered as a UW student."
+- **The gate:** `uwPromptFor()` now returns nothing for `is_uw = true`, whether or not majors and interests are filled in. Before, it still asked UW students who had nothing filled in.
+- **Removed, since nothing reaches it now:**
+  - the sheet's skip-to-fields path for cohort members;
+  - `savedUwOf`, `uwPromptFirstStep` and `uwPromptInitialListed`;
+  - the `saved` prop on the sheet, the card and the layout leaf (the sheet always starts empty and listed);
+  - the preview's `member` fixture (it's `/dev/uw-prompt[?fail=1]` now).
+- **SQL:** STEP 1V's audience count is now "onboarded members not registered as UW students". The harness was updated and passes 14/14.
+- **Gate:**
+  - tsc, eslint, vitest 1335 (six tests went with the removed code, one was added).
+  - CDP smoke: ask → Yes (no UW switch, listing on) → Save.
+
+### 13:36 · UW info prompt: say what it's for
+- **Owner's request:** the prompt should explain itself: "You can now connect with other UW students, fill out your information to do so."
+- **The question's body:** "You can now connect with other UW students on Progra. Fill out your major and interests to find people in your major and people into the same things."
+- **New intro line above the fields:** "You can now connect with other UW students. Fill out your info to find people in your major and with your interests." Students already in the cohort skip the question, so this is the only explanation they see.
+- **The Friends card** is now "Connect with UW students" / "At UW? Fill out your major and interests to connect."
+- Copy only, all in `UW_PROMPT_COPY` (`lib/uw-prompt.ts`). Gate: tsc, eslint, vitest. Screenshots of the preview at 393 wide show nothing clipped.
+
+### 13:34 · UW info prompt: ask existing members for their majors and interests
+- **Owner's request:** members who joined before UW onboarding never added their UW info. It lives in Settings → Edit profile, but most don't know it's there. A passive announcement wasn't enough: the prompt should come up on load, or be easy to reach.
+- **Owner's calls:** a one-time sheet plus a Friends card; a DB column to remember the answer (not localStorage); UW is already on in prod.
+- **The sheet** (`components/v2/uw-prompt-sheet.tsx`), opened once on Progress by a root-layout leaf (`uw-prompt-on-load.tsx`):
+  - It asks "Are you a UW student?" with three answers: Yes, I'm at UW / No / Not now.
+  - Yes shows the Settings block's own majors and interests chip fields and the "Show me in More at UW" switch (`UwFields` with a new `showUwSwitch={false}`). A fresh Yes starts listed, with the disclosure under the switch, as onboarding v3's Yes does. Save goes through `setUwProfile`.
+  - A student already in the cohort with nothing filled in skips the question and opens on the fields.
+  - It shows only at `/` and never over the weekly review, and it yields to the plan-complete modal and the release note: one dialog per load.
+- **The Friends card** (`components/v2/uw-prompt-card.tsx`) sits under the invite on both tabs (v3 and legacy) until the member answers.
+  - A tap opens the same sheet, loaded lazily.
+  - The ✕ ("Don't ask again") stops asking.
+- **What's stored: `profiles.uw_prompt`**
+  - null means never asked, so the sheet opens.
+  - 'later' means put away unanswered; only the card shows.
+  - 'done' means answered, so nothing shows.
+  - Every close path writes. `setUwProfile` now stamps 'done' in its own statement, so any UW save (onboarding, Settings, the prompt) counts as an answer.
+  - 'later' only replaces null.
+  - The gate is `uwPromptFor()` in `lib/uw-prompt.ts`. It fails closed, so nothing shows until the column exists. It also skips anyone already in the cohort with a major or an interest.
+- **New action:** `markUwPrompt(stamp)` in `app/actions/uw.ts`, plus `revalidateUwPromptSurfaces()`. New analytics events: `uw_prompt_shown` and `uw_prompt_answered`, with `via` (sheet or card) and `answer`.
+- **SQL needed: `.claude/plans/uw-prompt.sql`** (STEP 1, then STEP 1V), hand-run. It adds one nullable text column with a CHECK.
+  - Proven on PGlite with `nudges-harness/uw-prompt.mjs`: 14/14, idempotent, and the CHECK admits only null, 'later' and 'done'.
+  - Deploy the code first. Nothing shows until STEP 1 runs, and the sheet goes live the moment it does.
+- **Known edge:** a v3 signup who answered No before this deploy has no stamp, so they get asked once more.
+- **Dev preview:** `/dev/uw-prompt?fixture=new|member&fail=1`.
+- **Gate:**
+  - tsc, eslint on changed files, vitest 1341 (16 new), `npm run build`.
+  - Headless Chrome over CDP on the preview: ask → Yes → a major → Save; No; Escape writes 'later'; a failed save keeps the sheet; the card's ✕.
+  - Not checked signed in or on a phone.
+
 ## 2026-10-12
 
 ### 08:02 · Weekly review: recap-v2.sql fully applied in prod

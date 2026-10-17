@@ -231,6 +231,11 @@ export const EVENTS = {
   // already posted (a caption change), not a first post.
   recap_posted: { recap_ref: "uuid", edited: "bool", has_caption: "bool" },
 
+  // --- the UW info prompt (lib/uw-prompt.ts). `via`: the one-time sheet on
+  //     Progress, or the Friends card that reopens it. ----------------------
+  uw_prompt_shown: { via: ["sheet", "card"] },
+  uw_prompt_answered: { via: ["sheet", "card"], answer: ["yes", "no", "later", "dismiss"] },
+
   // --- feedback. `length` only — the body lives behind an admin RPC. ---------
   bug_report_submitted: { route: ROUTES },
   suggestion_submitted: { length: "int" },

@@ -35,6 +35,7 @@ export function UwFields({
   onChange,
   savedIsUw,
   disabled,
+  showUwSwitch = true,
 }: {
   value: UwBlockState;
   onChange: (next: UwBlockState) => void;
@@ -43,6 +44,10 @@ export function UwFields({
   savedIsUw: boolean;
   // While Edit profile's Save is in flight.
   disabled?: boolean;
+  // False where the question was already asked and answered Yes (the UW info
+  // prompt, components/v2/uw-prompt-sheet.tsx): only the fields and the
+  // listing switch show, and `value.isUw` must be true.
+  showUwSwitch?: boolean;
 }) {
   const interestsRef = useRef<HTMLInputElement>(null);
   const id = useId();
@@ -52,20 +57,22 @@ export function UwFields({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <SwitchRow
-          label="I'm a UW student"
-          checked={value.isUw}
-          disabled={disabled}
-          describedBy={leaving ? leavingId : undefined}
-          onCheckedChange={(isUw) => onChange({ ...value, isUw })}
-        />
-        {/* A live region that's always there, so the warning is read out as
+      {showUwSwitch && (
+        <div className="flex flex-col gap-1.5">
+          <SwitchRow
+            label="I'm a UW student"
+            checked={value.isUw}
+            disabled={disabled}
+            describedBy={leaving ? leavingId : undefined}
+            onCheckedChange={(isUw) => onChange({ ...value, isUw })}
+          />
+          {/* A live region that's always there, so the warning is read out as
             the switch goes off, not only if someone goes looking for it. */}
-        <div aria-live="polite">
-          {leaving && <Caption id={leavingId}>{UW_LEAVING_NOTE}</Caption>}
+          <div aria-live="polite">
+            {leaving && <Caption id={leavingId}>{UW_LEAVING_NOTE}</Caption>}
+          </div>
         </div>
-      </div>
+      )}
 
       {value.isUw && (
         <>
