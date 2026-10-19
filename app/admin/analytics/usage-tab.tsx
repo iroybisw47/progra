@@ -14,6 +14,8 @@ const TYPE_LABEL: Record<string, string> = {
   reply: "Reply",
   nudge: "Nudge",
   recap: "Weekly recap",
+  friend_request: "Friend request",
+  friend_accepted: "Request accepted",
 };
 
 function categoryLabel(c: string): string {

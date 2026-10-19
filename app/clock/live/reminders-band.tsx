@@ -64,11 +64,11 @@ export function RemindersBand({
   // this is the moment of maximum relevance — they are clocked in right now.
   // Legal caller #3 of the gesture-only ask.
   //
-  // With onboarding v3 this is also where a new account is first asked: v3
-  // has no notify step (.claude/plans/onboarding-v3.md D5), and its first
-  // session lands here. So a grant turns the daily habit reminder on, as v2's
-  // notify step did. The device has never been asked, so the reminder is
-  // still at its untouched default, and this only states it.
+  // Onboarding v3 asks on its own notifications screen, but "Not now" there
+  // leaves the device unasked, and its first session lands here. So a grant
+  // turns the daily habit reminder on, as both onboardings' asks do. The
+  // device has never been asked, so the reminder is still at its untouched
+  // default, and this only states it.
   if (permission === "prompt") {
     return (
       <button

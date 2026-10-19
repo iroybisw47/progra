@@ -20,9 +20,10 @@ import { CLOSE_SLOT, PROGRESS_TRACK, V3_TOP_ROW } from "./frame";
 // travels from a slot on Screen 1: the welcome's photo is its own picker, and
 // this is just the result, the photo or the initials, shown small.
 //
-// The progress bar fills to scaleX((screen + 1) / 6) over 760ms on E (R:36),
-// or 200ms linear under reduced motion (TRAVEL.progress), so it arrives on
-// Screen 2 filling from its first sixth.
+// The progress bar fills to scaleX((at + 1) / of) over 760ms on E (R:36),
+// or 200ms linear under reduced motion (TRAVEL.progress). `at` and `of` are
+// the screen and the count as this run has them (progressFor): seven with
+// the notifications screen, six where it's stepped over.
 //
 // Back and the ✕ are drawn at 32px (R:35) and each carries an invisible
 // 6px margin of hit area (`before:`), so the target is 44px.
@@ -46,6 +47,7 @@ export function WizardChrome({
   onClose,
   avatar,
   leaving = false,
+  progress = { at: screen, of: SCREEN_COUNT },
 }: {
   screen: number;
   // The welcome form is in front: no top row but a replayer's ✕. Screen 1
@@ -58,8 +60,10 @@ export function WizardChrome({
   // keyed on, and the photo if there is one.
   avatar: { name: string; colorKey: string; photoUrl: string | null };
   leaving?: boolean;
+  progress?: { at: number; of: number };
 }) {
-  const progress = (Math.min(screen + 1, SCREEN_COUNT) / SCREEN_COUNT).toFixed(4);
+  const step = Math.min(progress.at + 1, progress.of);
+  const fill = (step / progress.of).toFixed(4);
   const backMotion = reduced
     ? "opacity 200ms linear"
     : `opacity 260ms ${EASING.E}, transform 460ms ${EASING.E}`;
@@ -99,9 +103,9 @@ export function WizardChrome({
         role="progressbar"
         aria-label="Onboarding progress"
         aria-valuemin={1}
-        aria-valuemax={SCREEN_COUNT}
-        aria-valuenow={screen + 1}
-        aria-valuetext={`Step ${screen + 1} of ${SCREEN_COUNT}`}
+        aria-valuemax={progress.of}
+        aria-valuenow={step}
+        aria-valuetext={`Step ${step} of ${progress.of}`}
         aria-hidden={welcome || undefined}
         className={PROGRESS_TRACK}
         style={{ opacity: welcome ? 0 : 1, transition: rowIn }}
@@ -109,7 +113,7 @@ export function WizardChrome({
         <div
           className="bg-brand h-full w-full origin-left rounded-full"
           style={{
-            transform: `scaleX(${progress})`,
+            transform: `scaleX(${fill})`,
             transition: transition(reduced ? TRAVEL.progress.reduced : TRAVEL.progress.normal),
           }}
         />

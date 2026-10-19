@@ -117,6 +117,33 @@ export const listFriends = cache(async (): Promise<FriendEntry[]> => {
   });
 });
 
+// Friends of friends, for the Friends tab's "Suggested friends" section when
+// the viewer isn't a UW student. The second hop can't be read under RLS (a
+// friend's friendships aren't the caller's rows), so it's the
+// list_friend_suggestions DEFINER RPC (.claude/plans/friend-suggestions.sql):
+// seated, onboarded people the caller has no friendships row with at all,
+// ranked by how many friends they share. It returns ids and counts only;
+// identity comes through public_profiles like every other list here, in the
+// RPC's order. [] on any error, including before the SQL has been run.
+export type FriendSuggestion = PublicUser & { mutualCount: number };
+
+export const listFriendSuggestions = cache(
+  async (limit = 20): Promise<FriendSuggestion[]> => {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("list_friend_suggestions", {
+      p_limit: limit,
+    });
+    if (error || !Array.isArray(data)) return [];
+    const rows = data as { id: string; mutual_count: number | string }[];
+    const users = await hydrateUsers(rows.map((r) => r.id));
+    return rows.flatMap((r) => {
+      const user = users.get(r.id);
+      const mutualCount = Number(r.mutual_count);
+      return user && mutualCount > 0 ? [{ ...user, mutualCount }] : [];
+    });
+  }
+);
+
 // Everyone else on Progra, for the "People on Progra" discovery section. Reads
 // the narrow public_profiles view (identity only), excludes me and anyone I've
 // blocked. Capped for now — beta is small. Caveat: RLS hides blocks made against

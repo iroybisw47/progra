@@ -13,6 +13,10 @@ import {
   MAX_GOALS,
   SCREEN,
   SCREEN_COUNT,
+  notifyReasons,
+  notifyScreenShown,
+  progressFor,
+  stepOverNotify,
   V3_HABITS,
   clampGoalHours,
   formatGoalHours,
@@ -45,13 +49,55 @@ import { MAX_UW_INTERESTS, MAX_UW_MAJORS } from "@/lib/uw";
 
 describe("screens", () => {
   it("are V3_STEPS, so each screen reports under the step analytics expects", () => {
-    expect(SCREEN_COUNT).toBe(6);
+    expect(SCREEN_COUNT).toBe(7);
     expect(V3_STEPS[SCREEN.identity]).toBe("welcome");
     expect(V3_STEPS[SCREEN.goal]).toBe("goal");
     expect(V3_STEPS[SCREEN.habits]).toBe("habit");
     expect(V3_STEPS[SCREEN.intro]).toBe("how");
     expect(V3_STEPS[SCREEN.friends]).toBe("friends");
+    expect(V3_STEPS[SCREEN.notify]).toBe("notify");
     expect(V3_STEPS[SCREEN.ready]).toBe("clock");
+  });
+});
+
+describe("the notifications screen", () => {
+  const ALL = { clockReminders: true, habitReminders: true, socialPush: true, nudges: true, recapPush: true };
+  const NONE = { clockReminders: false, habitReminders: false, socialPush: false, nudges: false, recapPush: false };
+
+  it("is shown only while iOS can still ask, and only with something to send", () => {
+    const reasons = notifyReasons(ALL);
+    expect(notifyScreenShown("prompt", reasons)).toBe(true);
+    for (const state of ["granted", "denied", "unavailable", null]) {
+      expect(notifyScreenShown(state, reasons)).toBe(false);
+    }
+    expect(notifyScreenShown("prompt", [])).toBe(false);
+  });
+
+  it("lists only what this build sends", () => {
+    expect(notifyReasons(NONE)).toEqual([]);
+    expect(notifyReasons(ALL)).toHaveLength(6);
+    expect(notifyReasons({ ...NONE, habitReminders: true })).toEqual([
+      "A daily reminder for your habits",
+    ]);
+    // A nudge only buzzes with social pushes on.
+    expect(notifyReasons({ ...NONE, nudges: true })).toEqual([]);
+    expect(notifyReasons({ ...NONE, socialPush: true, nudges: true })).toHaveLength(3);
+  });
+
+  it("is stepped over in the direction of travel when it isn't part of the run", () => {
+    expect(stepOverNotify(SCREEN.notify, SCREEN.friends, false)).toBe(SCREEN.ready);
+    expect(stepOverNotify(SCREEN.notify, SCREEN.ready, false)).toBe(SCREEN.friends);
+    expect(stepOverNotify(SCREEN.notify, SCREEN.friends, true)).toBe(SCREEN.notify);
+    expect(stepOverNotify(SCREEN.ready, SCREEN.friends, false)).toBe(SCREEN.ready);
+    expect(stepOverNotify(SCREEN.goal, SCREEN.identity, false)).toBe(SCREEN.goal);
+  });
+
+  it("counts the progress bar as the person sees the run", () => {
+    expect(progressFor(SCREEN.friends, true)).toEqual({ at: SCREEN.friends, of: 7 });
+    expect(progressFor(SCREEN.ready, true)).toEqual({ at: SCREEN.ready, of: 7 });
+    expect(progressFor(SCREEN.friends, false)).toEqual({ at: SCREEN.friends, of: 6 });
+    // The ready screen is the last of six, so the bar is full.
+    expect(progressFor(SCREEN.ready, false)).toEqual({ at: 5, of: 6 });
   });
 });
 
@@ -461,9 +507,11 @@ describe("wizardReducer: moving between screens", () => {
     expect(wizardReducer(s, { type: "back" })).toBe(s);
   });
 
-  it("has Back on Screen 6", () => {
+  // The reducer steps back one screen, onto notifications. Stepping over it
+  // when it isn't part of the run is the shell's (stepOverNotify).
+  it("has Back on the ready screen", () => {
     const s = run([{ type: "go", to: SCREEN.ready }]);
-    expect(wizardReducer(s, { type: "back" }).screen).toBe(SCREEN.friends);
+    expect(wizardReducer(s, { type: "back" }).screen).toBe(SCREEN.notify);
   });
 
   it("returns the same state for a no-op move, and clamps a bad target", () => {

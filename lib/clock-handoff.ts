@@ -49,30 +49,6 @@ export function finishesOnboarding({
   return isWelcome(welcome);
 }
 
-// Whether this visit's Clock-in tap asks for notification permission: the
-// flag-off half of plan D5. v3 has no notify step, so with CLOCK_REMINDERS on
-// the first ask is the live timer's band (app/clock/live/reminders-band.tsx);
-// with it off that band renders nothing, and the ask rides on the Clock-in
-// tap instead (finish-onboarding.tsx, askNotificationsOnClockIn), which shows
-// nothing on the website or on a device that has already answered.
-//
-// Not gated on `onboarded`, unlike finishesOnboarding: the stamp lands about
-// a second after arrival and re-renders this page, well before anyone has
-// typed a task and tapped Clock in, so it has to survive that. It also
-// covers a replay, as v2's notify step did for one still never asked.
-export function asksOnClockIn({
-  enabled,
-  clockReminders,
-  welcome,
-}: {
-  enabled: boolean;
-  clockReminders: boolean;
-  welcome: string | string[] | undefined;
-}): boolean {
-  if (!enabled || clockReminders) return false;
-  return isWelcome(welcome);
-}
-
 function isWelcome(welcome: string | string[] | undefined): boolean {
   const value = Array.isArray(welcome) ? welcome[0] : welcome;
   return value === "1";

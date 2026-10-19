@@ -49,7 +49,7 @@ export function eyebrowFor(step: Step, steps: readonly Step[]): string | null {
   return `Step ${numbered.indexOf(step) + 1} of ${numbered.length}${practice ? " · Practice" : ""}`;
 }
 
-// Onboarding v3's six screens, named with the step names analytics already
+// Onboarding v3's seven screens, named with the step names analytics already
 // accepts: the prod CHECK on profiles.onboarding_step and the event allowlist
 // both list exactly STEPS (.claude/plans/analytics/phase1.sql), so reusing
 // them is what lets v3 report without any SQL. Each screen takes the v2 step
@@ -60,18 +60,22 @@ export function eyebrowFor(step: Step, steps: readonly Step[]): string | null {
 //   habit    3 · habits
 //   how      4 · the three-beat intro to what Progra is
 //   friends  5 · find your friends
-//   clock    6 · "Ready?", then the real Clock tab
+//   notify   6 · turn on notifications (in the app, while iOS can still ask)
+//   clock    7 · "Ready?", then the real Clock tab
 //
 // The ORDER is v3's own: `how` moves from second to fourth. Anything that
 // infers "reached step N" from a position has to use the list for the flow it
-// is counting. v2's practice steps (notify, post) and its separate uw step have
-// no v3 screen.
+// is counting. v2's practice `post` and its separate uw step have no v3
+// screen. `notify` is stepped over wherever it can't ask (the website, or a
+// device that has already answered; lib/onboarding-v3.ts, notifyScreenShown),
+// so a run can skip from friends straight to clock.
 export const V3_STEPS = [
   "welcome",
   "goal",
   "habit",
   "how",
   "friends",
+  "notify",
   "clock",
 ] as const satisfies readonly Step[];
 export type V3Step = (typeof V3_STEPS)[number];

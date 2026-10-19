@@ -7,7 +7,7 @@ import { OnboardingV3Client } from "./onboarding-v3-client";
 
 // DEV ONLY: onboarding v3 with no sign-in and no database, for screenshots.
 //
-//   /dev/onboarding-v3?screen=1..6&fixture=welcome|welcome-filled|taken|replay
+//   /dev/onboarding-v3?screen=1..7&fixture=welcome|welcome-filled|taken|replay
 //                                                          (Screen 1, the welcome; taken shows
 //                                                          the 23505 path on Continue)
 //   /dev/onboarding-v3?fixture=goals|goals-full|habits|habit-custom
@@ -19,7 +19,8 @@ import { OnboardingV3Client } from "./onboarding-v3-client";
 //                                                          (Screen 5 searching)
 //   /dev/onboarding-v3?screen=5&fixture=habits             (Screen 5, not searching)
 //   /dev/onboarding-v3?screen=5&q=zz                       (Screen 5, any search)
-//   /dev/onboarding-v3?fixture=ready|ready-added           (Screen 6, nobody or one added)
+//   /dev/onboarding-v3?screen=6                            (the notifications screen)
+//   /dev/onboarding-v3?fixture=ready|ready-added           (the ready screen, nobody or one added)
 //   /dev/onboarding-v3?fixture=uw-sheet|uw-sheet-no|uw-page
 //                                                          (the UW sheet up over the welcome:
 //                                                          the tiles, Yes open, No selected)

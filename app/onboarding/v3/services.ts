@@ -12,6 +12,7 @@ import { setOnboardingStep } from "@/app/actions/telemetry";
 import { fetchMoreUwPeers, fetchUwPeerGroups, setUwProfile } from "@/app/actions/uw";
 import { track } from "@/lib/analytics";
 import { shareInvite } from "@/lib/invite-share";
+import { requestNotificationPermission } from "@/lib/notification-permission";
 import type { OnboardingV3Services } from "@/lib/onboarding-v3-services";
 
 // The services onboarding v3 runs on in production: the real server actions
@@ -39,6 +40,7 @@ export const REAL_SERVICES: OnboardingV3Services = {
   fetchUwPeerGroups,
   fetchMoreUwPeers,
   shareInvite,
+  askNotifications: requestNotificationPermission,
   recordStep: (step) => {
     void setOnboardingStep(step);
   },

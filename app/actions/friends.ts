@@ -1,5 +1,7 @@
 "use server";
 
+import { after } from "next/server";
+
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { revalidateFriendSurfaces } from "@/lib/revalidate";
 import {
@@ -12,6 +14,7 @@ import { isUuid } from "@/lib/validate";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { requireSeat } from "@/lib/auth/require-seat";
+import { sendFriendPush } from "@/lib/push/send-friend-push";
 
 type Result = { ok: true } | { error: string };
 
@@ -64,8 +67,12 @@ export async function sendFriendRequest(
     .single();
 
   if (error || !data) return { error: "Couldn't send request." };
+  const requestId = (data as { id: string }).id;
+  // "X sent you a friend request", once the response is out. The sender
+  // re-reads the row, so a request undone in the meantime sends nothing.
+  after(() => sendFriendPush({ kind: "request", friendshipId: requestId, actorId: user.id }));
   revalidateFriendSurfaces();
-  return { ok: true, requestId: (data as { id: string }).id };
+  return { ok: true, requestId };
 }
 
 // Accept an incoming request. Routed through the definer RPC so the DB — not
@@ -82,6 +89,8 @@ export async function acceptFriendRequest(requestId: string): Promise<Result> {
     request_id: requestId,
   });
   if (error) return { error: "Couldn't accept request." };
+  // "X accepted your friend request", to whoever sent it (read from the row).
+  after(() => sendFriendPush({ kind: "accepted", friendshipId: requestId, actorId: user.id }));
   revalidateFriendSurfaces();
   return { ok: true };
 }

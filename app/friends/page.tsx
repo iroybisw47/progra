@@ -7,6 +7,7 @@ import {
   listBlockedUsers,
   listFriends,
   listIncomingRequests,
+  listFriendSuggestions,
   listOutgoingRequests,
   listSuggestedUsers,
 } from "@/lib/db/friends";
@@ -17,6 +18,7 @@ import {
 import { listActiveGoals, listActiveGoalsForUsers } from "@/lib/db/goals";
 import { hasUnseenNotifications } from "@/lib/db/notifications-activity";
 import { listUwPeerGroups } from "@/lib/db/uw";
+import type { SuggestionsInput } from "@/lib/friend-suggestions";
 import { buildFriendRows, inviteGoalTitle } from "@/lib/friends-tab";
 import { friendsTabUw } from "@/lib/uw-groups";
 import { uwPromptFor } from "@/lib/uw-prompt";
@@ -43,6 +45,7 @@ export default async function FriendsPage() {
     unseenNotifications,
     leaderboard,
     uwPrompt,
+    suggestions,
   ] = await Promise.all([
     listFriends(),
     listIncomingRequests(),
@@ -54,6 +57,7 @@ export default async function FriendsPage() {
     // sessions read and one goals read rather than a whole new wave.
     getFriendsLeaderboard(),
     readUwPromptCard(),
+    readSuggestions(),
   ]);
 
   return (
@@ -66,8 +70,21 @@ export default async function FriendsPage() {
       initialUnseen={unseenNotifications}
       leaderboard={leaderboard}
       uwPrompt={uwPrompt}
+      suggestions={suggestions}
     />
   );
+}
+
+// "Suggested friends" under the leaderboard (lib/friend-suggestions.ts). One
+// RPC either way, chained off the cached profile: a UW student's UW matches
+// (list_uw_peers, which also feeds "Other people at UW"), or anyone else's
+// friends of friends (list_friend_suggestions).
+async function readSuggestions(): Promise<SuggestionsInput> {
+  const profile = await getProfile();
+  if (UW && profile?.is_uw === true) {
+    return { kind: "uw", groups: await listUwPeerGroups() };
+  }
+  return { kind: "fof", people: await listFriendSuggestions() };
 }
 
 // The v3 tab's reads, all server-side and all cache()d, in one wave.

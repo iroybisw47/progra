@@ -17,6 +17,7 @@
 // modules into lib/.
 
 import type { ShareOutcome } from "@/lib/invite-share";
+import type { NotifyPermission } from "@/lib/notification-permission";
 import type { V3Step } from "@/lib/onboarding";
 import type { AnalyticsEvent, TrackProps } from "@/lib/telemetry/events";
 import type { UwProfileInput } from "@/lib/uw";
@@ -106,9 +107,13 @@ export type OnboardingV3Services = {
   // lib/invite-share.ts' shareInvite: the native share sheet, or the
   // clipboard where there's none. It tracks invite_sent itself.
   shareInvite(text: string): Promise<ShareOutcome>;
-  // (Screen 6 has no service: it writes nothing, OWNER-FIX-1. Nor does the
-  // wizard stamp onboarded_at. The Clock tab it hands off to does, once `/`
-  // has been left: app/clock/finish-onboarding.tsx.)
+  // Screen 6's "Turn on notifications": lib/notification-permission.ts'
+  // requestNotificationPermission, iOS's one-time dialog, answering with the
+  // state it leaves. Only ever from that tap.
+  askNotifications(): Promise<NotifyPermission>;
+  // (The ready screen has no service: it writes nothing, OWNER-FIX-1. Nor
+  // does the wizard stamp onboarded_at. The Clock tab it hands off to does,
+  // once `/` has been left: app/clock/finish-onboarding.tsx.)
 
   // The per-user "last step reached" column (setOnboardingStep). Fire and
   // forget, like v2's: a failed analytics write must never surface.

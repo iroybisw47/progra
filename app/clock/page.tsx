@@ -6,8 +6,8 @@ import { listActiveGoals } from "@/lib/db/goals";
 import { listRecentSessions } from "@/lib/db/sessions";
 import { getSessionPhotoUrl } from "@/lib/db/session-photos";
 import { endOfWeek, startOfWeek } from "@/lib/dates";
-import { asksOnClockIn, finishesOnboarding } from "@/lib/clock-handoff";
-import { CLOCK_REMINDERS, ONBOARDING_V3 } from "@/lib/flags";
+import { finishesOnboarding } from "@/lib/clock-handoff";
+import { ONBOARDING_V3 } from "@/lib/flags";
 
 import { ClockClient } from "./clock-client";
 import { FinishOnboarding } from "./finish-onboarding";
@@ -26,8 +26,8 @@ export default async function ClockPage({
   // onboarded_at (finish-onboarding.tsx says why here). Only with
   // ONBOARDING_V3 on and only while there's something to stamp; otherwise
   // the leaf isn't there and this page is the Clock tab as it always was.
-  // With CLOCK_REMINDERS off, the same arrival's Clock-in tap also asks for
-  // notifications (plan D5), which changes nothing on screen.
+  // (The arrival's Clock-in tap no longer asks for notifications: v3's own
+  // notifications screen does, before the hand-off.)
   const { goal, welcome } = await searchParams;
   // The redesign runs the active session on the full-screen /clock/live timer,
   // but /clock stays reachable while tracking (minimize lands here) so you can
@@ -66,11 +66,6 @@ export default async function ClockPage({
     welcome,
     onboarded: profile?.onboarded_at != null,
   });
-  const askNotifications = asksOnClockIn({
-    enabled: ONBOARDING_V3,
-    clockReminders: CLOCK_REMINDERS,
-    welcome,
-  });
 
   // The same shape with the leaf or without, so the stamp's re-render, which
   // drops it, can't remount the Clock under someone already using it.
@@ -84,7 +79,6 @@ export default async function ClockPage({
         activePhotoUrl={activePhotoUrl}
         initialGoalId={goal ?? null}
         john={isJohnUser(profile)}
-        askNotifications={askNotifications}
       />
       {finishing && <FinishOnboarding />}
     </>

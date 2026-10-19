@@ -14,6 +14,7 @@ import {
   PauseIcon,
   PencilIcon,
   PlayIcon,
+  PlusIcon,
   XIcon,
 } from "lucide-react";
 
@@ -109,10 +110,7 @@ import {
   updateSession,
 } from "@/app/actions/sessions";
 
-import {
-  askNotificationsOnClockIn,
-  settleOnboardingStamp,
-} from "./finish-onboarding";
+import { settleOnboardingStamp } from "./finish-onboarding";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -170,10 +168,6 @@ type ClockClientProps = {
   // John cohort (two users). Adds one optional "intention" field above the
   // Clock in button; everyone else renders exactly what they always have.
   john?: boolean;
-  // Onboarding v3's arrival with CLOCK_REMINDERS off (lib/clock-handoff.ts,
-  // asksOnClockIn): the Clock-in tap also asks for notifications. Nothing on
-  // screen changes.
-  askNotifications?: boolean;
 };
 
 export function ClockClient({
@@ -184,7 +178,6 @@ export function ClockClient({
   activePhotoUrl,
   initialGoalId = null,
   john = false,
-  askNotifications = false,
 }: ClockClientProps) {
   const router = useRouter();
   // Minute-quantized tick: totals and week/day boundaries only need minute
@@ -359,9 +352,6 @@ export function ClockClient({
     // chime fires from a setTimeout much later, which has no gesture behind it
     // and would be blocked. Harmless for open-ended sessions.
     primeTimerSound();
-    // Also inside the gesture, beside the clock-in rather than before it: the
-    // first notification ask of a v3 account with CLOCK_REMINDERS off.
-    if (askNotifications) void askNotificationsOnClockIn();
     startTransition(async () => {
       // The end of onboarding v3 only: if the arrival's stamp of onboarded_at
       // is still in flight, wait for it, and if it failed, try once more,
@@ -625,9 +615,10 @@ export function ClockClient({
                 type="button"
                 disabled={!hydrated || categories.length === 0}
                 onClick={() => setSessionDialog({ mode: "create" })}
-                className="text-caption self-center pt-1 text-xs font-medium disabled:opacity-40"
+                className="text-brand flex h-11 items-center gap-1.5 self-center px-3.5 text-[15px] font-semibold transition-transform active:scale-[.97] disabled:opacity-40"
               >
-                + Add past session
+                <PlusIcon className="size-4" strokeWidth={2.4} />
+                Add past session
               </button>
             </div>
           ) : (
@@ -941,9 +932,10 @@ export function ClockClient({
               type="button"
               disabled={!hydrated || categories.length === 0}
               onClick={() => setSessionDialog({ mode: "create" })}
-              className="text-caption hover:text-brand self-center pt-1.5 text-xs font-medium disabled:opacity-40"
+              className="text-brand flex h-11 items-center gap-1.5 self-center px-3.5 text-[15px] font-semibold transition-transform active:scale-[.97] disabled:opacity-40"
             >
-              + Add past session
+              <PlusIcon className="size-4" strokeWidth={2.4} />
+              Add past session
             </button>
           </div>
         )}

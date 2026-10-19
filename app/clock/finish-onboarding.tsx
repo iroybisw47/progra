@@ -5,15 +5,6 @@ import { useEffect, useRef } from "react";
 import { completeOnboarding } from "@/app/actions/profile";
 import { track } from "@/lib/analytics";
 import { onboardingStamper } from "@/lib/clock-handoff";
-import { HABIT_REMINDERS } from "@/lib/flags";
-import {
-  enableHabitReminderDefault,
-  habitDefaultOnGrant,
-} from "@/lib/habit-reminder-prefs";
-import {
-  checkNotificationPermission,
-  requestNotificationPermission,
-} from "@/lib/notification-permission";
 
 // The mounted leaf's stamp, while there is one. Module scope because the leaf
 // and ClockClient are siblings in app/clock/page.tsx, and cleared on unmount,
@@ -67,20 +58,4 @@ export function FinishOnboarding() {
 // stamp has landed. Clock in goes ahead whatever this answers.
 export function settleOnboardingStamp(): Promise<boolean> {
   return mounted ? mounted() : Promise.resolve(true);
-}
-
-// The flag-off half of plan D5 (lib/clock-handoff.ts, asksOnClockIn): with
-// CLOCK_REMINDERS off, the Clock-in tap at the end of onboarding v3 is where
-// a new account is first asked for notifications, beside the clock-in. Call
-// it from that tap. Asks only on a device that has never answered: the
-// website reads "unavailable" and a device that has answered keeps its
-// answer, and neither shows anything or counts an ask. A grant turns the
-// daily habit reminder on, as v2's notify step and the live timer's band do.
-export async function askNotificationsOnClockIn(): Promise<void> {
-  if ((await checkNotificationPermission()) !== "prompt") return;
-  const result = await requestNotificationPermission();
-  track("notification_permission_asked", { source: "onboarding", result });
-  if (habitDefaultOnGrant(result, HABIT_REMINDERS)) {
-    enableHabitReminderDefault();
-  }
 }

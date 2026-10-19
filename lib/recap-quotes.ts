@@ -15,6 +15,11 @@ export const RECAP_QUOTES: readonly RecapQuote[] = [
     text: "Opportunity is missed by most because it comes dressed in overalls and looks like work.",
     author: "Thomas Edison",
   },
+  // The week of Oct 12 (opens Monday Oct 19). The owner's, 2026-10-18.
+  {
+    text: "Life is like a bicycle. To stay balanced, you must keep moving.",
+    author: "Albert Einstein",
+  },
 ];
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;

@@ -211,7 +211,6 @@ export default async function MePage() {
           weekStart={startDate}
           today={today}
           minWeekStart={minWeekStart}
-          doneThisWeek={weekCompletions.length}
         />
 
         <div className="bg-track border-hairline mt-[18px] h-1.5 border-t" />

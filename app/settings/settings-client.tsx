@@ -952,7 +952,8 @@ function SocialPushRow({ initialEnabled }: { initialEnabled: boolean }) {
           {SOCIAL_PUSH && (
             <>
               When a friend likes or comments on your session
-              {NUDGES ? ", or nudges you" : ""}.
+              {NUDGES ? ", or nudges you" : ""}, and when someone sends or
+              accepts a friend request.
             </>
           )}
           {SOCIAL_PUSH && RECAP_PUSH ? " " : ""}

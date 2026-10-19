@@ -12,8 +12,8 @@ import { useNotificationPermission } from "@/lib/use-notification-permission";
 // spending iOS's one-shot notification dialog on push, which has no sender and
 // delivers nothing, before the user had been told what it was for. iOS asks
 // once ever, so anyone who declined lost the clock reminders too. Now it waits
-// until permission is ALREADY granted by one of the three surfaces that explain
-// themselves first (onboarding, Settings, the live timer).
+// until permission is ALREADY granted by one of the surfaces that explain
+// themselves first (either onboarding, Settings, the live timer).
 //
 // It also used to `await import("@capacitor/push-notifications")`, the form
 // proven not to settle on device — so everything below that line, including the

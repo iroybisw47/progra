@@ -13,6 +13,8 @@ import {
   type FriendRelations,
 } from "@/lib/find-friends";
 import { clockHandoffHref } from "@/lib/clock-handoff";
+import { CLOCK_REMINDERS, HABIT_REMINDERS, NUDGES, RECAP_PUSH, SOCIAL_PUSH } from "@/lib/flags";
+import { enableHabitReminderDefault, habitDefaultOnGrant } from "@/lib/habit-reminder-prefs";
 import { usePrefersReducedMotion } from "@/lib/hooks";
 import { handoffExitMs, type Box, type ItemPhase } from "@/lib/motion";
 import { markNavRise, sessionFlagStore } from "@/lib/nav-rise";
@@ -24,6 +26,10 @@ import {
   formatGoalTitle,
   friendsCta,
   initialWizardState,
+  notifyReasons,
+  notifyScreenShown,
+  progressFor,
+  stepOverNotify,
   wizardReducer,
   type UwChoice,
   type WizardAction,
@@ -45,6 +51,8 @@ import {
 } from "@/lib/onboarding-v3-identity";
 import { introCtaLabel, type WeekSeg } from "@/lib/onboarding-v3-intro";
 import type { OnboardingV3Services } from "@/lib/onboarding-v3-services";
+import type { NotifyPermission } from "@/lib/notification-permission";
+import { useNotificationPermission } from "@/lib/use-notification-permission";
 import {
   hasUwInput,
   uwDelay,
@@ -67,6 +75,7 @@ import {
 } from "./v3/goal-screen";
 import { HabitsScreen, useHabitWrites, type HabitsScreenHandle } from "./v3/habits-screen";
 import { IntroScreen } from "./v3/intro-screen";
+import { NotifyScreen } from "./v3/notify-screen";
 import {
   KeyboardInsetVar,
   OnboardingCta,
@@ -86,13 +95,15 @@ import { WizardChrome } from "./v3/wizard-chrome";
 // raise it. Client-only, since it shows nothing until then.
 const UwSheet = dynamic(() => import("./v3/uw-sheet").then((m) => m.UwSheet), { ssr: false });
 
-// Onboarding v3 (.claude/plans/onboarding-v3.md): six screens that replace
+// Onboarding v3 (.claude/plans/onboarding-v3.md): seven screens that replace
 // v2's nine steps, behind ONBOARDING_V3. Rendered at `/` for a first run and
 // at `/onboarding` for Replay.
 //
-// This is the shell (P3): the top row, the one CTA and the six screen layers,
-// Screens 1-6 (the welcome, goals, habits, the intro, find friends, ready).
-// The wizard never finishes itself: Screen 6 hands off to the normal Clock
+// This is the shell (P3): the top row, the one CTA and the seven screen
+// layers (the welcome, goals, habits, the intro, find friends, notifications,
+// ready). Notifications (2026-10-18) only comes up in the app while iOS can
+// still ask, and is stepped over everywhere else (notifyScreenShown), the
+// website included. The wizard never finishes itself: the ready screen hands off to the normal Clock
 // tab with the first goal preselected (OWNER-FIX-1, lib/clock-handoff.ts),
 // and a leaf there stamps onboarded_at on arrival
 // (app/clock/finish-onboarding.tsx says why there).
@@ -190,7 +201,20 @@ type Props = {
   // 6's "Start session" ends in, once its exit has played: the preview
   // starts over rather than open the real Clock, which needs an account.
   onHandoff?: (href: string) => void;
+  // Stands in for the device's notification permission, so the preview (a
+  // browser, where it reads "unavailable") can show the notifications screen.
+  notifyPermission?: NotifyPermission | null;
 };
+
+// What the notifications screen lists, fixed by this build's flags. Empty, the
+// screen is never shown (notifyScreenShown).
+const NOTIFY_REASONS = notifyReasons({
+  clockReminders: CLOCK_REMINDERS,
+  habitReminders: HABIT_REMINDERS,
+  socialPush: SOCIAL_PUSH,
+  nudges: NUDGES,
+  recapPush: RECAP_PUSH,
+});
 
 // Each screen's section label, for assistive tech, by screen index.
 const SCREEN_LABELS = [
@@ -199,6 +223,7 @@ const SCREEN_LABELS = [
   "Your habits",
   "What Progra is",
   "Find your friends",
+  "Turn on notifications",
   "Start your first session",
 ];
 
@@ -310,6 +335,7 @@ export function OnboardingClientV3({
   habitDraft,
   searchDraft,
   onHandoff,
+  notifyPermission,
 }: Props) {
   const router = useRouter();
   const reduced = usePrefersReducedMotion();
@@ -379,7 +405,18 @@ export function OnboardingClientV3({
   // Whether Screen 2's field holds anything. The draft itself stays in the
   // screen (goal-screen.tsx says why); the CTA only needs to know this.
   const [goalHasDraft, setGoalHasDraft] = useState(() => (goalDraft ?? "").trim().length > 0);
-  // Screen 6's handoff has begun: its items exit, the top row fades, and
+  // The notifications screen: the device's permission (or the preview's
+  // stand-in), and whether the screen is part of this run. Once it has been in
+  // front it stays part of it, so a grant made there (which leaves `prompt`)
+  // doesn't renumber the progress bar under the person or make Back from the
+  // ready screen skip the screen they just used. `asking` is iOS's dialog up.
+  const livePermission = useNotificationPermission();
+  const permission = notifyPermission === undefined ? livePermission : notifyPermission;
+  const [notifyEntered, setNotifyEntered] = useState(screen === SCREEN.notify);
+  if (screen === SCREEN.notify && !notifyEntered) setNotifyEntered(true);
+  const notifyShown = notifyEntered || notifyScreenShown(permission, NOTIFY_REASONS);
+  const [asking, setAsking] = useState(false);
+  // The ready screen's handoff has begun: its items exit, the top row fades, and
   // nothing on the wizard answers a tap. The CTA stays put until the Clock
   // tab replaces the wizard.
   const [leaving, setLeaving] = useState(false);
@@ -483,8 +520,11 @@ export function OnboardingClientV3({
     });
   }
 
-  // Forward completes the screen being left. Back completes nothing.
-  function go(to: number) {
+  // Forward completes the screen being left. Back completes nothing. A move
+  // onto the notifications screen while it isn't part of this run carries on
+  // through it (stepOverNotify).
+  function go(target: number) {
+    const to = stepOverNotify(target, screen, notifyShown);
     blurField();
     if (to > screen) {
       services.track("onboarding_step_completed", { step_name: V3_STEPS[screen], flow: "v3" });
@@ -500,7 +540,8 @@ export function OnboardingClientV3({
     blurField();
     moves.current += 1;
     setUwMorph(null);
-    dispatch({ type: "back" });
+    const to = stepOverNotify(screen - 1, screen, notifyShown);
+    dispatch(to === screen - 1 ? { type: "back" } : { type: "go", to });
   }
 
   // D6: a replayer's way out, from any screen. It writes nothing further.
@@ -692,6 +733,40 @@ export function OnboardingClientV3({
     if (friendAdds.toggle(person)) ctaRef.current?.pulseRing();
   }
 
+  // "Turn on notifications": iOS's dialog, then on to the ready screen however
+  // it was answered (a refusal must never hold anyone in onboarding). A grant
+  // turns the daily habit reminder on, as v2's notify step did. The push
+  // token registers by itself once the permission store reads granted
+  // (components/push-registration.tsx).
+  function askNotifications() {
+    if (asking || screen !== SCREEN.notify) return;
+    setAsking(true);
+    const next = advanceLater(SCREEN.notify);
+    void services
+      .askNotifications()
+      .then(
+        (result) => {
+          services.track("notification_permission_asked", { source: "onboarding", result });
+          if (habitDefaultOnGrant(result, HABIT_REMINDERS)) enableHabitReminderDefault();
+        },
+        () => {}
+      )
+      .finally(() => {
+        if (mounted.current) setAsking(false);
+        next();
+      });
+  }
+
+  // "Not now": on without asking. Settings can ask later.
+  function skipNotifications() {
+    if (asking) return;
+    services.track("notification_permission_skipped", {
+      source: "onboarding",
+      state: permission ?? "unknown",
+    });
+    go(SCREEN.ready);
+  }
+
   // Screen 2's goals in the colors it drew them in, for the intro's square,
   // post and sample week. A replayer's own goal keeps its own color.
   const shownGoalColors = goalColors(
@@ -766,7 +841,9 @@ export function OnboardingClientV3({
   } else if (screen === SCREEN.friends) {
     // "Skip for now" until someone's added, then "Continue · {n} added"
     // (R:143). Every request was sent on its tap, so this only moves on.
-    cta = { ...friendsCta(friendAdds.count), onPress: () => go(SCREEN.ready) };
+    cta = { ...friendsCta(friendAdds.count), onPress: () => go(SCREEN.notify) };
+  } else if (screen === SCREEN.notify) {
+    cta = { label: "Turn on notifications", busy: asking, onPress: askNotifications };
   } else if (screen === SCREEN.ready) {
     // The link to the Clock tab, fully prefetched from the moment Screen 6
     // is in front (D7). The screen writes nothing itself, so the only purge
@@ -795,6 +872,7 @@ export function OnboardingClientV3({
           reduced={reduced}
           onBack={back}
           onClose={replay ? close : undefined}
+          progress={progressFor(screen, notifyShown)}
           avatar={{
             name: shown.displayName,
             colorKey: shown.colorKey,
@@ -898,6 +976,14 @@ export function OnboardingClientV3({
                     uwReady={screen > SCREEN.identity}
                     fetchUwGroups={services.fetchUwPeerGroups}
                     fetchMoreUw={services.fetchMoreUwPeers}
+                  />
+                ) : i === SCREEN.notify ? (
+                  <NotifyScreen
+                    phase={phase}
+                    reduced={reduced}
+                    reasons={NOTIFY_REASONS}
+                    busy={asking}
+                    onSkip={skipNotifications}
                   />
                 ) : (
                   <ReadyScreen

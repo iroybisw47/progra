@@ -29,7 +29,7 @@ import {
 
 // ---- Screens ----------------------------------------------------------------
 
-// The six screens, each an index into V3_STEPS (lib/onboarding.ts). The index
+// The seven screens, each an index into V3_STEPS (lib/onboarding.ts). The index
 // is what the wizard navigates by, and V3_STEPS[index] is the step name
 // analytics already accepts for that screen. The names here describe the
 // screens. Note that the intro is analytics' "how".
@@ -39,9 +39,64 @@ export const SCREEN = {
   habits: 2,
   intro: 3,
   friends: 4,
-  ready: 5,
+  notify: 5,
+  ready: 6,
 } as const;
 export const SCREEN_COUNT = V3_STEPS.length;
+
+// ---- Notifications screen -------------------------------------------------------
+
+// The notifications screen asks, and only where the ask can still do
+// something: in the app, while iOS hasn't been answered. That is exactly the
+// `prompt` state. The website reads "unavailable", a device that already said
+// yes or no reads "granted" or "denied" (iOS only ever asks once), and a read
+// still in flight reads null; each of those steps over the screen rather than
+// show a button that would do nothing. Settings is the way back for "denied".
+// So does a build with nothing to send (notifyReasons empty): the ask would
+// spend iOS's one dialog on nothing.
+export function notifyScreenShown(
+  permission: string | null,
+  reasons: readonly string[]
+): boolean {
+  return permission === "prompt" && reasons.length > 0;
+}
+
+// Where a move lands once the notifications screen is stepped over: on through it the way the
+// move was going (forward to the ready screen, Back to friends). Every other
+// destination is left alone.
+export function stepOverNotify(to: number, from: number, shown: boolean): number {
+  if (shown || to !== SCREEN.notify) return to;
+  return to > from ? SCREEN.ready : SCREEN.friends;
+}
+
+// The progress bar's step and total, as the person sees the wizard: with
+// the notifications screen stepped over there's one screen fewer, and the ready screen is the
+// last of six rather than seven.
+export function progressFor(screen: number, shown: boolean): { at: number; of: number } {
+  if (shown) return { at: screen, of: SCREEN_COUNT };
+  return { at: screen > SCREEN.notify ? screen - 1 : screen, of: SCREEN_COUNT - 1 };
+}
+
+// What the notifications screen says they're for: only what this build will
+// actually send, so the screen never promises a reminder that's switched off.
+// Each row is a flag's feature (lib/flags.ts).
+export function notifyReasons(flags: {
+  clockReminders: boolean;
+  habitReminders: boolean;
+  socialPush: boolean;
+  nudges: boolean;
+  recapPush: boolean;
+}): string[] {
+  const out: string[] = [];
+  if (flags.clockReminders) out.push("A reminder each hour you’re still clocked in");
+  if (flags.habitReminders) out.push("A daily reminder for your habits");
+  if (flags.socialPush) out.push("When friends like or comment on your sessions");
+  if (flags.socialPush) out.push("When someone sends you a friend request");
+  // A nudge only buzzes with SOCIAL_PUSH on too (lib/flags.ts, NUDGES).
+  if (flags.socialPush && flags.nudges) out.push("When a friend nudges you to get going");
+  if (flags.recapPush) out.push("When your weekly recap is ready");
+  return out;
+}
 
 // ---- Text helpers -------------------------------------------------------------
 

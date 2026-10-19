@@ -107,6 +107,10 @@ export const NOTIFICATION_TYPES = [
   "reply",
   "nudge",
   "recap",
+  // Friend pushes (lib/push/send-friend-push.ts). The prod CHECK on
+  // notification_log.type lists these too: .claude/plans/friend-push.sql.
+  "friend_request",
+  "friend_accepted",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 const NUDGE_PRESETS_ALL = [...NUDGE_PRESET_KEYS, ...PRAISE_PRESET_KEYS] as const;

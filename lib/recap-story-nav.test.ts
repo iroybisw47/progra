@@ -116,6 +116,9 @@ describe("quoteForWeek", () => {
     expect(quoteForWeek("2026-10-05")).toEqual(RECAP_QUOTES[0]);
     expect(RECAP_QUOTES[0].author).toBe("Thomas Edison");
   });
+  it("the week of Oct 12 is the owner's Einstein", () => {
+    expect(quoteForWeek("2026-10-12").author).toBe("Albert Einstein");
+  });
 });
 
 describe("analytics", () => {

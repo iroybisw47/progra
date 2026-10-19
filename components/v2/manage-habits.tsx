@@ -3,7 +3,6 @@
 import { useEffect, useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { track } from "@/lib/analytics";
 import {
   CheckIcon,
   ChevronLeftIcon,
@@ -36,11 +35,11 @@ import { entityColor } from "@/lib/colors";
 import {
   archiveHabit,
   createHabit,
-  toggleHabitCompletion,
   updateHabit,
 } from "@/app/actions/habits";
 import { addDaysISO } from "@/lib/dates";
 import type { Habit, HabitCompletion } from "@/lib/db/habits";
+import { useHabitToggle } from "@/lib/use-habit-toggle";
 import { cn } from "@/lib/utils";
 
 const LETTERS = ["M", "T", "W", "T", "F", "S", "S"] as const;
@@ -58,7 +57,7 @@ type Props = {
 // Full-screen habit manager (redesign): an editable week grid you can page back
 // through to backfill missed days, plus add / rename / recolor / delete. Every
 // mutation goes through the existing habit actions (toggleHabitCompletion allows
-// past days) and refreshes, so the Progress tab reflects changes on close.
+// past days, via useHabitToggle) and refreshes, so the Progress tab reflects changes on close.
 export function ManageHabits({
   open,
   onOpenChange,
@@ -81,15 +80,7 @@ export function ManageHabits({
 
   // Optimistic completion set keyed `habitId|date`, seeded from the loaded
   // window so toggles flip instantly before the refresh lands.
-  const baseKeys = completions.map((c) => `${c.habitId}|${c.completedOn}`);
-  const [optimisticKeys, addOptimistic] = useOptimistic(
-    baseKeys,
-    (state: string[], key: string): string[] =>
-      state.includes(key)
-        ? state.filter((k) => k !== key)
-        : [...state, key]
-  );
-  const doneSet = new Set(optimisticKeys);
+  const { doneSet, toggle: toggleCell } = useHabitToggle(completions, today);
 
   // Optimistic privacy overlay keyed by habit id, so the eye flips instantly
   // before updateHabit + refresh lands. Base is empty; once the transition
@@ -112,23 +103,6 @@ export function ManageHabits({
   const canPrev = viewWeek > minWeekStart;
   const canNext = viewWeek < weekStart;
   const weekLabel = formatWeekLabel(viewWeek);
-
-  function toggleCell(habitId: string, date: string) {
-    if (date > today) return; // future days aren't checkable
-    const key = `${habitId}|${date}`;
-    // The action toggles, so read the CURRENT state to know which way it went —
-    // only checking a habit ON is the activation signal worth counting.
-    const checkingOn = !doneSet.has(key);
-    startTransition(async () => {
-      addOptimistic(key);
-      const r = await toggleHabitCompletion(habitId, date);
-      if ("error" in r) {
-        toast.error(r.error);
-        return;
-      }
-      if (checkingOn) track("habit_checked", { habit_id: habitId, backfilled: date !== today });
-    });
-  }
 
   function handleAdd() {
     const trimmed = newName.trim();

@@ -5,6 +5,118 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-18
+
+### 20:02 · Weekly recap: a second closing quote
+- **Owner's request:** "Life is like a bicycle. To stay balanced, you must keep moving." by Albert Einstein.
+- Appended to `RECAP_QUOTES` as entry 1, which is the week of Oct 12, so it's on the recap that opens Monday Oct 19.
+- With two quotes the list wraps: the week of Oct 19 shows Edison again unless another quote is added before then.
+- Gate: vitest (a new test pins the Oct 12 week to Einstein) and tsc.
+
+### 19:59 · Push notifications for friend requests, sent and accepted
+- **Owner's request:** a notification when someone sends you a friend request. The owner also picked "X accepted your request". Invite-link signups are left out.
+- **Copy:**
+  - To the addressee: **"{name} sent you a friend request"**. A tap opens `/friends`, where Requests is at the top.
+  - To the requester: **"{name} accepted your friend request"**. A tap opens the new friend's profile.
+- **How:** `lib/push/send-friend-push.ts` is modelled on the nudge sender, and only runs in `after()` once the write has succeeded.
+  - `sendFriendRequest` hooks it after the insert; `acceptFriendRequest` hooks it after `accept_friend_request`. Every UI path goes through these two actions, onboarding v3 included.
+  - **The recipient comes from the friendships row, never the caller.** The row is re-read at send time:
+    - a request must still be `pending` from the actor, so a request undone or blocked first sends nothing (onboarding v3's "✓ Added" undoes in a tap);
+    - an accept must be `accepted` by the actor.
+  - Then the usual chain: `social_pushes_enabled` opt-out, the `push_log` claim (`friend-request:{id}` / `friend-accepted:{id}`, also the collapse id), tokens, APNs, dead-token prune, and `notification_log`.
+  - Gated on `SOCIAL_PUSH`.
+- **Pure copy:** `lib/push/friend-push.ts`, with 7 tests.
+- **Copy updated:** `NOTIFICATION_TYPES` gains `friend_request` and `friend_accepted` (without them, taps on these pushes were dropped by `validateEvent`). Also the admin usage-tab labels, the Settings social-push caption, and onboarding v3's `notifyReasons` (+1 row).
+- **SQL:** `.claude/plans/friend-push.sql` widens the `notification_log.type` CHECK with the two new types. Nothing else changes.
+  - It drops the old CHECK by content, so an unexpected name can't leave it standing.
+  - **Not yet run.** Until it is, the push still goes out and only its analytics row fails, logged and swallowed.
+  - Harness `nudges-harness/friend-push.mjs` slices the real phase1 DDL: ALL PASS, 4/4 mutants caught.
+- **Gate:**
+  - tsc is clean; eslint is clean on the changed files (settings-client at its baseline).
+  - vitest 1350/1350 passes.
+  - The build passes (with the self-link moved aside, then restored).
+  - Signed out, `/friends` redirects to `/login`.
+  - No device check yet.
+
+### 19:50 · Onboarding v3: a notifications screen, after friends
+- **Owner's report:** "no prompt to ask for notifications in the onboarding — double check if they work." The owner had been on **the website**.
+  - The website never asks, by design: there are no web notifications. Both onboardings already hide the step there.
+- **What the check found:**
+  - v2's notify step works in the app: it's native-only, explains first, then asks.
+  - **v3 had no notification screen.**
+    - With `CLOCK_REMINDERS` off, it fired iOS's one-time dialog cold on the hand-off's Clock-in tap, alongside the photo sheet.
+    - With it on, which is the local env, nothing asked at all: only the live timer's small "Turn on reminders" pill or Settings could.
+    - So a v3 account could finish onboarding with no push token and no reminders.
+  - Push registration itself is sound. It reacts to the permission store, so a grant registers the APNs token in the same session. The plugins, SPM packages, entitlements and AppDelegate are all in place.
+- **Change:** v3 gets a seventh screen, **notify**, after Find friends and before the ready screen (the owner's placement).
+  - It's titled "Stay in the loop" and lists what this build actually sends (`notifyReasons`), so it never promises a reminder that's off.
+  - **"Turn on notifications"** shows iOS's dialog, then moves to the ready screen whatever the answer. A grant turns on the daily habit reminder, as v2 did. **"Not now"** moves on without asking.
+  - It is shown only while permission is `prompt` and there's something to send. Otherwise it's stepped over in either direction, and the progress bar counts six (`stepOverNotify`, `progressFor`).
+  - It reuses the `notify` step name, which the analytics CHECK and allowlist already accept, so **no SQL**.
+- **Removed:** the cold Clock-in ask (`asksOnClockIn`, `askNotificationsOnClockIn`, the `askNotifications` prop), so a "Not now" isn't overridden a minute later.
+- **Dev preview:** `/dev/onboarding-v3?screen=6` shows it; it passes `notifyPermission="prompt"` because a browser reads "unavailable".
+- **Still dark** behind `ONBOARDING_V3`. Shipping needs no new binary.
+- **Gate:**
+  - tsc and eslint are clean on every touched file.
+  - vitest 1343/1343 passes, with new tests for the four helpers and the step list.
+  - The build passes (with the self-link moved aside, then restored).
+  - Headless screenshot at 500×852 checked; this needs an iPhone check before the flag flips.
+
+### 19:38 · Clock: a bigger, navy "Add past session"
+- **Owner's request:** the Add past session button should be larger and navy. Mocked first as three options on a design canvas; the owner picked **B**, a larger navy link.
+- **Both places on the Clock tab:** under Clock in, and under the clocked-in strip.
+  - Now 15px semibold navy (`text-brand`) with a plus icon. It was 12px grey (`text-caption`) with a "+ " prefix.
+  - It is still a link-style button, not a filled one, so the solid Clock in stays the main action.
+  - It has a 44px-tall tap area (`h-11`), and presses with `active:scale-[.97]`.
+- **Gate:** tsc and eslint are clean; the build passes (with the self-link moved aside, then restored); `/clock` renders.
+
+### 19:33 · Friends: suggested friends under the leaderboard
+- **Owner's request:** suggested friends at the top of the Friends page, under the leaderboard.
+  - A UW student should see UW students they haven't matched with who share their interests.
+  - Then an "other people at UW" section, before People on Progra.
+- **Where:** the live Friends tab (legacy `friends-client.tsx`, `FRIENDS_V3` off). The v3 tab is untouched: it has no leaderboard and already has UW groups.
+- **New order** (both new sections hide with the board while a search is live): leaderboard → **Suggested friends** → Your friends → **Other people at UW** (UW only) → People on Progra → Sent → Blocked.
+- **UW student:** reuses `list_uw_peers` through `listUwPeerGroups()`, so this half needs no SQL.
+  - Suggested = the `same_major` + `shared_interest` buckets. Both, because the RPC files someone under major first; an interests-only list would miss a same-major peer who also shares an interest. Owner's call.
+  - Other people at UW = `rest`.
+  - Those are the first 20 of each bucket. Anyone past that still shows in People on Progra.
+  - Only students who switched on "Show me in More at UW" (`uw_listed`) can be suggested.
+- **Everyone else:** friends of friends, ranked by mutual friends, shown as "N mutual friends". Owner's call.
+  - New definer RPC `list_friend_suggestions(p_limit)` in `.claude/plans/friend-suggestions.sql`. It returns ids and counts only; identity is hydrated through `public_profiles`.
+  - Seated callers only.
+  - It excludes self, unseated and un-onboarded people, blocks either way, and anyone the caller has any friendships row with.
+  - It never says which friend is the mutual one.
+  - **SQL not yet run.** Until it is, `listFriendSuggestions()` returns `[]` and the section stays hidden.
+- **Code:**
+  - `lib/friend-suggestions.ts` is pure, with 6 tests.
+  - `listFriendSuggestions` is in `lib/db/friends.ts`.
+  - `readSuggestions()` in `app/friends/page.tsx` does one RPC either way, chained off the cached profile.
+  - In `friends-client.tsx`: `SuggestionSection`, an optional subline on `UserRow`, and People on Progra now drops anyone listed above it.
+- **Gate:**
+  - PGlite harness `nudges-harness/friend-suggestions.mjs`: the full matrix passes and all 12 mutants are caught. A pending-first-hop case was added after its mutant survived.
+  - tsc is clean; eslint is clean on the changed files.
+  - vitest 1341/1341 passes.
+  - The build passes with the self-link moved aside, then restored.
+  - Signed out, `/friends` redirects to `/login`.
+
+### 19:24 · Habits: tap the week grid to fill in a missed day
+- **Owner's request:** "should be able to edit habits on the you page - add in for any day you didn't get it done on the overall chart."
+- **What changed:** the this-week habit grid on You and on Progress (Week) can now be tapped in place.
+  - Tapping a square for any day up to today checks it off, and tapping again clears it.
+  - Future days stay dimmed and do nothing.
+  - Before, the grid was display-only and backfilling meant opening the Manage sheet from the "Habits" header.
+  - Older weeks, back to `HABIT_HISTORY_WEEKS`, are still reached through that sheet.
+- **How:**
+  - The optimistic `habitId|date` toggle moved out of `ManageHabits` into `lib/use-habit-toggle.ts`, unchanged. The sheet and both grids use it.
+  - `HabitWeekGrid` takes optional `done` and `onToggle` props. With them, its squares are buttons; without them, it renders as before.
+  - On You, the section's "x of y" count is now computed from the optimistic set, so it moves with a tap. The `doneThisWeek` prop is gone.
+- **No server or SQL change:** `toggleHabitCompletion` already accepted past days and rejected future ones.
+- **Gate:**
+  - tsc is clean. eslint shows only the two known baseline errors (`Date.now()` in `me/page.tsx`, set-state-in-effect in `manage-habits`).
+  - vitest 1335/1335 passes.
+  - The build passes with the design-sync `node_modules/progra` self-link moved aside, then restored.
+  - Signed out, `/me` redirects to `/login` and `/` returns 200.
+
 ## 2026-10-17
 
 ### 13:37 · UW info prompt: never shown to registered UW students

@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   STAMP_ATTEMPTS,
-  asksOnClockIn,
   clockHandoffHref,
   finishesOnboarding,
   onboardingStamper,
@@ -86,23 +85,6 @@ describe("stampOnboarding", () => {
     });
     await expect(stampOnboarding(throws)).resolves.toBe(false);
     expect(throws).toHaveBeenCalledTimes(2);
-  });
-});
-
-describe("asksOnClockIn", () => {
-  const off = { enabled: true, clockReminders: false };
-
-  it("asks on the arrival's Clock-in tap only with CLOCK_REMINDERS off (D5)", () => {
-    expect(asksOnClockIn({ ...off, welcome: "1" })).toBe(true);
-    expect(asksOnClockIn({ ...off, clockReminders: true, welcome: "1" })).toBe(false);
-    expect(asksOnClockIn({ ...off, enabled: false, welcome: "1" })).toBe(false);
-  });
-
-  it("never asks on the plain Clock tab", () => {
-    for (const welcome of [undefined, "", "0", "true", " 1", ["0", "1"]]) {
-      expect(asksOnClockIn({ ...off, welcome })).toBe(false);
-    }
-    expect(asksOnClockIn({ ...off, welcome: ["1"] })).toBe(true);
   });
 });
 

@@ -90,11 +90,10 @@ export function subscribeHabitReminderPref(onChange: () => void): () => void {
 
 // Whether a notification ask that just resolved should turn the daily habit
 // reminder on: only a fresh grant, and only with the feature live. Onboarding
-// v2 did this on its notify step (onboarding-client-v2.tsx's askNotifications).
-// v3 has no such step, so the first ask moved (.claude/plans/onboarding-v3.md
-// D5): to the live timer's "Turn on reminders" band with CLOCK_REMINDERS on,
-// and with it off (the band then shows nothing) to the Clock-in tap that ends
-// onboarding (app/clock/finish-onboarding.tsx). Both do the same.
+// v2 did this on its notify step (onboarding-client-v2.tsx's askNotifications),
+// and v3 does on its notifications screen (onboarding-client-v3.tsx). The live
+// timer's "Turn on reminders" band does the same for anyone who said "Not
+// now" there.
 export function habitDefaultOnGrant(
   result: NotifyPermission,
   habitReminders: boolean

@@ -533,6 +533,8 @@ export function createPreviewServices(
       });
     },
     shareInvite: () => after(latencyMs, "shared" as const),
+    // As if iOS's dialog came up and was answered Allow.
+    askNotifications: () => after(latencyMs, "granted" as const),
     recordStep: () => {},
     track: () => {},
   };

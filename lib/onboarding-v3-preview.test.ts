@@ -38,7 +38,8 @@ describe("parsePreviewParams", () => {
       fixture: "welcome-filled",
       beat: 0,
     });
-    expect(parsePreviewParams({ screen: "6" }).screen).toBe(SCREEN_COUNT - 1);
+    expect(parsePreviewParams({ screen: "6" }).screen).toBe(SCREEN_COUNT - 2);
+    expect(parsePreviewParams({ screen: "7" }).screen).toBe(SCREEN_COUNT - 1);
   });
 
   it("clamps out-of-range screens and falls back on junk", () => {

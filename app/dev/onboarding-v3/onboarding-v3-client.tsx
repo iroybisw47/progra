@@ -62,6 +62,9 @@ export function OnboardingV3Client({
       initialScreen={restarts > 0 ? SCREEN.identity : screen}
       initialBeat={beat}
       onHandoff={() => setRestarts((n) => n + 1)}
+      // A browser reads "unavailable", which steps over the notifications
+      // screen; the preview shows it as a device that has never been asked.
+      notifyPermission="prompt"
     />
   );
 }

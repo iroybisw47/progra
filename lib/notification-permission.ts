@@ -91,8 +91,9 @@ export async function checkNotificationPermission(): Promise<NotifyPermission> {
 //   1. the onboarding "Enable notifications" CTA  (onboarding-client-v2.tsx)
 //   2. the Settings → Notifications row           (settings-client.tsx)
 //   3. the live timer's "Turn on reminders" line  (reminders-band.tsx)
-//   4. the Clock-in tap ending onboarding v3, with CLOCK_REMINDERS off
-//      (finish-onboarding.tsx askNotificationsOnClockIn, from clock-client.tsx)
+//   4. onboarding v3's "Turn on notifications" CTA, on its notifications
+//      screen (onboarding-client-v3.tsx askNotifications, through
+//      services.askNotifications)
 //
 // Checks first and returns early unless the state is `prompt`. Without that, a
 // stray call on an already-denied device resolves to "denied" having shown

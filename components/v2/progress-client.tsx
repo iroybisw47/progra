@@ -7,6 +7,7 @@ import { CalendarIcon, CheckIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { track } from "@/lib/analytics";
+import { useHabitToggle } from "@/lib/use-habit-toggle";
 import { Donut } from "@/components/v2/donut";
 import { HabitWeekGrid } from "@/components/v2/habit-week-grid";
 import { GoalQuotaRows } from "@/components/v2/goal-quota-rows";
@@ -149,6 +150,10 @@ export function ProgressClient(props: {
       state.map((h) => (h.id === habitId ? { ...h, done: !h.done } : h))
   );
   const doneToday = optimisticHabits.filter((h) => h.done).length;
+
+  // The Week grid's own optimistic layer: any day this week is tappable there.
+  // Separate from the Today pills above; both reseed from props on refresh.
+  const weekGrid = useHabitToggle(props.completions, props.today);
 
   function toggleHabit(habitId: string) {
     // Only checking a habit ON is the activation signal worth counting.
@@ -372,7 +377,7 @@ export function ProgressClient(props: {
 
         <Hairline className="mt-4" />
 
-        {/* Habits — one-tap pills today, the week grid on Week. */}
+        {/* Habits — one-tap pills today, the tappable week grid on Week. */}
         <section className="flex flex-col pt-3">
           <SectionHeader
             label="Habits"
@@ -452,6 +457,8 @@ export function ProgressClient(props: {
               completions={props.completions}
               weekStart={props.weekStart}
               today={props.today}
+              done={weekGrid.doneSet}
+              onToggle={weekGrid.toggle}
             />
           )}
         </section>

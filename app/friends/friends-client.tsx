@@ -9,6 +9,13 @@ import { track } from "@/lib/analytics";
 import { ACCOUNTABILITY_INVITE_TEXT, shareInvite } from "@/lib/invite-share";
 import { FeedLivePoll } from "@/components/feed-live-poll";
 import { FriendsLeaderboard } from "@/components/v2/friends-leaderboard";
+import {
+  SUGGESTIONS_COPY,
+  friendsTabSuggestions,
+  type SuggestionRow,
+  type SuggestionUser,
+  type SuggestionsInput,
+} from "@/lib/friend-suggestions";
 import type { FriendsLeaderboardRow } from "@/lib/leaderboard";
 
 import { AvatarInitials } from "@/components/avatar-initials";
@@ -40,6 +47,9 @@ type Props = {
   // The UW info prompt's card (components/v2/uw-prompt-card.tsx), rendered by
   // the page while the viewer hasn't answered; null otherwise.
   uwPrompt?: React.ReactNode;
+  // "Suggested friends" (and, for a UW student, "Other people at UW"), from
+  // page.tsx's readSuggestions. Shaped by lib/friend-suggestions.ts.
+  suggestions?: SuggestionsInput | null;
 };
 
 type ActionResult = { ok: true } | { error: string };
@@ -53,6 +63,7 @@ export function FriendsClient({
   initialUnseen,
   leaderboard,
   uwPrompt = null,
+  suggestions = null,
 }: Props) {
   const [pending, startTransition] = useTransition();
 
@@ -66,6 +77,9 @@ export function FriendsClient({
   const incomingByUser = new Map(
     incoming.map((i) => [i.user.userId, i.requestId])
   );
+  const { suggested: suggestedRows, otherUw, hideFromPeople } =
+    friendsTabSuggestions(suggestions, friendIds);
+  const browsing = query.trim().length < 2;
 
   // Immediate UI feedback lives in the change handler (an event handler, so
   // setState is fine here); the effect below only schedules the async fetch.
@@ -131,7 +145,8 @@ export function FriendsClient({
   }
 
   // The right-hand action button for a user, by our relationship to them.
-  // Shared by search results and the "People on Progra" section.
+  // Shared by search results and the discovery sections (Suggested friends,
+  // Other people at UW, People on Progra).
   const chip =
     "h-[30px] rounded-[10px] px-3 text-xs font-semibold transition-transform active:scale-95 disabled:opacity-50";
   const chipOutline = `border-control-border text-caption border-[1.5px] ${chip}`;
@@ -286,7 +301,18 @@ export function FriendsClient({
         {/* Keeps friends' totals climbing while you watch, and refreshes on
             refocus. Same component and cadence the feed uses. */}
         <FeedLivePoll />
-        {query.trim().length < 2 && <FriendsLeaderboard rows={leaderboard} />}
+        {browsing && <FriendsLeaderboard rows={leaderboard} />}
+
+        {/* Suggested friends — right under the board. A UW student's UW
+            matches (shared major or interest); anyone else's friends of
+            friends. Hidden with the board while a search is live. */}
+        {browsing && (
+          <SuggestionSection
+            label={SUGGESTIONS_COPY.suggested}
+            rows={suggestedRows}
+            renderAction={renderAction}
+          />
+        )}
 
         {/* Friends */}
         <section className="flex flex-col">
@@ -325,10 +351,24 @@ export function FriendsClient({
           )}
         </section>
 
+        {/* Other people at UW — the rest of the cohort, before everyone. */}
+        {browsing && (
+          <SuggestionSection
+            label={SUGGESTIONS_COPY.otherUw}
+            rows={otherUw}
+            renderAction={renderAction}
+          />
+        )}
+
         {/* People on Progra — discovery. Excludes current friends (they're in
-            "Your friends" above); pending shows Requested/Accept. */}
+            "Your friends" above) and anyone already listed in the sections
+            above; pending shows Requested/Accept. */}
         {(() => {
-          const people = suggested.filter((u) => !friendIds.has(u.userId));
+          const people = suggested.filter(
+            (u) =>
+              !friendIds.has(u.userId) &&
+              !(browsing && hideFromPeople.has(u.userId))
+          );
           if (people.length === 0) return null;
           return (
             <section className="flex flex-col">
@@ -390,11 +430,43 @@ export function FriendsClient({
   );
 }
 
+// A discovery section of suggestion rows; renders nothing when empty.
+function SuggestionSection({
+  label,
+  rows,
+  renderAction,
+}: {
+  label: string;
+  rows: SuggestionRow[];
+  renderAction: (userId: string) => React.ReactNode;
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <section className="flex flex-col">
+      <div className="flex items-center gap-[7px] px-5 pt-[18px] pb-2">
+        <span className="section-label">{label}</span>
+        <span className="flex-1" />
+        <span className="text-caption text-[10px] font-semibold tracking-[0.06em] tabular-nums">
+          {rows.length}
+        </span>
+      </div>
+      {rows.map((r) => (
+        <UserRow key={r.user.userId} user={r.user} subline={r.subline}>
+          {renderAction(r.user.userId)}
+        </UserRow>
+      ))}
+    </section>
+  );
+}
+
 function UserRow({
   user,
+  subline = null,
   children,
 }: {
-  user: PublicUser | UserSearchResult;
+  user: PublicUser | UserSearchResult | SuggestionUser;
+  // Replaces the @handle line ("Also into Running", "2 mutual friends").
+  subline?: string | null;
   children: React.ReactNode;
 }) {
   return (
@@ -414,10 +486,16 @@ function UserRow({
         <span className="text-body truncate text-[13px] leading-[1.25] font-semibold">
           {user.displayName || `@${user.username}`}
         </span>
-        {user.displayName && (
-          <span className="text-faint truncate text-[11px] leading-[1.3]">
-            @{user.username}
+        {subline ? (
+          <span className="text-secondary-ink truncate text-[11px] leading-[1.3]">
+            {subline}
           </span>
+        ) : (
+          user.displayName && (
+            <span className="text-faint truncate text-[11px] leading-[1.3]">
+              @{user.username}
+            </span>
+          )
         )}
       </Link>
       <div className="flex shrink-0 items-center gap-1.5">{children}</div>

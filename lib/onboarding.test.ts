@@ -73,20 +73,20 @@ describe("v3 steps", () => {
     for (const step of V3_STEPS) expect(STEPS).toContain(step);
   });
 
-  it("is six distinct screens, welcome first and clock last", () => {
-    expect(V3_STEPS).toHaveLength(6);
-    expect(new Set(V3_STEPS).size).toBe(6);
+  it("is seven distinct screens, welcome first and clock last", () => {
+    expect(V3_STEPS).toHaveLength(7);
+    expect(new Set(V3_STEPS).size).toBe(7);
     expect(V3_STEPS[0]).toBe("welcome");
     expect(V3_STEPS[V3_STEPS.length - 1]).toBe("clock");
   });
 
   // v3's order differs from v2's, which is the reason it is its own list.
-  it("puts the intro after goals and habits, before friends", () => {
-    expect(V3_STEPS).toEqual(["welcome", "goal", "habit", "how", "friends", "clock"]);
+  // Notifications is the last step before the hand-off, after friends.
+  it("puts the intro after goals and habits, and notifications after friends", () => {
+    expect(V3_STEPS).toEqual(["welcome", "goal", "habit", "how", "friends", "notify", "clock"]);
   });
 
-  it("drops the practice steps and folds uw into welcome", () => {
-    expect(V3_STEPS).not.toContain("notify");
+  it("drops the practice post and folds uw into welcome", () => {
     expect(V3_STEPS).not.toContain("post");
     expect(V3_STEPS).not.toContain("uw");
   });
