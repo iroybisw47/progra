@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { buildRecapStory } from "@/lib/recap-story";
 import { parseRecapPreviewParams, recapPreviewInput } from "@/lib/recap-story-preview";
+import { postSlices } from "@/lib/weekly-review";
 
 import { RecapStoryPreviewClient } from "./recap-story-preview-client";
 
@@ -44,10 +45,19 @@ export default async function RecapStoryPreviewPage({
   const { fixture, slide, still, welcome, posted, fail, insets } = parseRecapPreviewParams(
     await searchParams
   );
+  const input = recapPreviewInput(fixture);
+  // The Share preview's wheel, from the sample week's categories as a post
+  // would store them (every fixture category is live and none is a goal).
+  const slices = postSlices(
+    input.categories.map((c) => ({ ...c, isGoal: false })),
+    new Set(),
+    new Set(input.categories.flatMap((c) => (c.id ? [c.id] : [])))
+  );
   const view = buildRecapStory({
-    ...recapPreviewInput(fixture),
+    ...input,
     firstReview: welcome,
     share: {
+      slices,
       postable: true,
       posted: posted ? { id: "preview-post", caption: "Thesis chapter two is done." } : null,
     },

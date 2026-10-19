@@ -10,7 +10,7 @@ import type { Category, Session } from "@/lib/storage";
 // with a real category id). Each goal draws its own hue from the palette
 // (goalColor), so a goal reads the same here as it does on its quota bar; the
 // shared accent is only the fallback for a goal we couldn't resolve.
-const GOAL_KEY_PREFIX = "goal:";
+export const GOAL_KEY_PREFIX = "goal:";
 export const GOAL_ACCENT = "var(--primary)";
 export function goalCategoryKey(goalId: string): string {
   return GOAL_KEY_PREFIX + goalId;

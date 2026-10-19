@@ -27,7 +27,14 @@ function post(over: Partial<RecapFeedItem>): RecapFeedItem {
     totalTrackedMs: 11.5 * H,
     rank: 2,
     circleSize: 8,
-    categories: [],
+    // The wheel as postSlices stores it (fill colors, Uncategorized last).
+    categories: [
+      { name: "Thesis", color: "#395AA0", ms: 4.5 * H },
+      { name: "Spanish", color: "#E07042", ms: 3 * H },
+      { name: "Gym", color: "#2E8B50", ms: 2 * H },
+      { name: "Private goals", color: "#A084B3", ms: 1.25 * H },
+      { name: "Uncategorized", color: "#c3c8ce", ms: 0.75 * H },
+    ],
     postedAt: Date.UTC(2026, 9, 12, 15),
     goalPct: 86,
     goalCount: 3,

@@ -33,7 +33,12 @@ import {
   type ReviewPostSummary,
 } from "@/lib/recap-story";
 import { getMyRecapPostForWeek } from "@/lib/db/weekly-reviews";
-import { isReviewPostable, type ReviewPostExtras } from "@/lib/weekly-review";
+import {
+  isReviewPostable,
+  postSlices,
+  type PostSlice,
+  type ReviewPostExtras,
+} from "@/lib/weekly-review";
 import { LIKE_EMOJI } from "@/lib/social/reactions";
 import { createClient } from "@/lib/supabase/server";
 
@@ -255,9 +260,28 @@ export const loadRecapStory = cache(async (weekStartISO: string): Promise<RecapS
     likesGiven: likes.given,
     likesReceived: likes.received,
     firstReview: !seenOne,
-    share: { postable: postableNow(win.weekStartISO, tz, createdMs), posted },
+    share: {
+      postable: postableNow(win.weekStartISO, tz, createdMs),
+      posted,
+      slices: wheelSlices(recap.categoryRows, categories, goals),
+    },
   });
 });
+
+// The wheel a post of this week stores (postSlices), from the same reads in
+// both the story (the Share slide's preview) and the post, so the preview is
+// what gets posted.
+function wheelSlices(
+  rows: Awaited<ReturnType<typeof computeWeekRecap>>["categoryRows"],
+  categories: { id: string }[],
+  goals: { id: string; isPrivate: boolean }[]
+): PostSlice[] {
+  return postSlices(
+    rows,
+    new Set(goals.filter((g) => g.isPrivate).map((g) => g.id)),
+    new Set(categories.map((c) => c.id))
+  );
+}
 
 // What posting the week writes, recomputed on the server from the same reads
 // and the same rules as the story (lib/recap-story reviewPostSummary) — the
@@ -273,12 +297,13 @@ export async function loadReviewPost(weekStartISO: string): Promise<{
   const win = weekWindow(tz, weekStartISO);
   if (!postableNow(win.weekStartISO, tz, createdMsOf(profile?.created_at))) return null;
 
-  const [recap, goals, habits, completions, circle] = await Promise.all([
+  const [recap, goals, habits, completions, circle, categories] = await Promise.all([
     computeWeekRecap(win.weekStartMs, win.weekEndMs),
     listActiveGoals(),
     listActiveHabits(),
     listCompletionsInRange(win.weekStartISO, addDaysISO(win.weekStartISO, 6)),
     getFriendsLeaderboardForWeek(win.weekStartMs, win.weekEndMs),
+    listCategories(),
   ]);
   const me = circle.find((r) => r.isMe);
   const activeFriends = circle.filter((r) => !r.isMe).length;
@@ -295,7 +320,7 @@ export async function loadReviewPost(weekStartISO: string): Promise<{
       // Stored only where the story itself shows a rank.
       rank: me && activeFriends >= MIN_ACTIVE_FRIENDS ? me.rank : null,
       circleSize: circle.length,
-      categories: recap.categoryRows.slice(0, 4).map((r) => ({ name: r.name, color: r.color, ms: r.ms })),
+      categories: wheelSlices(recap.categoryRows, categories, goals),
     },
   };
 }

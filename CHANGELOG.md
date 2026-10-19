@@ -7,6 +7,20 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-18
 
+### 20:39 · Weekly review posts show the wheel of where the week went
+- **Owner's request:** a posted weekly review should include the wheel of how you spent your time. The owner also confirmed `friend-suggestions.sql` and `friend-push.sql` have both been run in prod.
+- **Where it shows:** on the feed card, on `/review/[id]`, and on the Share slide's preview, so the preview is what gets posted. It is a ring beside a legend of category and time. The feed card lists four rows and counts the rest; the post's page lists them all. `components/v2/review-wheel.tsx` (on the existing `Donut`).
+- **No SQL:** `recap_posts.categories` (jsonb) was already written on every post. Nothing drew it, and what it held wasn't fit to draw:
+  - **Only the top 4 were stored**, so the ring couldn't add up to the week. `postSlices` (`lib/weekly-review.ts`) now stores the whole week by the "Where it went" rules: time only, a deleted category counted as Uncategorized, largest first, Uncategorized last. Past 6 slices, the smallest fold into "Other", so it still sums to the week.
+  - **Private goals' titles were stored as "Goal: <title>" in a friend-readable row.** They are now one "Private goals" slice. A public goal is stored under its own title.
+- **Old posts:** `postWheel` still draws them. Their goal rows (the only ones with a "Goal: " prefix) show as plain "Goal", since nothing says which were private. Their null color shows as Uncategorized. A re-post (a caption edit) rewrites the slices.
+- **Gate:**
+  - tsc and eslint are clean.
+  - vitest 1358/1358 passes, with 7 new tests for slices and the old-post read.
+  - The build passes (with the self-link moved aside, then restored).
+  - Screenshots of `/dev/weekly-review` (feed and post) checked. They caught public goals showing as "Goal", which is fixed.
+  - Not committed.
+
 ### 20:02 · Weekly recap: a second closing quote
 - **Owner's request:** "Life is like a bicycle. To stay balanced, you must keep moving." by Albert Einstein.
 - Appended to `RECAP_QUOTES` as entry 1, which is the week of Oct 12, so it's on the recap that opens Monday Oct 19.

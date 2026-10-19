@@ -5,6 +5,7 @@ import { formatDuration } from "@/lib/duration";
 import { quoteForWeek, type RecapQuote } from "@/lib/recap-quotes";
 import type { DayEvent } from "@/lib/db/calendar-events";
 import type { Session } from "@/lib/storage";
+import type { PostSlice } from "@/lib/weekly-review";
 
 // The weekly review's RULES (RECAP_V2, design_handoff_weekly_recap): every
 // number, line of copy and skipped slide, decided once from plain data. Pure,
@@ -76,7 +77,12 @@ export type RecapStoryInput = {
   // The Share slide (owner, 2026-10-12): offered only when posting this week
   // would succeed (its review is out and the account existed that week).
   // `posted` is this week's post when there already is one.
-  share?: { postable: boolean; posted: { id: string; caption: string | null } | null };
+  share?: {
+    postable: boolean;
+    posted: { id: string; caption: string | null } | null;
+    // The wheel posting would store (lib/weekly-review.ts postSlices).
+    slices?: PostSlice[];
+  };
 };
 
 export type WhereView = {
@@ -164,6 +170,8 @@ export type ShareView = {
   // "solo": no friends yet, so nobody else will see it for now.
   audience: "friends" | "solo";
   posted: { id: string; caption: string | null } | null;
+  // The post's wheel, as it will be stored.
+  slices: PostSlice[];
 };
 
 export type RecapStoryView = {
@@ -530,6 +538,7 @@ export function buildRecapStory(input: RecapStoryInput): RecapStoryView {
         summary: reviewPostSummary(input),
         audience: input.friends.length > 0 ? "friends" : "solo",
         posted: input.share.posted,
+        slices: input.share.slices ?? [],
       }
     : null;
   if (share) slides.push("share");

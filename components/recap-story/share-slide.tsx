@@ -3,6 +3,7 @@
 import { CheckIcon } from "lucide-react";
 
 import { ReviewStats } from "@/components/v2/review-stats";
+import { ReviewWheel } from "@/components/v2/review-wheel";
 import { useKeyboardInset } from "@/lib/hooks";
 import { anim } from "@/lib/recap-story-nav";
 import { cn } from "@/lib/utils";
@@ -78,6 +79,7 @@ export function ShareSlide({
             )}
           </div>
           <ReviewStats stats={reviewStats(share.summary)} />
+          <ReviewWheel slices={share.slices} />
         </div>
 
         {/* Its taps type and post; they must never also turn the page. */}

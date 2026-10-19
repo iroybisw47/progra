@@ -6,6 +6,7 @@ import { BackButton } from "@/components/v2/back-button";
 import { RecapKudosButton } from "@/components/v2/recap-kudos-button";
 import { RecapCommentComposer, RecapThread } from "@/components/v2/recap-thread";
 import { ReviewStats } from "@/components/v2/review-stats";
+import { ReviewWheel } from "@/components/v2/review-wheel";
 import { formatRelativeTime } from "@/lib/dates";
 import type { RecapFeedItem } from "@/lib/db/feed";
 import type { RecapComment, RecapKudos } from "@/lib/db/recap-social";
@@ -61,6 +62,7 @@ export function ReviewView({
         <div className="px-5 pt-4">
           <div className="rounded-[25.92px] bg-[rgba(28,58,94,.05)] px-5 py-5">
             <ReviewStats stats={reviewStats(post)} size="lg" />
+            <ReviewWheel slices={post.categories} size="lg" className="mt-5" />
           </div>
         </div>
 

@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import { weekWindow } from "@/lib/dates";
-import { buildRecapStory, habitWeekPct, reviewPostSummary } from "@/lib/recap-story";
+import { UNCATEGORIZED_FILL, buildRecapStory, habitWeekPct, reviewPostSummary } from "@/lib/recap-story";
 import { recapPreviewInput } from "@/lib/recap-story-preview";
 import {
   CAPTION_MAX,
+  OTHER_FILL,
+  POST_SLICE_MAX,
   isReviewPostable,
   normalizeCaption,
+  postSlices,
+  postWheel,
   reviewPostRow,
   reviewStats,
   reviewStatsLine,
@@ -143,5 +147,83 @@ describe("reviewStatsLine", () => {
     expect(
       reviewStatsLine(reviewStats({ totalTrackedMs: 2 * H, goalPct: null, goalCount: null, habitPct: null, habitCount: null }))
     ).toBe("2.0 hrs");
+  });
+});
+
+describe("postSlices (the post's wheel)", () => {
+  const H = 3_600_000;
+  const cat = (id: string, name: string, ms: number, color = "#395AA0") => ({ id, name, color, isGoal: false, ms });
+  const goal = (id: string, title: string, ms: number, color = "#E07042") => ({
+    id: `goal:${id}`,
+    name: `Goal: ${title}`,
+    color,
+    isGoal: true,
+    ms,
+  });
+  const live = new Set(["c1", "c2", "c3", "c4", "c5", "c6", "c7"]);
+  const none = new Set<string>();
+
+  it("keeps time only, largest first, Uncategorized last", () => {
+    const out = postSlices(
+      [
+        { id: null, name: "Uncategorized", color: null, isGoal: false, ms: 5 * H },
+        cat("c1", "Work", 2 * H),
+        cat("c2", "Reading", 3 * H),
+        cat("c3", "Idle", 0),
+      ],
+      none,
+      live
+    );
+    expect(out.map((s) => s.name)).toEqual(["Reading", "Work", "Uncategorized"]);
+    expect(out[2].color).toBe(UNCATEGORIZED_FILL);
+  });
+
+  it("counts a deleted category as Uncategorized", () => {
+    const out = postSlices([cat("gone", "Old", H), { id: null, name: "Uncategorized", color: null, isGoal: false, ms: H }], none, live);
+    expect(out).toEqual([{ name: "Uncategorized", color: UNCATEGORIZED_FILL, ms: 2 * H }]);
+  });
+
+  it("never names a private goal", () => {
+    const out = postSlices(
+      [goal("g1", "Secret project", 2 * H, "#2E8B50"), goal("g2", "Other secret", H), goal("g3", "Thesis", 4 * H)],
+      new Set(["g1", "g2"]),
+      live
+    );
+    // A public goal under its own title: only old posts carry "Goal: ".
+    expect(out.map((s) => s.name)).toEqual(["Thesis", "Private goals"]);
+    expect(out[1].ms).toBe(3 * H);
+    expect(JSON.stringify(out)).not.toContain("secret");
+  });
+
+  it("folds the smallest into Other past the cap, and still sums to the week", () => {
+    const rows = [1, 2, 3, 4, 5, 6, 7].map((n) => cat(`c${n}`, `C${n}`, n * H));
+    const out = postSlices([...rows, { id: null, name: "Uncategorized", color: null, isGoal: false, ms: H }], none, live);
+    expect(out).toHaveLength(POST_SLICE_MAX);
+    expect(out.map((s) => s.name)).toEqual(["C7", "C6", "C5", "C4", "Other", "Uncategorized"]);
+    expect(out[4]).toEqual({ name: "Other", color: OTHER_FILL, ms: 6 * H });
+    expect(out.reduce((s, x) => s + x.ms, 0)).toBe(29 * H);
+  });
+
+  it("fits exactly at the cap without an Other", () => {
+    const rows = [1, 2, 3, 4, 5, 6].map((n) => cat(`c${n}`, `C${n}`, n * H));
+    expect(postSlices(rows, none, live).map((s) => s.name)).not.toContain("Other");
+  });
+});
+
+describe("postWheel (drawing a post's wheel)", () => {
+  it("draws nothing without time", () => {
+    expect(postWheel([])).toBeNull();
+    expect(postWheel(null)).toBeNull();
+    expect(postWheel([{ name: "Work", color: "#395AA0", ms: 0 }])).toBeNull();
+  });
+
+  it("reads an old post: null color is Uncategorized, goal titles are hidden", () => {
+    const w = postWheel([
+      { name: "Goal: Secret", color: "#E07042", ms: 2 },
+      { name: "Uncategorized", color: null, ms: 1 },
+    ]);
+    expect(w?.rows.map((r) => r.name)).toEqual(["Goal", "Uncategorized"]);
+    expect(w?.rows[1].color).toBe(UNCATEGORIZED_FILL);
+    expect(w?.segments.map((s) => s.value)).toEqual([2, 1]);
   });
 });

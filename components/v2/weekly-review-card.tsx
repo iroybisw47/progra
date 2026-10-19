@@ -4,6 +4,7 @@ import { HeartIcon, MessageCircleIcon } from "lucide-react";
 import { AvatarInitials } from "@/components/avatar-initials";
 import { RecapKudosButton } from "@/components/v2/recap-kudos-button";
 import { ReviewStats } from "@/components/v2/review-stats";
+import { ReviewWheel } from "@/components/v2/review-wheel";
 import { formatRelativeTime } from "@/lib/dates";
 import type { RecapFeedItem } from "@/lib/db/feed";
 import type { RecapKudos } from "@/lib/db/recap-social";
@@ -11,7 +12,7 @@ import { weekSpanLabel } from "@/lib/recap-story";
 import { reviewStats, reviewStatsLine, reviewWeekISO } from "@/lib/weekly-review";
 
 // A posted weekly review (RECAP_V2): hours tracked, % towards goals, % of
-// habits done, and the caption. The post's own page is /review/[id], where the
+// habits done, the wheel of where the week went, and the caption. The post's own page is /review/[id], where the
 // likes and the whole comment thread live; everything here links there.
 //
 // The week label is built from the stored week_start_ms (reviewWeekISO), never
@@ -64,6 +65,7 @@ export function WeeklyReviewCard({
           {weekLabel(entry)}
         </span>
         <ReviewStats stats={reviewStats(entry)} />
+        <ReviewWheel slices={entry.categories} />
       </Link>
 
       {entry.caption && (
