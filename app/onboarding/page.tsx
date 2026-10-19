@@ -11,6 +11,7 @@ import { listEventsInRange } from "@/lib/db/calendar-events";
 import { getFriendRelations } from "@/lib/db/friends";
 import { listActiveGoals } from "@/lib/db/goals";
 import { listActiveHabits, listCompletionsInRange } from "@/lib/db/habits";
+import { getWeekCategorySegs } from "@/lib/db/progress";
 import { listRecentSessions } from "@/lib/db/sessions";
 import { ONBOARDING_V3, REDESIGN, UW } from "@/lib/flags";
 import { accountGoalsFrom, accountHabitsFrom } from "@/lib/onboarding-v3-goals-habits";
@@ -68,8 +69,13 @@ export default async function OnboardingPage({
     // Continue writes only what they change, so a replay never adds a second
     // copy of something they already have (lib/onboarding-v3-goals-habits.ts).
     //
-    // Screen 4's practice run previews the Progress tab with illustrative
-    // data for everyone, so it reads nothing.
+    // Screen 4's Beat 2 draws this week's real hours by category when there
+    // are any (D15), read as the Week tab reads them. Only for a replayer: a
+    // first run (at `/`, or here before onboarded_at is set) hasn't clocked
+    // in yet, and shouldn't pay for a week read to find that out. A replay
+    // does pay for it again on every Screen 2 and 3 save, since those
+    // revalidate this route (lib/revalidate.ts); accepted, as the read is
+    // parallel with the goals and habits and Replay is rare.
     //
     // Screen 5 reads the viewer's friendships, so its search results show a
     // replayer's friends as "Friends", their requests as "✓ Added" (and
@@ -82,9 +88,10 @@ export default async function OnboardingPage({
     // before STEP 5 they don't exist.
     if (ONBOARDING_V3) {
       const replay = profile?.onboarded_at != null;
-      const [goals, habits, relations] = await Promise.all([
+      const [goals, habits, week, relations] = await Promise.all([
         listActiveGoals(),
         listActiveHabits(),
+        replay ? getWeekCategorySegs() : [],
         getFriendRelations(),
       ]);
       return (
@@ -95,6 +102,7 @@ export default async function OnboardingPage({
           replay={replay}
           existingGoals={accountGoalsFrom(goals)}
           existingHabits={accountHabitsFrom(habits)}
+          weekSegments={week}
           relations={relations}
           uw={UW}
           savedUw={UW ? savedUwFrom(profile) : undefined}

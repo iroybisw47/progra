@@ -13,9 +13,8 @@ import { OnboardingV3Client } from "./onboarding-v3-client";
 //   /dev/onboarding-v3?fixture=goals|goals-full|habits|habit-custom
 //                                                          (Screens 2 and 3; goals-full is
 //                                                          Screen 2 at the cap, every hours box)
-//   /dev/onboarding-v3?fixture=practice&demo=intro|ready|ended|post|posted
-//                                                          (Screen 4, the practice run, two
-//                                                          goals; screen=4 takes any fixture)
+//   /dev/onboarding-v3?screen=4&fixture=habits&beat=1..3   (the intro, a first run)
+//   /dev/onboarding-v3?fixture=tracked&beat=1..3           (the intro, a real week)
 //   /dev/onboarding-v3?fixture=friends-search|friends-added|friends-known|friends-nohits
 //                                                          (Screen 5 searching)
 //   /dev/onboarding-v3?screen=5&fixture=habits             (Screen 5, not searching)
@@ -34,7 +33,7 @@ import { OnboardingV3Client } from "./onboarding-v3-client";
 // setUsername refuses handles containing "taken" as taken, other writes
 // answer { ok: true } after 150ms (a created goal, habit or friend request
 // with a fake id), search finds a handful of made-up people, a share "goes
-// through" with no sheet, the photos' uploads and Remove send nothing, and
+// through" with no sheet, the photo's upload and Remove send nothing, and
 // analytics go nowhere. "Start session"
 // plays its exit and then starts the preview over on Screen 1, rather than
 // open the real Clock tab, which needs an account. The flag isn't
@@ -58,13 +57,13 @@ export default async function OnboardingV3PreviewPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   if (process.env.NODE_ENV === "production") notFound();
-  const { screen, fixture, demo, query, uw } = parsePreviewParams(await searchParams);
+  const { screen, fixture, beat, query, uw } = parsePreviewParams(await searchParams);
   return (
     <OnboardingV3Client
       key={fixture}
       screen={screen}
       fixture={fixture}
-      demo={demo}
+      beat={beat}
       query={query}
       uw={uw ?? UW}
     />

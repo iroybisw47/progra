@@ -10,6 +10,7 @@ import {
   ITEM_ENTER,
   ITEM_EXIT,
   ITEM_REDUCED,
+  KUDOS_LINE_IN,
   MOTION,
   SHEET,
   TOAST,
@@ -22,11 +23,8 @@ import {
   itemEnter,
   itemExit,
   itemStyle,
-  flipUniform,
-  heroBarFill,
-  heroCheckIn,
-  PHOTO_FLIP_MS,
-  TITLE_FLIP_MS,
+  kudosAvatarIn,
+  legendRowIn,
   motion,
   navRiseAfter,
   play,
@@ -282,41 +280,24 @@ describe("FLIP morphs and their crossfades (R:80, R:54)", () => {
 });
 
 describe("everything else R:54 turns off", () => {
-  it("no wheel spin, bar fill or check pops on the practice intro", () => {
-    expect(MOTION.heroWheelIn.normal).toMatchObject({
+  it("no donut spin", () => {
+    expect(MOTION.donutIn.normal).toMatchObject({
       keyframes: [
-        { opacity: 0, transform: "rotate(-140deg) scale(0.86)" },
+        { opacity: 0, transform: "rotate(-100deg) scale(0.9)" },
         { opacity: 1, transform: "none" },
       ],
-      duration: 900,
-      delay: 240,
+      duration: 780,
+      delay: 140,
       fill: "backwards",
     });
-    expect(MOTION.heroWheelIn.reduced).toBeNull();
-    expect([0, 1].map((i) => heroBarFill(i, false)?.delay)).toEqual([500, 620]);
-    expect(heroBarFill(0, false)?.keyframes).toEqual([
-      { transform: "scaleX(0)" },
-      { transform: "scaleX(1)" },
-    ]);
-    expect([0, 2].map((i) => heroCheckIn(i, false)?.delay)).toEqual([740, 850]);
-    expect(heroCheckIn(0, false)?.duration).toBe(340);
-    expect(heroBarFill(0, true)).toBeNull();
-    expect(heroCheckIn(0, true)).toBeNull();
+    expect(MOTION.donutIn.reduced).toBeNull();
   });
 
-  it("no bump or ring as the practice timer stops, and the check only fades", () => {
-    expect(MOTION.timerBump.normal.duration).toBe(520);
-    expect(MOTION.timerBump.reduced).toBeNull();
-    expect(MOTION.endRing.normal).toMatchObject({
-      keyframes: [
-        { opacity: 0.5, transform: "scale(0.55)" },
-        { opacity: 0, transform: "scale(1.5)" },
-      ],
-      duration: 900,
-    });
-    expect(MOTION.endRing.reduced).toBeNull();
-    expect(MOTION.practiceCheck.normal.duration).toBe(320);
-    expect(MOTION.practiceCheck.reduced?.keyframes).toEqual([{ opacity: 0 }, { opacity: 1 }]);
+  it("no list stagger: legend rows just appear", () => {
+    expect(legendRowIn(0, false)?.delay).toBe(380);
+    expect(legendRowIn(2, false)?.delay).toBe(520);
+    expect(legendRowIn(2, false)?.duration).toBe(420);
+    expect(legendRowIn(1, true)).toBeNull();
   });
 
   it("goal-chip typing is instant", () => {
@@ -402,7 +383,22 @@ describe("the handoff to Clock (R:152, plan P7)", () => {
   });
 });
 
-describe("entrances (R:175)", () => {
+describe("springs and entrances (R:44, R:113, R:175)", () => {
+  it("springs the kudos avatars in at 800, 970 and 1140ms", () => {
+    expect([0, 1, 2].map((i) => kudosAvatarIn(i).normal[1].delay)).toEqual([800, 970, 1140]);
+    expect(kudosAvatarIn(0).normal[1]).toMatchObject({ duration: 420, easing: EASING.SPRING });
+    expect(kudosAvatarIn(0).from).toBe("scale(0.5)");
+    expect(KUDOS_LINE_IN).toEqual({ property: "opacity", duration: 300, easing: "linear", delay: 1350 });
+  });
+
+  it("fades the kudos avatars in together under reduced motion, with no stagger (R:54)", () => {
+    expect([0, 1, 2].map((i) => kudosAvatarIn(i).reduced)).toEqual(
+      Array.from({ length: 3 }, () => [
+        { property: "opacity", duration: 200, easing: "linear", delay: 500 },
+      ])
+    );
+  });
+
   it("drops the toast 10px over 360ms E, visible 2.4s", () => {
     expect(TOAST.from).toBe("translateY(-10px)");
     expect(TOAST.normal).toContainEqual({ property: "transform", duration: 360, easing: E, delay: 0 });
@@ -435,6 +431,7 @@ describe("invariants", () => {
     expect(travels(SHEET.out.reduced)).toBe(false);
     expect(travels(SHEET.backdrop.reduced)).toBe(false);
     expect(travels(TOAST.reduced)).toBe(false);
+    expect(travels(kudosAvatarIn(1).reduced)).toBe(false);
   });
 
   it("never makes a reduced spec the normal one with its timing turned down", () => {
@@ -495,6 +492,7 @@ describe("helpers", () => {
 
   it("transition() joins tweens, and is none when there are none", () => {
     expect(transition([])).toBe("none");
+    expect(transition(TRAVEL.beatSegment.reduced)).toBe("none");
     expect(transition(TRAVEL.keyboard.normal)).toBe(`transform 440ms ${EASING.KB} 0ms`);
   });
 
@@ -515,42 +513,5 @@ describe("helpers", () => {
     expect(play(null, MOTION.pop.normal)).toBeNull();
     expect(play({ animate: vi.fn() } as unknown as Element, null)).toBeNull();
     expect(play({} as Element, MOTION.pop.normal)).toBeNull();
-  });
-});
-
-describe("the practice run's FLIPs", () => {
-  const slot = { left: 20, top: 248, width: 353, height: 340 };
-  const card = { left: 36, top: 220, width: 321, height: 282 };
-
-  it("scales uniformly by the side asked for, and offsets the lead", () => {
-    const photo = flipUniform(slot, card, { by: "width", duration: PHOTO_FLIP_MS, reduced: false });
-    const s = 353 / 321;
-    expect(photo).toMatchObject({ duration: 660, easing: E });
-    expect(photo?.keyframes).toEqual([
-      { transform: `translate(-16.0px, 28.0px) scale(${s.toFixed(4)})` },
-      { transform: "none" },
-    ]);
-    const title = flipUniform(
-      { left: 58, top: 160, width: 120, height: 22 },
-      { left: 130, top: 272, width: 140, height: 29 },
-      { by: "height", duration: TITLE_FLIP_MS, leadPx: 19, reduced: false }
-    );
-    const t = 22 / 29;
-    expect(title?.duration).toBe(640);
-    expect(title?.keyframes[0].transform).toBe(
-      `translate(${(58 - 130 - 19 * t).toFixed(1)}px, -112.0px) scale(${t.toFixed(4)})`
-    );
-  });
-
-  it("doesn't morph under reduced motion, or from a box not laid out", () => {
-    expect(flipUniform(slot, card, { by: "width", duration: 660, reduced: true })).toBeNull();
-    expect(
-      flipUniform(slot, { ...card, width: 0 }, { by: "width", duration: 660, reduced: false })
-    ).toBeNull();
-  });
-
-  it("fades a picked photo in, and only fades it under reduced motion", () => {
-    expect(MOTION.photoIn.normal.duration).toBe(460);
-    expect(MOTION.photoIn.reduced?.keyframes).toEqual([{ opacity: 0 }, { opacity: 1 }]);
   });
 });

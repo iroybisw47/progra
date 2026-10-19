@@ -9,15 +9,16 @@
 
 import type { FriendRelations } from "@/lib/find-friends";
 import {
+  INTRO_BEATS,
   SCREEN,
   SCREEN_COUNT,
   goalColor,
-  isPracticePhase,
-  type PracticePhase,
   type UwChoice,
 } from "@/lib/onboarding-v3";
 import type { AccountGoal, AccountHabit } from "@/lib/onboarding-v3-goals-habits";
+import type { WeekSeg } from "@/lib/onboarding-v3-intro";
 import type { OnboardingV3Services, SearchedUser } from "@/lib/onboarding-v3-services";
+import { PALETTE } from "@/lib/palette";
 import {
   SEARCH_QUERY_MIN,
   SEARCH_RESULTS_MAX,
@@ -53,8 +54,8 @@ import {
 //               week, nothing typed, so every row's hours box shows
 // habits        Screen 3 with Drink water and Stretch selected
 // habit-custom  Screen 3 with "Your own" open and something typed in it
-// practice      Screen 4, a first run with two goals (so the ready phase
-//               asks to pick one) and two habits for the preview's grid
+// tracked       a replayer who has tracked time this week, so Screen 4's
+//               Beat 2 draws their own week instead of the sample
 // friends-search  Screen 5 searching "pri", with three people found
 // friends-added   the same search with a request to Priya Raman already out,
 //                 so she shows "✓ Added" and the CTA reads "Continue · 1 added"
@@ -91,7 +92,7 @@ export const PREVIEW_FIXTURES = [
   "goals-full",
   "habits",
   "habit-custom",
-  "practice",
+  "tracked",
   "friends-search",
   "friends-added",
   "friends-known",
@@ -114,6 +115,7 @@ export type PreviewProfile = {
   replay: boolean;
   existingGoals: AccountGoal[];
   existingHabits: AccountHabit[];
+  weekSegments?: WeekSeg[];
   // The welcome's username, typed and not yet saved (a first run's).
   usernameDraft?: string;
   goalDraft?: string;
@@ -164,6 +166,22 @@ const THREE_GOALS: AccountGoal[] = [
 const TWO_HABITS: AccountHabit[] = [
   { id: "preview-habit-a", name: "Drink water" },
   { id: "preview-habit-b", name: "Stretch" },
+];
+
+// A week as getWeekCategorySegs (lib/db/progress.ts) hands it over: two
+// made-up categories and a goal row named the way buildCategoryBreakdown
+// names one, largest first. Its shape differs from the sample's on purpose (three
+// segments, no Gym or Reading split), so a screenshot shows which one drew.
+const HOUR = 3_600_000;
+const TRACKED_WEEK: WeekSeg[] = [
+  { id: "preview-cat-school", name: "Schoolwork", color: PALETTE[9].fill, ms: 4.5 * HOUR },
+  {
+    id: "goal:preview-goal-a",
+    name: `Goal: ${TWO_GOALS[0].title}`,
+    color: TWO_GOALS[0].color ?? goalColor(0).fill,
+    ms: 2.75 * HOUR,
+  },
+  { id: "preview-cat-reading", name: "Reading", color: PALETTE[3].fill, ms: 0.75 * HOUR },
 ];
 
 // The people the fake search knows (fakeSearchUsers). Made up, like the
@@ -232,10 +250,12 @@ const PROFILES: Record<PreviewFixture, PreviewProfile> = {
     existingHabits: TWO_HABITS,
     habitDraft: "Read before bed",
   },
-  practice: {
+  tracked: {
     ...MAYA,
+    replay: true,
     existingGoals: TWO_GOALS,
     existingHabits: TWO_HABITS,
+    weekSegments: TRACKED_WEEK,
   },
   "friends-search": { ...FINDING, searchDraft: "pri" },
   // A request already out, as getFriendRelations reads one back: what a tap
@@ -305,7 +325,7 @@ const FIXTURE_SCREEN: Partial<Record<PreviewFixture, number>> = {
   "goals-full": SCREEN.goal,
   habits: SCREEN.habits,
   "habit-custom": SCREEN.habits,
-  practice: SCREEN.intro,
+  tracked: SCREEN.intro,
   "friends-search": SCREEN.friends,
   "friends-added": SCREEN.friends,
   "friends-known": SCREEN.friends,
@@ -314,6 +334,12 @@ const FIXTURE_SCREEN: Partial<Record<PreviewFixture, number>> = {
   "ready-added": SCREEN.ready,
   "uw-groups": SCREEN.friends,
   "uw-early": SCREEN.friends,
+};
+
+// Likewise the beat (0-based), for a URL that names none: "tracked" is about
+// Beat 2.
+const FIXTURE_BEAT: Partial<Record<PreviewFixture, number>> = {
+  tracked: 1,
 };
 
 // The fixtures that are about the UW variant, so they render it without a
@@ -332,16 +358,15 @@ function first(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
 
-// `?screen=1..6&fixture=<one of PREVIEW_FIXTURES>&demo=<phase>&q=<search>`.
-// The screen is 1-based, as the README numbers them, and comes back as the
-// wizard's 0-based index. A missing or unknown screen falls back to the
-// fixture's own screen (Screen 2 for the goals ones, Screen 3 for the habit
-// ones, Screen 4 for "practice", Screen 5 for the friends ones, Screen 6 for
-// the ready ones) or Screen 1, an unknown fixture to "welcome", and a missing
-// or unknown phase to the intro, rather than erroring, since this is a tool
-// for taking pictures. `demo` is Screen 4's practice phase (intro, ready,
-// ended, post or posted) and only matters there. "running" opens on ready,
-// since the run only starts from Clock in. `q` types into Screen 5's search in place of
+// `?screen=1..6&fixture=<one of PREVIEW_FIXTURES>&beat=1..3&q=<search>`. The
+// screen and the beat are 1-based, as the README numbers them, and come back
+// as the wizard's 0-based indexes. A missing or unknown screen falls back to
+// the fixture's own screen (Screen 2 for the goals ones, Screen 3 for the habit
+// ones, Screen 4 for "tracked", Screen 5 for the friends ones, Screen 6 for
+// the ready ones) or Screen 1, a
+// missing beat to the fixture's own or beat 1, and an unknown fixture to
+// "welcome", rather than erroring, since this is a tool for taking pictures. The
+// beat only matters on Screen 4. `q` types into Screen 5's search in place of
 // the fixture's own (any search: "zz" for no one, "nina" for one row), and is
 // undefined when absent.
 //
@@ -352,7 +377,7 @@ function first(v: string | string[] | undefined): string | undefined {
 export function parsePreviewParams(params: Params): {
   screen: number;
   fixture: PreviewFixture;
-  demo: PracticePhase;
+  beat: number;
   query?: string;
   uw?: boolean;
 } {
@@ -364,11 +389,13 @@ export function parsePreviewParams(params: Params): {
   const screen = Number.isFinite(n)
     ? Math.min(Math.max(n, 1), SCREEN_COUNT) - 1
     : (FIXTURE_SCREEN[fixture] ?? 0);
-  const d = first(params.demo);
-  const demo: PracticePhase = !isPracticePhase(d) ? "intro" : d === "running" ? "ready" : d;
+  const b = Number.parseInt(first(params.beat) ?? "", 10);
+  const beat = Number.isFinite(b)
+    ? Math.min(Math.max(b, 1), INTRO_BEATS) - 1
+    : (FIXTURE_BEAT[fixture] ?? 0);
   const u = first(params.uw);
   const uw = u === "1" ? true : u === "0" ? false : UW_FIXTURES.has(fixture) ? true : undefined;
-  return { screen, fixture, demo, query: first(params.q), uw };
+  return { screen, fixture, beat, query: first(params.q), uw };
 }
 
 // setUsername's answer, faked: checkUsername's refusal word for word, as the
@@ -475,7 +502,6 @@ export function createPreviewServices(
       return after(latencyMs, answer);
     },
     uploadAvatar: ok,
-    uploadJoinPhoto: ok,
     removeAvatar: ok,
     createGoal: () => id("goal"),
     updateGoal: ok,

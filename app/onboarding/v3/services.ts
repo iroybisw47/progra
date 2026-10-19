@@ -7,7 +7,6 @@ import {
 } from "@/app/actions/friends";
 import { archiveGoal, createGoal, updateGoal } from "@/app/actions/goals";
 import { archiveHabit, createHabit } from "@/app/actions/habits";
-import { uploadJoinPhoto } from "@/app/actions/join-photo";
 import { setProfileIdentity, setUsername } from "@/app/actions/profile";
 import { setOnboardingStep } from "@/app/actions/telemetry";
 import { fetchMoreUwPeers, fetchUwPeerGroups, setUwProfile } from "@/app/actions/uw";
@@ -29,7 +28,6 @@ export const REAL_SERVICES: OnboardingV3Services = {
   setUwProfile,
   uploadAvatar,
   removeAvatar,
-  uploadJoinPhoto,
   createGoal,
   updateGoal,
   archiveGoal,

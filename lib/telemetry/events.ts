@@ -160,9 +160,6 @@ export const EVENTS = {
   onboarding_step_viewed: { step_name: STEPS, flow: ONBOARDING_FLOWS },
   onboarding_step_completed: { step_name: STEPS, flow: ONBOARDING_FLOWS },
   onboarding_completed: {},
-  // Screen 4's practice run posted (v3). No time is logged for the run; this
-  // is how often a photo goes with the post, and how the run was stopped.
-  onboarding_practice_posted: { with_photo: "bool", ended: ["auto", "early"] },
 
   // --- core actions. Metrics come from the real tables; these add timing and
   //     context only, so each carries ids, never content. ----------------------

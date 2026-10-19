@@ -9,6 +9,7 @@ import {
   GOAL_HOURS_MIN,
   GOAL_TITLE_MAX,
   HABIT_NAME_MAX,
+  INTRO_CAPTIONS,
   MAX_GOALS,
   SCREEN,
   SCREEN_COUNT,
@@ -32,6 +33,8 @@ import {
   hoursInput,
   hoursText,
   initialWizardState,
+  introNudgeLine,
+  introSegments,
   FIND_FRIENDS_COPY,
   friendsCta,
   inviteText,
@@ -351,6 +354,51 @@ describe("habits (R:100-103)", () => {
   });
 });
 
+describe("intro (R:106-127)", () => {
+  it("has the three captions", () => {
+    expect(INTRO_CAPTIONS.feed.join("Get stronger")).toBe(
+      "When you clock in on Get stronger, your friends see it in their feed."
+    );
+    expect(INTRO_CAPTIONS.hours).toBe("Your hours add up.");
+    expect(INTRO_CAPTIONS.friends).toBe("And friends keep each other going.");
+  });
+
+  it("draws the sample week, largest first, with one goal (R:114-121)", () => {
+    const segs = introSegments(["Get stronger"]);
+    expect(segs.map((s) => [s.name, s.color, s.ms / 60_000])).toEqual([
+      ["Schoolwork", "#6F4E93", 560],
+      ["Get stronger", "#395AA0", 390],
+      ["Gym", "#77B7C6", 255],
+      ["Reading", "#D6A728", 130],
+    ]);
+  });
+
+  it("adds goal 2 in its own color, and only goals 1 and 2", () => {
+    const segs = introSegments(["Get stronger", "Learn Spanish", "Finish my thesis"]);
+    expect(segs.map((s) => s.name)).toEqual([
+      "Schoolwork",
+      "Get stronger",
+      "Gym",
+      "Learn Spanish",
+      "Reading",
+    ]);
+    expect(segs.find((s) => s.name === "Learn Spanish")).toMatchObject({
+      color: "#E07042",
+      ms: 180 * 60_000,
+    });
+    expect(new Set(segs.map((s) => s.id)).size).toBe(segs.length);
+  });
+
+  it("still draws something without a goal", () => {
+    expect(introSegments([])[1].name).toBe("Launch my side project");
+  });
+
+  it("writes beat 3's nudge card from the first habit (R:125)", () => {
+    expect(introNudgeLine("Stretch")).toBe("“Stretch” is still open today");
+    expect(introNudgeLine(null)).toBe("Still time to clock in today");
+  });
+});
+
 describe("inviteText (R:144, D9)", () => {
   it("names goal 1", () => {
     expect(inviteText("Get stronger")).toBe(
@@ -444,8 +492,7 @@ describe("wizardReducer: moving between screens", () => {
       goalRowIds: [],
       habits: [],
       customHabits: [],
-      demo: "intro",
-      demoGoal: 0,
+      beat: 0,
     });
   });
 
@@ -533,25 +580,21 @@ describe("wizardReducer: moving between screens", () => {
     expect(s).toMatchObject({ uw: null, majors: ["Economics"], interests: ["Chess"] });
   });
 
-  it("restarts the practice run at its intro, on goal 1, whenever Screen 4 is entered", () => {
-    const posted = run([
-      { type: "addGoal", title: "Get stronger" },
-      { type: "addGoal", title: "Learn Spanish" },
+  it("restarts the intro at beat 1 whenever Screen 4 is entered (P:861)", () => {
+    const atLastBeat = run([
       { type: "go", to: SCREEN.intro },
-      { type: "setDemo", demo: "ready" },
-      { type: "pickDemoGoal", index: 1 },
-      { type: "setDemo", demo: "posted" },
+      { type: "nextBeat" },
+      { type: "nextBeat" },
     ]);
-    expect(posted).toMatchObject({ demo: "posted", demoGoal: 1 });
-    const forward = run([{ type: "go", to: SCREEN.friends }, { type: "back" }], posted);
-    expect(forward).toMatchObject({ screen: SCREEN.intro, demo: "intro", demoGoal: 0 });
+    expect(atLastBeat.beat).toBe(2);
+    const forward = run([{ type: "go", to: SCREEN.friends }, { type: "back" }], atLastBeat);
+    expect(forward).toMatchObject({ screen: SCREEN.intro, beat: 0 });
     const fromBehind = run(
       [{ type: "go", to: SCREEN.habits }, { type: "go", to: SCREEN.intro }],
-      { ...posted, screen: SCREEN.friends }
+      { ...atLastBeat, screen: SCREEN.friends }
     );
-    expect(fromBehind).toMatchObject({ demo: "intro", demoGoal: 0 });
+    expect(fromBehind.beat).toBe(0);
   });
-
 });
 
 describe("wizardReducer: the UW sheet", () => {
@@ -1021,41 +1064,38 @@ describe("wizardReducer: the row each goal is on (D1)", () => {
   });
 });
 
-describe("wizardReducer: the practice run", () => {
-  const intro = run([
-    { type: "addGoal", title: "Get stronger" },
-    { type: "addGoal", title: "Learn Spanish" },
-    { type: "go", to: SCREEN.intro },
-  ]);
-  const ready = wizardReducer(intro, { type: "setDemo", demo: "ready" });
+describe("wizardReducer: intro beats", () => {
+  const intro = run([{ type: "go", to: SCREEN.intro }]);
 
-  it("moves between phases, and returns the same state for the phase it's on", () => {
-    expect(ready.demo).toBe("ready");
-    expect(wizardReducer(ready, { type: "setDemo", demo: "ready" })).toBe(ready);
-    expect(wizardReducer(ready, { type: "setDemo", demo: "running" }).demo).toBe("running");
+  it("steps through the beats, then on to Screen 5 (no auto-advance)", () => {
+    const s1 = wizardReducer(intro, { type: "nextBeat" });
+    const s2 = wizardReducer(s1, { type: "nextBeat" });
+    expect([s1.beat, s2.beat]).toEqual([1, 2]);
+    expect(wizardReducer(s2, { type: "nextBeat" }).screen).toBe(SCREEN.friends);
   });
 
-  it("ignores an unknown phase", () => {
-    const bad = { type: "setDemo", demo: "nope" } as unknown as WizardAction;
-    expect(wizardReducer(ready, bad)).toBe(ready);
+  it("goes back a beat, and does nothing from beat 1 so the panel can bump", () => {
+    const s1 = wizardReducer(intro, { type: "nextBeat" });
+    expect(wizardReducer(s1, { type: "prevBeat" }).beat).toBe(0);
+    expect(wizardReducer(intro, { type: "prevBeat" })).toBe(intro);
   });
 
-  it("picks a goal only on the ready phase, clamped to the goals there are", () => {
-    expect(wizardReducer(ready, { type: "pickDemoGoal", index: 1 }).demoGoal).toBe(1);
-    expect(wizardReducer(ready, { type: "pickDemoGoal", index: 9 }).demoGoal).toBe(1);
-    expect(wizardReducer(ready, { type: "pickDemoGoal", index: -2 })).toBe(ready);
-    expect(wizardReducer(ready, { type: "pickDemoGoal", index: Number.NaN })).toBe(ready);
-    expect(wizardReducer(intro, { type: "pickDemoGoal", index: 1 })).toBe(intro);
-  });
-
-  it("ignores its actions off Screen 4, so a late timer can't move it", () => {
-    const habits = { ...ready, screen: SCREEN.habits };
+  it("ignores beat actions off Screen 4", () => {
+    const habits = run([{ type: "go", to: SCREEN.habits }]);
     for (const action of [
-      { type: "setDemo", demo: "ended" },
-      { type: "pickDemoGoal", index: 1 },
+      { type: "nextBeat" },
+      { type: "prevBeat" },
+      { type: "setBeat", beat: 2 },
     ] satisfies WizardAction[]) {
       expect(wizardReducer(habits, action)).toBe(habits);
     }
+    const lastBeatElsewhere = { ...habits, beat: 2 };
+    expect(wizardReducer(lastBeatElsewhere, { type: "nextBeat" })).toBe(lastBeatElsewhere);
+  });
+
+  it("clamps a direct beat", () => {
+    expect(wizardReducer(intro, { type: "setBeat", beat: 9 }).beat).toBe(2);
+    expect(wizardReducer(intro, { type: "setBeat", beat: -3 })).toBe(intro);
+    expect(wizardReducer(intro, { type: "setBeat", beat: Number.NaN })).toBe(intro);
   });
 });
-

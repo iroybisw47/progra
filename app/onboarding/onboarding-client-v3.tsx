@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useReducer, useRef, useState } from "react";
-import { toast } from "sonner";
 
 import { useFriendAdds } from "@/components/v2/person-row";
 import { PillToast, type PillToastHandle } from "@/components/v2/pill-toast";
@@ -17,23 +16,21 @@ import { clockHandoffHref } from "@/lib/clock-handoff";
 import { CLOCK_REMINDERS, HABIT_REMINDERS, NUDGES, RECAP_PUSH, SOCIAL_PUSH } from "@/lib/flags";
 import { enableHabitReminderDefault, habitDefaultOnGrant } from "@/lib/habit-reminder-prefs";
 import { usePrefersReducedMotion } from "@/lib/hooks";
-import { downscaleImage } from "@/lib/images/downscale";
 import { handoffExitMs, type Box, type ItemPhase } from "@/lib/motion";
 import { markNavRise, sessionFlagStore } from "@/lib/nav-rise";
 import { V3_STEPS } from "@/lib/onboarding";
 import {
+  INTRO_BEATS,
   SCREEN,
   SCREEN_COUNT,
   formatGoalTitle,
   friendsCta,
-  isPracticePhase,
   initialWizardState,
   notifyReasons,
   notifyScreenShown,
   progressFor,
   stepOverNotify,
   wizardReducer,
-  type PracticePhase,
   type UwChoice,
   type WizardAction,
   type WizardState,
@@ -52,7 +49,7 @@ import {
   welcomeHandle,
   welcomeShown,
 } from "@/lib/onboarding-v3-identity";
-import { practiceCta, type PracticeEnd } from "@/lib/onboarding-v3-practice";
+import { introCtaLabel, type WeekSeg } from "@/lib/onboarding-v3-intro";
 import type { OnboardingV3Services } from "@/lib/onboarding-v3-services";
 import type { NotifyPermission } from "@/lib/notification-permission";
 import { useNotificationPermission } from "@/lib/use-notification-permission";
@@ -77,6 +74,7 @@ import {
   type GoalScreenHandle,
 } from "./v3/goal-screen";
 import { HabitsScreen, useHabitWrites, type HabitsScreenHandle } from "./v3/habits-screen";
+import { IntroScreen } from "./v3/intro-screen";
 import { NotifyScreen } from "./v3/notify-screen";
 import {
   KeyboardInsetVar,
@@ -84,7 +82,6 @@ import {
   type CtaSpec,
   type OnboardingCtaHandle,
 } from "./v3/onboarding-cta";
-import { PracticeScreen, type PracticeScreenHandle } from "./v3/practice-screen";
 import { ReadyScreen } from "./v3/ready-screen";
 import { REAL_SERVICES } from "./v3/services";
 import { UwScreen, type UwScreenHandle } from "./v3/uw-screen";
@@ -103,7 +100,7 @@ const UwSheet = dynamic(() => import("./v3/uw-sheet").then((m) => m.UwSheet), { 
 // at `/onboarding` for Replay.
 //
 // This is the shell (P3): the top row, the one CTA and the seven screen
-// layers (the welcome, goals, habits, the practice run, find friends, notifications,
+// layers (the welcome, goals, habits, the intro, find friends, notifications,
 // ready). Notifications (2026-10-18) only comes up in the app while iOS can
 // still ask, and is stepped over everywhere else (notifyScreenShown), the
 // website included. The wizard never finishes itself: the ready screen hands off to the normal Clock
@@ -126,11 +123,11 @@ const UwSheet = dynamic(() => import("./v3/uw-sheet").then((m) => m.UwSheet), { 
 //
 // Navigation is lib/onboarding-v3.ts's wizardReducer, which holds the rules
 // that are easy to get wrong (Screen 1 has no Back; any move closes the UW
-// sheet; Back to Screen 1 after "No" asks again; entering Screen 4 restarts
-// its practice run). Screen 4's phase lives there too, because the CTA here
-// pages it. So do the goal and habit writes, which the CTA triggers, Screen
-// 5's added people, which the CTA counts, and the welcome's photo and its
-// saved name and handle, which the top row and the practice post show. Each screen's typing
+// sheet; Back to Screen 1 after "No" asks again; entering Screen 4 resets its
+// beat). Screen 4's beat lives there too, because the CTA here pages it. So
+// do the goal and habit writes, which the CTA triggers, Screen 5's added
+// people, which the CTA counts, and the welcome's photo and its saved name
+// and handle, which the top row and the intro show. Each screen's typing
 // stays in the screen, the welcome's included (welcome-screen.tsx), so a
 // keystroke doesn't re-render the other five.
 //
@@ -169,6 +166,10 @@ type Props = {
   // Screen 2 saved, which is why they're read rather than assumed.
   existingGoals: AccountGoal[];
   existingHabits: AccountHabit[];
+  // This week's time by category, for Screen 4's Beat 2 (plan D15). Only
+  // /onboarding reads it, since only a replayer can have tracked time. None,
+  // or a week with nothing in it, draws the sample week instead.
+  weekSegments?: WeekSeg[];
   // Who the viewer is already friends with, has asked, or has been asked by
   // (getFriendRelations), so Screen 5's results offer "Friends", Accept or
   // "✓ Added" instead of an Add that can only fail, and a reload keeps the
@@ -191,7 +192,7 @@ type Props = {
   initialUwPage?: boolean;
   services?: OnboardingV3Services;
   initialScreen?: number;
-  initialDemo?: PracticePhase; // Screen 4 opens on this phase
+  initialBeat?: number; // Screen 4 opens on this beat (0-based)
   usernameDraft?: string; // the welcome's username opens with this typed
   goalDraft?: string; // Screen 2's field opens with this typed
   habitDraft?: string; // Screen 3's "Your own" opens with this typed
@@ -232,13 +233,13 @@ function wait(ms: number): Promise<void> {
 
 // The wizard as it opens: on `screen`, with Screens 2 and 3 showing what the
 // account already has, and the UW sheet's answer what the profile holds (UW
-// on). `demo` only counts when it opens on Screen 4, which only the dev
-// preview does; otherwise the practice run starts at its intro, as it does
-// whenever it's entered. So do `sheet` and `selected`, the preview's sheet already up
+// on). `beat` only counts when it opens on Screen 4, which only the dev
+// preview does; otherwise the intro starts at beat 1, as it does whenever
+// it's entered. So do `sheet` and `selected`, the preview's sheet already up
 // over the welcome and its held tile, and `page`, the UW page in front.
 function startAt({
   screen,
-  demo,
+  beat,
   goals,
   habits,
   uw,
@@ -248,7 +249,7 @@ function startAt({
   page,
 }: {
   screen: number;
-  demo: PracticePhase;
+  beat: number;
   goals: AccountGoal[];
   habits: AccountHabit[];
   uw: boolean;
@@ -281,8 +282,8 @@ function startAt({
         : selected
           ? { ...prefilled, uwSheet: true, uw: selected, uwPhase: "selecting" }
           : { ...prefilled, uwSheet: true };
-  if (at !== SCREEN.intro || !isPracticePhase(demo)) return start;
-  return { ...start, demo };
+  if (at !== SCREEN.intro || !Number.isInteger(beat)) return start;
+  return { ...start, beat: Math.min(Math.max(beat, 0), INTRO_BEATS - 1) };
 }
 
 // Close the keyboard when a screen is left, so the field going out of view
@@ -319,6 +320,7 @@ export function OnboardingClientV3({
   replay,
   existingGoals,
   existingHabits,
+  weekSegments,
   relations = NO_RELATIONS,
   uw = false,
   savedUw,
@@ -327,7 +329,7 @@ export function OnboardingClientV3({
   initialUwPage = false,
   services = REAL_SERVICES,
   initialScreen = SCREEN.identity,
-  initialDemo = "intro",
+  initialBeat = 0,
   usernameDraft,
   goalDraft,
   habitDraft,
@@ -341,7 +343,7 @@ export function OnboardingClientV3({
     wizardReducer,
     {
       screen: initialScreen,
-      demo: initialDemo,
+      beat: initialBeat,
       goals: existingGoals,
       habits: existingHabits,
       uw,
@@ -716,51 +718,13 @@ export function OnboardingClientV3({
     habitWrites.save(next.habits, advanceLater(SCREEN.habits));
   }
 
-  // Screen 4, the practice run (practice-screen.tsx). The CTA pages its
-  // phases, through the screen's handle where the move needs its elements.
-  // Whether a photo is picked relabels the post phase's CTA, and an upload
-  // in flight makes it busy.
-  const practiceRef = useRef<PracticeScreenHandle>(null);
-  const [practiceHasPhoto, setPracticeHasPhoto] = useState(false);
-  const [practicePosting, setPracticePosting] = useState(false);
-
-  // The post (the post phase's Post, or "Post without a photo"). A photo is
-  // downscaled and uploaded as the person's join photo, which friends see on
-  // the "just joined Progra" card onboarded_at already gives them. Without
-  // one there's nothing to write: the card comes anyway. A replayer's card is
-  // long past its week in the feed, so their photo stays on this screen.
-  // A failed upload toasts and keeps them on the post phase, with "Post
-  // without a photo" still there. Resolves true when the screen should show
-  // the posted card, which it shouldn't if the wizard has moved since.
-  async function postPractice(photo: File | null, end: PracticeEnd | null): Promise<boolean> {
-    if (practicePosting) return false;
-    const at = moves.current;
-    if (photo && !replay) {
-      setPracticePosting(true);
-      try {
-        const small = await downscaleImage(photo, 1600, 0.8);
-        const form = new FormData();
-        form.append("photo", small);
-        const result = await services.uploadJoinPhoto(form);
-        if ("error" in result) {
-          toast.error(result.error);
-          return false;
-        }
-      } catch {
-        toast.error("Couldn’t post your photo. Try again.");
-        return false;
-      } finally {
-        if (mounted.current) setPracticePosting(false);
-      }
-    }
-    if (!mounted.current || moves.current !== at || screenNow.current !== SCREEN.intro) {
-      return false;
-    }
-    services.track("onboarding_practice_posted", {
-      with_photo: photo !== null,
-      ended: end ?? undefined,
-    });
-    return true;
+  // Screen 4's way on (the CTA, a tap, a swipe or the right arrow): the next
+  // beat, or Screen 5 from the last one (P:1035). Leaving goes through go()
+  // rather than the reducer's own nextBeat, so it counts as completing the
+  // intro, as every other forward move completes its screen.
+  function nextBeat() {
+    if (wizard.beat >= INTRO_BEATS - 1) go(SCREEN.friends);
+    else dispatch({ type: "nextBeat" });
   }
 
   // Screen 5's Add and "✓ Added". The first person added turns the CTA
@@ -803,8 +767,8 @@ export function OnboardingClientV3({
     go(SCREEN.ready);
   }
 
-  // Screen 2's goals in the colors it drew them in, for the practice run's
-  // rows, timer and post. A replayer's own goal keeps its own color.
+  // Screen 2's goals in the colors it drew them in, for the intro's square,
+  // post and sample week. A replayer's own goal keeps its own color.
   const shownGoalColors = goalColors(
     goalWrites.rows,
     wizard.goals,
@@ -872,24 +836,8 @@ export function OnboardingClientV3({
       onPress: () => habitsScreenRef.current?.continue(),
     };
   } else if (screen === SCREEN.intro) {
-    // The handoff's CTA map (lib/onboarding-v3-practice.ts practiceCta).
-    const { label, variant } = practiceCta(wizard.demo, practiceHasPhoto);
-    const demo = wizard.demo;
-    cta = {
-      label,
-      variant,
-      busy: demo === "post" && practicePosting,
-      onPress: () => {
-        if (demo === "intro") dispatch({ type: "setDemo", demo: "ready" });
-        else if (demo === "ready") practiceRef.current?.start();
-        else if (demo === "running") practiceRef.current?.clockOut();
-        else if (demo === "ended") dispatch({ type: "setDemo", demo: "post" });
-        else if (demo === "post") {
-          if (practiceHasPhoto) practiceRef.current?.post();
-          else practiceRef.current?.pickPhoto();
-        } else go(SCREEN.friends);
-      },
-    };
+    // "Next" through the beats, "Continue" on the last (R:126).
+    cta = { label: introCtaLabel(wizard.beat), onPress: nextBeat };
   } else if (screen === SCREEN.friends) {
     // "Skip for now" until someone's added, then "Continue · {n} added"
     // (R:143). Every request was sent on its tap, so this only moves on.
@@ -996,23 +944,20 @@ export function OnboardingClientV3({
                     onContinue={continueHabits}
                   />
                 ) : i === SCREEN.intro ? (
-                  <PracticeScreen
-                    ref={practiceRef}
+                  <IntroScreen
                     phase={phase}
                     reduced={reduced}
-                    demo={wizard.demo}
-                    demoGoal={wizard.demoGoal}
-                    goals={wizard.goals}
-                    goalColors={shownGoalColors}
-                    habits={wizard.habits}
+                    beat={wizard.beat}
                     name={shown.displayName}
                     colorKey={shown.colorKey}
                     photoUrl={photo.photoUrl}
-                    onDemo={(demo) => dispatch({ type: "setDemo", demo })}
-                    onPickGoal={(index) => dispatch({ type: "pickDemoGoal", index })}
-                    onHasPhoto={setPracticeHasPhoto}
-                    onEndRing={() => ctaRef.current?.pulseRing()}
-                    onPost={postPractice}
+                    goals={wizard.goals}
+                    goalColors={shownGoalColors}
+                    firstHabit={wizard.habits[0] ?? null}
+                    week={weekSegments}
+                    onNext={nextBeat}
+                    onPrev={() => dispatch({ type: "prevBeat" })}
+                    onSkip={() => go(SCREEN.friends)}
                   />
                 ) : i === SCREEN.friends ? (
                   <FindFriendsScreen

@@ -166,8 +166,10 @@ export const GOAL_EXAMPLES = [
 ] as const;
 
 // Goal colors by position (R:95): palette 7 (dark blue), 2 (orange), 5
-// (green). The goal is created with its FILL. Positions past the third reuse
-// the third, which never happens while MAX_GOALS is 3.
+// (green). Returns the whole PaletteColor because Screen 4's sample post sets
+// the goal's duration pill in its INK (R:113), and the goal itself is created
+// with its FILL. Positions past the third reuse the third, which never happens
+// while MAX_GOALS is 3.
 const GOAL_PALETTE = [7, 2, 5] as const;
 export function goalColor(i: number): PaletteColor {
   const at = Math.min(Math.max(0, Math.floor(i)), GOAL_PALETTE.length - 1);
@@ -337,16 +339,54 @@ export function habitNudgeText(firstHabit: string | null | undefined): string {
     : "If a habit’s still open at night, friends can send you a nudge.";
 }
 
-// ---- Screen 4: the practice run ----------------------------------------------
+// ---- Screen 4: the intro ----------------------------------------------------
 
-// Screen 4's six phases, in order (design_handoff_progra_step04). The reducer
-// holds the current one, and lib/onboarding-v3-practice.ts everything that
-// hangs off it.
-export const PRACTICE_PHASES = ["intro", "ready", "running", "ended", "post", "posted"] as const;
-export type PracticePhase = (typeof PRACTICE_PHASES)[number];
+export const INTRO_BEATS = 3;
 
-export function isPracticePhase(value: unknown): value is PracticePhase {
-  return typeof value === "string" && (PRACTICE_PHASES as readonly string[]).includes(value);
+// The three beat captions (R:108-111). The first wraps goal 1's title, drawn
+// with its color square, so it comes in two halves around it.
+export const INTRO_CAPTIONS = {
+  feed: ["When you clock in on ", ", your friends see it in their feed."],
+  hours: "Your hours add up.",
+  friends: "And friends keep each other going.",
+} as const;
+
+export type IntroSegment = { id: string; name: string; color: string; ms: number };
+
+const MIN = 60_000;
+
+// Beat 2's illustrative week (R:114-121, P:1072-1075), for someone with no
+// tracked time of their own: Schoolwork, goal 1, goal 2 if there is one, Gym
+// and Reading, sorted by time, largest first. Schoolwork here is sample data
+// in the design's dark purple (palette 9, #6F4E93), like Gym and Reading:
+// since OWNER-FIX-1 the app creates no such category. It is shaped for CategoryDonut's
+// `segs` (CatSeg), so total it for `totalMs`. When a replayer HAS tracked this
+// week, P5 passes their real categories instead (D15).
+//
+// Goal 1 always exists by Screen 4, because Screen 2 needs one. The fallback
+// title is only there so a bad call still draws something sensible.
+export function introSegments(goals: readonly string[]): IntroSegment[] {
+  const first = goals[0]?.trim() || GOAL_EXAMPLES[0];
+  const second = goals[1]?.trim();
+  const segs: IntroSegment[] = [
+    { id: "schoolwork", name: "Schoolwork", color: PALETTE[9].fill, ms: 560 * MIN },
+    { id: "goal-0", name: first, color: goalColor(0).fill, ms: 390 * MIN },
+  ];
+  if (second) {
+    segs.push({ id: "goal-1", name: second, color: goalColor(1).fill, ms: 180 * MIN });
+  }
+  segs.push(
+    { id: "gym", name: "Gym", color: PALETTE[6].fill, ms: 255 * MIN },
+    { id: "reading", name: "Reading", color: PALETTE[3].fill, ms: 130 * MIN }
+  );
+  return segs.sort((a, b) => b.ms - a.ms);
+}
+
+// Beat 3's nudge card line (R:125, P:1098): the first habit if one was picked.
+// This is the activity card, not Screen 3's habitNudgeText.
+export function introNudgeLine(firstHabit: string | null | undefined): string {
+  const habit = firstHabit?.trim();
+  return habit ? `“${habit}” is still open today` : "Still time to clock in today";
 }
 
 // ---- Screen 5: find your friends --------------------------------------------
@@ -465,10 +505,7 @@ export type WizardState = {
   goalRowIds: (string | null)[];
   habits: string[]; // selected, in pick order (habits[0] drives the nudge copy)
   customHabits: string[]; // chips added through "Your own", beyond V3_HABITS
-  // Screen 4's phase, and the goal its practice run is on (an index into
-  // `goals`). Both restart whenever the screen is entered.
-  demo: PracticePhase;
-  demoGoal: number;
+  beat: number; // Screen 4's beat, 0..INTRO_BEATS-1
 };
 
 export type WizardAction =
@@ -502,8 +539,9 @@ export type WizardAction =
   | { type: "setGoalRowIds"; ids: readonly (string | null)[]; goals: readonly string[] }
   | { type: "toggleHabit"; name: string }
   | { type: "addCustomHabit"; name: string }
-  | { type: "setDemo"; demo: PracticePhase }
-  | { type: "pickDemoGoal"; index: number };
+  | { type: "setBeat"; beat: number }
+  | { type: "nextBeat" }
+  | { type: "prevBeat" };
 
 export function initialWizardState(): WizardState {
   return {
@@ -520,8 +558,7 @@ export function initialWizardState(): WizardState {
     goalRowIds: [],
     habits: [],
     customHabits: [],
-    demo: "intro",
-    demoGoal: 0,
+    beat: 0,
   };
 }
 
@@ -554,18 +591,15 @@ function withUwPage(state: WizardState): WizardState {
 //   - coming back to Screen 1 settles the UW answer (settleUw), for the sheet
 //     the next Continue opens, and lands on the UW page while it's Yes, the
 //     page Screen 2 was reached from;
-//   - entering Screen 4 restarts the practice run at its intro, on the first
-//     goal, however you got there.
+//   - entering Screen 4 restarts the intro at beat 1 (P:861), however you got
+//     there.
 function go(state: WizardState, to: number): WizardState {
   if (!Number.isFinite(to)) return state;
   const screen = Math.min(Math.max(0, Math.floor(to)), SCREEN_COUNT - 1);
   if (screen === state.screen) return state;
   const moved: WizardState = { ...state, screen, uwSheet: false, uwPage: false };
   const next = screen === SCREEN.identity ? withUwPage(settleUw(moved)) : moved;
-  if (screen === SCREEN.intro) {
-    next.demo = "intro";
-    next.demoGoal = 0;
-  }
+  if (screen === SCREEN.intro) next.beat = 0;
   return next;
 }
 
@@ -796,20 +830,25 @@ export function wizardReducer(
       return { ...state, customHabits, habits };
     }
 
-    // The practice run's actions only act while Screen 4 is showing, so a
-    // stale handler (a timer settling after Back) can't move it from anywhere
-    // else.
-    case "setDemo":
-      if (state.screen !== SCREEN.intro || !isPracticePhase(action.demo)) return state;
-      return action.demo === state.demo ? state : { ...state, demo: action.demo };
-    case "pickDemoGoal": {
-      // Only on the ready phase, where the rows are, and only a goal that's
-      // there.
-      if (state.screen !== SCREEN.intro || state.demo !== "ready") return state;
-      if (!Number.isFinite(action.index)) return state;
-      const last = Math.max(0, state.goals.length - 1);
-      const index = Math.min(Math.max(0, Math.floor(action.index)), last);
-      return index === state.demoGoal ? state : { ...state, demoGoal: index };
+    // The beat actions only act while Screen 4 is showing, so a stale arrow-key
+    // or swipe handler can't move the beat, or jump to Screen 5, from anywhere
+    // else (the prototype guards its key handler the same way, P:1028).
+    case "setBeat": {
+      if (state.screen !== SCREEN.intro || !Number.isFinite(action.beat)) return state;
+      const beat = Math.min(Math.max(0, Math.floor(action.beat)), INTRO_BEATS - 1);
+      return beat === state.beat ? state : { ...state, beat };
     }
+    case "nextBeat":
+      // The CTA and a right-side tap: the next beat, or on from the last one
+      // to Screen 5 (P:1035). There is no auto-advance (R:107).
+      if (state.screen !== SCREEN.intro) return state;
+      return state.beat < INTRO_BEATS - 1
+        ? { ...state, beat: state.beat + 1 }
+        : go(state, SCREEN.friends);
+    case "prevBeat":
+      // From beat 1 there's nowhere to go. The screen bumps the panel
+      // instead (R:127), which it can tell from `beat === 0` before dispatching.
+      if (state.screen !== SCREEN.intro) return state;
+      return state.beat > 0 ? { ...state, beat: state.beat - 1 } : state;
   }
 }

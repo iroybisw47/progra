@@ -71,10 +71,6 @@ export type OnboardingV3Services = {
   // the picker's Remove.
   uploadAvatar(formData: FormData): Promise<ActionResult>;
   removeAvatar(): Promise<ActionResult>;
-  // Screen 4's post: the photo picked for it, downscaled, under the "photo"
-  // key, as the person's join photo (app/actions/join-photo.ts). Friends see
-  // it on the "just joined Progra" card. Its errors are already generic.
-  uploadJoinPhoto(formData: FormData): Promise<ActionResult>;
   // Screen 2's writes, made on Continue (lib/onboarding-v3-goals-habits.ts
   // decides which). Only the fields the wizard sets are named here. The
   // quota is a goal's hours box (OWNER-FIX-2), and the only field ever

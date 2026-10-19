@@ -50,9 +50,7 @@ params are `Promise<{...}>` and must be `await`ed.
   admin client touches anything. **(1) Storage writes** through
   `lib/supabase/admin.ts` after explicit in-action ownership/identity
   verification (Storage rejects all user-JWT uploads as anon): call sites
-  `uploadSessionPhoto`, `uploadAvatar`/`removeAvatar`, `uploadJoinPhoto`
-  (the photo on a new member's "just joined" card, written only to
-  `{caller}/join.jpg`). **(2) Server push
+  `uploadSessionPhoto`, `uploadAvatar`/`removeAvatar`. **(2) Server push
   senders** (`lib/push/send-social-push.ts`, `lib/push/send-nudge-push.ts`),
   which must read the *recipient's* owner-only rows (`device_tokens`,
   `profiles.social_pushes_enabled`) — the recipient is precisely not the

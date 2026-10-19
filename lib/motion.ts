@@ -40,7 +40,7 @@ export const EASING = {
   SPRING: "cubic-bezier(0.34, 1.56, 0.64, 1)",
 } as const;
 
-const { E, KB } = EASING;
+const { E, KB, SPRING } = EASING;
 
 // ---- Shapes ------------------------------------------------------------------
 
@@ -341,74 +341,34 @@ export const MOTION = {
     reduced: null,
   },
 
-  // ---- Screen 4, the practice run (design_handoff_progra_step04)
-  // The preview's wheel turning in, 120ms after the intro appears and on its
-  // own 120ms delay. Donut's svg is `-rotate-90`, which Tailwind v4 writes as
-  // the `rotate` property, so the base -90deg survives a `transform` keyframe
-  // and "none" here lands back on it. Reduced: no spin (R:54).
-  heroWheelIn: {
+  // ---- Screen 4 (R:121, R:127)
+  // The donut rotates in. Reduced: "no donut spin" (R:54). Query the svg from a
+  // wrapper ref (P:1011-1017), because CategoryDonut doesn't forward one.
+  donutIn: {
     normal: {
       keyframes: [
-        { opacity: 0, transform: "rotate(-140deg) scale(0.86)" },
+        { opacity: 0, transform: "rotate(-100deg) scale(0.9)" },
         { opacity: 1, transform: "none" },
       ],
-      duration: 900,
+      duration: 780,
       easing: E,
-      delay: 240,
+      delay: 140,
       fill: "backwards",
     },
     reduced: null,
   },
-  // The check that covers the pulsing dot as the run stops. Reduced: it fades
-  // in, as the prototype does.
-  practiceCheck: {
+  // "Back" from beat 1 bumps the panel, since there is nowhere to go.
+  panelBump: {
     normal: {
       keyframes: [
-        { transform: "scale(0.4)", opacity: 0 },
-        { transform: "scale(1.2)", offset: 0.7 },
-        { transform: "scale(1)", opacity: 1 },
+        { transform: "translateX(0)" },
+        { transform: "translateX(9px)" },
+        { transform: "translateX(0)" },
       ],
       duration: 320,
       easing: E,
     },
-    reduced: fadeIn(200, "linear"),
-  },
-  // The 52px clock bumping as it stops. Reduced: nothing.
-  timerBump: {
-    normal: {
-      keyframes: [
-        { transform: "scale(1)" },
-        { transform: "scale(1.08)", offset: 0.4 },
-        { transform: "scale(1)" },
-      ],
-      duration: 520,
-      easing: E,
-    },
     reduced: null,
-  },
-  // The 150px ring around the clock as it stops. Reduced: nothing.
-  endRing: {
-    normal: {
-      keyframes: [
-        { opacity: 0.5, transform: "scale(0.55)" },
-        { opacity: 0, transform: "scale(1.5)" },
-      ],
-      duration: 900,
-      easing: E,
-    },
-    reduced: null,
-  },
-  // A picked photo settling into its slot. Reduced: it fades in.
-  photoIn: {
-    normal: {
-      keyframes: [
-        { opacity: 0, transform: "scale(1.08)" },
-        { opacity: 1, transform: "scale(1)" },
-      ],
-      duration: 460,
-      easing: E,
-    },
-    reduced: fadeIn(200, "linear"),
   },
 
   // ---- Screen 5 (R:133, R:143)
@@ -532,65 +492,18 @@ export function flip(first: Box, last: Box, reduced: boolean): Effect {
   };
 }
 
-// The practice run's FLIPs, which keep their aspect: the goal title moving
-// from its row to the top of the timer (640ms), and the photo from its slot
-// into the feed card (660ms). `by` picks the side the scale is read from, and
-// `leadPx` is how far into the element the measured box starts: the live
-// title's 10px square and 9px gap, which the row's title has no twin for.
-// Reduced: no morph at all; the item crossfade carries the element in.
-export const TITLE_FLIP_MS = 640;
-export const PHOTO_FLIP_MS = 660;
-
-export function flipUniform(
-  first: Box,
-  last: Box,
-  {
-    by,
-    duration,
-    leadPx = 0,
-    reduced,
-  }: { by: "width" | "height"; duration: number; leadPx?: number; reduced: boolean }
-): Effect | null {
-  if (reduced || last.width <= 0 || last.height <= 0) return null;
-  const s = by === "width" ? first.width / last.width : first.height / last.height;
-  if (!Number.isFinite(s) || s <= 0) return null;
-  const dx = first.left - last.left - leadPx * s;
-  const dy = first.top - last.top;
-  return {
-    keyframes: [
-      { transform: `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(${s.toFixed(4)})` },
-      { transform: "none" },
-    ],
-    duration,
-    easing: E,
-  };
-}
-
-// The preview's goal bar filling from the left after the wheel (set
-// transform-origin to the left edge first). Reduced: no fill (the handoff).
-export function heroBarFill(i: number, reduced: boolean): Effect | null {
-  if (reduced) return null;
-  return {
-    keyframes: [{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }],
-    duration: 900,
-    easing: E,
-    delay: 500 + Math.max(0, Math.floor(i)) * 120,
-    fill: "backwards",
-  };
-}
-
-// The preview's habit checks popping in after the bar. Reduced: no pops.
-export function heroCheckIn(i: number, reduced: boolean): Effect | null {
+// Beat 2's legend rows after the donut (R:121): 420ms each, from 380ms, +70ms
+// apart. Reduced: none, since there's no list stagger.
+export function legendRowIn(i: number, reduced: boolean): Effect | null {
   if (reduced) return null;
   return {
     keyframes: [
-      { opacity: 0, transform: "scale(0.4)" },
-      { transform: "scale(1.12)", offset: 0.7 },
-      { opacity: 1, transform: "scale(1)" },
+      { opacity: 0, transform: "translateY(6px)" },
+      { opacity: 1, transform: "none" },
     ],
-    duration: 340,
+    duration: 420,
     easing: E,
-    delay: 740 + Math.max(0, Math.floor(i)) * 55,
+    delay: 380 + Math.max(0, Math.floor(i)) * 70,
     fill: "backwards",
   };
 }
@@ -619,7 +532,7 @@ export function handoffExitMs(reduced: boolean): number {
 
 // Elements that move between measured positions as a style changes, and what
 // they do under reduced motion. The CTA still clears the keyboard, which is
-// layout rather than decoration, just sooner (P:1413).
+// layout rather than decoration, just sooner (P:1413). Beat segments snap.
 //
 // Since OWNER-FIX-3 the avatar no longer travels: Screen 1 is the welcome,
 // whose photo is its own picker, and the top row's 28px avatar fades in with
@@ -637,6 +550,11 @@ export const TRAVEL = {
   progress: {
     normal: [transformTween(760, E)],
     reduced: [transformTween(200, "linear")],
+  },
+  // Screen 4's beat segments filling (R:107).
+  beatSegment: {
+    normal: [transformTween(420, E)],
+    reduced: [],
   },
 } satisfies Record<string, { normal: Tween[]; reduced: Tween[] }>;
 
@@ -687,6 +605,24 @@ export const TOAST = {
   reduced: [opacityTween(200, "linear")],
   visibleMs: 2400,
 } as const satisfies Entrance & { visibleMs: number };
+
+// Beat 1's three kudos avatars (R:113): they spring in at 800, 970 and
+// 1140ms. Reduced: they fade in together at 500ms, after the post. The
+// prototype staggers them 150ms apart (P:1083), but the plan's P5 and R:54
+// say no stagger under reduced motion, and they win.
+const KUDOS_REDUCED_DELAY_MS = 500;
+
+export function kudosAvatarIn(i: number): Entrance {
+  const k = Math.max(0, Math.floor(i));
+  return {
+    from: "scale(0.5)",
+    normal: [opacityTween(200, "linear", 800 + k * 170), transformTween(420, SPRING, 800 + k * 170)],
+    reduced: [opacityTween(200, "linear", KUDOS_REDUCED_DELAY_MS)],
+  };
+}
+
+// "Zack, Priya and Leo gave you kudos" fades in at 1350ms either way (R:113).
+export const KUDOS_LINE_IN: Tween = opacityTween(300, "linear", 1350);
 
 // ---- Typing a goal example in (R:94) ----------------------------------------
 

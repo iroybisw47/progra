@@ -7,6 +7,15 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-19
 
+### 12:15 · Revert: onboarding step 04 is the three-beat intro again
+- **Owner's request:** revert the step 04 practice clock-in (`ca8dcb7`). Keep the Find your friends UW wording.
+- **Back as it was at `ed247a9`:** `intro-screen.tsx` and `lib/onboarding-v3-intro.ts`, the reducer's `beat`, the intro motion, the `tracked` preview fixture with `?beat=`, and `/onboarding`'s replay week read.
+- **Removed:**
+  - The join photo: `uploadJoinPhoto`, `lib/db/join-photos.ts`, `lib/join-photo.ts`, the feed join card's photo, the `deleteAccount` blob removal, and AGENTS.md's call site.
+  - The `onboarding_practice_posted` event.
+- **Kept:** `FIND_FRIENDS_COPY.uwSub` ("Everyone suggested below is a UW student.") and its test.
+- **Left in prod:** `join-photo.sql` had run. Its `join_photos` table, `join-photos` bucket and `can_see_join_photo()` are now unused and harmless. The file's ROLLBACK block removes them; empty the bucket first.
+
 ### 09:03 · Find your friends says every suggestion is a UW student
 - **Owner's request:** onboarding's add-friends screen should say that everyone suggested is at UW.
 - The UW subtitle (`FIND_FRIENDS_COPY.uwSub`) now reads "Your feed is your friends clocking in. Everyone suggested below is a UW student." It replaces "A few people from UW are already here." Of the group headers, only "More at UW" said UW.
@@ -38,7 +47,7 @@ when it was done, not a start/stop work timer.
   - `listFriendJoins` signs it via `hydrateJoinPhotoUrls` (`lib/db/join-photos.ts`), and `feed-v2`'s join card draws it.
   - `deleteAccount` removes the blob.
   - A replay never uploads. A failed upload toasts and stays on the post phase.
-- **SQL (not run):** `.claude/plans/join-photo.sql`.
+- **SQL:** `.claude/plans/join-photo.sql`. **The owner reported it run in prod on 2026-10-19.**
   - Contents: the `join_photos` table (own-row writes, a path pinned to the owner), the private `join-photos` bucket, and the `can_see_join_photo()` definer (owner, admin or accepted friend, as recap posts ask).
   - Proven on PGlite: `nudges-harness/join-photo.mjs`, 33/33 checks, covering owner, friend and admin yes, and pending, blocked, stranger and anon no, plus the write refusals.
   - It must run before `NEXT_PUBLIC_ONBOARDING_V3` flips. Until then the feed shows no photo and an upload toasts.

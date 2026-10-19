@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { OnboardingClientV3 } from "@/app/onboarding/onboarding-client-v3";
-import { SCREEN, type PracticePhase } from "@/lib/onboarding-v3";
+import { SCREEN } from "@/lib/onboarding-v3";
 import {
   PREVIEW_LATENCY_MS,
   createPreviewServices,
@@ -15,7 +15,7 @@ import {
 // The client half of the dev preview (page.tsx says what it's for). The fake
 // services are made once per mount, so they're a stable object and the
 // wizard's effects don't re-run on every render. The key remounts the wizard
-// when the URL asks for a different screen, fixture, practice phase, search or UW
+// when the URL asks for a different screen, fixture, beat, search or UW
 // variant, rather than carrying one fixture's typing into the next. The page
 // keys this component by fixture, so the services start over with each one
 // too: they hold the fixture's UW answer and cohort, which Screen 5's groups
@@ -28,13 +28,13 @@ import {
 export function OnboardingV3Client({
   screen,
   fixture,
-  demo,
+  beat,
   query,
   uw,
 }: {
   screen: number;
   fixture: PreviewFixture;
-  demo: PracticePhase;
+  beat: number;
   // Typed into Screen 5's search in place of the fixture's own.
   query?: string;
   // The UW variant (P9c): the welcome's Continue raises the UW sheet.
@@ -51,7 +51,7 @@ export function OnboardingV3Client({
   );
   return (
     <OnboardingClientV3
-      key={`${fixture}:${screen}:${demo}:${query ?? ""}:${uw}:${restarts}`}
+      key={`${fixture}:${screen}:${beat}:${query ?? ""}:${uw}:${restarts}`}
       {...profile}
       uw={uw}
       initialUwSheet={uwSheet}
@@ -60,7 +60,7 @@ export function OnboardingV3Client({
       searchDraft={query ?? profile.searchDraft}
       services={services}
       initialScreen={restarts > 0 ? SCREEN.identity : screen}
-      initialDemo={demo}
+      initialBeat={beat}
       onHandoff={() => setRestarts((n) => n + 1)}
       // A browser reads "unavailable", which steps over the notifications
       // screen; the preview shows it as a device that has never been asked.
