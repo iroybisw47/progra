@@ -7,6 +7,7 @@ import {
   rowToSession,
   type SessionRow,
 } from "@/lib/db/sessions";
+import { hydrateJoinPhotoUrls } from "@/lib/db/join-photos";
 import { hydrateSessionPhotoUrls } from "@/lib/db/session-photos";
 import { rowToRecapItem, selectRecapPosts } from "@/lib/db/weekly-reviews";
 import { isOverSessionCap, sessionWorkedMs } from "@/lib/session";
@@ -62,6 +63,9 @@ export type JoinFeedItem = {
   author: PublicUser;
   firstGoalTitle: string | null; // null until they have a visible goal
   joinedAt: number; // onboarded_at, epoch ms
+  // The photo posted with it from onboarding's practice run, signed for 1h,
+  // or null (none posted, or not visible to the viewer).
+  photoUrl: string | null;
 };
 
 // A denormalized top-category slice stored on a recap post — enough to render
@@ -340,7 +344,11 @@ export async function listFriendJoins(daysBack = 7): Promise<JoinFeedItem[]> {
   if (!data) return [];
 
   const rows = data as { id: string; onboarded_at: string | null }[];
-  const firstGoalByUser = await hydrateFirstGoalTitles(rows.map((r) => r.id));
+  const ids = rows.map((r) => r.id);
+  const [firstGoalByUser, photoByUser] = await Promise.all([
+    hydrateFirstGoalTitles(ids),
+    hydrateJoinPhotoUrls(ids),
+  ]);
 
   return rows.flatMap((row) => {
     const author = authorById.get(row.id);
@@ -352,6 +360,7 @@ export async function listFriendJoins(daysBack = 7): Promise<JoinFeedItem[]> {
         author,
         firstGoalTitle: firstGoalByUser.get(row.id) ?? null,
         joinedAt: new Date(row.onboarded_at).getTime(),
+        photoUrl: photoByUser.get(row.id) ?? null,
       },
     ];
   });

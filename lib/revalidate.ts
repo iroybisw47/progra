@@ -118,6 +118,14 @@ export function revalidateSocialSurfaces() {
   revalidatePath("/review/[id]", "page");
 }
 
+// The photo on someone's "just joined Progra" card, which only the friends'
+// feed draws. Posted from onboarding's Screen 4, on `/`, which it leaves
+// alone: re-rendering the wizard mid-run would buy nothing, since the
+// uploader never sees their own card in a feed.
+export function revalidateJoinPhotoSurfaces() {
+  revalidatePath("/feed");
+}
+
 // Username / display name / bio — anywhere an author is shown.
 export function revalidateIdentitySurfaces() {
   revalidatePath("/");

@@ -110,7 +110,8 @@ export async function FeedV2() {
         ) : (
           entries.map((entry) => {
             // "Just joined Progra" announcement — lighter card, no
-            // reactions/comments (those need a real session).
+            // reactions/comments (those need a real session), with the photo
+            // they posted from onboarding's practice run, if any.
             if (entry.kind === "join") {
               return (
                 <div
@@ -150,6 +151,19 @@ export async function FeedV2() {
                       </span>
                     </p>
                   ) : null}
+                  {/* The photo posted with it from onboarding's practice
+                      run, drawn as a session's is (session-card.tsx says
+                      why it's a raw <img> at its own aspect). */}
+                  {entry.photoUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={entry.photoUrl}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="h-auto w-full rounded-[14px]"
+                    />
+                  )}
                 </div>
               );
             }

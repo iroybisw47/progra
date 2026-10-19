@@ -466,9 +466,9 @@ describe("Screen 5's layout (R:131, R:141)", () => {
     expect(UW_GROUPS_COPY.found(3)).toBe("3 people from UW");
   });
 
-  it("uses R's words exactly", () => {
+  it("uses R's words exactly, and says every suggestion is from UW", () => {
     expect(FIND_FRIENDS_COPY.uwSub).toBe(
-      "Your feed is your friends clocking in. A few people from UW are already here."
+      "Your feed is your friends clocking in. Everyone suggested below is a UW student."
     );
     expect(FIND_FRIENDS_COPY.early).toBe(
       "You’re early. No one from UW is on Progra yet. Send your link and they’ll show up here."

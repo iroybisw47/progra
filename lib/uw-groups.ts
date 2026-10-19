@@ -376,8 +376,8 @@ export type FindFriendsView =
 
 // Which Screen 5 to show (R:131, R:136-141, P:1186-1203).
 //
-// The UW subtitle promises "a few people from UW are already here", so it
-// shows only once that's known to be true: with the groups. The wait (rare,
+// The UW subtitle says everyone suggested below is a UW student, so it shows
+// only once there's someone below: with the groups. The wait (rare,
 // since the fetch starts back on Screen 2) keeps the non-UW subtitle, so the
 // screen never says it and then takes it back: an empty answer at the launch,
 // when most early students will find nobody, gets that same subtitle over

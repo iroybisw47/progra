@@ -1,6 +1,7 @@
 "use server";
 
 import { getCurrentUser } from "@/lib/auth/require-user";
+import { JOIN_PHOTO_BUCKET, joinPhotoPath } from "@/lib/join-photo";
 import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { error: string };
@@ -43,6 +44,11 @@ export async function deleteAccount(): Promise<Result> {
   if (avatarPath) {
     await supabase.storage.from("avatars").remove([avatarPath]);
   }
+
+  // And the photo posted with their "just joined" card, if any (one fixed
+  // path; removing one that isn't there is a no-op). The join-photos bucket's
+  // own-object delete policy permits it.
+  await supabase.storage.from(JOIN_PHOTO_BUCKET).remove([joinPhotoPath(user.id)]);
 
   const { error } = await supabase.rpc("delete_own_account");
   if (error) return { error: "Couldn't delete your account. Please try again." };

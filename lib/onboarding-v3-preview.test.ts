@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { addedCount, addsFromOutgoing, isAdded, nextAddCall, rowRelation } from "@/lib/find-friends";
 import {
-  INTRO_BEATS,
   MAX_GOALS,
   SCREEN,
   SCREEN_COUNT,
@@ -12,7 +11,6 @@ import {
   readyNote,
 } from "@/lib/onboarding-v3";
 import { prefillWizard } from "@/lib/onboarding-v3-goals-habits";
-import { introWeek } from "@/lib/onboarding-v3-intro";
 import {
   PREVIEW_FIXTURES,
   PREVIEW_LATENCY_MS,
@@ -36,7 +34,7 @@ describe("parsePreviewParams", () => {
     expect(parsePreviewParams({ screen: "1", fixture: "welcome-filled" })).toEqual({
       screen: 0,
       fixture: "welcome-filled",
-      beat: 0,
+      demo: "intro",
     });
     expect(parsePreviewParams({ screen: "6" }).screen).toBe(SCREEN_COUNT - 2);
     expect(parsePreviewParams({ screen: "7" }).screen).toBe(SCREEN_COUNT - 1);
@@ -48,9 +46,9 @@ describe("parsePreviewParams", () => {
     expect(parsePreviewParams({ screen: "abc", fixture: "nope" })).toEqual({
       screen: 0,
       fixture: "welcome",
-      beat: 0,
+      demo: "intro",
     });
-    expect(parsePreviewParams({})).toEqual({ screen: 0, fixture: "welcome", beat: 0 });
+    expect(parsePreviewParams({})).toEqual({ screen: 0, fixture: "welcome", demo: "intro" });
     // The old Screen 1 fixtures are gone, so they fall back too.
     for (const old of ["empty", "filled", "uw-choose", "uw-open", "uw-no"]) {
       expect(parsePreviewParams({ fixture: old }).fixture).toBe("welcome");
@@ -61,7 +59,7 @@ describe("parsePreviewParams", () => {
     expect(parsePreviewParams({ fixture: "goals" })).toEqual({
       screen: SCREEN.goal,
       fixture: "goals",
-      beat: 0,
+      demo: "intro",
     });
     expect(parsePreviewParams({ fixture: "habits" }).screen).toBe(SCREEN.habits);
     expect(parsePreviewParams({ fixture: "habit-custom", screen: "junk" }).screen).toBe(
@@ -73,27 +71,27 @@ describe("parsePreviewParams", () => {
 
   it("takes the first of a repeated param", () => {
     expect(
-      parsePreviewParams({ screen: ["3", "5"], fixture: ["taken", "replay"], beat: ["2", "3"] })
+      parsePreviewParams({ screen: ["3", "5"], fixture: ["taken", "replay"], demo: ["post", "ready"] })
     ).toEqual({
       screen: 2,
       fixture: "taken",
-      beat: 1,
+      demo: "post",
     });
   });
 
-  it("reads a 1-based beat, clamped, and falls back to beat 1 or the fixture's own", () => {
-    expect(parsePreviewParams({ screen: "4", beat: "1" }).beat).toBe(0);
-    expect(parsePreviewParams({ screen: "4", beat: "3" }).beat).toBe(INTRO_BEATS - 1);
-    expect(parsePreviewParams({ screen: "4", beat: "0" }).beat).toBe(0);
-    expect(parsePreviewParams({ screen: "4", beat: "9" }).beat).toBe(INTRO_BEATS - 1);
-    expect(parsePreviewParams({ screen: "4", beat: "x" }).beat).toBe(0);
-    expect(parsePreviewParams({ fixture: "tracked" })).toEqual({
+  it("reads Screen 4's practice phase, and falls back to its intro", () => {
+    expect(parsePreviewParams({ screen: "4", demo: "posted" }).demo).toBe("posted");
+    expect(parsePreviewParams({ screen: "4", demo: "ended" }).demo).toBe("ended");
+    expect(parsePreviewParams({ screen: "4", demo: "nope" }).demo).toBe("intro");
+    // The run only starts from Clock in, so "running" opens on ready.
+    expect(parsePreviewParams({ screen: "4", demo: "running" }).demo).toBe("ready");
+    expect(parsePreviewParams({ fixture: "practice" })).toEqual({
       screen: SCREEN.intro,
-      fixture: "tracked",
-      beat: 1,
+      fixture: "practice",
+      demo: "intro",
     });
-    expect(parsePreviewParams({ fixture: "tracked", beat: "3" }).beat).toBe(2);
   });
+
 });
 
 describe("parsePreviewParams: UW", () => {
@@ -303,20 +301,17 @@ describe("fakeSearchUsers", () => {
 describe("previewProfile", () => {
   it("covers every fixture, and only the replayers replay", () => {
     for (const f of PREVIEW_FIXTURES) {
-      expect(previewProfile(f).replay).toBe(f === "replay" || f === "tracked");
+      expect(previewProfile(f).replay).toBe(f === "replay");
     }
   });
 
-  it("gives only the tracked fixture a real week, and one Beat 2 draws as real", () => {
-    for (const f of PREVIEW_FIXTURES) {
-      expect(Boolean(previewProfile(f).weekSegments)).toBe(f === "tracked");
-    }
-    const tracked = previewProfile("tracked");
-    const goals = prefillWizard(tracked.existingGoals, tracked.existingHabits).goals;
-    const week = introWeek(tracked.weekSegments, goals, []);
-    expect(week.sample).toBe(false);
-    expect(week.segs.map((s) => s.ms)).toEqual([...week.segs.map((s) => s.ms)].sort((a, b) => b - a));
+  it("opens the practice run with two goals to pick from and two habits", () => {
+    const practice = previewProfile("practice");
+    const prefill = prefillWizard(practice.existingGoals, practice.existingHabits);
+    expect(prefill.goals).toHaveLength(2);
+    expect(prefill.habits).toHaveLength(2);
   });
+
 
   it("starts the goal and habit fixtures where their screenshots need them", () => {
     const goals = previewProfile("goals");
@@ -345,7 +340,7 @@ describe("previewProfile", () => {
     expect(parsePreviewParams({ fixture: "goals-full" })).toEqual({
       screen: SCREEN.goal,
       fixture: "goals-full",
-      beat: 0,
+      demo: "intro",
     });
     const full = previewProfile("goals-full");
     const prefill = prefillWizard(full.existingGoals, full.existingHabits);

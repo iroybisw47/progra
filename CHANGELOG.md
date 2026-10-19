@@ -5,6 +5,51 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-19
+
+### 09:03 · Find your friends says every suggestion is a UW student
+- **Owner's request:** onboarding's add-friends screen should say that everyone suggested is at UW.
+- The UW subtitle (`FIND_FRIENDS_COPY.uwSub`) now reads "Your feed is your friends clocking in. Everyone suggested below is a UW student." It replaces "A few people from UW are already here." Of the group headers, only "More at UW" said UW.
+- It shows only with the groups (`findFriendsView`). A non-UW student, "You're early" and a failed fetch keep their own copy. It still fits on two lines at 375px.
+- **Gate:** tsc clean; vitest on uw-groups, onboarding-v3 and preview (184/184); `/dev/onboarding-v3?fixture=uw-groups` screenshotted at 375 and 393 wide. Not committed.
+
+### 08:57 · Onboarding step 04 becomes a practice clock-in (v3, dark)
+- **Owner's request:** build the `design_handoff_progra_step04` handoff. It replaces v3's Screen 4, the three-beat "What Progra is" intro, with a run through the real loop. It is still one wizard screen, with the progress bar at 4/6, and has six phases: `intro → ready → running → ended → post → posted`.
+- **Owner's decisions:**
+  - **The post is the existing "just joined Progra" card plus a photo.** No synthetic session is created.
+  - **The practice 25 minutes are never logged.** The timer is client-only, using rAF and a text node.
+- **The six phases** (`app/onboarding/v3/practice-screen.tsx`, logic in `lib/onboarding-v3-practice.ts`):
+  - **intro:** a Progress-tab preview built from the real `Donut`, `GoalQuotaRows` and `HabitWeekGrid`, with illustrative data. The wheel spins in, the bar fills and the habit checks pop.
+  - **ready:** the Clock tab cut down to 56px goal rows (the first goal preselected, "PICK ONE" only when there are 2+ goals) and a static 25 min timer row.
+  - **running:** the title FLIPs up from its row. The clock runs 1s at real speed, then fast-forwards (cubic in-out over 3.4s) and clocks them out. "Clock out", the secondary CTA, ends the run early.
+  - **ended:** a check pop, a timer bump, a ring, and a CTA ring.
+  - **post:** a dashed photo slot with a Change pill, and "Post without a photo".
+  - **posted:** the card as friends see it. The photo FLIPs in from the slot.
+  - **Reduced motion:** crossfades only. The timer steps in 5-minute increments.
+- **State:** `wizardReducer`'s `beat` is replaced by `demo` + `demoGoal`, which reset whenever Screen 4 is entered. Back mid-run stops the timer.
+- **The CTA:** pages through the phases via `practiceCta`.
+- **Telemetry:** a new `onboarding_practice_posted { with_photo, ended }` event.
+- **Removed:**
+  - `intro-screen.tsx`, `lib/onboarding-v3-intro.ts` (and its test), and the intro-only motion (`donutIn`, `panelBump`, `legendRowIn`, the kudos entrances, `TRAVEL.beatSegment`).
+  - `/onboarding`'s replay-only week read (`weekSegments`).
+  - The `tracked` preview fixture. It is replaced by `practice` and `?demo=intro|ready|ended|post|posted`, which supersede `?beat=`.
+- **Join photo (backend):**
+  - `uploadJoinPhoto` (`app/actions/join-photo.ts`): sharp re-encode, then an admin-client upload to `join-photos/{uid}/join.jpg` (AGENTS.md exception 1, call site added), then an upsert of the `join_photos` row under RLS.
+  - `listFriendJoins` signs it via `hydrateJoinPhotoUrls` (`lib/db/join-photos.ts`), and `feed-v2`'s join card draws it.
+  - `deleteAccount` removes the blob.
+  - A replay never uploads. A failed upload toasts and stays on the post phase.
+- **SQL (not run):** `.claude/plans/join-photo.sql`.
+  - Contents: the `join_photos` table (own-row writes, a path pinned to the owner), the private `join-photos` bucket, and the `can_see_join_photo()` definer (owner, admin or accepted friend, as recap posts ask).
+  - Proven on PGlite: `nudges-harness/join-photo.mjs`, 33/33 checks, covering owner, friend and admin yes, and pending, blocked, stranger and anon no, plus the write refusals.
+  - It must run before `NEXT_PUBLIC_ONBOARDING_V3` flips. Until then the feed shows no photo and an upload toasts.
+- **Gate:**
+  - tsc is clean. eslint on the changed files is clean apart from the known `Date.now()` purity debt in `feed-v2.tsx`.
+  - vitest 1342/1342 passes, with new practice, reducer, preview and motion tests.
+  - The build passes (with the self-link moved aside, then restored).
+  - The signed-out smoke test redirects to `/login`.
+  - Headless screenshots at 393×852 and 375×667 cover every phase, an early clock-out, posting without a photo, Back mid-run, and reduced motion.
+  - Not committed.
+
 ## 2026-10-18
 
 ### 20:39 · Weekly review posts show the wheel of where the week went
