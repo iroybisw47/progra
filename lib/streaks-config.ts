@@ -13,7 +13,7 @@
 // The database's streak_config.launch_date is the authority for counting
 // (the server decides); this mirrors it for copy. Change the two together, and
 // change the announcement copy with them.
-export const STREAK_LAUNCH_DATE: string | null = null;
+export const STREAK_LAUNCH_DATE: string | null = "2026-10-21";
 
 // A streak day runs from 04:00 to 04:00 local, so a 1am session still belongs
 // to the evening before it.
@@ -37,11 +37,12 @@ export const STREAK_MILESTONES = [7, 30, 100] as const;
 // A friend's streak shows on their profile from this length.
 export const FRIEND_STREAK_MIN = 2;
 
-// The announcement card's words. WRITTEN BY THE OWNER, not by Claude Code: the
-// placeholder below never renders in production (lib/streaks-view.ts
-// announcementFor), so the flag can ship before the copy does. Change it with
-// the launch date.
+// The announcement card's words, approved by the owner 2026-10-20. Read before
+// and after Day One alike (the card adds its own "Starts …, from 4am" line
+// before), so they must work both ways. A placeholder containing
+// ANNOUNCEMENT_PLACEHOLDER never renders in production (announcementFor).
+// Change it with the launch date.
 export const STREAK_ANNOUNCEMENT_COPY = {
-  title: "[ANNOUNCEMENT COPY]",
-  body: "[ANNOUNCEMENT COPY]",
+  title: "Introducing streaks",
+  body: "Clock in for 5 minutes or check off one habit each day to keep your streak going. Two freezes a month cover the days you miss.",
 } as const;

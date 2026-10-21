@@ -301,6 +301,7 @@ export default async function RootLayout({
           intro={patchNote.intro}
           items={patchNote.items}
           outro={patchNote.outro}
+          image={patchNote.image}
         />
       )}
       {/* The UW info prompt, once (lib/uw-prompt.ts). Last in line behind the

@@ -131,6 +131,15 @@ describe("PATCH_NOTES", () => {
     }
   });
 
+  it("serves any picture from /public, with alt text and a real size", () => {
+    for (const n of PATCH_NOTES) {
+      if (!n.image) continue;
+      expect(n.image.src, n.version).toMatch(/^\/[a-z0-9/_-]+\.(png|jpg|webp)$/);
+      expect(n.image.alt.trim(), n.version).not.toBe("");
+      expect(n.image.width > 0 && n.image.height > 0, n.version).toBe(true);
+    }
+  });
+
   it("has no empty outro paragraph — omit the field instead", () => {
     for (const n of PATCH_NOTES) {
       if (n.outro === undefined) continue;

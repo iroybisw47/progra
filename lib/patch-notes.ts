@@ -25,12 +25,35 @@ export type PatchNote = {
   // noteSegments. https only — anything else stays plain text, brackets and all,
   // which the PATCH_NOTES test then refuses to ship.
   items: string[];
+  // Optional picture between the intro and the bullets, served from /public at
+  // its natural size (a 3x export, so it's sharp on an iPhone). `alt` says what
+  // it shows, for VoiceOver.
+  image?: { src: string; alt: string; width: number; height: number };
   // Optional closing paragraphs under the bullets: a thank-you, a sign-off. A
   // "\n" inside one is a line break, so "Sincerely,\nIsh" stays one paragraph.
   outro?: string[];
 };
 
 export const PATCH_NOTES: readonly PatchNote[] = [
+  {
+    version: "1.04",
+    title: "Introducing Streaks to Progra!",
+    intro:
+      "Hey Progra users! Starting Wednesday, October 21, Progra counts how many days in a row you show up. Here's how it works:",
+    image: {
+      src: "/patch-notes/streaks-profile.png",
+      alt: "A profile named Maya Chen with a fire badge showing a 7-day streak next to her name",
+      width: 1179,
+      height: 525,
+    },
+    items: [
+      "Show up once a day: clock in for at least 5 minutes, or check off one habit. Either one counts.",
+      "Your streak lives on your profile, right next to your name. Tap it to see your longest streak and your freezes.",
+      "2 free freezes every month: miss a day and one is used automatically, so your streak keeps going. Unused freezes don't carry over.",
+      "Friends can see your streak on your profile. Theirs only counts sessions and habits they've shared.",
+    ],
+    outro: ["Good luck getting your first week in!", "Sincerely,\nIsh from Progra"],
+  },
   {
     version: "1.03",
     title: "Patch 1.03",

@@ -7,6 +7,13 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-20
 
+### 22:35 · Streaks launch: Day One is Wednesday 2026-10-21, with the launch post
+- `STREAK_LAUNCH_DATE = "2026-10-21"`. The DB row is set to match by hand: `streak_config.launch_date`. The 4am day boundary is unchanged.
+- **Announcement card copy** (owner-approved): "Introducing streaks", "Clock in for 5 minutes or check off one habit each day to keep your streak going. Two freezes a month cover the days you miss."
+- **Patch 1.04, "Introducing Streaks to Progra!"**, in the owner's voice. The owner cut the 4am bullet. The note includes a picture: an example profile ("Maya Chen", 7 days) at `public/patch-notes/streaks-profile.png`, a 3x export.
+- **Patch notes can now carry an `image`**, drawn between the intro and the bullets. `WhatsNewModal` takes it and the root layout passes it through. A test requires a `/public` path, alt text and a size.
+- **Gate:** tsc and eslint are clean, vitest passes 1470 of 1470, and the build passes.
+
 ### 23:45 · Streaks P6: release prep (feat/streaks, dark)
 - **Onboarding notify copy, flag-gated.**
   - With `STREAKS && SOCIAL_PUSH` on, v2's notify card lists "An evening reminder while your streak is still open" and stops promising "no streaks".

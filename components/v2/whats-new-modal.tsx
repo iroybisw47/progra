@@ -35,12 +35,14 @@ export function WhatsNewModal({
   intro,
   items,
   outro,
+  image,
 }: {
   version: string;
   title: string;
   intro?: string;
   items: string[];
   outro?: string[];
+  image?: { src: string; alt: string; width: number; height: number };
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(true);
@@ -115,6 +117,20 @@ export function WhatsNewModal({
             </DialogDescription>
           )}
         </DialogHeader>
+
+        {/* A note's picture (lib/patch-notes.ts `image`), full width, at its
+            natural aspect. Unoptimized for the logo's reason: the file is
+            already a 3x export. */}
+        {image && (
+          <Image
+            src={image.src}
+            alt={image.alt}
+            width={image.width}
+            height={image.height}
+            unoptimized
+            className="border-hairline h-auto w-full rounded-[14px] border"
+          />
+        )}
 
         <ul className="flex flex-col gap-2.5">
           {items.map((item) => (
