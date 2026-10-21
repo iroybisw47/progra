@@ -90,13 +90,13 @@ export function InviteTile({
         type="button"
         onClick={onPress}
         className={cn(
-          "bg-brand flex w-full items-center gap-3 rounded-[18px] px-4 text-left text-white shadow-[0_10px_24px_rgba(28,58,94,.3)] transition-transform active:scale-[.98]",
+          "bg-brand flex w-full items-center gap-3 rounded-[18px] px-4 text-left text-primary-foreground shadow-[0_10px_24px_color-mix(in_srgb,var(--glow)_55%,transparent)] transition-transform active:scale-[.98]",
           s.tile
         )}
       >
         <span
           aria-hidden
-          className={cn("flex shrink-0 items-center justify-center rounded-full bg-white/15", s.circle)}
+          className={cn("flex shrink-0 items-center justify-center rounded-full bg-primary-foreground/15", s.circle)}
         >
           <UsersIcon className={s.users} strokeWidth={2} />
         </span>
@@ -104,9 +104,9 @@ export function InviteTile({
             (P:294): 24 + 3 + 18 centres the title at y=211.5 in the 76px tile. */}
         <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
           <span className={cn("font-bold", s.title)}>{INVITE_COPY.title}</span>
-          <span className="truncate text-[12px] text-white/75">{sub}</span>
+          <span className="truncate text-[12px] text-primary-foreground/75">{sub}</span>
         </span>
-        <ShareIcon aria-hidden className={cn("shrink-0 text-white/75", s.share)} strokeWidth={2} />
+        <ShareIcon aria-hidden className={cn("shrink-0 text-primary-foreground/75", s.share)} strokeWidth={2} />
       </button>
     </div>
   );

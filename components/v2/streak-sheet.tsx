@@ -3,10 +3,10 @@
 import { FlameIcon, SnowflakeIcon } from "lucide-react";
 
 import { BottomSheet, BottomSheetContent } from "@/components/v2/bottom-sheet";
-import { PALETTE } from "@/lib/palette";
 import { STREAK_MILESTONES } from "@/lib/streaks-config";
 
-const FIRE = PALETTE[2];
+// Orange (palette 2), as the theme draws it.
+const FIRE = { fill: "var(--palette-2)", ink: "var(--palette-2-ink)" };
 
 // What the sheet shows. Your own has the freezes and the at-risk line; a
 // friend's has only what get_friend_streak returns (their shared count).

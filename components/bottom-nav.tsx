@@ -212,7 +212,7 @@ export function BottomNav({
       // the phone. Trimming 12px drops them onto it while keeping the indicator
       // clear of the tap targets. max(…, 0px) keeps this a no-op on the web and
       // on devices with no inset, where the term would otherwise go negative.
-      className="border-hairline fixed inset-x-0 bottom-0 z-40 border-t bg-[rgba(255,255,255,0.92)] pb-[max(env(safe-area-inset-bottom)_-_12px,0px)] backdrop-blur-[18px] dark:border-white/10 dark:bg-[rgba(20,24,31,0.9)]"
+      className="border-hairline fixed inset-x-0 bottom-0 z-40 border-t bg-nav-glass pb-[max(env(safe-area-inset-bottom)_-_12px,0px)] backdrop-blur-[18px] dark:border-white/10"
     >
       <ul className="mx-auto flex h-[64px] w-full max-w-md items-stretch">
         {TABS.map((tab) => {
@@ -241,7 +241,7 @@ export function BottomNav({
                 >
                   <span
                     className={cn(
-                      "text-primary-foreground flex size-14 -translate-y-4 items-center justify-center rounded-full shadow-[0_12px_26px_-8px_rgba(28,58,94,.55),0_0_0_4px_var(--screen)] transition-[background-color,transform] duration-200 active:scale-[.96]",
+                      "text-primary-foreground flex size-14 -translate-y-4 items-center justify-center rounded-full shadow-[0_12px_26px_-8px_var(--glow),0_0_0_4px_var(--screen)] transition-[background-color,transform] duration-200 active:scale-[.96]",
                       paused
                         ? "bg-disabled"
                         : tracking

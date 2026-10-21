@@ -3,7 +3,7 @@
 import { MinusIcon, PlusIcon } from "lucide-react";
 
 import { ColorSwatches } from "@/components/color-swatches";
-import { inkFor } from "@/lib/palette";
+import { entityInk } from "@/lib/colors";
 import { goalDisplay } from "@/lib/onboarding";
 
 import { CARD, Field, PreviewRing, Stepper, UNDERLINE_INPUT } from "../onboarding-ui";
@@ -111,7 +111,7 @@ export function GoalStep({
           </span>
           <span
             className="font-serif text-[20px] font-medium tracking-[-0.03em] transition-colors duration-300"
-            style={{ color: inkFor(color) }}
+            style={{ color: entityInk(color) }}
           >
             {hours}h
             <span className="text-caption font-sans text-xs tracking-normal"> / week</span>

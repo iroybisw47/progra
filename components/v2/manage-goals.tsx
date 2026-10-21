@@ -321,7 +321,7 @@ export function ManageGoals({
                     render={
                       <button
                         type="button"
-                        className="text-destructive h-12 shrink-0 rounded-[15px] border-[1.5px] border-[#f0e3e0] px-4 text-sm font-semibold"
+                        className="text-destructive h-12 shrink-0 rounded-[15px] border-[1.5px] border-destructive-line px-4 text-sm font-semibold"
                       >
                         Delete
                       </button>

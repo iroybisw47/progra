@@ -61,7 +61,7 @@ function BottomSheetContent({
     <DialogPrimitive.Portal>
       <DialogPrimitive.Backdrop
         data-slot="bottom-sheet-overlay"
-        className="fixed inset-0 isolate z-50 bg-[rgba(18,23,29,.34)] duration-150 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
+        className="fixed inset-0 isolate z-50 bg-backdrop duration-150 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
       />
       <DialogPrimitive.Popup
         ref={popupRef}

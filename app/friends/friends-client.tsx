@@ -211,7 +211,7 @@ export function FriendsClient({
           <button
             type="button"
             onClick={shareApp}
-            className="bg-brand text-primary-foreground flex h-12 w-full items-center justify-center gap-2 rounded-[15px] text-sm font-semibold shadow-[0_10px_22px_-10px_rgba(28,58,94,.55)] transition-transform active:scale-[.98]"
+            className="bg-brand text-primary-foreground flex h-12 w-full items-center justify-center gap-2 rounded-[15px] text-sm font-semibold shadow-[0_10px_22px_-10px_var(--glow)] transition-transform active:scale-[.98]"
           >
             <UserPlusIcon className="size-[17px]" strokeWidth={2.2} />
             Invite friends to Progra

@@ -104,7 +104,7 @@ export function SignInButtons({
             className={cn(
               // ::after widens the 16px box to a comfortable tap target.
               "relative mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-[4px] border-[1.5px] transition-colors duration-150 outline-none after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:ring-3 focus-visible:ring-brand/40",
-              agreed ? "border-brand bg-brand text-white" : "border-disabled bg-white"
+              agreed ? "border-brand bg-brand text-primary-foreground" : "border-disabled bg-card"
             )}
           >
             {agreed && <CheckIcon className="size-[11px]" strokeWidth={3.4} />}

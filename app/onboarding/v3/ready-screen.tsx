@@ -1,6 +1,7 @@
 "use client";
 
 import { WeekPulse } from "@/components/v2/week-pulse";
+import { themedColor } from "@/lib/colors";
 import { itemStyle, type ItemPhase } from "@/lib/motion";
 import { readyNote } from "@/lib/onboarding-v3";
 
@@ -65,11 +66,11 @@ export function ReadyScreen({
       </p>
       {goal && (
         <div className="mt-[17px] flex max-w-full justify-center" style={itemStyle(phase, 3, reduced)}>
-          <div className="border-control-border flex w-max max-w-full items-center gap-3 rounded-[18px] border-[1.5px] bg-white px-5 py-3.5">
+          <div className="border-control-border flex w-max max-w-full items-center gap-3 rounded-[18px] border-[1.5px] bg-card px-5 py-3.5">
             <span
               aria-hidden
               className="size-3 shrink-0 rounded-[3px]"
-              style={{ backgroundColor: goal.color }}
+              style={{ backgroundColor: themedColor(goal.color) }}
             />
             <span className="text-ink min-w-0 text-left font-serif text-[24px] leading-[1.2] font-medium tracking-[-0.015em] break-words">
               {goal.title}

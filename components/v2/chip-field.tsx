@@ -267,7 +267,7 @@ export function ChipField({
         onClick={(e) => {
           if (e.target === e.currentTarget) focusEnd(input.current);
         }}
-        className="border-control-border focus-within:border-brand mt-[7px] flex min-h-11 cursor-text flex-wrap items-center gap-1.5 rounded-[12px] border-[1.5px] bg-white p-1.5 outline-none transition-colors duration-200"
+        className="border-control-border focus-within:border-brand mt-[7px] flex min-h-11 cursor-text flex-wrap items-center gap-1.5 rounded-[12px] border-[1.5px] bg-card p-1.5 outline-none transition-colors duration-200"
       >
         {value.items.map((item, i) => {
           const key = chipKey(item);
@@ -278,7 +278,7 @@ export function ChipField({
                 if (el) chipEls.current.set(key, el);
                 else chipEls.current.delete(key);
               }}
-              className="bg-brand inline-flex h-7 max-w-full items-center gap-0.5 rounded-full pr-[3px] pl-[11px] text-[12px] font-semibold text-white"
+              className="bg-brand inline-flex h-7 max-w-full items-center gap-0.5 rounded-full pr-[3px] pl-[11px] text-[12px] font-semibold text-primary-foreground"
             >
               <span className="truncate" title={item}>
                 {item}
@@ -294,7 +294,7 @@ export function ChipField({
                 aria-disabled={disabled || undefined}
                 onPointerDown={keepFocus}
                 onClick={(e) => remove(i, e.currentTarget)}
-                className="relative flex size-[22px] shrink-0 items-center justify-center text-white/70 before:absolute before:-inset-x-2 before:-inset-y-1.5 before:content-['']"
+                className="relative flex size-[22px] shrink-0 items-center justify-center text-primary-foreground/70 before:absolute before:-inset-x-2 before:-inset-y-1.5 before:content-['']"
               >
                 <XIcon aria-hidden className="size-2.5" strokeWidth={3} />
               </button>
@@ -365,7 +365,7 @@ export function ChipField({
               aria-disabled={disabled || undefined}
               onPointerDown={keepFocus}
               onClick={(e) => commit(option, e.currentTarget, i)}
-              className="border-control-border text-body relative h-[30px] shrink-0 rounded-full border-[1.5px] bg-white px-3 text-[12px] font-semibold whitespace-nowrap transition-transform active:scale-[.96] before:absolute before:inset-x-0 before:-inset-y-[7px] before:content-['']"
+              className="border-control-border text-body relative h-[30px] shrink-0 rounded-full border-[1.5px] bg-card px-3 text-[12px] font-semibold whitespace-nowrap transition-transform active:scale-[.96] before:absolute before:inset-x-0 before:-inset-y-[7px] before:content-['']"
             >
               + {option}
             </button>

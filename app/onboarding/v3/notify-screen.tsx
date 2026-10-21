@@ -54,14 +54,14 @@ export function NotifyScreen({
       </p>
 
       <ul
-        className="border-control-border mt-5 flex flex-col gap-3 rounded-[18px] border-[1.5px] bg-white p-4"
+        className="border-control-border mt-5 flex flex-col gap-3 rounded-[18px] border-[1.5px] bg-card p-4"
         style={itemStyle(phase, 3, reduced)}
       >
         {reasons.map((reason) => (
           <li key={reason} className="flex items-start gap-2.5">
             <span
               aria-hidden
-              className="bg-brand mt-px flex size-[18px] shrink-0 items-center justify-center rounded-[6px] text-white"
+              className="bg-brand mt-px flex size-[18px] shrink-0 items-center justify-center rounded-[6px] text-primary-foreground"
             >
               <CheckIcon className="size-[11px]" strokeWidth={3.5} />
             </span>

@@ -4,6 +4,7 @@ import { AvatarInitials } from "@/components/avatar-initials";
 import { ReportButton } from "@/components/report-button";
 import { RecapComments } from "@/components/v2/recap-comments";
 import { RecapKudosButton } from "@/components/v2/recap-kudos-button";
+import { themedColor } from "@/lib/colors";
 import { formatDuration } from "@/lib/duration";
 import { formatRelativeTime } from "@/lib/dates";
 import type { RecapFeedItem } from "@/lib/db/feed";
@@ -70,7 +71,7 @@ export function RecapFeedCard({
       </div>
 
       {/* Summary panel — a navy wash sets the week apart from a session post */}
-      <div className="flex flex-col gap-3 rounded-2xl bg-[rgba(28,58,94,.05)] p-4">
+      <div className="flex flex-col gap-3 rounded-2xl bg-brand/5 p-4">
         <div className="flex items-end justify-between gap-3">
           <div className="flex flex-col">
             <span className="text-faint text-[11px]">
@@ -98,7 +99,7 @@ export function RecapFeedCard({
               <div key={i} className="flex items-center gap-2 text-xs">
                 <span
                   className="size-2 shrink-0 rounded-[2px]"
-                  style={{ backgroundColor: c.color ?? CHART_FALLBACK }}
+                  style={{ backgroundColor: c.color ? themedColor(c.color) : CHART_FALLBACK }}
                 />
                 <span className="text-body min-w-0 flex-1 truncate">
                   {c.name}

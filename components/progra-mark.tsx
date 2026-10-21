@@ -44,7 +44,7 @@ export function PrograMark({
       className={cn("rounded-[28%]", className)}
       style={style}
     >
-      <rect x="0" y="0" width="100" height="100" rx="28" fill="var(--brand)" />
+      <rect x="0" y="0" width="100" height="100" rx="28" fill="var(--logo)" />
       {/* clock ring */}
       <circle cx="50" cy="50" r="22" fill="none" stroke="#fff" strokeWidth="4.5" />
       <g stroke="#fff" strokeWidth="4.5" strokeLinecap="round">

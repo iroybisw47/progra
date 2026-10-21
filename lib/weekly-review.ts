@@ -1,6 +1,6 @@
 import { isoDateInTimeZone, mondayOfDateISO, reviewReadyMs, weekWindow } from "@/lib/dates";
 import { GOAL_KEY_PREFIX } from "@/lib/aggregate";
-import { entityColor } from "@/lib/colors";
+import { entityColor, entityFillHex } from "@/lib/colors";
 import { UNCATEGORIZED_FILL, type ReviewPostSummary } from "@/lib/recap-story";
 
 // A POSTED weekly review (RECAP_V2's Share slide → recap_posts): the rules
@@ -70,7 +70,9 @@ export const OTHER_FILL = "#dfe3e8";
 // to the week.
 export const POST_SLICE_MAX = 6;
 
-// What a post's wheel stores, by the rules of the story's "Where it went"
+// What a post's wheel stores — as hex, the stored form, even though the rows
+// arrive in display form (var(--palette-N)): a CSS variable written to
+// recap_posts would mean nothing to anything but this app's stylesheet. By the rules of the story's "Where it went"
 // slide (lib/recap-story.ts whereSlide): time only, a since-deleted category
 // counted as Uncategorized, the rest largest first, Uncategorized last. Two
 // rules of its own, because friends see this and the slide is the owner's:
@@ -96,13 +98,13 @@ export function postSlices(
       privateMs += r.ms;
       if (r.ms > privateTop) {
         privateTop = r.ms;
-        privateColor = entityColor(r.color);
+        privateColor = entityFillHex(r.color);
       }
     } else if (r.id === null || (!r.isGoal && !liveCategoryIds.has(r.id))) {
       looseMs += r.ms;
     } else {
       const name = r.isGoal && r.name.startsWith(GOAL_PREFIX) ? r.name.slice(GOAL_PREFIX.length) : r.name;
-      named.push({ name, color: entityColor(r.color), ms: r.ms });
+      named.push({ name, color: entityFillHex(r.color), ms: r.ms });
     }
   }
   if (privateMs > 0) named.push({ name: "Private goals", color: privateColor, ms: privateMs });

@@ -44,7 +44,7 @@ export default async function LoginPage({
         <PrograMark
           size={58}
           motion="drift"
-          className="self-start shadow-[0_14px_30px_-12px_rgba(28,58,94,.55)]"
+          className="self-start shadow-[0_14px_30px_-12px_var(--glow)]"
           style={{ animation: "pop-in 0.55s cubic-bezier(.34,1.56,.64,1) both" }}
         />
         <TypedHeadline

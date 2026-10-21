@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/require-user";
 import { weekWindow } from "@/lib/dates";
 import { getWeekLeaderboard } from "@/lib/db/leaderboard";
 import { computeWeekRecap } from "@/lib/db/recap";
+import { normalizeFill } from "@/lib/palette";
 
 // Renders the week's recap summary as a 1080×1080 PNG (Satori/ImageResponse) for
 // the story's Share panel. Own-data only; force per-request (never cached). Runs
@@ -16,10 +17,13 @@ export const dynamic = "force-dynamic";
 const HOUR_MS = 60 * 60 * 1000;
 const NAVY = "#1c3a5e";
 // Concrete swatches for categories whose stored color is null or a CSS var
-// (Satori can't resolve `var(--...)`).
+// (Satori can't resolve `var(--...)`). Palette colors arrive in display form,
+// var(--palette-N), and resolve back to their hex first.
 const FALLBACK = ["#2f6f6b", "#c98a3b", "#6b5bd2", "#c25e7a", "#4b8ab5", "#8a94a0"];
 
 function swatch(color: string | null, i: number): string {
+  const fill = normalizeFill(color);
+  if (fill) return fill;
   return color && color.startsWith("#") ? color : FALLBACK[i % FALLBACK.length];
 }
 

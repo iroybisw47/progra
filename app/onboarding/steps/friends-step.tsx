@@ -89,7 +89,7 @@ export function FriendsStep({
                 key={key}
                 type="button"
                 onClick={() => onNudge(NUDGE_PRESETS[key])}
-                className="border-control-border text-body hover:border-brand w-full rounded-[12px] border-[1.5px] bg-white px-3 py-2.5 text-left text-[13px] font-semibold transition-[transform,border-color] duration-150 active:scale-[.98]"
+                className="border-control-border text-body hover:border-brand w-full rounded-[12px] border-[1.5px] bg-card px-3 py-2.5 text-left text-[13px] font-semibold transition-[transform,border-color] duration-150 active:scale-[.98]"
               >
                 {NUDGE_PRESETS[key]}
               </button>

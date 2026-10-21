@@ -4,6 +4,7 @@ import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { LockIcon, PencilIcon, XIcon } from "lucide-react";
 
+import { themedColor } from "@/lib/colors";
 import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -184,7 +185,7 @@ export function HabitsClient({
                       <span
                         aria-hidden
                         className="size-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: habit.color }}
+                        style={{ backgroundColor: themedColor(habit.color) }}
                       />
                     )}
                     <span

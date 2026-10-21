@@ -33,7 +33,7 @@ export function primaryButtonClass(size: "sheet" | "screen" = "sheet", className
     "bg-brand text-primary-foreground w-full font-semibold transition-transform active:scale-[.98] disabled:opacity-50",
     "flex items-center justify-center gap-1.5 rounded-[15px]",
     size === "screen"
-      ? "h-[52px] text-base shadow-[0_10px_22px_-10px_rgba(28,58,94,.55)] disabled:shadow-none"
+      ? "h-[52px] text-base shadow-[0_10px_22px_-10px_var(--glow)] disabled:shadow-none"
       : "h-12 text-sm",
     className
   );

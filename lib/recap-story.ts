@@ -1,5 +1,5 @@
 import { aggregateRange } from "@/lib/aggregate";
-import { entityColor, entityOnDark, goalColorOf } from "@/lib/colors";
+import { entityColor, entityOnDark, goalColorOf, goalFillHex } from "@/lib/colors";
 import { addDaysISO, weekWindow, type WeekWindow } from "@/lib/dates";
 import { formatDuration } from "@/lib/duration";
 import { quoteForWeek, type RecapQuote } from "@/lib/recap-quotes";
@@ -516,7 +516,7 @@ export function reviewPostSummary(
 export function closingAccent(goals: RecapStoryInput["goals"]): string {
   let top: RecapStoryInput["goals"][number] | null = null;
   for (const g of goals) if (g.actualMs > 0 && (!top || g.actualMs > top.actualMs)) top = g;
-  return top ? entityOnDark(goalColorOf(top)) : CLOSING_FALLBACK_ACCENT;
+  return top ? entityOnDark(goalFillHex(top)) : CLOSING_FALLBACK_ACCENT;
 }
 
 export function buildRecapStory(input: RecapStoryInput): RecapStoryView {

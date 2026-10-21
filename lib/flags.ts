@@ -285,6 +285,20 @@ export const ANALYTICS = envFlag(process.env.NEXT_PUBLIC_ANALYTICS);
 // a streak. Only the friend-profile badge needs the social layer.
 export const STREAKS = envFlag(process.env.NEXT_PUBLIC_STREAKS);
 
+// Master switch for dark mode (design_handoff_dark_mode): the no-flash theme
+// script in the root layout, the Appearance row in Settings (System / Light /
+// Dark, per device) and the dark toaster. Off, nothing ever puts `.dark` on
+// <html> and the app is exactly the light theme it has always been — the
+// color plumbing underneath (var(--palette-N), the new tokens) resolves to the
+// same values either way, which is why it needs no gate of its own.
+//
+// A flag rather than a straight deploy because the default is "System": the
+// moment it ships, every member whose phone is in dark mode opens a dark app,
+// so it goes out deliberately, with a patch note. Web-only, no SQL, no binary
+// — though the iOS shell's overscroll edge stays light until one ships (see
+// capacitor.config.ts).
+export const DARK_MODE = envFlag(process.env.NEXT_PUBLIC_DARK_MODE);
+
 // How long an "hour" is for the hourly nudge. Only ever anything else in test
 // mode; lib/clock-reminders.ts stays pure and takes this as an argument rather
 // than reading the flag itself.

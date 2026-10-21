@@ -61,7 +61,7 @@ export function ShareSlide({
       <div className="flex flex-1 flex-col justify-center gap-[22px] pt-6 pb-4">
         <div
           className="flex flex-col gap-4 rounded-[25.92px] px-5 pt-4 pb-5"
-          style={{ background: "rgba(28,58,94,.05)", animation: anim("rise", 0.55, 0.2) }}
+          style={{ background: "color-mix(in srgb, var(--brand) 5%, transparent)", animation: anim("rise", 0.55, 0.2) }}
         >
           <div className="flex items-center justify-between gap-2">
             <span className="text-faint text-[10px] leading-none font-semibold tracking-[.14em] whitespace-nowrap uppercase">
@@ -71,7 +71,7 @@ export function ShareSlide({
               <span
                 role="status"
                 className="text-done flex shrink-0 items-center gap-[3px] rounded-full py-0.5 pr-2 pl-1.5 text-[10.5px] font-bold tracking-[.02em]"
-                style={{ background: "rgba(38,107,77,.1)", animation: anim("check", 0.4, 0, "ease") }}
+                style={{ background: "color-mix(in srgb, var(--done) 10%, transparent)", animation: anim("check", 0.4, 0, "ease") }}
               >
                 <CheckIcon size={11} strokeWidth={3.4} aria-hidden />
                 Posted
@@ -107,7 +107,7 @@ export function ShareSlide({
             rows={3}
             enterKeyHint="done"
             placeholder="Add a caption (optional)"
-            className="border-control-border text-body placeholder:text-faint w-full resize-none rounded-[15px] border-[1.5px] bg-white px-4 py-3 text-[16px] leading-[1.4] outline-none select-text focus:border-[var(--brand)] [-webkit-touch-callout:default] [-webkit-user-select:text]"
+            className="border-control-border text-body placeholder:text-faint w-full resize-none rounded-[15px] border-[1.5px] bg-card px-4 py-3 text-[16px] leading-[1.4] outline-none select-text focus:border-[var(--brand)] [-webkit-touch-callout:default] [-webkit-user-select:text]"
           />
           {draft.length > 200 && (
             <span className="text-caption -mt-1 self-end text-[11px] tabular-nums">
@@ -121,8 +121,8 @@ export function ShareSlide({
             className={cn(
               "flex h-[52px] w-full items-center justify-center gap-1.5 rounded-[15px] border-0 text-base font-semibold transition-transform duration-150 active:scale-[.98]",
               label === "Posted"
-                ? "text-done bg-[rgba(38,107,77,.1)]"
-                : "bg-brand text-white disabled:opacity-60"
+                ? "text-done bg-done/10"
+                : "bg-brand text-primary-foreground disabled:opacity-60"
             )}
           >
             {label === "Posted" && <CheckIcon size={16} strokeWidth={3} aria-hidden />}

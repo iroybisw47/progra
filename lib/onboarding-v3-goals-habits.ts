@@ -43,7 +43,7 @@
 //
 // "R:<line>" and "P:<line>" cite the design handoff, as the plan does.
 
-import { goalColorOf } from "@/lib/colors";
+import { goalFillHex } from "@/lib/colors";
 import { DEFAULT_GOAL_QUOTA_HOURS } from "@/lib/onboarding";
 import {
   MAX_GOALS,
@@ -287,9 +287,10 @@ function placeGoals(
 }
 
 // The color of an account goal as the rest of the app draws it: its own, or
-// the hue derived from its id.
+// the hue derived from its id. As hex, because it is compared with and saved
+// over the stored value.
 function accountColor(row: GoalRow | null): string | null {
-  return row && row.origin === "account" ? goalColorOf(row) : null;
+  return row && row.origin === "account" ? goalFillHex(row) : null;
 }
 
 // The three goal colors (R:95), in order: palette 7, 2 and 5.

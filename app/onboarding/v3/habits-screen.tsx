@@ -365,7 +365,7 @@ export function HabitsScreen({
                   onClick={(e) => toggle(name, e.currentTarget)}
                   className={cn(
                     "inline-flex h-[38px] max-w-full items-center gap-[7px] rounded-full border-[1.5px] pr-3.5 pl-2.5 text-[13px] font-semibold transition-[background-color,border-color,color] duration-[160ms] ease-[ease]",
-                    on ? "border-brand bg-brand text-white" : "border-control-border text-body bg-white"
+                    on ? "border-brand bg-brand text-primary-foreground" : "border-control-border text-body bg-card"
                   )}
                 >
                   <span aria-hidden className="relative size-[18px] shrink-0">
@@ -377,7 +377,7 @@ export function HabitsScreen({
                     </span>
                     <span
                       data-check
-                      className="text-brand absolute inset-0 flex items-center justify-center rounded-full bg-white"
+                      className="text-brand bg-primary-foreground absolute inset-0 flex items-center justify-center rounded-full"
                       style={{ opacity: on ? 1 : 0 }}
                     >
                       <CheckIcon className="size-[11px]" strokeWidth={3.5} />
@@ -391,7 +391,7 @@ export function HabitsScreen({
             {open ? (
               <span
                 ref={pillRef}
-                className="border-brand inline-flex h-[38px] items-center rounded-full border-[1.5px] bg-white pr-1.5 pl-3.5"
+                className="border-brand inline-flex h-[38px] items-center rounded-full border-[1.5px] bg-card pr-1.5 pl-3.5"
               >
                 <input
                   ref={inputRef}
@@ -435,7 +435,7 @@ export function HabitsScreen({
                 ref={ownRef}
                 type="button"
                 onClick={openCustom}
-                className="border-disabled text-caption inline-flex h-[38px] items-center rounded-full border-[1.5px] border-dashed bg-white px-3.5 text-[13px] font-semibold"
+                className="border-disabled text-caption inline-flex h-[38px] items-center rounded-full border-[1.5px] border-dashed bg-card px-3.5 text-[13px] font-semibold"
               >
                 + Your own
               </button>

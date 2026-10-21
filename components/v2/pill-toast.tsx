@@ -56,7 +56,7 @@ export function PillToast({ ref }: { ref?: Ref<PillToastHandle> }) {
       style={{ top: "max(12px, calc(env(safe-area-inset-top) + 4px))" }}
     >
       <div
-        className="bg-brand flex max-w-full items-center gap-1.5 rounded-full px-3.5 py-2.5 text-[13px] leading-tight font-semibold text-white shadow-[0_10px_22px_-10px_rgba(28,58,94,.55)]"
+        className="bg-brand flex max-w-full items-center gap-1.5 rounded-full px-3.5 py-2.5 text-[13px] leading-tight font-semibold text-primary-foreground shadow-[0_10px_22px_-10px_var(--glow)]"
         style={{
           opacity: visible ? 1 : 0,
           transform: visible || reduced ? "none" : TOAST.from,

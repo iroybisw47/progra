@@ -5,10 +5,10 @@ import { useState } from "react";
 
 import { dismissStreakAnnouncement } from "@/app/actions/streaks";
 import { track } from "@/lib/analytics";
-import { PALETTE } from "@/lib/palette";
 import type { AnnouncementView } from "@/lib/streaks-view";
 
-const FIRE = PALETTE[2];
+// Orange (palette 2), as the theme draws it.
+const FIRE = { fill: "var(--palette-2)", ink: "var(--palette-2-ink)" };
 
 // The streak announcement (.claude/plans/streaks.md §8a): a dismissible card
 // on /me and /feed, never a takeover. Before Day One it says when counting

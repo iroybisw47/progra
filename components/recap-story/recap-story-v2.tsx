@@ -16,7 +16,9 @@ import {
   type StoryAction,
 } from "@/lib/recap-story-nav";
 import type { RecapStoryView, SlideId } from "@/lib/recap-story";
-import { setStatusBarText } from "@/lib/status-bar";
+import { setStatusBarText, type StatusBarText } from "@/lib/status-bar";
+import { appStatusBarText } from "@/lib/appearance";
+import { DARK_MODE } from "@/lib/flags";
 import { useTakeover } from "@/lib/takeover";
 import { normalizeCaption } from "@/lib/weekly-review";
 
@@ -31,6 +33,12 @@ import { ShareSlide } from "./share-slide";
 import { StoryHeader } from "./story-header";
 import { WelcomeSlide } from "./welcome-slide";
 import { WhereSlide } from "./where-slide";
+
+// The status-bar text for the slides on the screen ground, and for leaving.
+// With DARK_MODE off, exactly what it always was: dark on white, then the
+// app's "default".
+const screenBarText = (): StatusBarText => (DARK_MODE ? appStatusBarText() : "dark");
+const exitBarText = (): StatusBarText => (DARK_MODE ? appStatusBarText() : "default");
 
 const TITLES: Record<SlideId, string> = {
   loading: "Your week in review",
@@ -144,10 +152,13 @@ export function RecapStoryV2({
     return () => clearTimeout(t);
   }, [state.pos, still]);
 
-  // Light status-bar text on navy, dark on white, flipped in time with the
-  // curtain and the flood; the app's own style comes back on the way out.
+  // Light status-bar text on navy, the app's own on the screen-ground slides
+  // (dark on white, light in dark mode), flipped in time with the curtain and
+  // the flood; the app's own style comes back on the way out.
   useEffect(() => {
-    const { text, delayMs } = statusBarFor(slide, state.fromIntro);
+    const { text: navyOrScreen, delayMs } = statusBarFor(slide, state.fromIntro);
+    const text: StatusBarText =
+      navyOrScreen === "dark" ? screenBarText() : navyOrScreen;
     if (delayMs === 0 || reduced || still) {
       setStatusBarText(text);
       return;
@@ -155,7 +166,7 @@ export function RecapStoryV2({
     const t = setTimeout(() => setStatusBarText(text), delayMs);
     return () => clearTimeout(t);
   }, [slide, state.fromIntro, state.navKey, reduced, still]);
-  useEffect(() => () => setStatusBarText("default"), []);
+  useEffect(() => () => setStatusBarText(exitBarText()), []);
 
   function move(action: StoryAction) {
     if (!pending) dispatch(action);
@@ -196,9 +207,9 @@ export function RecapStoryV2({
   function exit(via: "close" | "start") {
     if (pending) return;
     svc.track("recap_closed", { slide, via });
-    // The white cover goes up at once (the write and the re-render behind it
-    // take a moment), so dark status-bar text goes with it.
-    setStatusBarText("dark");
+    // The screen-ground cover goes up at once (the write and the re-render
+    // behind it take a moment), so the app's status-bar text goes with it.
+    setStatusBarText(screenBarText());
     startExit(async () => {
       if (markOnExit) {
         const r = await svc.markOpened(view.weekStartISO);
@@ -242,7 +253,7 @@ export function RecapStoryV2({
       aria-modal="true"
       aria-label="Your week in review"
       tabIndex={-1}
-      className="text-body fixed inset-0 z-50 touch-pan-y overflow-hidden bg-white font-sans antialiased outline-none select-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
+      className="text-body fixed inset-0 z-50 touch-pan-y overflow-hidden bg-screen font-sans antialiased outline-none select-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
       style={style}
       onPointerDown={(e) => {
         if (!e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) return;
@@ -327,7 +338,7 @@ export function RecapStoryV2({
       {pending && (
         <div
           aria-hidden
-          className="absolute inset-0 z-50 bg-white"
+          className="bg-screen absolute inset-0 z-50"
           style={{ animation: "rc-fade .2s ease both" }}
         />
       )}

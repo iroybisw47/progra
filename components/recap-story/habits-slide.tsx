@@ -33,7 +33,7 @@ export function HabitsSlide({ habits, still }: { habits: HabitsView; still: bool
               className="absolute -top-2 -bottom-1.5 w-[30px] rounded-[10px]"
               style={{
                 left: bestColumnLeft(best.index),
-                background: "rgba(28,58,94,.06)",
+                background: "color-mix(in srgb, var(--brand) 6%, transparent)",
                 animation: anim("fade", 0.5, 1.25, "ease"),
               }}
             />
@@ -89,7 +89,7 @@ export function HabitsSlide({ habits, still }: { habits: HabitsView; still: bool
         {best && (
           <div
             className="flex items-center gap-3.5 rounded-[25.92px] px-[18px] py-4"
-            style={{ background: "rgba(28,58,94,.05)", animation: anim("rise", 0.55, 1.35) }}
+            style={{ background: "color-mix(in srgb, var(--brand) 5%, transparent)", animation: anim("rise", 0.55, 1.35) }}
           >
             {best.all ? (
               <span

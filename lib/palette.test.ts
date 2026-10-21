@@ -33,6 +33,13 @@ describe("PALETTE", () => {
 });
 
 describe("normalizeFill", () => {
+  // The display form lib/colors.ts paints, read back as the stored hex.
+  it("reads var(--palette-N) back as that slot's fill", () => {
+    expect(normalizeFill("var(--palette-7)")).toBe("#395AA0");
+    expect(normalizeFill("var(--palette-11)")).toBeNull();
+    expect(normalizeFill("var(--primary)")).toBeNull();
+  });
+
   it("passes current fills through, case-insensitively", () => {
     expect(normalizeFill("#2E8B50")).toBe("#2E8B50");
     expect(normalizeFill("#2e8b50")).toBe("#2E8B50");

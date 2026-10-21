@@ -156,7 +156,7 @@ function RowAction({ action, title }: { action: PersonAction; title: string }) {
         <button
           type="button"
           onClick={action.onPress}
-          className={cn(SMALL_BUTTON, "border-control-border text-caption bg-white")}
+          className={cn(SMALL_BUTTON, "border-control-border text-caption bg-card")}
         >
           {action.label}
           <span className="sr-only"> {title}</span>
@@ -177,7 +177,7 @@ function RowAction({ action, title }: { action: PersonAction; title: string }) {
               }}
               className={cn(
                 SMALL_BUTTON,
-                "border-control-border text-caption w-[30px] justify-center bg-white px-0 before:-inset-x-[7px] aria-disabled:opacity-50"
+                "border-control-border text-caption w-[30px] justify-center bg-card px-0 before:-inset-x-[7px] aria-disabled:opacity-50"
               )}
             >
               <XIcon className="size-[11px]" strokeWidth={3} />
@@ -189,7 +189,7 @@ function RowAction({ action, title }: { action: PersonAction; title: string }) {
             onClick={() => {
               if (!action.busy) action.onAccept();
             }}
-            className={cn(SMALL_BUTTON, "border-brand bg-brand text-white aria-disabled:opacity-50")}
+            className={cn(SMALL_BUTTON, "border-brand bg-brand text-primary-foreground aria-disabled:opacity-50")}
           >
             Accept<span className="sr-only"> {title}</span>
           </button>
@@ -242,7 +242,7 @@ function AddButton({
       onClick={onToggle}
       className={cn(
         SMALL_BUTTON,
-        added ? "border-brand bg-brand text-white" : "border-control-border text-caption bg-white"
+        added ? "border-brand bg-brand text-primary-foreground" : "border-control-border text-caption bg-card"
       )}
       style={{ transition: TOGGLE_TRANSITION }}
     >

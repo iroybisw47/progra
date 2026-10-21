@@ -59,7 +59,7 @@ export type OnboardingCtaHandle = { pulseRing: () => void };
 // The outlined secondary ("Skip for now", R:38), which the UW sheet's own CTA
 // draws too (uw-sheet.tsx).
 export const SECONDARY_CTA =
-  "border-control-border text-body h-[52px] w-full rounded-[15px] border-[1.5px] bg-white text-base font-semibold transition-transform active:scale-[.98]";
+  "border-control-border text-body h-[52px] w-full rounded-[15px] border-[1.5px] bg-card text-base font-semibold transition-transform active:scale-[.98]";
 
 export function OnboardingCta({
   ref,

@@ -23,6 +23,7 @@ import { CategoryDonut, type CatSeg } from "@/components/v2/category-donut";
 import { GoalProgressBar } from "@/components/goal-progress";
 import { RecapCard } from "@/components/recap-card";
 import { markRecapOpened, postRecap } from "@/app/actions/recap";
+import { themedColor } from "@/lib/colors";
 import { formatDuration } from "@/lib/duration";
 import { cn } from "@/lib/utils";
 import type { LeaderboardRow } from "@/lib/db/leaderboard";
@@ -210,7 +211,7 @@ export function RecapStory({
         <button
           type="button"
           onClick={next}
-          className="bg-brand rounded-full px-6 py-2.5 text-sm font-bold text-white transition-transform active:scale-[.97]"
+          className="bg-brand rounded-full px-6 py-2.5 text-sm font-bold text-primary-foreground transition-transform active:scale-[.97]"
         >
           {index === last ? "Done" : "Next"}
         </button>
@@ -271,7 +272,7 @@ function Panel({
     const segs: CatSeg[] = recap.categoryRows.map((r) => ({
       id: r.id,
       name: r.name,
-      color: r.color ?? CHART_FALLBACK,
+      color: themedColor(r.color) ?? CHART_FALLBACK,
       ms: r.ms,
     }));
     return (

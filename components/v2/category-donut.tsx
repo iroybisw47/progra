@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronDownIcon } from "lucide-react";
 
 import { Donut } from "@/components/v2/donut";
+import { themedColor } from "@/lib/colors";
 import { formatDuration } from "@/lib/duration";
 import { cn } from "@/lib/utils";
 import type { CategoryItem } from "@/lib/aggregate";
@@ -82,7 +83,7 @@ export function CategoryDonut({
                 <span className="flex min-w-0 items-center gap-2">
                   <span
                     className="size-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: s.color }}
+                    style={{ backgroundColor: themedColor(s.color) }}
                   />
                   <span className="truncate">{s.name}</span>
                   {canExpand && (
@@ -121,7 +122,7 @@ export function CategoryDonut({
                     className="h-full rounded-full"
                     style={{
                       width: `${Math.max(2, pct)}%`,
-                      backgroundColor: s.color,
+                      backgroundColor: themedColor(s.color),
                     }}
                   />
                 </div>

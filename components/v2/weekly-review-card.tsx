@@ -59,7 +59,7 @@ export function WeeklyReviewCard({
 
       <Link
         href={href}
-        className="flex flex-col gap-4 rounded-[25.92px] bg-[rgba(28,58,94,.05)] px-5 pt-4 pb-5"
+        className="flex flex-col gap-4 rounded-[25.92px] bg-brand/5 px-5 pt-4 pb-5"
       >
         <span className="text-faint text-[10px] leading-none font-semibold tracking-[.14em] whitespace-nowrap uppercase">
           {weekLabel(entry)}

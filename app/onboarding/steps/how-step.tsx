@@ -3,6 +3,7 @@
 import { CheckIcon } from "lucide-react";
 
 import { Donut } from "@/components/v2/donut";
+import { themedColor } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 
 import { CARD, StepTemplate } from "../onboarding-ui";
@@ -25,7 +26,7 @@ export function HowStep({ eyebrow }: { eyebrow: string | null }) {
           <FriendColumn
             initials="Y"
             name="You"
-            avatarBg="rgba(28,58,94,.12)"
+            avatarBg="color-mix(in srgb, var(--brand) 12%, transparent)"
             avatarColor="var(--brand)"
             tracked="4.2h"
             segments={[
@@ -128,7 +129,7 @@ function FriendColumn({
             <span
               aria-hidden
               className="size-2 shrink-0 rounded-full"
-              style={{ backgroundColor: s.color }}
+              style={{ backgroundColor: themedColor(s.color) }}
             />
             <span className="text-body min-w-0 flex-1 truncate font-medium">{s.name}</span>
             <span className="text-caption tabular-nums">{s.hours}</span>
@@ -160,12 +161,12 @@ function FriendColumn({
             {h.done ? (
               <span
                 className="flex size-3.5 shrink-0 items-center justify-center rounded-[5px] text-white"
-                style={{ backgroundColor: h.color ?? undefined }}
+                style={{ backgroundColor: themedColor(h.color) ?? undefined }}
               >
                 <CheckIcon className="size-[9px]" strokeWidth={3.4} />
               </span>
             ) : (
-              <span className="border-disabled size-3.5 shrink-0 rounded-[5px] border-[1.5px] bg-white" />
+              <span className="border-disabled size-3.5 shrink-0 rounded-[5px] border-[1.5px] bg-card" />
             )}
             <span className={cn("font-medium", h.done ? "text-body" : "text-caption")}>
               {h.name}

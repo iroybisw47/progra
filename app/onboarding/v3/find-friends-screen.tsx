@@ -527,10 +527,10 @@ export function FindFriendsScreen({
 function InvitePreview({ message }: { message: string }) {
   return (
     <div role="group" aria-label="Your invite" className="flex flex-col items-end gap-1 px-5 pt-1 pb-3.5">
-      <p className="bg-brand m-0 max-w-[270px] rounded-[18px_18px_4px_18px] px-[13px] py-[9px] text-[13px] leading-[1.4] text-white">
+      <p className="bg-brand m-0 max-w-[270px] rounded-[18px_18px_4px_18px] px-[13px] py-[9px] text-[13px] leading-[1.4] text-primary-foreground">
         {message}
       </p>
-      <div className="border-hairline flex w-[220px] max-w-full items-center gap-2.5 rounded-[14px] border bg-white px-3 py-2.5">
+      <div className="border-hairline flex w-[220px] max-w-full items-center gap-2.5 rounded-[14px] border bg-card px-3 py-2.5">
         <Image
           src="/progra-logo.png"
           alt=""

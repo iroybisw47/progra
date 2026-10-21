@@ -1,9 +1,5 @@
-import {
-  entityColor,
-  entityInk,
-  entityOnDark,
-  goalColorOf,
-} from "@/lib/colors";
+import { entityFillHex, entityOnDark, goalFillHex } from "@/lib/colors";
+import { inkFor } from "@/lib/palette";
 import type { Category, Session } from "@/lib/storage";
 import type { Goal } from "@/lib/db/goals";
 
@@ -29,9 +25,11 @@ export function resolveAttribution(
 }
 
 // The session's own colour, as concrete hexes — its goal's or its category's,
-// resolved by the SAME rules the on-screen surfaces use (goalColorOf derives a
-// stable hue from the id for goals predating the colour column; entityColor
-// normalises the fill; entityInk darkens it for use as text).
+// resolved by the SAME rules the on-screen surfaces use (goalFillHex derives a
+// stable hue from the id for goals predating the colour column; entityFillHex
+// normalises the fill; inkFor darkens it for use as text). The hex forms, not
+// the var() ones the screens paint: this payload goes to the native Live
+// Activity, which has no stylesheet to resolve a CSS variable against.
 //
 // THREE, because they are not interchangeable. `fill` is for a marker or a
 // swatch on white; `ink` is for a colour used as TEXT on white, which several
@@ -51,15 +49,15 @@ export function resolveAttributionColor(
     const g = goals.find((x) => x.id === session.goalId);
     // goalColorOf takes the id alone when the goal isn't in hand — a goal
     // archived mid-session still colours consistently.
-    const fill = goalColorOf(g ?? session.goalId);
-    return { fill, ink: entityInk(fill), onDark: entityOnDark(fill) };
+    const fill = goalFillHex(g ?? session.goalId);
+    return { fill, ink: inkFor(fill), onDark: entityOnDark(fill) };
   }
   if (session.categoryId) {
     const c = categories.find((x) => x.id === session.categoryId);
     if (!c) return null;
     return {
-      fill: entityColor(c.color),
-      ink: entityInk(c.color),
+      fill: entityFillHex(c.color),
+      ink: inkFor(entityFillHex(c.color)),
       onDark: entityOnDark(c.color),
     };
   }

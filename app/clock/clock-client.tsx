@@ -68,7 +68,7 @@ import { type Category, type Session } from "@/lib/storage";
 import type { DayEvent } from "@/lib/db/calendar-events";
 import type { Goal } from "@/lib/db/goals";
 import { aggregateWeek, buildCategoryBreakdown } from "@/lib/aggregate";
-import { entityColor, goalColorOf } from "@/lib/colors";
+import { entityColor, goalColorOf, themedColor } from "@/lib/colors";
 import {
   isPaused,
   sessionAttributionEnd,
@@ -920,7 +920,7 @@ export function ClockClient({
               type="button"
               disabled={!canClockIn}
               onClick={handleClockIn}
-              className="bg-brand text-primary-foreground mt-1 h-[52px] w-full rounded-[15px] text-base font-semibold shadow-[0_10px_22px_-10px_rgba(28,58,94,.55)] transition-transform active:scale-[.98] disabled:opacity-40 disabled:shadow-none"
+              className="bg-brand text-primary-foreground mt-1 h-[52px] w-full rounded-[15px] text-base font-semibold shadow-[0_10px_22px_-10px_var(--glow)] transition-transform active:scale-[.98] disabled:opacity-40 disabled:shadow-none"
             >
               {/* The label is the real affordance for "which of the two am I
                   starting?" — whatever else gets skimmed, this doesn't. */}
@@ -972,7 +972,7 @@ export function ClockClient({
                         weekly.total > 0
                           ? `${(row.ms / weekly.total) * 100}%`
                           : "0%",
-                      backgroundColor: row.color ?? "var(--faint)",
+                      backgroundColor: themedColor(row.color) ?? "var(--faint)",
                     }}
                   />
                 ))}
@@ -986,7 +986,7 @@ export function ClockClient({
                     <span
                       aria-hidden
                       className="size-[9px] shrink-0 rounded-[2px]"
-                      style={{ backgroundColor: row.color ?? "var(--faint)" }}
+                      style={{ backgroundColor: themedColor(row.color) ?? "var(--faint)" }}
                     />
                     <span className="text-secondary-ink min-w-0 flex-1 truncate text-[12.5px] leading-[1.55]">
                       {row.isGoal ? row.name.replace(/^Goal: /, "") : row.name}
@@ -1040,7 +1040,7 @@ export function ClockClient({
                     isSelected
                       ? "border-brand bg-brand"
                       : isToday
-                        ? "border-[#b7c4d3] bg-inset-2"
+                        ? "border-today-ring bg-inset-2"
                         : "border-control-border bg-inset-2"
                   )}
                 >
@@ -1048,7 +1048,7 @@ export function ClockClient({
                     className={cn(
                       "text-[9px] font-semibold",
                       isSelected
-                        ? "text-white/70"
+                        ? "text-primary-foreground/70"
                         : isToday
                           ? "text-brand"
                           : "text-faint"
@@ -1060,7 +1060,7 @@ export function ClockClient({
                     className={cn(
                       "text-[10px] font-semibold tabular-nums",
                       isSelected
-                        ? "text-white"
+                        ? "text-primary-foreground"
                         : ms > 0
                           ? "text-ink"
                           : "text-disabled"
@@ -1168,7 +1168,7 @@ export function ClockClient({
           >
             <span
               aria-hidden
-              className="h-4 w-[3px] shrink-0 border-l-[1.5px] border-dashed border-[#d5d9df]"
+              className="h-4 w-[3px] shrink-0 border-l-[1.5px] border-dashed border-dash"
             />
             <span className="text-caption text-xs font-medium">
               + Add a session to {dayLabel.toLowerCase() || "this day"}

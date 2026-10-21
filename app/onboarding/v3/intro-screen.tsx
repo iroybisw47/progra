@@ -16,6 +16,7 @@ import {
   transition,
   type ItemPhase,
 } from "@/lib/motion";
+import { themedColor } from "@/lib/colors";
 import { INTRO_BEATS } from "@/lib/onboarding-v3";
 import {
   INTRO_LEGEND_MAX,
@@ -400,7 +401,7 @@ export function IntroScreen({
                   <span className="whitespace-nowrap">
                     <span
                       className="mr-1.5 inline-block size-2.5 rounded-[2px]"
-                      style={{ background: goal.color }}
+                      style={{ background: themedColor(goal.color) }}
                     />
                     {caption.goal.head}
                   </span>
@@ -448,7 +449,7 @@ export function IntroScreen({
             <span className="section-label">Your friends&apos; feed</span>
           </div>
           <div
-            className="mt-2 flex flex-col gap-[9px] rounded-[16px] bg-white px-4 py-3.5"
+            className="mt-2 flex flex-col gap-[9px] rounded-[16px] bg-card px-4 py-3.5"
             style={itemStyle(phases[0], 1, reduced)}
           >
             <div className="flex items-center gap-[11px]">
@@ -466,7 +467,7 @@ export function IntroScreen({
                 </span>
                 <span className="text-caption flex flex-wrap items-center gap-x-1 text-[12px] leading-[1.3]">
                   clocked into
-                  <span className="size-[7px] rounded-[2px]" style={{ background: goal.color }} />
+                  <span className="size-[7px] rounded-[2px]" style={{ background: themedColor(goal.color) }} />
                   <span className="text-body max-w-full font-medium break-words">{goal.title}</span>
                   for
                   <span className="text-body font-medium">{SAMPLE_POST.duration}</span>
@@ -514,7 +515,7 @@ export function IntroScreen({
                 return (
                   <div
                     key={f.username}
-                    className="border-inset absolute top-0 size-[30px] rounded-full border-2 bg-white text-[10px]"
+                    className="border-inset absolute top-0 size-[30px] rounded-full border-2 bg-card text-[10px]"
                     style={{
                       left: i * KUDOS_OFFSET_PX,
                       opacity: feedOn ? 1 : 0,
@@ -554,7 +555,7 @@ export function IntroScreen({
         >
           <div
             ref={donutRef}
-            className="rounded-[16px] bg-white px-4 pt-3.5 pb-4"
+            className="rounded-[16px] bg-card px-4 pt-3.5 pb-4"
             style={itemStyle(phases[1], 0, reduced)}
           >
             <div className="flex items-center justify-between pb-2.5">
@@ -582,7 +583,7 @@ export function IntroScreen({
             {cards.map((card, i) => (
               <li
                 key={card.username}
-                className="flex items-start gap-[11px] rounded-[16px] bg-white px-3.5 py-3"
+                className="flex items-start gap-[11px] rounded-[16px] bg-card px-3.5 py-3"
                 style={itemStyle(phases[2], i + 1, reduced)}
               >
                 <div className="size-[34px] shrink-0 text-[12px]">
@@ -595,7 +596,7 @@ export function IntroScreen({
                   <span className="flex min-w-0 items-center gap-[7px]">
                     <span
                       className="h-3.5 w-[3px] shrink-0 rounded-[2px]"
-                      style={{ background: card.color }}
+                      style={{ background: themedColor(card.color) }}
                     />
                     <span className="text-body truncate text-[12.5px] leading-[1.35]">
                       {card.line}

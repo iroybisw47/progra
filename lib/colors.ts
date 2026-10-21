@@ -5,10 +5,24 @@
 // habit pill, a selected picker row) use a wash of that same color rather than
 // a separate grey, which is what keeps the screens reading as one system
 // instead of eleven.
+//
+// TWO FORMS, and which one a caller needs is the whole question:
+//   · DISPLAY — entityColor, entityInk, tint, goalColorOf, goalColor,
+//     userColor. These return CSS (`var(--palette-N)`, `color-mix(…)`), so a
+//     color painted inline follows the theme: dark mode re-declares the
+//     palette in app/globals.css and nothing else has to know.
+//   · HEX — entityFillHex, goalFillHex, entityOnDark, entityChipInk. For
+//     anything that computes on the number or leaves the browser: a value
+//     stored in the database, the Live Activity payload, the Satori share card.
+//     A var() means nothing in any of those.
+// Every helper accepts either form as input (normalizeFill reads both), so a
+// display value passed back in is never misread.
 
-import { PALETTE, inkFor, normalizeFill } from "@/lib/palette";
+import { PALETTE, normalizeFill } from "@/lib/palette";
 
 const FALLBACK = "#9fa6b0";
+// The neutral for uncategorized time, as the theme draws it.
+const UNCATEGORIZED = "var(--uncategorized)";
 
 function parseHex(hex: string): [number, number, number] | null {
   const h = hex.trim().replace("#", "");
@@ -27,23 +41,50 @@ function parseHex(hex: string): [number, number, number] | null {
   ];
 }
 
-// A translucent wash of `hex` — the fill behind a checked pill or selected row.
-export function tint(hex: string | null, alpha = 0.12): string {
-  const rgb = parseHex(hex ?? FALLBACK) ?? parseHex(FALLBACK)!;
-  return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+// The color's slot in PALETTE, or -1 for anything off-palette.
+function paletteIndex(color: string | null | undefined): number {
+  const fill = normalizeFill(color);
+  return fill ? PALETTE.findIndex((c) => c.fill === fill) : -1;
+}
+
+// A translucent wash of an entity's color — the fill behind a checked pill or
+// selected row. color-mix rather than rgba() so the wash follows the theme's
+// value of the color, not the light one.
+export function tint(color: string | null, alpha = 0.12): string {
+  const i = paletteIndex(color);
+  const base = i >= 0 ? `var(--palette-${i})` : UNCATEGORIZED;
+  return `color-mix(in srgb, ${base} ${Math.round(alpha * 1000) / 10}%, transparent)`;
 }
 
 // An entity's color, or the neutral grey used for uncategorized time. Hues
 // stored under an earlier palette normalize forward (lib/palette.ts).
-export function entityColor(hex: string | null | undefined): string {
-  return normalizeFill(hex) ?? FALLBACK;
+export function entityColor(color: string | null | undefined): string {
+  const i = paletteIndex(color);
+  return i >= 0 ? `var(--palette-${i})` : UNCATEGORIZED;
 }
 
-// The same color for use as text on white. Every place a palette color is the
-// `color` of a label rather than the fill behind one goes through this.
-export function entityInk(hex: string | null | undefined): string {
-  const fill = normalizeFill(hex);
-  return fill ? inkFor(fill) : FALLBACK;
+// The same color for use as text. Every place a palette color is the `color`
+// of a label rather than the fill behind one goes through this.
+export function entityInk(color: string | null | undefined): string {
+  const i = paletteIndex(color);
+  return i >= 0 ? `var(--palette-${i}-ink)` : UNCATEGORIZED;
+}
+
+// entityColor for a value that may legitimately be off the palette — a CSS
+// color a caller chose on purpose (aggregate's var(--primary) goal row, an old
+// recap post's stored value). Palette colors follow the theme; anything else
+// passes through as given rather than turning into the uncategorized grey —
+// null included, so a caller's own `?? fallback` still applies.
+export function themedColor<T extends string | null | undefined>(
+  color: T
+): T | string {
+  return paletteIndex(color) >= 0 ? entityColor(color) : color;
+}
+
+// entityColor as hex — the stored, light-theme value. For callers that compute
+// on the color or send it somewhere a CSS variable can't go.
+export function entityFillHex(color: string | null | undefined): string {
+  return normalizeFill(color) ?? FALLBACK;
 }
 
 // The same color for use ON A DARK GROUND — the iOS Live Activity's navy card.
@@ -60,15 +101,16 @@ export function entityInk(hex: string | null | undefined): string {
 // entry lands at 5.3:1 or better, which covers body text, so one value serves
 // both the marker and the elapsed digits.
 //
-// Deliberately NOT a general dark-mode token: the app is flat white, and this
-// exists for the one surface that isn't.
+// Deliberately NOT the app's dark mode, which has its own palette lifts in
+// app/globals.css measured against #1b1f26: this exists for the navy card,
+// which is navy in both themes and lives in a binary that can't read CSS.
 const ON_DARK_MIX = 0.45;
 
 // Blend a palette fill toward white, keeping its hue. Factored out because the
 // two navy surfaces need DIFFERENT amounts of lift and neither value is a
 // rounding of the other — see each caller for the measurement behind it.
 function mixToWhite(hex: string | null | undefined, amount: number): string {
-  const rgb = parseHex(entityColor(hex)) ?? parseHex(FALLBACK)!;
+  const rgb = parseHex(entityFillHex(hex)) ?? parseHex(FALLBACK)!;
   const lift = (c: number) => Math.round(c + (255 - c) * amount);
   const hexOf = (c: number) => lift(c).toString(16).padStart(2, "0");
   return `#${hexOf(rgb[0])}${hexOf(rgb[1])}${hexOf(rgb[2])}`;
@@ -107,21 +149,32 @@ export function entityChipInk(hex: string | null | undefined): string {
 // column existed, and anywhere only an id is in hand — a hue derived from the
 // id. Deriving keeps it stable across surfaces and devices: same id, same
 // color, forever, so an uncolored goal still reads as one thing everywhere.
+// Display form; goalFillHex is the same color as hex.
 export function goalColorOf(
   goal: { id: string; color?: string | null } | string
 ): string {
-  if (typeof goal === "string") return goalColor(goal);
-  return normalizeFill(goal.color) ?? goalColor(goal.id);
+  return entityColor(goalFillHex(goal));
+}
+
+export function goalFillHex(
+  goal: { id: string; color?: string | null } | string
+): string {
+  if (typeof goal === "string") return goalHex(goal);
+  return normalizeFill(goal.color) ?? goalHex(goal.id);
 }
 
 export function goalColor(goalId: string): string {
+  return entityColor(goalHex(goalId));
+}
+
+function goalHex(goalId: string): string {
   return PALETTE[hashOf(goalId) % PALETTE.length].fill;
 }
 
 // A person's color, for the initials avatar — same idea as goalColor, so a
 // friend looks the same in the feed, the leaderboard and their profile.
 export function userColor(username: string): string {
-  return PALETTE[hashOf(`u:${username}`) % PALETTE.length].fill;
+  return entityColor(PALETTE[hashOf(`u:${username}`) % PALETTE.length].fill);
 }
 
 function hashOf(s: string): number {

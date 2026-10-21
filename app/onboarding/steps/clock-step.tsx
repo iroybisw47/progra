@@ -106,7 +106,7 @@ export function ClockStep({
             <button
               type="button"
               onClick={start}
-              className="bg-brand text-primary-foreground h-[50px] w-full rounded-[14px] text-[15px] font-semibold shadow-[0_10px_22px_-10px_rgba(28,58,94,.55)] transition-transform active:scale-[.98]"
+              className="bg-brand text-primary-foreground h-[50px] w-full rounded-[14px] text-[15px] font-semibold shadow-[0_10px_22px_-10px_var(--glow)] transition-transform active:scale-[.98]"
             >
               Clock in for 25m
             </button>

@@ -114,7 +114,7 @@ export function EmailSignInForm({
         disabled={pending}
         aria-disabled={locked || undefined}
         aria-describedby={locked ? describedBy : undefined}
-        className="text-body hover:border-brand h-11 w-full rounded-[13px] border-[1.5px] border-control-border bg-white text-sm font-semibold transition-[transform,opacity,border-color] duration-200 active:scale-[.98] aria-disabled:cursor-not-allowed aria-disabled:opacity-45 disabled:opacity-50"
+        className="text-body hover:border-brand h-11 w-full rounded-[13px] border-[1.5px] border-control-border bg-card text-sm font-semibold transition-[transform,opacity,border-color] duration-200 active:scale-[.98] aria-disabled:cursor-not-allowed aria-disabled:opacity-45 disabled:opacity-50"
       >
         {pending ? "Signing in…" : "Sign in"}
       </button>

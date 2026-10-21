@@ -8,8 +8,8 @@ import { CountUp } from "./count-up";
 import { SlideFrame, SlideTitle } from "./slide-frame";
 
 const RING = { size: 172, r: 78, stroke: 13 } as const;
-const DONE_WASH = "rgba(38,107,77,.08)";
-const DONE_PILL = "rgba(38,107,77,.1)";
+const DONE_WASH = "color-mix(in srgb, var(--done) 8%, transparent)";
+const DONE_PILL = "color-mix(in srgb, var(--done) 10%, transparent)";
 
 // 03 · Weekly goals: one ring for progress across every goal (each capped at
 // its quota), the message, a callout for goals that hit 100%, then each goal.

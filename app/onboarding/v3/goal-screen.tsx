@@ -703,7 +703,7 @@ export function GoalScreen({
                 type="button"
                 onPointerDown={keepFocus}
                 onClick={() => pickExample(text)}
-                className="border-control-border text-body h-[34px] shrink-0 rounded-full border-[1.5px] bg-white px-3.5 text-[13px] font-semibold whitespace-nowrap transition-transform active:scale-[.96]"
+                className="border-control-border text-body h-[34px] shrink-0 rounded-full border-[1.5px] bg-card px-3.5 text-[13px] font-semibold whitespace-nowrap transition-transform active:scale-[.96]"
               >
                 {text}
               </button>

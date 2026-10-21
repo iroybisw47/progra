@@ -39,7 +39,7 @@ export function InviteShare({ message }: { message?: string }) {
         <button
           type="button"
           onClick={share}
-          className="bg-brand text-primary-foreground h-12 flex-1 rounded-[15px] text-sm font-semibold shadow-[0_10px_22px_-10px_rgba(28,58,94,.55)] transition-transform active:scale-[.97]"
+          className="bg-brand text-primary-foreground h-12 flex-1 rounded-[15px] text-sm font-semibold shadow-[0_10px_22px_-10px_var(--glow)] transition-transform active:scale-[.97]"
         >
           Share invite
         </button>

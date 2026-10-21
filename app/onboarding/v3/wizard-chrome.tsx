@@ -88,7 +88,7 @@ export function WizardChrome({
         onClick={onBack}
         disabled={welcome}
         aria-hidden={welcome || undefined}
-        className={`border-hairline text-caption hover:border-brand flex size-8 shrink-0 items-center justify-center rounded-[11px] border-[1.5px] bg-white ${HIT_44}`}
+        className={`border-hairline text-caption hover:border-brand flex size-8 shrink-0 items-center justify-center rounded-[11px] border-[1.5px] bg-card ${HIT_44}`}
         style={{
           opacity: welcome ? 0 : 1,
           transform: welcome && !reduced ? "scale(0.6)" : "none",

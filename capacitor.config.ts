@@ -24,8 +24,14 @@ const config: CapacitorConfig = {
     // and since Info.plist declares no UIUserInterfaceStyle the app follows the
     // system appearance — so on a phone in dark mode that colour is black. The
     // scroll view's background is what shows while rubber-banding past the end of
-    // a list, which is the black space users reported. The page itself is always
-    // light (Progra has no dark mode), so the webview backdrop should be too.
+    // a list, which is the black space users reported. The light theme is the
+    // default, so the webview backdrop is light.
+    //
+    // Known gap with dark mode (lib/flags.ts DARK_MODE): this is fixed per
+    // binary, so a dark app shows a light edge at the ends of a scroll. Native
+    // config can't follow a per-device web preference; closing it needs a
+    // native call that sets the webview's backgroundColor from the resolved
+    // theme, which means a new binary. Accepted knowingly for the web launch.
     backgroundColor: '#ffffff',
     // Defence in depth for the stuck-zoom bug, NOT a request for zoom — the
     // viewport meta in app/layout.tsx is what actually prevents it.

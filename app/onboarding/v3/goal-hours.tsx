@@ -58,7 +58,7 @@ import { keepFocus } from "./focus";
 export type GoalHoursHandle = { take(): number | null };
 
 const STEP_BUTTON =
-  "border-hairline text-caption relative flex size-[30px] shrink-0 items-center justify-center rounded-[10px] border-[1.5px] bg-white transition-transform active:scale-[.94] aria-disabled:opacity-35 before:absolute before:-inset-[7px] before:content-['']";
+  "border-hairline text-caption relative flex size-[30px] shrink-0 items-center justify-center rounded-[10px] border-[1.5px] bg-card transition-transform active:scale-[.94] aria-disabled:opacity-35 before:absolute before:-inset-[7px] before:content-['']";
 
 // A refused change in words. The shake itself is silent.
 const MOST = `${hoursText(GOAL_HOURS_MAX)} is the most`;
@@ -200,7 +200,7 @@ export function GoalHours({
       role="group"
       aria-label={`Weekly hours for “${title}”`}
       data-goal-hours
-      className="border-control-border focus-within:border-brand flex h-11 items-center rounded-[12px] border-[1.5px] bg-white px-[5.5px] transition-colors duration-200"
+      className="border-control-border focus-within:border-brand flex h-11 items-center rounded-[12px] border-[1.5px] bg-card px-[5.5px] transition-colors duration-200"
     >
       <button
         type="button"

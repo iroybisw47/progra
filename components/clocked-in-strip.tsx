@@ -63,7 +63,7 @@ export function ClockedInStrip({
                 {paused && " · paused"}
               </span>
             </div>
-            <span className="text-brand shrink-0 rounded-full bg-[rgba(28,58,94,.08)] px-2.5 py-[3px] text-xs font-semibold tabular-nums">
+            <span className="text-brand shrink-0 rounded-full bg-brand/8 px-2.5 py-[3px] text-xs font-semibold tabular-nums">
               {/* useNow returns 0 during SSR; fall back to the server
                   timestamp so the first paint shows a sensible duration. */}
               <Ticking>

@@ -10,6 +10,7 @@ import {
 
 import { buttonVariants } from "@/components/ui/button";
 import { CHIP, CHIP_OFF, CHIP_ON, ChipRail } from "@/components/v2/period-chips";
+import { themedColor } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 import {
   WeekSummary,
@@ -415,7 +416,7 @@ function StatRow({
     <>
       <span
         className={`size-2 shrink-0 ${square ? "rounded-[2px]" : "rounded-full"}`}
-        style={{ background: color }}
+        style={{ background: themedColor(color) }}
       />
       <span className="text-body min-w-0 truncate text-[12.5px]">
         {prefix && <span className="text-faint">{prefix} </span>}
@@ -720,8 +721,8 @@ function DayCell({ done, total }: { done: number; total: number }) {
     <span
       className={base}
       style={{
-        background: `rgba(28, 58, 94, ${(0.08 + share * 0.82).toFixed(2)})`,
-        color: share >= 0.5 ? "#fff" : "var(--brand)",
+        background: `color-mix(in srgb, var(--brand) ${((0.08 + share * 0.82) * 100).toFixed(0)}%, transparent)`,
+        color: share >= 0.5 ? "var(--primary-foreground)" : "var(--brand)",
       }}
     >
       {done}

@@ -1,3 +1,5 @@
+import { themedColor } from "@/lib/colors";
+
 // A ring chart driven by stroke-dasharray. Works as a thin donut (This week) or
 // a thick donut-pie (History) via the `stroke` prop. Colors are CSS values
 // (hex or `var(--token)`). Center label/sub overlay optional. Pure/presentational.
@@ -54,7 +56,7 @@ export function Donut({
                 cy={size / 2}
                 r={r}
                 fill="none"
-                stroke={s.color}
+                stroke={themedColor(s.color)}
                 strokeWidth={stroke}
                 strokeDasharray={`${len} ${c - len}`}
                 strokeDashoffset={-acc}

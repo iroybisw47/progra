@@ -114,26 +114,31 @@ describe("beat poses (P:1068, P:1079)", () => {
 });
 
 describe("introGoal", () => {
+  // The ink and wash are display forms (lib/colors.ts), so they follow the
+  // theme; the color stays the hex Screen 2 holds.
   it("is goal 1 in the color Screen 2 drew it, with its ink and a 14% wash (R:113)", () => {
     const blue = goalColor(0);
     expect(introGoal(["  Get stronger ", "Learn Spanish"], [blue.fill, "#E07042"])).toEqual({
       title: "Get stronger",
       color: blue.fill,
-      ink: blue.ink,
-      wash: "rgba(57, 90, 160, 0.14)",
+      ink: "var(--palette-7-ink)",
+      wash: "color-mix(in srgb, var(--palette-7) 14%, transparent)",
     });
   });
 
   it("keeps a replayer's own goal color", () => {
     const pink = PALETTE[10];
-    expect(introGoal(["Thesis"], [pink.fill])).toMatchObject({ color: pink.fill, ink: pink.ink });
+    expect(introGoal(["Thesis"], [pink.fill])).toMatchObject({
+      color: pink.fill,
+      ink: "var(--palette-10-ink)",
+    });
   });
 
   it("falls back to the prototype's example in palette 7 with no goal", () => {
     expect(introGoal([], [])).toMatchObject({
       title: "Launch my side project",
       color: goalColor(0).fill,
-      ink: goalColor(0).ink,
+      ink: "var(--palette-7-ink)",
     });
     expect(introGoal(["   "], []).title).toBe("Launch my side project");
   });

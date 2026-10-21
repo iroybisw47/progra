@@ -233,7 +233,7 @@ export function UwSheet({
         onClick={(e) => {
           if (tapCounts(e) && dismissible) onDismiss();
         }}
-        className="absolute inset-0 z-20 bg-[rgba(18,23,29,.34)]"
+        className="absolute inset-0 z-20 bg-backdrop"
         style={{
           opacity: open ? 1 : 0,
           pointerEvents: open ? "auto" : "none",
@@ -277,7 +277,7 @@ export function UwSheet({
             // The white below its bottom edge: when it's dragged up, the
             // screen's bottom stays covered. It tucks a pixel under the edge,
             // so the two never show a seam at a fractional offset mid-move.
-            className="text-ink relative flex flex-col rounded-t-[26px] bg-white shadow-[0_-12px_32px_-18px_rgba(18,23,29,.35)] outline-none after:pointer-events-none after:absolute after:inset-x-0 after:top-[calc(100%-1px)] after:h-[100vh] after:bg-white after:content-['']"
+            className="text-ink relative flex flex-col rounded-t-[26px] bg-card shadow-[0_-12px_32px_-18px_rgba(18,23,29,.35)] outline-none after:pointer-events-none after:absolute after:inset-x-0 after:top-[calc(100%-1px)] after:h-[100vh] after:bg-card after:content-['']"
             style={{
               maxHeight: SHEET_MAX_HEIGHT,
               paddingBottom: SHEET_PAD_BOTTOM,
@@ -404,7 +404,7 @@ function UwTile({
         aria-pressed={s.selected}
         aria-describedby={describedBy}
         onClick={(e) => onTap(which, e)}
-        className="relative min-w-0 flex-1 overflow-hidden rounded-[18px] border-[1.5px] bg-white text-left active:scale-[.98]"
+        className="relative min-w-0 flex-1 overflow-hidden rounded-[18px] border-[1.5px] bg-card text-left active:scale-[.98]"
         style={{
           borderColor: s.selected ? fill : "var(--control-border)",
           boxShadow: s.selected ? shadow : "none",

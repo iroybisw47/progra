@@ -477,7 +477,7 @@ export function LiveTimerClient({
   }
 
   return (
-    <div className="bg-card fixed inset-0 z-50 flex flex-col animate-[fade-up_.35s_cubic-bezier(.2,.8,.2,1)_both]">
+    <div className="bg-screen fixed inset-0 z-50 flex flex-col animate-[fade-up_.35s_cubic-bezier(.2,.8,.2,1)_both]">
       {/* Top bar: minimize · status · edit */}
       <div className="flex items-center justify-between px-[18px] pt-[max(env(safe-area-inset-top),24px)] pb-2">
         <button
@@ -761,7 +761,7 @@ export function LiveTimerClient({
           type="button"
           onClick={handleStop}
           disabled={pending}
-          className="bg-brand text-primary-foreground h-[52px] flex-1 rounded-2xl text-[15px] font-semibold shadow-[0_10px_22px_-10px_rgba(28,58,94,.55)] active:scale-[.97] disabled:opacity-60"
+          className="bg-brand text-primary-foreground h-[52px] flex-1 rounded-2xl text-[15px] font-semibold shadow-[0_10px_22px_-10px_var(--glow)] active:scale-[.97] disabled:opacity-60"
         >
           Clock out
         </button>

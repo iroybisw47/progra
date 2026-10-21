@@ -161,7 +161,7 @@ export function PeopleSearchField<T>({
   }
   return (
     <div ref={rowRef} className="flex items-center gap-2.5 outline-none">
-      <label className="border-control-border focus-within:border-brand flex h-[44px] min-w-0 flex-1 items-center gap-2 rounded-[12px] border-[1.5px] bg-white px-3 transition-colors duration-200">
+      <label className="border-control-border focus-within:border-brand flex h-[44px] min-w-0 flex-1 items-center gap-2 rounded-[12px] border-[1.5px] bg-card px-3 transition-colors duration-200">
         <SearchIcon aria-hidden className="text-caption size-[15px] shrink-0" strokeWidth={2.2} />
         <input
           ref={inputRef}

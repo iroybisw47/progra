@@ -335,7 +335,7 @@ export function FinishClient({
           type="button"
           onClick={handlePost}
           disabled={pending || debriefMissing}
-          className="bg-brand w-full rounded-[24px] py-[18px] text-[17px] font-bold text-primary-foreground shadow-[0_10px_24px_rgba(28,58,94,.3)] active:scale-[.98] disabled:opacity-60"
+          className="bg-brand w-full rounded-[24px] py-[18px] text-[17px] font-bold text-primary-foreground shadow-[0_10px_24px_color-mix(in_srgb,var(--glow)_55%,transparent)] active:scale-[.98] disabled:opacity-60"
         >
           {pending ? "Saving…" : priv ? "Save privately" : "Post"}
         </button>

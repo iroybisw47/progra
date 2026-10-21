@@ -65,7 +65,7 @@ export function FriendsSlide({ friends, still }: { friends: FriendsView; still: 
         {friends.top3 && (
           <div
             className="flex items-center gap-3.5 rounded-[25.92px] px-[18px] py-3.5"
-            style={{ background: "rgba(28,58,94,.05)", animation: anim("rise", 0.5, 1.45) }}
+            style={{ background: "color-mix(in srgb, var(--brand) 5%, transparent)", animation: anim("rise", 0.5, 1.45) }}
           >
             <span
               className="text-brand font-serif text-[30px] leading-none font-medium tracking-[-0.03em] tabular-nums"

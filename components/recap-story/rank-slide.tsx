@@ -7,7 +7,7 @@ import type { RankView } from "@/lib/recap-story";
 import { SlideFrame, SlideTitle } from "./slide-frame";
 
 function badgeStyle(rank: number): CSSProperties {
-  if (rank === 1) return { background: "var(--brand)", color: "#ffffff" };
+  if (rank === 1) return { background: "var(--brand)", color: "var(--primary-foreground)" };
   if (rank <= 3) return { background: "var(--track)", color: "var(--body)" };
   return { background: "transparent", color: "var(--faint)" };
 }

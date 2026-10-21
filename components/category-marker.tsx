@@ -1,4 +1,4 @@
-import { normalizeFill } from "@/lib/palette";
+import { themedColor } from "@/lib/colors";
 
 // The little row marker in category breakdowns (Progress, /clock, /history,
 // recap, feed posts). Every entity — goal or category — now owns a palette
@@ -17,7 +17,7 @@ export function CategoryMarker({
     <span
       aria-hidden
       className="size-2 shrink-0 rounded-[2px]"
-      style={{ backgroundColor: normalizeFill(color) ?? color }}
+      style={{ backgroundColor: themedColor(color) }}
     />
   );
 }

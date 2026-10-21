@@ -7,6 +7,43 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-20
 
+### 22:55 · Dark mode, behind `DARK_MODE` (uncommitted, dark)
+From `design_handoff_dark_mode/`. Every screen keeps its layout; only colors change. The one new UI is Settings → Display → Appearance (System / Light / Dark, per device).
+- **Flag:** `DARK_MODE` (`NEXT_PUBLIC_DARK_MODE`). The default is "System", so turning it on switches every dark-mode phone at once; it ships with a patch note. Off, nothing puts `.dark` on `<html>`, and the light theme is identical to before.
+- **Tokens (`app/globals.css`):**
+  - The handoff's `.dark` block from `dark-tokens.css`, applied on `<html>` only.
+  - New tokens for the old hard-coded light values: `--logo`, `--uncategorized`, `--unchecked`, `--today-ring`, `--dash`, `--destructive-line`, `--backdrop`, `--glow` and `--nav-glass`. Each is registered in `@theme inline`.
+- **Palette plumbing (`lib/colors.ts`):**
+  - `entityColor`, `entityInk`, `tint`, `goalColorOf`, `goalColor` and `userColor` now return `var(--palette-N)` / `color-mix(…)`, so inline paints follow the theme.
+  - The hex forms are `entityFillHex`, `goalFillHex`, `entityOnDark` and `entityChipInk`.
+  - `normalizeFill` reads `var(--palette-N)` back as hex, so every helper accepts either form.
+  - New `themedColor` passes off-palette values through; screens that painted stored hex directly go through it.
+- **Kept hex on purpose:**
+  - The Live Activity payload (`resolveAttributionColor`).
+  - Stored post slices (`postSlices`).
+  - `postRecap`'s stored categories.
+  - Onboarding v3's goal-color compare and save (`accountColor`).
+  - The Satori share card's swatches.
+- **§4.3 sweep:**
+  - Light-only classes became tokens.
+  - Brand fills carry `text-primary-foreground` rather than `text-white`, since `--brand` turns pale in dark.
+  - Surface `bg-white` became `bg-card`, and the recap and live timer use `bg-screen`.
+  - The logo stays navy (`--logo`), and recap slide washes use `color-mix` of `--brand` / `--done`.
+- **Appearance:**
+  - `lib/appearance.ts` holds the pref, the resolution, `applyAppearance` and the head script.
+  - `lib/use-appearance.ts` and the `SyncAppearance` leaf keep it current.
+  - An inline `<head>` script sets the class before paint, and `<html>` has `suppressHydrationWarning`.
+  - `themeColor` is a light/dark media pair.
+  - The toaster follows the resolved theme.
+  - The recap's status bar uses the app's own text color on screen-ground slides and on the way out. With the flag off, it behaves as before.
+- **Known gap:** the iOS overscroll edge stays light while the app is dark. `capacitor.config.ts`'s `backgroundColor` is per binary; closing the gap needs a native call.
+- **Gate:**
+  - tsc is clean.
+  - eslint on changed files is clean, apart from the known `Date.now` debt.
+  - vitest passes 1494 of 1494, including new appearance, color and palette tests.
+  - The build passes with the flag off and on, with the design-sync self-link moved aside.
+  - On `next start` with the flag on, signed-out routes return 200, the head script is in the HTML after both theme-color metas, and headless Chrome renders `/login` dark under a dark system and unchanged under light. Under `next dev`, the `/dev` previews (friends, weekly review, recap, streaks) render dark.
+
 ### 22:35 · Streaks launch: Day One is Wednesday 2026-10-21, with the launch post
 - `STREAK_LAUNCH_DATE = "2026-10-21"`. The DB row is set to match by hand: `streak_config.launch_date`. The 4am day boundary is unchanged.
 - **Announcement card copy** (owner-approved): "Introducing streaks", "Clock in for 5 minutes or check off one habit each day to keep your streak going. Two freezes a month cover the days you miss."

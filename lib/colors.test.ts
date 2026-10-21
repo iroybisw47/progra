@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { entityColor, entityInk, entityOnDark } from "@/lib/colors";
-import { PALETTE } from "@/lib/palette";
+import {
+  entityColor,
+  entityFillHex,
+  entityInk,
+  entityOnDark,
+  goalColorOf,
+  goalFillHex,
+  themedColor,
+  tint,
+  userColor,
+} from "@/lib/colors";
+import { PALETTE, inkFor } from "@/lib/palette";
 
 // PALETTE entries are { name, fill, ink }; every assertion here is about fills.
 const FILLS = PALETTE.map((c) => c.fill);
@@ -41,7 +51,7 @@ describe("entityOnDark", () => {
   // the card's 3pt marker would be invisible rather than just low-contrast.
   it("is needed: several raw fills fail even the non-text bar on navy", () => {
     const failing = FILLS.filter(
-      (c) => contrast(entityColor(c), DARK_GROUND) < 3
+      (c) => contrast(entityFillHex(c), DARK_GROUND) < 3
     );
     expect(failing.length).toBeGreaterThan(0);
   });
@@ -50,8 +60,8 @@ describe("entityOnDark", () => {
   // navy ground.
   it("is needed: the on-white ink is darker than the fill it came from", () => {
     const sample = "#2E8B50";
-    expect(luminance(entityInk(sample))).toBeLessThan(
-      luminance(entityColor(sample))
+    expect(luminance(inkFor(sample))).toBeLessThan(
+      luminance(entityFillHex(sample))
     );
   });
 
@@ -70,7 +80,7 @@ describe("entityOnDark", () => {
   it("always lifts, never darkens", () => {
     for (const c of FILLS) {
       expect(luminance(entityOnDark(c))).toBeGreaterThan(
-        luminance(entityColor(c))
+        luminance(entityFillHex(c))
       );
     }
   });
@@ -79,7 +89,7 @@ describe("entityOnDark", () => {
   // point of carrying a colour to the Lock Screen at all.
   it("keeps the channel ordering, so the hue is recognisable", () => {
     for (const c of FILLS) {
-      const [r, g, b] = parse(entityColor(c));
+      const [r, g, b] = parse(entityFillHex(c));
       const [r2, g2, b2] = parse(entityOnDark(c));
       expect(r >= g).toBe(r2 >= g2);
       expect(g >= b).toBe(g2 >= b2);
@@ -91,5 +101,61 @@ describe("entityOnDark", () => {
     for (const bad of [null, undefined, "", "nope", "#12"]) {
       expect(entityOnDark(bad)).toMatch(/^#[0-9a-f]{6}$/);
     }
+  });
+});
+
+// Dark mode: what the app PAINTS is a CSS variable the theme resolves, and
+// what anything computes on or stores is the hex.
+describe("display forms", () => {
+  it("paints a palette fill as its theme variable", () => {
+    expect(entityColor("#2E8B50")).toBe("var(--palette-5)");
+    expect(entityInk("#2e8b50")).toBe("var(--palette-5-ink)");
+  });
+
+  it("normalizes a retired hue forward before choosing the variable", () => {
+    expect(entityColor("#9c5148")).toBe("var(--palette-0)");
+  });
+
+  it("paints anything off-palette as the uncategorized neutral", () => {
+    for (const bad of [null, undefined, "", "nope", "#123456"]) {
+      expect(entityColor(bad)).toBe("var(--uncategorized)");
+      expect(entityInk(bad)).toBe("var(--uncategorized)");
+    }
+  });
+
+  it("is idempotent: a display value passed back in is the same color", () => {
+    for (let i = 0; i < PALETTE.length; i++) {
+      const v = `var(--palette-${i})`;
+      expect(entityColor(v)).toBe(v);
+      expect(entityInk(v)).toBe(`var(--palette-${i}-ink)`);
+      expect(entityFillHex(v)).toBe(PALETTE[i].fill);
+      expect(entityOnDark(v)).toBe(entityOnDark(PALETTE[i].fill));
+    }
+  });
+
+  it("washes through color-mix so the wash follows the theme too", () => {
+    expect(tint("#DE5148")).toBe(
+      "color-mix(in srgb, var(--palette-1) 12%, transparent)"
+    );
+    expect(tint("var(--palette-1)", 0.16)).toBe(
+      "color-mix(in srgb, var(--palette-1) 16%, transparent)"
+    );
+    expect(tint(null)).toBe(
+      "color-mix(in srgb, var(--uncategorized) 12%, transparent)"
+    );
+  });
+
+  it("derives a goal's and a person's color in display form, hex on request", () => {
+    const g = { id: "g-1", color: null };
+    expect(goalColorOf(g)).toMatch(/^var\(--palette-\d+\)$/);
+    expect(entityFillHex(goalColorOf(g))).toBe(goalFillHex(g));
+    expect(goalFillHex({ id: "g-1", color: "#a084b3" })).toBe("#A084B3");
+    expect(userColor("maya")).toMatch(/^var\(--palette-\d+\)$/);
+  });
+
+  it("themedColor lifts palette colors and passes everything else through", () => {
+    expect(themedColor("#D06DA1")).toBe("var(--palette-10)");
+    expect(themedColor("var(--primary)")).toBe("var(--primary)");
+    expect(themedColor(null)).toBeNull();
   });
 });

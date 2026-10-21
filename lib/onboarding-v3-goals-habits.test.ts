@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { goalColorOf } from "@/lib/colors";
+import { goalFillHex } from "@/lib/colors";
 import { DEFAULT_GOAL_QUOTA_HOURS } from "@/lib/onboarding";
 import {
   V3_HABITS,
@@ -262,7 +262,7 @@ describe("goalColors", () => {
   it("draws an uncolored account goal in its id-derived hue, as the app does", () => {
     const rows = goalRowsFrom([account({ id: "g-legacy", title: "Old", color: null })]);
     expect(goalColors(rows, ["Old"], [5], ["g-legacy"]).colors).toEqual([
-      goalColorOf({ id: "g-legacy", color: null }),
+      goalFillHex({ id: "g-legacy", color: null }),
     ]);
   });
 
@@ -956,7 +956,7 @@ describe("readyGoal (Screen 6's pill and the Clock's preselect)", () => {
     expect(readyGoal(rows, p.goals, p.goalHours, p.goalRowIds)).toEqual({
       id: "g1",
       title: "Ship v2",
-      color: goalColorOf({ id: "g1", color: null }),
+      color: goalFillHex({ id: "g1", color: null }),
     });
     // Removing it on Screen 2 makes the next one first. The account row
     // itself is left as it was (goalSteps never archives one).

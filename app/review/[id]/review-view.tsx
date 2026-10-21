@@ -60,7 +60,7 @@ export function ReviewView({
         </h1>
 
         <div className="px-5 pt-4">
-          <div className="rounded-[25.92px] bg-[rgba(28,58,94,.05)] px-5 py-5">
+          <div className="rounded-[25.92px] bg-brand/5 px-5 py-5">
             <ReviewStats stats={reviewStats(post)} size="lg" />
             <ReviewWheel slices={post.categories} size="lg" className="mt-5" />
           </div>

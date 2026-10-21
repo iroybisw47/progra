@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { themedColor } from "@/lib/colors";
 import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { DAY_LABELS, addDaysISO, parseLocalDate, formatLongDate } from "@/lib/dates";
@@ -179,7 +180,7 @@ export function WeeklyHabits({
                       <span
                         aria-hidden
                         className="size-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: h.color }}
+                        style={{ backgroundColor: themedColor(h.color) }}
                       />
                     )}
                     <span
@@ -252,7 +253,7 @@ export function WeeklyHabits({
                         <span
                           aria-hidden
                           className="size-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: t.habit.color }}
+                          style={{ backgroundColor: themedColor(t.habit.color) }}
                         />
                       )}
                       <span className="flex-1">{t.habit.name}</span>

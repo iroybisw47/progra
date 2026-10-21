@@ -34,6 +34,7 @@ import { track } from "@/lib/analytics";
 import {
   CALENDAR_CONNECT,
   CLOCK_REMINDERS,
+  DARK_MODE,
   HABIT_REMINDERS,
   NUDGES,
   RECAP_PUSH,
@@ -46,6 +47,8 @@ import {
   setHabitReminderPref,
 } from "@/lib/habit-reminder-prefs";
 import { useHabitReminderPref } from "@/lib/use-habit-reminder-pref";
+import { useAppearance } from "@/lib/use-appearance";
+import type { AppearancePref } from "@/lib/appearance";
 import {
   openNotificationSettings,
   requestNotificationPermission,
@@ -351,6 +354,9 @@ export function SettingsClient({
             whichever branch rendered next. Goals and Habits are managed from
             their section headers on Progress, sessions there and on /clock;
             those routes still work by URL, they're just no longer linked. */}
+
+        {/* Display — the device's appearance, right after Account. */}
+        {DARK_MODE && <DisplaySection />}
 
         {/* Notifications — native app only, so it simply doesn't exist on the
             website. `null` (not read yet) and "unavailable" (no plugin) both
@@ -716,6 +722,83 @@ function TimezonePicker({
         {pending ? "Saving…" : "Save"}
       </PrimaryButton>
     </div>
+  );
+}
+
+// Display: light or dark, per device (lib/appearance.ts). The row opens a
+// three-option sheet; a tap applies at once and closes it, so there is no Save.
+// The server snapshot is "System", matching SSR, and the stored choice swaps in
+// right after hydration.
+const APPEARANCE_OPTIONS: { pref: AppearancePref; label: string }[] = [
+  { pref: "system", label: "System" },
+  { pref: "light", label: "Light" },
+  { pref: "dark", label: "Dark" },
+];
+
+function DisplaySection() {
+  const { pref, resolved, setPref } = useAppearance();
+  const [open, setOpen] = useState(false);
+  const label = APPEARANCE_OPTIONS.find((o) => o.pref === pref)!.label;
+
+  return (
+    <>
+      <Band />
+      <SectionLabel>Display</SectionLabel>
+      <Row label="Appearance" value={label} onClick={() => setOpen(true)} />
+      <Inset>
+        <p className="text-caption text-xs leading-relaxed">
+          {pref === "system"
+            ? `Matches your phone — ${resolved} right now. Set on this device only.`
+            : "Set on this device only."}
+        </p>
+      </Inset>
+
+      <BottomSheet open={open} onOpenChange={setOpen}>
+        <BottomSheetContent title="Appearance" meta="This device">
+          <div className="flex flex-col pb-1">
+            {APPEARANCE_OPTIONS.map((o) => {
+              const selected = o.pref === pref;
+              return (
+                <button
+                  key={o.pref}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => {
+                    setPref(o.pref);
+                    setOpen(false);
+                  }}
+                  className="border-divider flex w-full items-center gap-2 border-t py-3.5 text-left text-[15px] transition-transform first:border-t-0 active:scale-[.99]"
+                >
+                  <span
+                    className={cn(
+                      "min-w-0 flex-1 truncate",
+                      selected ? "text-ink font-semibold" : "text-body font-medium"
+                    )}
+                  >
+                    {o.label}
+                  </span>
+                  {o.pref === "system" && (
+                    <span className="text-faint shrink-0 text-xs whitespace-nowrap">
+                      {resolved === "dark" ? "Dark right now" : "Light right now"}
+                    </span>
+                  )}
+                  {selected && (
+                    <CheckIcon
+                      aria-hidden
+                      className="text-brand size-4 shrink-0"
+                      strokeWidth={2.4}
+                    />
+                  )}
+                </button>
+              );
+            })}
+            <p className="border-divider text-caption border-t pt-3.5 text-xs leading-relaxed">
+              System follows your phone&rsquo;s setting.
+            </p>
+          </div>
+        </BottomSheetContent>
+      </BottomSheet>
+    </>
   );
 }
 

@@ -31,6 +31,7 @@ import {
   deleteCategory,
   updateCategory,
 } from "@/app/actions/categories";
+import { themedColor } from "@/lib/colors";
 import type { Category } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { BackLink } from "@/components/v2/back-link";
@@ -138,7 +139,7 @@ export function CategoriesClient({ categories }: { categories: Category[] }) {
                   >
                     <span
                       className="size-3.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: c.color ?? "var(--faint)" }}
+                      style={{ backgroundColor: themedColor(c.color) ?? "var(--faint)" }}
                     />
                     <div className="flex min-w-0 flex-col">
                       <span className="text-sm font-medium">{c.name}</span>

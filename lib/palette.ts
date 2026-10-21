@@ -9,6 +9,11 @@
 //          label, a kudos count, a leaderboard delta). Never render `fill` as
 //          text; it doesn't carry enough contrast at body sizes.
 //
+// These are the LIGHT values, and the stored ones. Dark mode re-declares the
+// same eleven in app/globals.css (`.dark`, --palette-N / --palette-N-ink), and
+// the display helpers in lib/colors.ts paint var(--palette-N), so the theme
+// decides what a color looks like while the database keeps this hex.
+//
 // Glyphs *inside* a filled chip (check marks, icons) are always white, on
 // every one of the eleven.
 
@@ -71,9 +76,15 @@ const LEGACY_FILLS: Record<string, string> = {
 // A stored hex as the palette fill it is today: already-current values pass
 // through, retired ones map forward, anything unrecognized returns null so the
 // caller falls back to its neutral.
+//
+// Also accepts the display form lib/colors.ts hands out, `var(--palette-N)`, so
+// a color that has already been through entityColor() can still be turned
+// back into its hex wherever something computes on the number.
 export function normalizeFill(hex: string | null | undefined): string | null {
   if (!hex) return null;
   const key = hex.trim().toLowerCase();
+  const ref = /^var\(--palette-(\d+)\)$/.exec(key);
+  if (ref) return PALETTE[Number(ref[1])]?.fill ?? null;
   const current = PALETTE.find((c) => c.fill.toLowerCase() === key);
   if (current) return current.fill;
   return LEGACY_FILLS[key] ?? null;
@@ -86,8 +97,10 @@ export function isPaletteFill(hex: string): boolean {
   return PALETTE.some((c) => c.fill.toLowerCase() === hex.trim().toLowerCase());
 }
 
-// The text-safe twin of a fill. Falls back to the fill itself for the neutral
-// grey and anything else off-palette.
+// The text-safe twin of a fill, as HEX — the light theme's value. Anything
+// painted in the app takes entityInk (lib/colors.ts) instead, which follows the
+// theme. Falls back to the fill itself for the neutral grey and anything else
+// off-palette.
 export function inkFor(hex: string | null | undefined): string {
   const fill = normalizeFill(hex);
   if (!fill) return hex ?? "";

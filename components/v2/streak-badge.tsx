@@ -5,7 +5,6 @@ import { FlameIcon } from "lucide-react";
 import { useState } from "react";
 
 import { track } from "@/lib/analytics";
-import { PALETTE } from "@/lib/palette";
 import type { BadgeView } from "@/lib/streaks-view";
 import { cn } from "@/lib/utils";
 
@@ -18,7 +17,8 @@ const StreakSheet = dynamic(() =>
 
 // The palette's orange: `fill` for the wash and the ring, `ink` for the
 // number, which sits on white (lib/palette.ts).
-const FIRE = PALETTE[2];
+// Orange (palette 2), as the theme draws it.
+const FIRE = { fill: "var(--palette-2)", ink: "var(--palette-2-ink)" };
 
 // The fire-and-days pill next to a name (.claude/plans/streaks.md). Inline and
 // shrink-0, so in a row with a truncating name the name gives way first and

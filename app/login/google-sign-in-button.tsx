@@ -157,7 +157,7 @@ export function GoogleSignInButton({
   return (
     <button
       type="button"
-      className={`${AUTH_BUTTON} bg-brand text-primary-foreground shadow-[0_10px_22px_-10px_rgba(28,58,94,.55)]`}
+      className={`${AUTH_BUTTON} bg-brand text-primary-foreground shadow-[0_10px_22px_-10px_var(--glow)]`}
       onClick={handleClick}
       disabled={loading}
       aria-disabled={locked || undefined}

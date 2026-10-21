@@ -44,7 +44,7 @@ import { toggleHabitCompletion } from "@/app/actions/habits";
 import type { Habit, HabitCompletion } from "@/lib/db/habits";
 import type { Goal } from "@/lib/db/goals";
 import type { Category } from "@/lib/storage";
-import { entityColor, entityInk, tint } from "@/lib/colors";
+import { entityColor, entityInk, themedColor, tint } from "@/lib/colors";
 import { formatDuration } from "@/lib/duration";
 import { formatTime12 } from "@/lib/dates";
 import { cn } from "@/lib/utils";
@@ -226,7 +226,7 @@ export function ProgressClient(props: {
                   <span
                     aria-hidden
                     className="size-2 shrink-0 rounded-[2px]"
-                    style={{ backgroundColor: s.color }}
+                    style={{ backgroundColor: themedColor(s.color) }}
                   />
                   <span className="text-body min-w-0 flex-1 truncate text-xs leading-[1.62]">
                     {s.name}
@@ -363,7 +363,7 @@ export function ProgressClient(props: {
                     className="h-full"
                     style={{
                       width: `${totalMs > 0 ? (s.ms / totalMs) * 100 : 0}%`,
-                      backgroundColor: s.color,
+                      backgroundColor: themedColor(s.color),
                     }}
                   />
                 ))}
@@ -425,7 +425,7 @@ export function ProgressClient(props: {
                       <span
                         className={cn(
                           "flex size-5 shrink-0 items-center justify-center rounded-[7px] border-[1.5px] text-white",
-                          !h.done && "border-[#dfe3e8]"
+                          !h.done && "border-unchecked"
                         )}
                         style={
                           h.done

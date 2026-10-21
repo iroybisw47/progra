@@ -4,6 +4,7 @@ import { CheckIcon } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 
 import { TypedHeadline } from "@/components/v2/typed-headline";
+import { themedColor } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 
 // The pieces every onboarding step is built from. Presentational; the shell
@@ -144,14 +145,14 @@ export function CheckTile({
       type="button"
       aria-pressed={on}
       onClick={onToggle}
-      className="text-body flex min-w-0 items-center gap-[7px] rounded-[12px] border-[1.5px] bg-white px-2.5 py-[9px] text-[12.5px] font-semibold transition-[transform,border-color] duration-150 active:scale-[.96]"
-      style={{ borderColor: on ? color : "var(--control-border)" }}
+      className="text-body flex min-w-0 items-center gap-[7px] rounded-[12px] border-[1.5px] bg-card px-2.5 py-[9px] text-[12.5px] font-semibold transition-[transform,border-color] duration-150 active:scale-[.96]"
+      style={{ borderColor: on ? themedColor(color) : "var(--control-border)" }}
     >
       <span
         className="flex size-[18px] shrink-0 items-center justify-center rounded-[6px] border-[1.5px] text-white transition-colors duration-150"
         style={{
-          borderColor: on ? color : "var(--disabled)",
-          backgroundColor: on ? color : "#fff",
+          borderColor: on ? themedColor(color) : "var(--disabled)",
+          backgroundColor: on ? themedColor(color) : "var(--card)",
         }}
       >
         {on && <CheckIcon className="check-pop size-3" strokeWidth={3.2} />}
@@ -171,7 +172,7 @@ export function PreviewRing({ color }: { color: string }) {
         cy="48"
         r="38"
         fill="none"
-        stroke={color}
+        stroke={themedColor(color)}
         strokeWidth="8"
         strokeLinecap="round"
         strokeDasharray="238.76"

@@ -31,7 +31,7 @@ export function ReviewWheel({
   return (
     <div
       className={cn(
-        "flex items-center border-t border-[rgba(28,58,94,.08)]",
+        "flex items-center border-t border-brand/8",
         lg ? "gap-5 pt-5" : "gap-4 pt-4",
         className
       )}

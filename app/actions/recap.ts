@@ -14,6 +14,7 @@ import { requireSeat } from "@/lib/auth/require-seat";
 import { loadReviewPost } from "@/lib/db/recap-story";
 import { getMyRecapPostForWeek } from "@/lib/db/weekly-reviews";
 import { RECAP_V2 } from "@/lib/flags";
+import { normalizeFill } from "@/lib/palette";
 import { normalizeCaption, reviewPostRow } from "@/lib/weekly-review";
 
 type Result = { ok: true } | { error: string };
@@ -73,7 +74,9 @@ export async function postRecap(
   const me = leaderboard.find((r) => r.isMe);
   const categories = recap.categoryRows.slice(0, 4).map((c) => ({
     name: c.name,
-    color: c.color,
+    // Stored as hex: a goal row's color arrives as var(--palette-N), the
+    // display form, which nothing reading the row back could resolve.
+    color: normalizeFill(c.color) ?? c.color,
     ms: c.ms,
   }));
   const trimmedCaption = caption.trim().slice(0, CAPTION_MAX) || null;

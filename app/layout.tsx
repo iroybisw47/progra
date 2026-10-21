@@ -15,6 +15,7 @@ import { NotificationLifecycle } from "@/components/notification-lifecycle";
 import { AnalyticsLifecycle } from "@/components/analytics-lifecycle";
 import { SyncClockReminders } from "@/components/sync-clock-reminders";
 import { SyncLiveActivity } from "@/components/sync-live-activity";
+import { SyncAppearance } from "@/components/sync-appearance";
 import { listCategories } from "@/lib/db/categories";
 import { listActiveGoals } from "@/lib/db/goals";
 import {
@@ -33,7 +34,14 @@ import {
 import { getHabitReminderData } from "@/lib/db/habits";
 import { getNavBadges } from "@/lib/db/notifications";
 import { listMySurveyAnswers } from "@/lib/db/survey";
-import { FRIENDS_V3, HABIT_REMINDERS, LIVE_ACTIVITY, UW } from "@/lib/flags";
+import {
+  DARK_MODE,
+  FRIENDS_V3,
+  HABIT_REMINDERS,
+  LIVE_ACTIVITY,
+  UW,
+} from "@/lib/flags";
+import { APPEARANCE_SCRIPT, THEME_COLOR } from "@/lib/appearance";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 import { patchNoteToShow } from "@/lib/patch-notes";
@@ -87,9 +95,17 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // One colour, unconditionally: Progra has no dark mode, so advertising a dark
-  // theme-color made iOS tint the status bar for a palette the app never renders.
-  themeColor: "#ffffff",
+  // The screen ground for each theme. With DARK_MODE off there is only the
+  // light one: advertising a dark theme-color made iOS tint the status bar for
+  // a palette the app didn't render. With it on, the media pair covers
+  // "System", and the head script (lib/appearance.ts) rewrites both when a
+  // manual Light or Dark disagrees with the phone.
+  themeColor: DARK_MODE
+    ? [
+        { media: "(prefers-color-scheme: light)", color: THEME_COLOR.light },
+        { media: "(prefers-color-scheme: dark)", color: THEME_COLOR.dark },
+      ]
+    : THEME_COLOR.light,
   width: "device-width",
   initialScale: 1,
   // No user zoom — and this is the half of the pinch-zoom fix that actually
@@ -400,7 +416,19 @@ function Shell({
     <html
       lang="en"
       className={`${hanken.variable} ${newsreader.variable} h-full antialiased`}
+      // The head script adds `dark` to this element's class before React
+      // hydrates, which is a mismatch by design.
+      suppressHydrationWarning={DARK_MODE}
     >
+      {DARK_MODE && (
+        <head>
+          {/* Before first paint, so a dark device never flashes the light
+              theme on a cold launch. A plain inline script rather than
+              next/script: beforeInteractive is queued behind the framework
+              bootstrap, which is after paint. */}
+          <script dangerouslySetInnerHTML={{ __html: APPEARANCE_SCRIPT }} />
+        </head>
+      )}
       <body className="min-h-full flex flex-col">
         {children}
         {/* Ungated on purpose: a leaf gated on `user` can never observe user
@@ -410,6 +438,8 @@ function Shell({
         {/* Ungated for the same reason, plus one more: the signed-out landing
             and the beta-full wall are exactly where drop-off matters most. */}
         <AnalyticsLifecycle userId={userId} activeSessionId={activeSessionId} />
+        {/* Ungated by user: the login screen follows the theme too. */}
+        {DARK_MODE && <SyncAppearance />}
       </body>
     </html>
   );

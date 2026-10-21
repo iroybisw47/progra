@@ -13,9 +13,9 @@ export function ReferFriendButton() {
   return (
     <Link
       href="/refer"
-      className="bg-brand text-primary-foreground flex w-full items-center gap-3 rounded-[18px] px-4 py-4 text-left shadow-[0_10px_24px_rgba(28,58,94,.3)] transition-transform active:scale-[.98]"
+      className="bg-brand text-primary-foreground flex w-full items-center gap-3 rounded-[18px] px-4 py-4 text-left shadow-[0_10px_24px_color-mix(in_srgb,var(--glow)_55%,transparent)] transition-transform active:scale-[.98]"
     >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/15">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-foreground/15">
         <UserPlusIcon className="size-5" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
