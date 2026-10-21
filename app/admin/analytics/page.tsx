@@ -8,17 +8,21 @@ import {
   getAdminOnboardingStats,
   getAdminOverview,
   getAdminRoster,
+  getAdminSurveyResults,
   getAdminUsageSocial,
 } from "@/lib/db/admin-analytics";
+import { SURVEY } from "@/lib/survey";
+import { shapeSurveyResults } from "@/lib/survey-results";
 
 import { Filters } from "./filters";
 import { OnboardingTab } from "./onboarding-tab";
 import { OverviewTab } from "./overview-tab";
+import { SurveyTab } from "./survey-tab";
 import { UsageTab } from "./usage-tab";
 
 // The internal analytics dashboard. Admin-only (requireAdmin → 404 for anyone
 // else; every RPC re-checks is_admin() itself), reachable only from the
-// admin-only Admin hub, never linked from the user UI. Three tabs, each a
+// admin-only Admin hub, never linked from the user UI. Four tabs, each a
 // plain query parameter so a view is a URL; one Promise.all per tab, so a tab
 // pays only for what it shows. Server-rendered end to end — the client parts
 // are the charts (recharts) and the roster's chip row.
@@ -30,6 +34,7 @@ const TABS = [
   ["overview", "Overview"],
   ["usage", "Usage & social"],
   ["onboarding", "Onboarding, ghosts & roster"],
+  ["survey", "Survey"],
 ] as const;
 type Tab = (typeof TABS)[number][0];
 
@@ -43,7 +48,8 @@ export default async function AdminAnalyticsPage({
 }) {
   await requireAdmin();
   const p = await searchParams;
-  const tab: Tab = p.tab === "usage" || p.tab === "onboarding" ? p.tab : "overview";
+  const tab: Tab =
+    p.tab === "usage" || p.tab === "onboarding" || p.tab === "survey" ? p.tab : "overview";
   const filters: DashboardFilters = {
     includeInternal: p.internal === "1",
     segment: p.segment === "uw" || p.segment === "non_uw" ? p.segment : null,
@@ -67,6 +73,11 @@ export default async function AdminAnalyticsPage({
     ]);
     generatedAt = usage?.generated_at ?? null;
     body = <UsageTab usage={usage} notifications={notifications} />;
+  } else if (tab === "survey") {
+    const row = SURVEY ? await getAdminSurveyResults(SURVEY.id, inc, seg, cf, ct) : null;
+    const results = SURVEY && row ? shapeSurveyResults(row, SURVEY) : null;
+    generatedAt = results?.generatedAt ?? null;
+    body = <SurveyTab survey={SURVEY} results={results} />;
   } else {
     const [onboarding, ghosts, roster] = await Promise.all([
       getAdminOnboardingStats(inc, seg, cf, ct),

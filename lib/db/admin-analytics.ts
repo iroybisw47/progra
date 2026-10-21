@@ -15,6 +15,7 @@ import {
   type UsageSocial,
 } from "@/lib/admin-dashboard";
 import { createClient } from "@/lib/supabase/server";
+import type { SurveyResultsRow } from "@/lib/survey-results";
 
 // Reads for /admin/analytics.
 //
@@ -177,5 +178,26 @@ export const getAdminUserTimeline = cache(
       kind: e.kind,
       meta: (e.meta ?? {}) as Record<string, unknown>,
     }));
+  }
+);
+
+// The in-app survey's answers (survey.sql), over the same population and
+// filters as every other tab. Keys only; lib/survey-results.ts adds the labels.
+// Null on any error, including the SQL not having run yet.
+export const getAdminSurveyResults = cache(
+  async (
+    surveyId: string,
+    includeInternal: boolean,
+    segment: string | null,
+    cohortFrom: string | null,
+    cohortTo: string | null
+  ): Promise<SurveyResultsRow | null> => {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("admin_survey_results", {
+      p_survey_id: surveyId,
+      ...filterArgs(includeInternal, segment, cohortFrom, cohortTo),
+    });
+    if (error || !data) return null;
+    return data as SurveyResultsRow;
   }
 );

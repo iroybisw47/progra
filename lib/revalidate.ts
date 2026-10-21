@@ -165,6 +165,14 @@ export function revalidateUwPromptSurfaces() {
   revalidatePath("/", "layout");
 }
 
+// The in-app survey (survey_answers, profiles.survey_done). Only the root
+// layout reads either: it decides whether the modal is up and which question it
+// opens on, so every answer names the layout, and the last one drops the modal
+// out of the tree in the same round-trip.
+export function revalidateSurveySurfaces() {
+  revalidatePath("/", "layout");
+}
+
 // Finishing onboarding (the profiles.onboarded_at stamp). The ROOT LAYOUT reads
 // that column: it mounts the BottomNav, and it is one of the What's New modal's
 // gates — so, like the patch-note stamp above, this names the layout.

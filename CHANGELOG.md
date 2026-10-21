@@ -5,6 +5,32 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-20
+
+### 17:40 · In-app survey, answered on load, results on the analytics dashboard
+- **Owner's request:** a survey in the app, one question at a time, that members must finish on load with no option to skip. The output goes on the analytics dashboard.
+- **Three questions** (`lib/survey.ts`, survey id `2026-10-pricing-social`): what they'd pay for, what would get their friends to join, and how they feel about daily notifications. The copy is the owner's, with light fixes ("would you give you access", the unclosed parenthesis). Each question takes one answer. The "Fuck Progra" option was dropped at the owner's request after the preview, before any SQL ran, so no shipped key changed.
+- **The modal** (`components/v2/survey-modal.tsx`, mounted in the root layout):
+  - It has no close button, the backdrop is inert (`disablePointerDismissal`) and Escape is ignored. Pick an option, then Next (Submit on the last question).
+  - Answers are write-once, so picking and committing are separate steps.
+  - It resumes at the first unanswered question, and a failed save toasts and stays put.
+  - Shows on `/` only and defers under the weekly-review takeover, like What's New.
+  - It outranks What's New and the UW prompt, which wait for the load after it's done, and yields to the plan-complete modal.
+- **Storage:** `survey_answers` holds one row per (user, survey, question), storing the option's key. Own rows only; insert and read but no update or delete, and `answered_at` is the server's clock.
+  - `answerSurvey` inserts with `ON CONFLICT DO NOTHING`. Once every question has a row it stamps `profiles.survey_done`.
+  - The gate (`surveyOwed`) reads that column off the profile the layout already has, so it's free for anyone who has finished. It **fails closed** on a missing column, because a modal you can't leave must never open when its writes would fail.
+  - A new survey later means a new `SURVEY.id`. Shipped ids are frozen, since the dashboard groups by them.
+- **Dashboard:** a fourth tab, **Survey**, on `/admin/analytics`. It has eligible / started / finished tiles, a bar chart per question with shares, and a respondents table linking to each member's timeline. The internal, segment and cohort filters apply.
+  - The data comes from `admin_survey_results()` (an `is_admin()` definer over `analytics_population`), shaped by `lib/survey-results.ts`.
+- **SQL:** `.claude/plans/survey.sql`. **The owner reported it run in prod on 2026-10-20**, with STEP 0, 1V and STEP 2 (11/11) all passing. The modal is live from the deploy that ships this code.
+  - Proven on PGlite with `nudges-harness/survey.mjs`: STEP 0, STEP 1 run twice, 1V, STEP 2's 11 adversarial checks and the results fixture all pass. All 8 planted mutants are caught.
+- **Gate:**
+  - tsc and eslint (changed files) are clean.
+  - vitest 1376/1376 passes, with 18 new tests for the gate, the keys and results shaping.
+  - The build passes (with the self-link moved aside, then restored). The signed-out smoke test serves the landing page at `/`, and `/admin/analytics?tab=survey` is refused.
+  - `/dev/survey` was driven in Playwright at 375×667 and 393×852: Escape and a backdrop tap leave it open, Submit closes it after three answers, and `?fail=1` toasts and stays on Q1.
+  - Not checked signed in or on a device. Not committed.
+
 ## 2026-10-19
 
 ### 12:15 · Revert: onboarding step 04 is the three-beat intro again

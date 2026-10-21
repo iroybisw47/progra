@@ -119,6 +119,11 @@ export type Profile = {
   // for its reason with the same polarity: uwPromptFor() reads an absent key
   // as "don't ask", so a database without the column shows nothing.
   uw_prompt?: string | null;
+  // The id of the last in-app survey this member finished (lib/survey.ts,
+  // .claude/plans/survey.sql). User-writable like uw_prompt, and optional for
+  // its reason with the same polarity: surveyOwed() reads an absent key as
+  // "don't ask", which matters most here because the survey can't be skipped.
+  survey_done?: string | null;
   // "Last opened", for the admin analytics roster. Written by touch_last_seen()
   // and, once ANALYTICS is on, by the ingest RPC on every app_opened event.
   // Never shown to anyone but the admin. (May be absent until the column SQL is

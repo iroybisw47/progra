@@ -25,17 +25,20 @@ import { SyncHabitReminders } from "@/components/sync-habit-reminders";
 import { PlanCompleteModal } from "@/components/v2/plan-complete-modal";
 import { WhatsNewModal } from "@/components/v2/whats-new-modal";
 import { UwPromptOnLoad } from "@/components/v2/uw-prompt-on-load";
+import { SurveyModal } from "@/components/v2/survey-modal";
 import {
   getActiveSession,
   getUnreviewedPlanComplete,
 } from "@/lib/db/sessions";
 import { getHabitReminderData } from "@/lib/db/habits";
 import { getNavBadges } from "@/lib/db/notifications";
+import { listMySurveyAnswers } from "@/lib/db/survey";
 import { FRIENDS_V3, HABIT_REMINDERS, LIVE_ACTIVITY, UW } from "@/lib/flags";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 import { patchNoteToShow } from "@/lib/patch-notes";
 import { uwPromptFor } from "@/lib/uw-prompt";
+import { SURVEY, firstUnanswered, surveyOwed } from "@/lib/survey";
 import { isWaitlisted } from "@/lib/auth/seat";
 import { createClient } from "@/lib/supabase/server";
 import { BetaFull } from "@/components/beta-full";
@@ -169,6 +172,16 @@ export default async function RootLayout({
   const patchNote = patchNoteToShow(profile?.patch_notes_seen_version);
   // Free too, off the same profile: whether to ask for UW info (lib/uw-prompt.ts).
   const uwPrompt = uwPromptFor(profile, UW);
+  // The in-app survey (lib/survey.ts). Free for everyone who has finished it:
+  // survey_done is on the same profile. Only a member who still owes it pays
+  // one read, for where to resume. A failed read (null) shows nothing, since
+  // the modal can't be skipped and its writes would be failing too.
+  const surveyAnswered =
+    SURVEY && surveyOwed(profile) ? await listMySurveyAnswers(SURVEY.id) : null;
+  const showSurvey =
+    SURVEY !== null &&
+    surveyAnswered !== null &&
+    firstUnanswered(surveyAnswered, SURVEY) !== null;
 
   // The 250-seat beta cap. Only the seat-less path costs anything: getProfile()
   // is already fetched above, so members pay nothing here.
@@ -273,7 +286,15 @@ export default async function RootLayout({
           No next/dynamic, matching PlanCompleteModal: a client component imported
           by a SERVER component is already its own chunk, fetched only when the
           payload actually contains it — once per user per release. */}
-      {user && profile?.onboarded_at != null && !planComplete && patchNote && (
+      {/* The survey, until every question is answered (lib/survey.ts). It
+          can't be skipped, so it outranks the release note and the UW prompt
+          below, which wait, unstamped, for the load after it's done. It still
+          yields to the plan-complete modal, for the same no-stacking reason.
+          surveyOwed() already requires onboarded_at. */}
+      {user && SURVEY && showSurvey && surveyAnswered && !planComplete && (
+        <SurveyModal survey={SURVEY} answered={surveyAnswered} />
+      )}
+      {user && profile?.onboarded_at != null && !planComplete && !showSurvey && patchNote && (
         <WhatsNewModal
           version={patchNote.version}
           title={patchNote.title}
@@ -286,7 +307,7 @@ export default async function RootLayout({
           plan-complete modal and the release note, for the same no-stacking
           reason: suppressing doesn't stamp, so it waits for the next load.
           uwPromptFor() already requires onboarded_at. */}
-      {user && uwPrompt.sheet && !planComplete && !patchNote && (
+      {user && uwPrompt.sheet && !planComplete && !showSurvey && !patchNote && (
         <UwPromptOnLoad groupsLive={FRIENDS_V3} />
       )}
       {/* Flat primitives again: an object literal is a fresh reference every
