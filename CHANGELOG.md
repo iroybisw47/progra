@@ -7,6 +7,36 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-20
 
+### 22:40 · Streaks P4: a friend's streak on their profile (feat/streaks, dark)
+- `/profile/[username]` reads `getFriendStreak` in the same parallel wave as the nudge state. The RPC re-checks friendship and blocks itself, and it returns the friend's **shared-only** current and longest, never their freezes.
+- The badge rides the name's last line (`flex-wrap`). It shows from 2 days and only for an accepted friend, never before launch. Your own page there shows your full streak instead.
+- The friend sheet says "Counts shared sessions and habits".
+
+### 22:30 · Streaks P3: your badge, its sheet, the announcement card (feat/streaks, dark behind `STREAKS`)
+- **Reads and writes:**
+  - `lib/db/streaks.ts` has `getMyStreak` and `getFriendStreak`, `cache()`'d RPC reads that return null when the flag is off, the SQL is missing, the DB switch is off, or on error. It logs once when the DB launch date and `STREAK_LAUNCH_DATE` differ, and the DB wins.
+  - `app/actions/streaks.ts` has `settleMyStreak` and `dismissStreakAnnouncement`. `revalidateStreakSurfaces()` covers `/me`, `/feed` and `/profile/[username]`.
+- **`lib/streaks-view.ts`** (pure, 20 tests) holds the RPC mappers and these rules:
+  - your badge shows from 1 and dims while at risk;
+  - a friend's badge shows from 2;
+  - "N of 2 freezes left in October";
+  - the announcement shows before launch until dismissed, then once more on or after Day One, and **never renders placeholder copy in a production build**.
+- **UI:**
+  - `StreakBadge` is a fire-and-days pill in the palette's orange. It's `shrink-0`, so the name truncates first, and a 400-day badge fits at 393px. It dims when at risk and gains a quiet ring at 7/30/100.
+  - `StreakSheet` is lazy-loaded. It shows current and longest, the milestone marks, the freezes line and the at-risk line.
+  - `StreakAnnouncement` is a dismissible card on `/me`, under the stats, and on `/feed`, under the header. Its copy is the owner's `STREAK_ANNOUNCEMENT_COPY`, which is still `[ANNOUNCEMENT COPY]`.
+- **`EnsureStreakSettled`** fires the settle action only when the read reports unsettled closed days. It's mounted with the announcement slot on `/me` and `/feed` rather than in the root layout, so the streak RPC isn't added to every page.
+- **Telemetry:** `streak_sheet_opened {own}` and `streak_announcement_dismissed {phase}`.
+- **Dev preview:** `/dev/streaks?fixture=…[&sheet=1]`, with 12 fixtures. It 404s in production.
+- **Gate:**
+  - tsc is clean.
+  - eslint is clean on changed files, apart from the accepted `Date.now()` debt.
+  - vitest passes 1463 of 1463.
+  - The build passes.
+  - Signed out, `/me`, `/feed` and `/profile/x` redirect to `/login`.
+  - Every fixture was screenshotted at 393×852 with no horizontal overflow.
+  - Progra has no dark mode, so there is only a light check.
+
 ### 21:25 · Streaks P1: the rules, pure (branch feat/streaks)
 - **Plan:** `.claude/plans/streaks.md` and `streaks-P1..P6.md`. The owner's scope is a personal streak, plus a friend's shared-only streak on their profile. There is no friend at-risk push, no pair streaks and no feed badge. Closed days are final, the reminder is at 7pm, and the launch date is still to be decided.
 - **`lib/streaks.ts`** holds the pure rules: `streakDayOf` / `closeMs` (04:00 cutoff, DST-correct through the newly exported `zonedWallClockMs`), `sessionQualifies` (5 minutes of worked time through `sessionWorkedMs`), `tickDay`, `dayFacts`, `walkDays`, `streakState` and `milestoneFor`.

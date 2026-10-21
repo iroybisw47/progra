@@ -28,6 +28,9 @@ import {
 } from "@/lib/db/profile-sessions";
 import { listReactionsForSessions } from "@/lib/db/reactions";
 import { WeeklyReviewsSection } from "@/components/v2/weekly-review-card";
+import { StreakBadge } from "@/components/v2/streak-badge";
+import { getFriendStreak, getMyStreak } from "@/lib/db/streaks";
+import { freezesLine, friendBadge, myBadge } from "@/lib/streaks-view";
 import { listRecapCommentCounts, listRecapKudos } from "@/lib/db/recap-social";
 import { listRecapPostsForUser } from "@/lib/db/weekly-reviews";
 import { LIKE_EMOJI } from "@/lib/social/reactions";
@@ -65,14 +68,50 @@ export default async function ProfilePage({
   });
   if (blocked) notFound();
 
-  // In parallel: get_nudge_state re-checks friendship itself, so asking for it
-  // alongside the relationship costs no extra round trip.
-  const [relationship, nudgeState] = await Promise.all([
+  // In parallel: get_nudge_state and get_friend_streak re-check friendship
+  // themselves, so asking for them alongside the relationship costs no extra
+  // round trip. Your own page shows your full streak; anyone else's, only the
+  // shared count, and only to an accepted friend (both null with STREAKS off).
+  const isSelf = me.id === target.userId;
+  const [relationship, nudgeState, myStreak, friendStreak] = await Promise.all([
     getRelationship(target.userId),
     NUDGES ? getNudgeState(target.userId) : Promise.resolve(NUDGE_HIDDEN),
+    isSelf ? getMyStreak() : Promise.resolve(null),
+    isSelf ? Promise.resolve(null) : getFriendStreak(target.userId),
   ]);
   const canSeeContent =
     relationship.kind === "self" || relationship.kind === "friends";
+  const displayName = target.displayName || `@${target.username}`;
+  // Yours from 1 day; a friend's from 2, and only on an accepted friend's page.
+  const ownBadge = myBadge(myStreak);
+  const theirBadge = relationship.kind === "friends" ? friendBadge(friendStreak) : null;
+  let streakBadge: React.ReactNode = null;
+  if (ownBadge && myStreak?.state === "live") {
+    streakBadge = (
+      <StreakBadge
+        badge={ownBadge}
+        sheet={{
+          variant: "own",
+          current: myStreak.current,
+          longest: myStreak.longest,
+          atRisk: myStreak.atRisk,
+          freezesLine: freezesLine(myStreak.freezesLeft, myStreak.today),
+        }}
+      />
+    );
+  } else if (theirBadge && friendStreak?.state === "live") {
+    streakBadge = (
+      <StreakBadge
+        badge={theirBadge}
+        sheet={{
+          variant: "friend",
+          name: target.displayName?.split(" ")[0] || `@${target.username}`,
+          current: friendStreak.current,
+          longest: friendStreak.longest,
+        }}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col items-center pt-7 pb-24">
@@ -96,9 +135,19 @@ export default async function ProfilePage({
           <div className="flex min-w-0 flex-1 flex-col pt-1">
             {/* No truncate. The old row could carry three action chips, which is
                 what squeezed the name; a single 32px gear leaves it the line. */}
-            <h1 className="text-ink font-serif text-[22px] leading-[1.2] font-medium tracking-[-0.015em] text-balance">
-              {target.displayName || `@${target.username}`}
-            </h1>
+            {/* The streak badge rides the name's last line (STREAKS). */}
+            {streakBadge ? (
+              <div className="flex flex-wrap items-center gap-x-1.5">
+                <h1 className="text-ink font-serif text-[22px] leading-[1.2] font-medium tracking-[-0.015em] text-balance">
+                  {displayName}
+                </h1>
+                {streakBadge}
+              </div>
+            ) : (
+              <h1 className="text-ink font-serif text-[22px] leading-[1.2] font-medium tracking-[-0.015em] text-balance">
+                {displayName}
+              </h1>
+            )}
             <span className="text-faint truncate text-[13px]">
               @{target.username}
             </span>
