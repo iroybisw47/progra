@@ -42,7 +42,7 @@ export function WhatsNewModal({
   intro?: string;
   items: string[];
   outro?: string[];
-  image?: { src: string; alt: string; width: number; height: number };
+  image?: { src: string; darkSrc?: string; alt: string; width: number; height: number };
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(true);
@@ -128,7 +128,19 @@ export function WhatsNewModal({
             width={image.width}
             height={image.height}
             unoptimized
-            className="border-hairline h-auto w-full rounded-[14px] border"
+            className={`border-hairline h-auto w-full rounded-[14px] border${image.darkSrc ? " dark:hidden" : ""}`}
+          />
+        )}
+        {/* The dark-mode picture, swapped in by the same .dark class the
+            theme uses. Both are in the DOM; the hidden one is display:none. */}
+        {image?.darkSrc && (
+          <Image
+            src={image.darkSrc}
+            alt={image.alt}
+            width={image.width}
+            height={image.height}
+            unoptimized
+            className="border-hairline hidden h-auto w-full rounded-[14px] border dark:block"
           />
         )}
 

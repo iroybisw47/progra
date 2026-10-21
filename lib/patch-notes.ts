@@ -27,8 +27,9 @@ export type PatchNote = {
   items: string[];
   // Optional picture between the intro and the bullets, served from /public at
   // its natural size (a 3x export, so it's sharp on an iPhone). `alt` says what
-  // it shows, for VoiceOver.
-  image?: { src: string; alt: string; width: number; height: number };
+  // it shows, for VoiceOver. `darkSrc`, the same picture taken in dark mode
+  // (same size), is shown instead while the app is dark (DARK_MODE).
+  image?: { src: string; darkSrc?: string; alt: string; width: number; height: number };
   // Optional closing paragraphs under the bullets: a thank-you, a sign-off. A
   // "\n" inside one is a line break, so "Sincerely,\nIsh" stays one paragraph.
   outro?: string[];
@@ -42,15 +43,17 @@ export const PATCH_NOTES: readonly PatchNote[] = [
       "Hey Progra users! Starting Wednesday, October 21, Progra counts how many days in a row you show up. Here's how it works:",
     image: {
       src: "/patch-notes/streaks-profile.png",
+      darkSrc: "/patch-notes/streaks-profile-dark.png",
       alt: "A profile named Maya Chen with a fire badge showing a 7-day streak next to her name",
       width: 1179,
-      height: 525,
+      height: 450,
     },
     items: [
       "Show up once a day: clock in for at least 5 minutes, or check off one habit. Either one counts.",
       "Your streak lives on your profile, right next to your name. Tap it to see your longest streak and your freezes.",
       "2 free freezes every month: miss a day and one is used automatically, so your streak keeps going. Unused freezes don't carry over.",
       "Friends can see your streak on your profile. Theirs only counts sessions and habits they've shared.",
+      "Also new, dark mode! Progra now follows your phone's light or dark setting. To pick one yourself, go to Settings and tap Appearance.",
     ],
     outro: ["Good luck getting your first week in!", "Sincerely,\nIsh from Progra"],
   },

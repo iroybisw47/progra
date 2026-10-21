@@ -135,6 +135,7 @@ describe("PATCH_NOTES", () => {
     for (const n of PATCH_NOTES) {
       if (!n.image) continue;
       expect(n.image.src, n.version).toMatch(/^\/[a-z0-9/_-]+\.(png|jpg|webp)$/);
+      if (n.image.darkSrc) expect(n.image.darkSrc, n.version).toMatch(/^\/[a-z0-9/_-]+\.(png|jpg|webp)$/);
       expect(n.image.alt.trim(), n.version).not.toBe("");
       expect(n.image.width > 0 && n.image.height > 0, n.version).toBe(true);
     }

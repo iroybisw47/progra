@@ -7,6 +7,15 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-20
 
+### 23:10 · Patch 1.04 announces dark mode too
+- **Patch 1.04** ("Introducing Streaks to Progra!") gains a last bullet: "Also new, dark mode! Progra now follows your phone's light or dark setting. To pick one yourself, go to Settings and tap Appearance."
+- **A dark picture, too.** A patch-note `image` can now carry a `darkSrc`, which shows instead while the app is dark (`dark:` variant). Both example-profile pictures were retaken (light and dark, 1179×450, with no divider). A test checks the dark path the same way as the light one.
+- Shipping this together means turning on **both** `NEXT_PUBLIC_STREAKS` and `NEXT_PUBLIC_DARK_MODE`. With dark mode off, the post would announce a feature nobody can see.
+- **Gate (combined tree with dark mode):**
+  - tsc and eslint are clean.
+  - vitest passes 1494 of 1494.
+  - The build passes with both flags on.
+
 ### 22:55 · Dark mode, behind `DARK_MODE` (uncommitted, dark)
 From `design_handoff_dark_mode/`. Every screen keeps its layout; only colors change. The one new UI is Settings → Display → Appearance (System / Light / Dark, per device).
 - **Flag:** `DARK_MODE` (`NEXT_PUBLIC_DARK_MODE`). The default is "System", so turning it on switches every dark-mode phone at once; it ships with a patch note. Off, nothing puts `.dark` on `<html>`, and the light theme is identical to before.
