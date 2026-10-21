@@ -545,6 +545,33 @@
    }
   },
   {
+   "name": "habit: a backfill made inside the window still doesn't count",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [],
+   "ticks": [
+    {
+     "on": "2026-10-22",
+     "at": "2026-10-24T17:00:00Z"
+    }
+   ],
+   "now": "2026-10-25T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 4,
+    "freezesLeft": 2,
+    "current": 0,
+    "longest": 0,
+    "todayActive": false,
+    "shared": {
+     "current": 0,
+     "longest": 0
+    }
+   }
+  },
+  {
    "name": "a session and a tick on one day count once",
    "tz": "America/Los_Angeles",
    "launch": "2026-10-21",
