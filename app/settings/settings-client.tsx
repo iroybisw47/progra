@@ -38,6 +38,7 @@ import {
   NUDGES,
   RECAP_PUSH,
   SOCIAL_PUSH,
+  STREAKS,
   UW,
 } from "@/lib/flags";
 import {
@@ -922,6 +923,10 @@ function NudgesRow({ initialEnabled }: { initialEnabled: boolean }) {
 // name whichever senders are actually live, or someone turning this off can't
 // tell what they're losing.
 function pushRowLabel(): string {
+  // Streak reminders ride the same switch (lib/push/send-streak-push.ts).
+  if (STREAKS && SOCIAL_PUSH) {
+    return RECAP_PUSH ? "Social, recap & streaks" : "Social & streak reminders";
+  }
   if (SOCIAL_PUSH && RECAP_PUSH) return "Social & weekly recap";
   if (RECAP_PUSH) return "Weekly recap";
   return NUDGES ? "Likes, comments & nudges" : "Likes & comments";

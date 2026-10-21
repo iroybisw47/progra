@@ -60,9 +60,12 @@ params are `Promise<{...}>` and must be `await`ed.
   thread-guard trigger stamped from the replied-to row, re-checked for
   visibility and blocks at send time; for a like or comment on a posted weekly
   review, the `recap_posts` row's owner, after `toggle_recap_reaction`'s
-  `can_see_recap` or the comment insert policy passed — `app/actions/recap-social.ts`). **(3) The scheduled recap sender**
-  (`lib/push/send-recap-push.ts`) — the odd one out, because it has **no caller
-  at all**: a clock triggers it, not a person, so there is no identity to check
+  `can_see_recap` or the comment insert policy passed — `app/actions/recap-social.ts`). **(3) The scheduled senders** — the recap
+  (`lib/push/send-recap-push.ts`) and, since streaks, the streak reminder and
+  freeze note (`lib/push/send-streak-push.ts`, warranted by
+  `/api/cron/streaks`'s `CRON_SECRET` check plus `streak_push_candidates()` and
+  `settle_all_streaks()`, exactly as described next) — the odd ones out, because
+  each has **no caller at all**: a clock triggers it, not a person, so there is no identity to check
   and no prior RLS-passing write to inherit a warrant from. Its authorization is
   instead (a) the `CRON_SECRET` bearer match in
   `app/api/cron/recap-ready/route.ts` and (b) `recap_push_candidates()`, a
@@ -242,14 +245,17 @@ needs a device.
 "Deploy" means: commit all + push `main`. This repo is normally an
 **uncommitted working tree** — commit/push only when explicitly asked.
 
-## Scheduled work — one job, and only one
+## Scheduled work — two jobs, and only two
 
 "There is no cron in this repo" was true until the weekly-recap push, and is
 still the default: session caps, seat admission and past-block cleanup are all
 enforced lazily by `<Ensure…/>` leaves in the root layout on the next page
 load. Reach for that pattern first.
 
-The **one** exception is `app/api/cron/recap-ready/route.ts`, driven hourly by
+There are two exceptions. The second is `app/api/cron/streaks/route.ts`, which
+settles every member's closed streak days and sends the 7pm reminder and the
+freeze note; its schedule is `.claude/plans/streaks.sql` STEP 4, same machinery.
+The first is `app/api/cron/recap-ready/route.ts` (written, never scheduled), driven hourly by
 Supabase `pg_cron` + `pg_net` (NOT Vercel Cron — the Hobby plan allows 2 jobs at
 daily granularity, and "Sunday 6pm local" spans ~27 hours of UTC offsets). Lazy
 enforcement cannot work there because the entire point is reaching someone who

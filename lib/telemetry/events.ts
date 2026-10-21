@@ -111,6 +111,10 @@ export const NOTIFICATION_TYPES = [
   // notification_log.type lists these too: .claude/plans/friend-push.sql.
   "friend_request",
   "friend_accepted",
+  // Streak pushes (lib/push/send-streak-push.ts). The prod CHECK lists these
+  // once .claude/plans/streaks.sql STEP 3 has run.
+  "streak_reminder",
+  "streak_freeze",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 const NUDGE_PRESETS_ALL = [...NUDGE_PRESET_KEYS, ...PRAISE_PRESET_KEYS] as const;

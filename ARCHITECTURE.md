@@ -139,7 +139,8 @@ unaffected.
 | `/sessions` | `sessions/page.tsx` | `sessions-client.tsx` | Paginated past-session browser/editor. |
 | `/admin/analytics` | `admin/analytics/page.tsx` | `roster.tsx`, `charts.tsx`, `categorize-button.tsx` (the rest is server) | **Internal analytics dashboard** (2026-10-07; `requireAdmin()` → 404, reachable only from the Admin hub). Three tabs as `?tab=` — Overview · Usage & social · Onboarding, ghosts & roster — behind one GET filter row (date range, segment, signup cohort, include-internal). Every number comes from the phase-4 `admin_*` RPCs; nothing is computed in TypeScript. Charts are recharts via `components/ui/chart.tsx`. |
 | `/admin/analytics/user/[id]` | `admin/analytics/user/[id]/page.tsx` | — | One person's internal timeline (`admin_user_timeline`), newest first: kinds and ids, never content. |
-| `/api/cron/recap-ready` | `api/cron/recap-ready/route.ts` | — | The one scheduled job: hourly from Supabase `pg_cron` + `pg_net`, `CRON_SECRET`-gated, fans out the weekly-recap push. Excluded from `proxy.ts`. |
+| `/api/cron/recap-ready` | `api/cron/recap-ready/route.ts` | — | Scheduled job one (written, never scheduled): hourly from Supabase `pg_cron` + `pg_net`, `CRON_SECRET`-gated, fans out the weekly-recap push. Excluded from `proxy.ts`. |
+| `/api/cron/streaks` | `api/cron/streaks/route.ts` | — | Scheduled job two (streaks P5): hourly at :05 from `pg_cron` + `pg_net` (`.claude/plans/streaks.sql` STEP 4), `CRON_SECRET`-gated. Settles every member's closed streak days (`settle_all_streaks`), then sends the 7pm reminder and the freeze note (`streak_push_candidates`). No-op 200 while `STREAKS` is off. Excluded from `proxy.ts`. |
 | `/api/analytics/events` | `api/analytics/events/route.ts` | — | The event ingest (POST only, always 204). Thin shell over `lib/telemetry/ingest-server.ts`. **Excluded from `proxy.ts`** on purpose — see §9. |
 
 **Convention:** `page.tsx` is the server boundary (data + auth); `*-client.tsx`
@@ -639,7 +640,11 @@ durably.
   `app/api/cron/recap-ready/route.ts` plus `recap_push_candidates()`, a definer
   RPC revoked from anon+authenticated that selects the due users itself; the
   sender acts only on that RPC's rows, never on a user id taken off a request,
-  and re-reads the opt-out rather than trusting the RPC did.
+  and re-reads the opt-out rather than trusting the RPC did. The streak sender
+  (`lib/push/send-streak-push.ts`) is the same shape on the same warrant:
+  `app/api/cron/streaks/route.ts`'s `CRON_SECRET` match plus
+  `streak_push_candidates()` and `settle_all_streaks()`, definers revoked from
+  every client role.
   **(5)** the analytics ingest route (`lib/telemetry/ingest-server.ts`): identity
   is established FIRST, from the access-token cookie verified locally with
   `auth.getClaims(token)` — the one Supabase call that neither reads nor

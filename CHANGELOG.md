@@ -7,6 +7,35 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-20
 
+### 23:20 · Streaks P5: the 7pm reminder and the freeze note (feat/streaks, dark)
+- **`app/api/cron/streaks/route.ts`** is the second scheduled job. It uses recap-ready's `CRON_SECRET` check (verified on `next start`: 401 with no bearer or a wrong bearer). With `STREAKS` off it returns a no-op 200. Each run:
+  1. `settle_all_streaks()` records closed days and freezes even for people who don't open the app;
+  2. then, with `SOCIAL_PUSH` on, `streak_push_candidates()`;
+  3. then `sendStreakPush` for each candidate, serially.
+- **`lib/push/streak-push.ts`** (pure, tested) holds the copy, the keys and the TTLs.
+  - **Reminder**, 19:00–21:59 local, for a streak of 3 or more with today not yet counted: "Today's still open". The tap goes to `/clock`, and the 2h TTL means it can't land after the evening.
+  - **Freeze**, 08:00–21:59 the morning after: "A freeze kept your streak going". The tap goes to `/me`.
+  - The tone test bans lose/break/miss.
+- **`lib/push/send-streak-push.ts`** is the recap sender's pipeline:
+  1. re-read the opt-out;
+  2. claim the `push_log` key `streak-<kind>:<uid>:<day>`;
+  3. read the tokens and send to APNs;
+  4. delete `gone` tokens;
+  5. write `notification_log` (`streak_reminder` / `streak_freeze`, added to `NOTIFICATION_TYPES`).
+- **Other code:**
+  - Streak pushes share the existing push switch, and Settings' label now names streaks.
+  - **There is no friend push**, by the owner's call.
+- **SQL** (`.claude/plans/streaks.sql`):
+  - STEP 3 adds `settle_all_streaks`, `streak_push_candidates` and the `notification_log` type CHECK. The quiet hours (22:00–07:59) live in the RPC.
+  - STEP 4 is the pg_cron/pg_net/Vault schedule. Neither is installed in prod yet.
+  - The harness now passes 129 checks, with all 21 mutants caught.
+- **Docs:** AGENTS.md's "one job" is now two, and service-role kind (3) names the streak sender. ARCHITECTURE.md and `lib/supabase/admin.ts` are updated to match.
+- **Gate:**
+  - tsc and eslint are clean.
+  - vitest passes 1469 of 1469.
+  - The build passes.
+  - On `next start`, `/dev/streaks` renders the not-found page (same as `/dev/friends-v3`), and `/me`, `/feed` and `/profile/x` redirect to `/login` signed out.
+
 ### 22:40 · Streaks P4: a friend's streak on their profile (feat/streaks, dark)
 - `/profile/[username]` reads `getFriendStreak` in the same parallel wave as the nudge state. The RPC re-checks friendship and blocks itself, and it returns the friend's **shared-only** current and longest, never their freezes.
 - The badge rides the name's last line (`flex-wrap`). It shows from 2 days and only for an accepted friend, never before launch. Your own page there shows your full streak instead.

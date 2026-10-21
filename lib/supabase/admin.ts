@@ -30,7 +30,10 @@ import { createClient } from "@supabase/supabase-js";
 //    recap_push_candidates(), a definer RPC revoked from anon+authenticated
 //    that picks the recipients itself. Same underlying need as (2): device
 //    tokens and the push opt-out are owner-only rows and there is no session
-//    to read them under.
+//    to read them under. The streak sender (lib/push/send-streak-push.ts) is
+//    the same kind: /api/cron/streaks matches CRON_SECRET, and
+//    streak_push_candidates() and settle_all_streaks(), definers revoked from
+//    every client role, decide on their own whom to settle and push.
 // 4. The analytics ingest route (lib/telemetry/ingest-server.ts). Identity is
 //    established FIRST, from the access-token cookie verified locally against
 //    the project's JWKS — nothing in the request body is ever treated as a
