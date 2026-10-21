@@ -7,6 +7,26 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-20
 
+### 18:10 · Onboarding ends on the notifications ask, in v2 and v3
+- **Owner's request:** the notifications slide should be the last step of onboarding, in both v2 (live) and v3 (dark).
+- **v2:** the order is now welcome → how → goal → habit → clock → post → friends → **notify** (`STEPS`, `lib/onboarding.ts`). Whichever step is last finishes the run (`isLast` → `finish()`):
+  - In the app, notify is last. "Enable notifications" shows iOS's dialog, then finishes on any answer, and "Skip for now" finishes without asking. On an already-answered device the CTA reads "Start my week".
+  - Find friends now reads "Continue" / "Continue without sharing" there.
+  - On the website, where notify isn't shown, Find friends is still last and still finishes ("Start my week").
+- **v3:** the order is now … friends → ready → **notify** (`V3_STEPS`, `SCREEN.ready = 5`, `SCREEN.notify = 6`).
+  - When notify is part of the run, "Ready?"'s CTA reads "Continue", and the notifications screen does the hand-off. Its "Turn on notifications" is now the prefetched Clock-tab link: iOS's dialog, then the exit and the Clock tab. "Not now" hands off without asking. Back or ✕ while the dialog is up cancels the hand-off.
+  - Its section label is now "One last thing".
+  - Where notify isn't shown (the website, an answered device, nothing to send), "Ready?" is last and its "Start session" hands off as before.
+  - `stepOverNotify` is gone, since a last screen is never stepped over, and `progressFor` simplifies. The dev preview's notifications screen is now `?screen=7`.
+- **Analytics:** no SQL. The step names are unchanged, and the dashboard rows follow `STEPS`, so notify now lists last.
+  - One small skew: `admin_onboarding_stats` still infers "reached" from v2's old ordinals for anyone without a view event. So a v2 user stopped on Find friends is counted as having passed notify. Every new signup sends view events, so this barely matters.
+- **Gate:**
+  - tsc and eslint (changed files) are clean.
+  - vitest 1377/1377 passes, with new tests for the last step in each flow.
+  - The build passes (with the self-link moved aside, then restored).
+  - `/dev/onboarding-v3?fixture=ready` was driven in Playwright at 393×852: Ready → Continue → notifications (CTA is the link), Back returns to Ready, and "Not now" plays the hand-off.
+  - v2's notify step can't render in a browser (native-only), so it is covered by unit tests only and needs a device check. Not committed.
+
 ### 17:40 · In-app survey, answered on load, results on the analytics dashboard
 - **Owner's request:** a survey in the app, one question at a time, that members must finish on load with no option to skip. The output goes on the analytics dashboard.
 - **Three questions** (`lib/survey.ts`, survey id `2026-10-pricing-social`): what they'd pay for, what would get their friends to join, and how they feel about daily notifications. The copy is the owner's, with light fixes ("would you give you access", the unclosed parenthesis). Each question takes one answer. The "Fuck Progra" option was dropped at the owner's request after the preview, before any SQL ran, so no shipped key changed.

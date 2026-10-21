@@ -19,8 +19,8 @@ import { OnboardingV3Client } from "./onboarding-v3-client";
 //                                                          (Screen 5 searching)
 //   /dev/onboarding-v3?screen=5&fixture=habits             (Screen 5, not searching)
 //   /dev/onboarding-v3?screen=5&q=zz                       (Screen 5, any search)
-//   /dev/onboarding-v3?screen=6                            (the notifications screen)
 //   /dev/onboarding-v3?fixture=ready|ready-added           (the ready screen, nobody or one added)
+//   /dev/onboarding-v3?screen=7                            (the notifications screen, last)
 //   /dev/onboarding-v3?fixture=uw-sheet|uw-sheet-no|uw-page
 //                                                          (the UW sheet up over the welcome:
 //                                                          the tiles, Yes open, No selected)

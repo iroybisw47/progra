@@ -16,7 +16,6 @@ import {
   notifyReasons,
   notifyScreenShown,
   progressFor,
-  stepOverNotify,
   V3_HABITS,
   clampGoalHours,
   formatGoalHours,
@@ -55,8 +54,13 @@ describe("screens", () => {
     expect(V3_STEPS[SCREEN.habits]).toBe("habit");
     expect(V3_STEPS[SCREEN.intro]).toBe("how");
     expect(V3_STEPS[SCREEN.friends]).toBe("friends");
-    expect(V3_STEPS[SCREEN.notify]).toBe("notify");
     expect(V3_STEPS[SCREEN.ready]).toBe("clock");
+    expect(V3_STEPS[SCREEN.notify]).toBe("notify");
+  });
+
+  it("end on the notifications screen, after the ready screen", () => {
+    expect(SCREEN.notify).toBe(SCREEN_COUNT - 1);
+    expect(SCREEN.ready).toBe(SCREEN.notify - 1);
   });
 });
 
@@ -84,19 +88,13 @@ describe("the notifications screen", () => {
     expect(notifyReasons({ ...NONE, socialPush: true, nudges: true })).toHaveLength(3);
   });
 
-  it("is stepped over in the direction of travel when it isn't part of the run", () => {
-    expect(stepOverNotify(SCREEN.notify, SCREEN.friends, false)).toBe(SCREEN.ready);
-    expect(stepOverNotify(SCREEN.notify, SCREEN.ready, false)).toBe(SCREEN.friends);
-    expect(stepOverNotify(SCREEN.notify, SCREEN.friends, true)).toBe(SCREEN.notify);
-    expect(stepOverNotify(SCREEN.ready, SCREEN.friends, false)).toBe(SCREEN.ready);
-    expect(stepOverNotify(SCREEN.goal, SCREEN.identity, false)).toBe(SCREEN.goal);
-  });
-
   it("counts the progress bar as the person sees the run", () => {
     expect(progressFor(SCREEN.friends, true)).toEqual({ at: SCREEN.friends, of: 7 });
     expect(progressFor(SCREEN.ready, true)).toEqual({ at: SCREEN.ready, of: 7 });
+    // The notifications screen is the last of seven, so the bar is full.
+    expect(progressFor(SCREEN.notify, true)).toEqual({ at: 6, of: 7 });
     expect(progressFor(SCREEN.friends, false)).toEqual({ at: SCREEN.friends, of: 6 });
-    // The ready screen is the last of six, so the bar is full.
+    // Without it, the ready screen is the last of six, so the bar is full.
     expect(progressFor(SCREEN.ready, false)).toEqual({ at: 5, of: 6 });
   });
 });
@@ -507,18 +505,18 @@ describe("wizardReducer: moving between screens", () => {
     expect(wizardReducer(s, { type: "back" })).toBe(s);
   });
 
-  // The reducer steps back one screen, onto notifications. Stepping over it
-  // when it isn't part of the run is the shell's (stepOverNotify).
-  it("has Back on the ready screen", () => {
+  it("has Back on the ready and notifications screens", () => {
     const s = run([{ type: "go", to: SCREEN.ready }]);
-    expect(wizardReducer(s, { type: "back" }).screen).toBe(SCREEN.notify);
+    expect(wizardReducer(s, { type: "back" }).screen).toBe(SCREEN.friends);
+    const n = run([{ type: "go", to: SCREEN.notify }]);
+    expect(wizardReducer(n, { type: "back" }).screen).toBe(SCREEN.ready);
   });
 
   it("returns the same state for a no-op move, and clamps a bad target", () => {
     const s = initialWizardState();
     expect(wizardReducer(s, { type: "go", to: 0 })).toBe(s);
     expect(wizardReducer(s, { type: "go", to: Number.NaN })).toBe(s);
-    expect(wizardReducer(s, { type: "go", to: 99 }).screen).toBe(SCREEN.ready);
+    expect(wizardReducer(s, { type: "go", to: 99 }).screen).toBe(SCREEN.notify);
   });
 
   it("takes the UW sheet down on any move, so Back lands on the welcome without it", () => {

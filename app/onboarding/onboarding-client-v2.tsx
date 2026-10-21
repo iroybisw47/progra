@@ -120,6 +120,9 @@ export function OnboardingClientV2({
       ? Math.min(navIndex, steps.length - 1)
       : Math.max(0, steps.findIndex((s) => s === (initialStep ?? "welcome")));
   const step = steps[stepIndex];
+  // Whichever step is last finishes the run: notify in the app, which closes
+  // it since 2026-10-20, and friends on the website, where notify isn't shown.
+  const isLast = stepIndex === steps.length - 1;
   const [done, setDone] = useState(initialDone);
 
   const notifyPermission = useNotificationPermission();
@@ -307,16 +310,22 @@ export function OnboardingClientV2({
     });
   }
 
+  // On from the step in front, or out of onboarding when it's the last one.
+  function onward() {
+    if (isLast) finish();
+    else next();
+  }
+
   function askNotifications() {
     // Only asks when the state is `prompt`, so a replay on an already-answered
-    // device shows no dialog; advances on ANY outcome — a refusal must never
-    // trap someone in onboarding.
+    // device shows no dialog; moves on for ANY outcome — a refusal must never
+    // trap someone in onboarding. Notify is the last step, so on is out.
     if (notifyPermission !== "prompt") {
       track("notification_permission_skipped", {
         source: "onboarding",
         state: notifyPermission ?? "unknown",
       });
-      next();
+      onward();
       return;
     }
     void requestNotificationPermission().then((result) => {
@@ -326,7 +335,7 @@ export function OnboardingClientV2({
       if (result === "granted" && HABIT_REMINDERS && savedHabits.length > 0) {
         setHabitReminderPref({ enabled: true, time: DEFAULT_HABIT_REMINDER_TIME });
       }
-      next();
+      onward();
     });
   }
 
@@ -399,7 +408,12 @@ export function OnboardingClientV2({
       dim: true,
     },
     notify: {
-      label: notifyPermission === "prompt" ? "Enable notifications" : "Continue",
+      label:
+        notifyPermission === "prompt"
+          ? "Enable notifications"
+          : isLast
+            ? "Start my week"
+            : "Continue",
       onClick: askNotifications,
     },
     post: {
@@ -408,8 +422,8 @@ export function OnboardingClientV2({
       dim: !posted,
     },
     friends: {
-      label: shared ? "Start my week" : "Share with friends",
-      onClick: () => (shared ? finish() : void share()),
+      label: shared ? (isLast ? "Start my week" : "Continue") : "Share with friends",
+      onClick: () => (shared ? onward() : void share()),
     },
   };
 
@@ -433,10 +447,13 @@ export function OnboardingClientV2({
           source: "onboarding",
           state: notifyPermission ?? "unknown",
         });
-        next();
+        onward();
       },
     },
-    friends: { label: "Start my week without sharing", onClick: finish },
+    friends: {
+      label: isLast ? "Start my week without sharing" : "Continue without sharing",
+      onClick: onward,
+    },
   };
 
   const eyebrow = eyebrowFor(step, steps);

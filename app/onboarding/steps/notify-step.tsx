@@ -10,10 +10,10 @@ import {
 
 import { CARD, CheckLine, StepTemplate } from "../onboarding-ui";
 
-// Step 5 (shell only). Straight after the practice clock-in, which is what
-// makes the point: they've just seen a session run away on fast-forward.
-// The pinned CTA does the asking; this card says exactly what will and won't
-// arrive, because iOS asks once and never again.
+// The last step, in the app only (since 2026-10-20, the owner's call: the
+// permission ask closes the run, after friends). The pinned CTA does the
+// asking and then finishes onboarding; this card says exactly what will and
+// won't arrive, because iOS asks once and never again.
 export function NotifyStep({
   eyebrow,
   permission,

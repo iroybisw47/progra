@@ -9,16 +9,17 @@ import { aboveCta } from "./frame";
 // "Not now" sits this far above the CTA, as the intro's "Skip intro" does.
 const SKIP_TO_CTA_PX = 28;
 
-// The notifications screen, "Turn on notifications": after finding friends, before the ready
-// screen. The header in the habits screen's layout (section label, serif
+// The notifications screen, "Turn on notifications": the last screen, after
+// the ready screen (2026-10-20, the owner's call). The header in the habits screen's layout (section label, serif
 // question, one line under it), then a card listing what notifications are
 // for in this build (notifyReasons, lib/onboarding-v3.ts), so it never
 // promises a reminder that's switched off.
 //
 // iOS shows its permission dialog once, ever, so the dialog only comes from
 // the CTA's "Turn on notifications" (the shell's askNotifications), right
-// after this has said what it's for. "Not now" goes on without asking, and
-// Settings can ask later. The shell only brings this screen up while the ask
+// after this has said what it's for, and then the shell hands off to the
+// Clock tab. "Not now" hands off without asking; Settings can ask later. The
+// shell only brings this screen up while the ask
 // can still do something (notifyScreenShown): in the app, unanswered.
 export function NotifyScreen({
   phase,
@@ -37,7 +38,7 @@ export function NotifyScreen({
   return (
     <div className="flex h-full flex-col px-5 pt-4" style={{ paddingBottom: aboveCta(SKIP_TO_CTA_PX) }}>
       <div className="section-label" style={itemStyle(phase, 0, reduced)}>
-        Notifications
+        One last thing
       </div>
       <h2
         className="text-ink mt-2.5 font-serif text-[25px] leading-[1.18] font-medium tracking-[-0.015em] text-pretty"

@@ -39,8 +39,8 @@ export const SCREEN = {
   habits: 2,
   intro: 3,
   friends: 4,
-  notify: 5,
-  ready: 6,
+  ready: 5,
+  notify: 6,
 } as const;
 export const SCREEN_COUNT = V3_STEPS.length;
 
@@ -54,6 +54,10 @@ export const SCREEN_COUNT = V3_STEPS.length;
 // show a button that would do nothing. Settings is the way back for "denied".
 // So does a build with nothing to send (notifyReasons empty): the ask would
 // spend iOS's one dialog on nothing.
+//
+// It is the LAST screen (2026-10-20, the owner's call), after the ready
+// screen, and it does the hand-off to the Clock tab. Where it isn't shown,
+// the ready screen is last and hands off itself, as it always did.
 export function notifyScreenShown(
   permission: string | null,
   reasons: readonly string[]
@@ -61,20 +65,12 @@ export function notifyScreenShown(
   return permission === "prompt" && reasons.length > 0;
 }
 
-// Where a move lands once the notifications screen is stepped over: on through it the way the
-// move was going (forward to the ready screen, Back to friends). Every other
-// destination is left alone.
-export function stepOverNotify(to: number, from: number, shown: boolean): number {
-  if (shown || to !== SCREEN.notify) return to;
-  return to > from ? SCREEN.ready : SCREEN.friends;
-}
-
-// The progress bar's step and total, as the person sees the wizard: with
-// the notifications screen stepped over there's one screen fewer, and the ready screen is the
-// last of six rather than seven.
+// The progress bar's step and total, as the person sees the wizard: without
+// the notifications screen there's one screen fewer, and the ready screen is
+// the last of six rather than seven. Being last, it never shifts an earlier
+// screen's number.
 export function progressFor(screen: number, shown: boolean): { at: number; of: number } {
-  if (shown) return { at: screen, of: SCREEN_COUNT };
-  return { at: screen > SCREEN.notify ? screen - 1 : screen, of: SCREEN_COUNT - 1 };
+  return { at: screen, of: shown ? SCREEN_COUNT : SCREEN_COUNT - 1 };
 }
 
 // What the notifications screen says they're for: only what this build will

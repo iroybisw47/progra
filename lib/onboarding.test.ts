@@ -26,14 +26,21 @@ describe("steps", () => {
     expect(web).not.toContain("notify");
     expect(eyebrowFor("welcome", native)).toBe(null);
     expect(eyebrowFor("how", native)).toBe("Step 1 of 7");
-    expect(eyebrowFor("friends", native)).toBe("Step 7 of 7");
+    expect(eyebrowFor("friends", native)).toBe("Step 6 of 7");
+    expect(eyebrowFor("notify", native)).toBe("Step 7 of 7");
     expect(eyebrowFor("friends", web)).toBe("Step 6 of 6");
+  });
+
+  it("ends on the notifications ask in the app, and on friends on the web", () => {
+    expect(activeSteps(true, false).at(-1)).toBe("notify");
+    expect(activeSteps(true, true).at(-1)).toBe("notify");
+    expect(activeSteps(false, false).at(-1)).toBe("friends");
   });
 
   it("marks the practice steps", () => {
     const native = activeSteps(true, false);
     expect(eyebrowFor("clock", native)).toBe("Step 4 of 7 · Practice");
-    expect(eyebrowFor("post", native)).toBe("Step 6 of 7 · Practice");
+    expect(eyebrowFor("post", native)).toBe("Step 5 of 7 · Practice");
     expect(eyebrowFor("post", activeSteps(false, false))).toBe("Step 5 of 6 · Practice");
   });
 
@@ -52,9 +59,10 @@ describe("steps", () => {
     const native = activeSteps(true, true);
     const web = activeSteps(false, true);
     // uw sits after post and before friends, and is not practice.
-    expect(eyebrowFor("post", native)).toBe("Step 6 of 8 · Practice");
-    expect(eyebrowFor("uw", native)).toBe("Step 7 of 8");
-    expect(eyebrowFor("friends", native)).toBe("Step 8 of 8");
+    expect(eyebrowFor("post", native)).toBe("Step 5 of 8 · Practice");
+    expect(eyebrowFor("uw", native)).toBe("Step 6 of 8");
+    expect(eyebrowFor("friends", native)).toBe("Step 7 of 8");
+    expect(eyebrowFor("notify", native)).toBe("Step 8 of 8");
     expect(eyebrowFor("uw", web)).toBe("Step 6 of 7");
     expect(eyebrowFor("friends", web)).toBe("Step 7 of 7");
   });
@@ -73,17 +81,17 @@ describe("v3 steps", () => {
     for (const step of V3_STEPS) expect(STEPS).toContain(step);
   });
 
-  it("is seven distinct screens, welcome first and clock last", () => {
+  it("is seven distinct screens, welcome first and notifications last", () => {
     expect(V3_STEPS).toHaveLength(7);
     expect(new Set(V3_STEPS).size).toBe(7);
     expect(V3_STEPS[0]).toBe("welcome");
-    expect(V3_STEPS[V3_STEPS.length - 1]).toBe("clock");
+    expect(V3_STEPS[V3_STEPS.length - 1]).toBe("notify");
   });
 
   // v3's order differs from v2's, which is the reason it is its own list.
-  // Notifications is the last step before the hand-off, after friends.
-  it("puts the intro after goals and habits, and notifications after friends", () => {
-    expect(V3_STEPS).toEqual(["welcome", "goal", "habit", "how", "friends", "notify", "clock"]);
+  // Notifications is the last screen, after "Ready?", and does the hand-off.
+  it("puts the intro after goals and habits, and notifications after ready", () => {
+    expect(V3_STEPS).toEqual(["welcome", "goal", "habit", "how", "friends", "clock", "notify"]);
   });
 
   it("drops the practice post and folds uw into welcome", () => {

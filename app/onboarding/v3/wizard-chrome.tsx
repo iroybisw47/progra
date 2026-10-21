@@ -23,7 +23,7 @@ import { CLOSE_SLOT, PROGRESS_TRACK, V3_TOP_ROW } from "./frame";
 // The progress bar fills to scaleX((at + 1) / of) over 760ms on E (R:36),
 // or 200ms linear under reduced motion (TRAVEL.progress). `at` and `of` are
 // the screen and the count as this run has them (progressFor): seven with
-// the notifications screen, six where it's stepped over.
+// the notifications screen last, six where it isn't shown.
 //
 // Back and the ✕ are drawn at 32px (R:35) and each carries an invisible
 // 6px margin of hit area (`before:`), so the target is 44px.
@@ -33,7 +33,7 @@ import { CLOSE_SLOT, PROGRESS_TRACK, V3_TOP_ROW } from "./frame";
 // without it a replayer could only leave by creating one. First-run users
 // never get it. The avatar moves left to make room.
 //
-// `leaving` is Screen 6 handing off to the Clock tab (plan P7, R:152): the
+// `leaving` is the last screen handing off to the Clock tab (plan P7, R:152): the
 // whole row fades out, opacity only (HANDOFF_FADE), and stops taking taps.
 
 // 32px + 6px each side.

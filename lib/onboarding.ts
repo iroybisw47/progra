@@ -11,10 +11,10 @@ export const STEPS = [
   "goal",
   "habit",
   "clock",
-  "notify",
   "post",
   "uw",
   "friends",
+  "notify",
 ] as const;
 export type Step = (typeof STEPS)[number];
 
@@ -23,7 +23,10 @@ export type Step = (typeof STEPS)[number];
 // length, and the dots, the "step N of M" eyebrow and the bounds clamp would
 // all disagree with each other.
 //
-//   notify — native-only; there are no notifications on the website.
+//   notify — native-only; there are no notifications on the website. LAST
+//            since 2026-10-20 (owner's call): the permission ask closes the
+//            run, after friends. So on the website `friends` is last instead,
+//            and whichever step is last is the one that finishes.
 //   uw     — only for a student who ticked "I'm a UW student" on `welcome`.
 //            The tick is gone (plan P9a): v2 always passes false, and the
 //            parameter goes with v2 itself in P11.
@@ -60,23 +63,25 @@ export function eyebrowFor(step: Step, steps: readonly Step[]): string | null {
 //   habit    3 · habits
 //   how      4 · the three-beat intro to what Progra is
 //   friends  5 · find your friends
-//   notify   6 · turn on notifications (in the app, while iOS can still ask)
-//   clock    7 · "Ready?", then the real Clock tab
+//   clock    6 · "Ready?"
+//   notify   7 · turn on notifications (in the app, while iOS can still ask),
+//               then the real Clock tab. Last since 2026-10-20, the owner's
+//               call; where it isn't shown, "Ready?" is last and hands off
 //
 // The ORDER is v3's own: `how` moves from second to fourth. Anything that
 // infers "reached step N" from a position has to use the list for the flow it
 // is counting. v2's practice `post` and its separate uw step have no v3
-// screen. `notify` is stepped over wherever it can't ask (the website, or a
+// screen. `notify` is left out wherever it can't ask (the website, or a
 // device that has already answered; lib/onboarding-v3.ts, notifyScreenShown),
-// so a run can skip from friends straight to clock.
+// so a run can end on clock.
 export const V3_STEPS = [
   "welcome",
   "goal",
   "habit",
   "how",
   "friends",
-  "notify",
   "clock",
+  "notify",
 ] as const satisfies readonly Step[];
 export type V3Step = (typeof V3_STEPS)[number];
 
