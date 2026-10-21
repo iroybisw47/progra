@@ -124,6 +124,12 @@ export type Profile = {
   // its reason with the same polarity: surveyOwed() reads an absent key as
   // "don't ask", which matters most here because the survey can't be skipped.
   survey_done?: string | null;
+  // When this member dismissed the streak announcement card (lib/streaks-view.ts
+  // announcementFor, .claude/plans/streaks.sql). User-writable like
+  // survey_done. An absent key reads as never dismissed, which is safe: without
+  // the column there is no streak SQL either, get_my_streak fails, and the card
+  // never renders.
+  streak_announcement_seen_at?: string | null;
   // "Last opened", for the admin analytics roster. Written by touch_last_seen()
   // and, once ANALYTICS is on, by the ingest RPC on every app_opened event.
   // Never shown to anyone but the admin. (May be absent until the column SQL is

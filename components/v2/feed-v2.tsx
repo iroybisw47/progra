@@ -6,6 +6,7 @@ import { FeedLivePoll } from "@/components/feed-live-poll";
 import { InviteShare } from "@/components/v2/invite-share";
 import { RecapFeedCard } from "@/components/v2/recap-feed-card";
 import { SessionCard } from "@/components/v2/session-card";
+import { StreakAnnouncementSlot } from "@/components/v2/streak-announcement-slot";
 import { WeeklyReviewCard } from "@/components/v2/weekly-review-card";
 import { RECAP_V2 } from "@/lib/flags";
 import {
@@ -87,6 +88,9 @@ export async function FeedV2() {
         <header className="px-5">
           <span className="section-label">Feed</span>
         </header>
+
+        {/* The streak announcement and settle leaf; nothing with STREAKS off. */}
+        <StreakAnnouncementSlot className="px-5 pt-3" />
 
         <FeedLivePoll />
         <ClockedInStrip items={clockedIn} serverNow={now} />

@@ -240,6 +240,10 @@ export const EVENTS = {
   uw_prompt_shown: { via: ["sheet", "card"] },
   uw_prompt_answered: { via: ["sheet", "card"], answer: ["yes", "no", "later", "dismiss"] },
 
+  // --- streaks (lib/streaks.ts) -----------------------------------------------
+  streak_sheet_opened: { own: "bool" },
+  streak_announcement_dismissed: { phase: ["prelaunch", "launched"] },
+
   // --- feedback. `length` only — the body lives behind an admin RPC. ---------
   bug_report_submitted: { route: ROUTES },
   suggestion_submitted: { length: "int" },

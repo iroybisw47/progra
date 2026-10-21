@@ -36,3 +36,12 @@ export const STREAK_MILESTONES = [7, 30, 100] as const;
 
 // A friend's streak shows on their profile from this length.
 export const FRIEND_STREAK_MIN = 2;
+
+// The announcement card's words. WRITTEN BY THE OWNER, not by Claude Code: the
+// placeholder below never renders in production (lib/streaks-view.ts
+// announcementFor), so the flag can ship before the copy does. Change it with
+// the launch date.
+export const STREAK_ANNOUNCEMENT_COPY = {
+  title: "[ANNOUNCEMENT COPY]",
+  body: "[ANNOUNCEMENT COPY]",
+} as const;

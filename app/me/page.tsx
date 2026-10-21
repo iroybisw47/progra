@@ -13,6 +13,10 @@ import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { createClient } from "@/lib/supabase/server";
 import { RECAP_V2, REDESIGN, SOCIAL_ENABLED } from "@/lib/flags";
 import { WeeklyReviewsSection } from "@/components/v2/weekly-review-card";
+import { StreakAnnouncementSlot } from "@/components/v2/streak-announcement-slot";
+import { StreakBadge } from "@/components/v2/streak-badge";
+import { getMyStreak } from "@/lib/db/streaks";
+import { freezesLine, myBadge } from "@/lib/streaks-view";
 import { listRecapCommentCounts, listRecapKudos } from "@/lib/db/recap-social";
 import { listRecapPostsForUser } from "@/lib/db/weekly-reviews";
 import { countFriendsForUser } from "@/lib/db/friends";
@@ -100,6 +104,7 @@ export default async function MePage() {
     friendCount,
     reviews,
     reviewSocial,
+    streak,
   ] = await Promise.all([
     listActiveGoalsForUser(user.id),
     listRecentSessionsForUser(user.id),
@@ -112,7 +117,10 @@ export default async function MePage() {
     friendCountPromise,
     reviewsPromise,
     reviewSocialPromise,
+    // Null with STREAKS off, so the identity row below renders as it always has.
+    getMyStreak(),
   ]);
+  const streakBadge = myBadge(streak);
 
   // "Habits done" and the section count are this-week numbers; habitHistory
   // spans the editor's whole backfill window.
@@ -166,10 +174,31 @@ export default async function MePage() {
             className="size-[58px] text-xl"
           />
           <div className="flex min-w-0 flex-1 flex-col">
-            <span className="text-ink truncate font-serif text-[22px] font-medium tracking-[-0.015em]">
-              {profile?.display_name ||
-                (profile?.username ? `@${profile.username}` : "You")}
-            </span>
+            {/* The streak badge sits after the name (STREAKS). The name keeps
+                its truncate and the badge is shrink-0, so the name gives way. */}
+            {streakBadge && streak?.state === "live" ? (
+              <div className="flex min-w-0 items-center gap-1.5">
+                <span className="text-ink min-w-0 truncate font-serif text-[22px] font-medium tracking-[-0.015em]">
+                  {profile?.display_name ||
+                    (profile?.username ? `@${profile.username}` : "You")}
+                </span>
+                <StreakBadge
+                  badge={streakBadge}
+                  sheet={{
+                    variant: "own",
+                    current: streak.current,
+                    longest: streak.longest,
+                    atRisk: streak.atRisk,
+                    freezesLine: freezesLine(streak.freezesLeft, streak.today),
+                  }}
+                />
+              </div>
+            ) : (
+              <span className="text-ink truncate font-serif text-[22px] font-medium tracking-[-0.015em]">
+                {profile?.display_name ||
+                  (profile?.username ? `@${profile.username}` : "You")}
+              </span>
+            )}
             {profile?.username && (
               <span className="text-faint truncate text-[13px]">
                 @{profile.username}
@@ -198,6 +227,9 @@ export default async function MePage() {
             <Stat value={String(friendCount)} label="Friends" />
           )}
         </div>
+
+        {/* The streak announcement and settle leaf; nothing with STREAKS off. */}
+        <StreakAnnouncementSlot className="px-5 pt-4" />
 
         <div className="bg-track border-hairline mt-5 h-1.5 border-t" />
 

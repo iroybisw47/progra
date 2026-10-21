@@ -173,6 +173,16 @@ export function revalidateSurveySurfaces() {
   revalidatePath("/", "layout");
 }
 
+// Streaks (.claude/plans/streaks.md): the badge and card on /me, the card on
+// /feed, and the badge on a profile page. Session and habit writes already
+// revalidate the whole layout, so this is only for the streak actions' own
+// writes (settling, dismissing the announcement).
+export function revalidateStreakSurfaces() {
+  revalidatePath("/me");
+  revalidatePath("/feed");
+  revalidatePath("/profile/[username]", "page");
+}
+
 // Finishing onboarding (the profiles.onboarded_at stamp). The ROOT LAYOUT reads
 // that column: it mounts the BottomNav, and it is one of the What's New modal's
 // gates — so, like the patch-note stamp above, this names the layout.
