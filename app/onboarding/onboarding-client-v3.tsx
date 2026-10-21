@@ -13,7 +13,7 @@ import {
   type FriendRelations,
 } from "@/lib/find-friends";
 import { clockHandoffHref } from "@/lib/clock-handoff";
-import { CLOCK_REMINDERS, HABIT_REMINDERS, NUDGES, RECAP_PUSH, SOCIAL_PUSH } from "@/lib/flags";
+import { CLOCK_REMINDERS, HABIT_REMINDERS, NUDGES, RECAP_PUSH, SOCIAL_PUSH, STREAKS } from "@/lib/flags";
 import { enableHabitReminderDefault, habitDefaultOnGrant } from "@/lib/habit-reminder-prefs";
 import { usePrefersReducedMotion } from "@/lib/hooks";
 import { handoffExitMs, type Box, type ItemPhase } from "@/lib/motion";
@@ -214,6 +214,7 @@ const NOTIFY_REASONS = notifyReasons({
   socialPush: SOCIAL_PUSH,
   nudges: NUDGES,
   recapPush: RECAP_PUSH,
+  streaks: STREAKS,
 });
 
 // Each screen's section label, for assistive tech, by screen index.

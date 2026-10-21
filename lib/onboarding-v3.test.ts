@@ -86,6 +86,11 @@ describe("the notifications screen", () => {
     // A nudge only buzzes with social pushes on.
     expect(notifyReasons({ ...NONE, nudges: true })).toEqual([]);
     expect(notifyReasons({ ...NONE, socialPush: true, nudges: true })).toHaveLength(3);
+    // Streak reminders likewise, and they're listed last.
+    expect(notifyReasons({ ...NONE, streaks: true })).toEqual([]);
+    expect(notifyReasons({ ...ALL, streaks: true }).at(-1)).toBe(
+      "An evening reminder while your streak is still open"
+    );
   });
 
   it("counts the progress bar as the person sees the run", () => {

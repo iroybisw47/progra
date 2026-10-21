@@ -3,6 +3,7 @@
 import { CheckIcon } from "lucide-react";
 
 import { track } from "@/lib/analytics";
+import { SOCIAL_PUSH, STREAKS } from "@/lib/flags";
 import {
   openNotificationSettings,
   type NotifyPermission,
@@ -63,7 +64,15 @@ export function NotifyStep({
         <div className={`${CARD} flex flex-col gap-3 p-4`}>
           <CheckLine>A nudge each hour you&rsquo;re still clocked in</CheckLine>
           <CheckLine>An alert when a session hits its target</CheckLine>
-          <CheckLine>Nothing else — no streaks, no marketing</CheckLine>
+          {/* "No streaks" stops being true once streak reminders can buzz. */}
+          {STREAKS && SOCIAL_PUSH ? (
+            <>
+              <CheckLine>An evening reminder while your streak is still open</CheckLine>
+              <CheckLine>Nothing else — no marketing</CheckLine>
+            </>
+          ) : (
+            <CheckLine>Nothing else — no streaks, no marketing</CheckLine>
+          )}
         </div>
       )}
     </StepTemplate>

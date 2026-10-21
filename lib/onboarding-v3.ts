@@ -82,6 +82,8 @@ export function notifyReasons(flags: {
   socialPush: boolean;
   nudges: boolean;
   recapPush: boolean;
+  // Streak reminders (STREAKS); they buzz only with SOCIAL_PUSH on too.
+  streaks?: boolean;
 }): string[] {
   const out: string[] = [];
   if (flags.clockReminders) out.push("A reminder each hour you’re still clocked in");
@@ -91,6 +93,7 @@ export function notifyReasons(flags: {
   // A nudge only buzzes with SOCIAL_PUSH on too (lib/flags.ts, NUDGES).
   if (flags.socialPush && flags.nudges) out.push("When a friend nudges you to get going");
   if (flags.recapPush) out.push("When your weekly recap is ready");
+  if (flags.socialPush && flags.streaks) out.push("An evening reminder while your streak is still open");
   return out;
 }
 

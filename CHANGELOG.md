@@ -7,6 +7,19 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-20
 
+### 23:45 · Streaks P6: release prep (feat/streaks, dark)
+- **Onboarding notify copy, flag-gated.**
+  - With `STREAKS && SOCIAL_PUSH` on, v2's notify card lists "An evening reminder while your streak is still open" and stops promising "no streaks".
+  - v3's `notifyReasons` takes an optional `streaks` and lists the same line, with a test.
+  - Flag off, both are unchanged.
+- **`docs/SCREENS.md`:** the `STREAKS` flag context, plus S73 (the badge), S74 (the announcement card) and D35 (the sheet).
+- **`MORNING.md`** at the root has status by phase, the decisions, what's blocked and how to test.
+- **Blocked on the owner:**
+  - The SQL isn't in prod: the Supabase MCP is read-only here.
+  - The launch date, the announcement copy, the patch note and the device check.
+  - `habit-step.tsx:30`'s "next to your goals" copy.
+- **Gate:** tsc and eslint are clean, vitest passes 1469 of 1469, and the build passes.
+
 ### 23:20 · Streaks P5: the 7pm reminder and the freeze note (feat/streaks, dark)
 - **`app/api/cron/streaks/route.ts`** is the second scheduled job. It uses recap-ready's `CRON_SECRET` check (verified on `next start`: 401 with no bearer or a wrong bearer). With `STREAKS` off it returns a no-op 200. Each run:
   1. `settle_all_streaks()` records closed days and freezes even for people who don't open the app;
