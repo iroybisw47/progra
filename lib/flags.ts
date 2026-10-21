@@ -270,6 +270,21 @@ export const LIVE_ACTIVITY = envFlag(process.env.NEXT_PUBLIC_LIVE_ACTIVITY);
 // it off stops collection on the next deploy without touching the database.
 export const ANALYTICS = envFlag(process.env.NEXT_PUBLIC_ANALYTICS);
 
+// Master switch for streaks (.claude/plans/streaks.md): the fire badge by your
+// name on /me and on a friend's profile, its sheet, the announcement card, the
+// settle leaf, and the streak pushes (those also need SOCIAL_PUSH).
+//
+// THIS FLAG MEANS "THE SQL HAS RUN": .claude/plans/streaks.sql STEP 1 creates
+// the tables and RPCs every reader names. It does NOT start the counting. That
+// is the launch date (lib/streaks-config.ts STREAK_LAUNCH_DATE, mirrored by
+// streak_config.launch_date), and until it arrives the surfaces show the
+// announcement and no numbers. The database also has its own kill switch,
+// streak_config.enabled: off, every streak RPC returns null whatever this says.
+//
+// Independent of SOCIAL_ENABLED on purpose: a person with no friends still has
+// a streak. Only the friend-profile badge needs the social layer.
+export const STREAKS = envFlag(process.env.NEXT_PUBLIC_STREAKS);
+
 // How long an "hour" is for the hourly nudge. Only ever anything else in test
 // mode; lib/clock-reminders.ts stays pure and takes this as an argument rather
 // than reading the flag itself.

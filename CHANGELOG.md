@@ -7,6 +7,21 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-20
 
+### 21:25 · Streaks P1: the rules, pure (branch feat/streaks)
+- **Plan:** `.claude/plans/streaks.md` and `streaks-P1..P6.md`. The owner's scope is a personal streak, plus a friend's shared-only streak on their profile. There is no friend at-risk push, no pair streaks and no feed badge. Closed days are final, the reminder is at 7pm, and the launch date is still to be decided.
+- **`lib/streaks.ts`** holds the pure rules: `streakDayOf` / `closeMs` (04:00 cutoff, DST-correct through the newly exported `zonedWallClockMs`), `sessionQualifies` (5 minutes of worked time through `sessionWorkedMs`), `tickDay`, `dayFacts`, `walkDays`, `streakState` and `milestoneFor`.
+  - A habit tick counts for the streak day it was *made* in, and only when it's for that day or the calendar day after. Backfills never count.
+  - A freeze bridges a missed day without adding to the count. There are two per calendar month, and a freeze is never used at streak 0.
+  - Ledgered (settled) days are final.
+  - The shared count, the one friends see, skips private-only days. Ledgered freezes still bridge it.
+- **`lib/streaks-config.ts`** holds the knobs: `STREAK_LAUNCH_DATE = null` (pre-launch everywhere), the cutoff, 5 minutes, 2 freezes, the 7pm reminder, the milestones 7/30/100, and the friend minimum of 2.
+- **The `STREAKS` flag** (`NEXT_PUBLIC_STREAKS`) means the SQL has run. Nothing reads it yet.
+- **`lib/streaks.fixtures.json`** holds 31 cases and 15 day-boundary checks, which the P2 SQL harness will run too. The cases cover the 1am-on-launch-day edge, LA and London DST in both directions, paused time, auto-ended sessions, midnight-crossers, running sessions, ledger finality, a timezone change, and shared vs full counts.
+- **Gate:**
+  - tsc and eslint are clean.
+  - vitest passes 1442 of 1442, with 65 new tests. Three deliberate rule breaks were each caught: a midnight cutoff (17 failures), 3 freezes (29), and private sessions counting as shared (1).
+  - The build passes.
+
 ### 18:10 · Onboarding ends on the notifications ask, in v2 and v3
 - **Owner's request:** the notifications slide should be the last step of onboarding, in both v2 (live) and v3 (dark).
 - **v2:** the order is now welcome → how → goal → habit → clock → post → friends → **notify** (`STEPS`, `lib/onboarding.ts`). Whichever step is last finishes the run (`isLast` → `finish()`):

@@ -223,7 +223,8 @@ export function recapReadyMs(weekStart: string, tz: string): number {
 
 // Epoch ms of `hour`:00 wall-clock on the YYYY-MM-DD `dateStr` in `tz`. Same
 // two-pass offset as zonedDayStartMs, so the hour lands right on a DST day.
-function zonedWallClockMs(dateStr: string, hour: number, tz: string): number {
+// Exported for the streak day's 4am cutoff (lib/streaks.ts).
+export function zonedWallClockMs(dateStr: string, hour: number, tz: string): number {
   const [y, m, d] = dateStr.split("-").map(Number);
   const wallAsUtc = Date.UTC(y, m - 1, d, hour);
   const ts = wallAsUtc - tzOffsetMs(wallAsUtc, tz);

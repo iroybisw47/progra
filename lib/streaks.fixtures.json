@@ -1,0 +1,981 @@
+{
+ "_about": "Shared streak fixtures: lib/streaks.test.ts runs them through lib/streaks.ts, and .claude/plans/nudges-harness/streaks.mjs through the SQL in .claude/plans/streaks.sql. Generated; times are UTC. Sessions are public unless private:true; ticks likewise for their habit.",
+ "days": [
+  {
+   "tz": "America/Los_Angeles",
+   "at": "2026-03-08T10:30:00Z",
+   "day": "2026-03-07",
+   "why": "3:30am PDT, just after spring-forward"
+  },
+  {
+   "tz": "America/Los_Angeles",
+   "at": "2026-03-08T10:59:00Z",
+   "day": "2026-03-07",
+   "why": "3:59am PDT"
+  },
+  {
+   "tz": "America/Los_Angeles",
+   "at": "2026-03-08T11:00:00Z",
+   "day": "2026-03-08",
+   "why": "4:00am PDT"
+  },
+  {
+   "tz": "America/Los_Angeles",
+   "at": "2026-11-01T08:30:00Z",
+   "day": "2026-10-31",
+   "why": "1:30am PDT, the first one"
+  },
+  {
+   "tz": "America/Los_Angeles",
+   "at": "2026-11-01T09:30:00Z",
+   "day": "2026-10-31",
+   "why": "1:30am PST, the repeat"
+  },
+  {
+   "tz": "America/Los_Angeles",
+   "at": "2026-11-01T11:59:00Z",
+   "day": "2026-10-31",
+   "why": "3:59am PST"
+  },
+  {
+   "tz": "America/Los_Angeles",
+   "at": "2026-11-01T12:00:00Z",
+   "day": "2026-11-01",
+   "why": "4:00am PST"
+  },
+  {
+   "tz": "Europe/London",
+   "at": "2026-03-29T02:59:00Z",
+   "day": "2026-03-28",
+   "why": "3:59am BST"
+  },
+  {
+   "tz": "Europe/London",
+   "at": "2026-03-29T03:00:00Z",
+   "day": "2026-03-29",
+   "why": "4:00am BST"
+  },
+  {
+   "tz": "Europe/London",
+   "at": "2026-10-25T03:59:00Z",
+   "day": "2026-10-24",
+   "why": "3:59am GMT after fall-back"
+  },
+  {
+   "tz": "Europe/London",
+   "at": "2026-10-25T04:00:00Z",
+   "day": "2026-10-25",
+   "why": "4:00am GMT"
+  },
+  {
+   "tz": "Asia/Kolkata",
+   "at": "2026-10-21T22:29:00Z",
+   "day": "2026-10-21",
+   "why": "3:59am IST"
+  },
+  {
+   "tz": "Asia/Kolkata",
+   "at": "2026-10-21T22:30:00Z",
+   "day": "2026-10-22",
+   "why": "4:00am IST"
+  },
+  {
+   "tz": "UTC",
+   "at": "2026-10-21T03:59:00Z",
+   "day": "2026-10-20",
+   "why": "3:59am UTC"
+  },
+  {
+   "tz": "UTC",
+   "at": "2026-10-21T04:00:00Z",
+   "day": "2026-10-21",
+   "why": "4:00am UTC"
+  }
+ ],
+ "cases": [
+  {
+   "name": "prelaunch: no date set",
+   "tz": "America/Los_Angeles",
+   "launch": null,
+   "sessions": [
+    {
+     "start": "2026-10-21T17:00:00Z",
+     "end": "2026-10-21T17:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-21T19:00:00Z",
+   "expect": {
+    "state": "prelaunch"
+   }
+  },
+  {
+   "name": "prelaunch: the evening before Day One",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [],
+   "ticks": [],
+   "now": "2026-10-21T03:00:00Z",
+   "expect": {
+    "state": "prelaunch"
+   }
+  },
+  {
+   "name": "launch: at 1:30am on the 21st it is still the 20th",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T08:00:00Z",
+     "end": "2026-10-21T08:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-21T08:30:00Z",
+   "expect": {
+    "state": "prelaunch"
+   }
+  },
+  {
+   "name": "launch: a 1am session on the 21st doesn't count for Day One",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T08:00:00Z",
+     "end": "2026-10-21T08:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-21T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 0,
+    "freezesLeft": 2,
+    "current": 0,
+    "longest": 0,
+    "todayActive": false,
+    "shared": {
+     "current": 0,
+     "longest": 0
+    }
+   }
+  },
+  {
+   "name": "Day One active",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T17:00:00Z",
+     "end": "2026-10-21T17:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-21T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 0,
+    "freezesLeft": 2,
+    "current": 1,
+    "longest": 1,
+    "todayActive": true,
+    "shared": {
+     "current": 1,
+     "longest": 1
+    }
+   }
+  },
+  {
+   "name": "cutoff: 3:59am belongs to the day before",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-22T10:59:00Z",
+     "end": "2026-10-22T11:29:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-22T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": true,
+    "freezeDays": [],
+    "unsettled": 1,
+    "freezesLeft": 2,
+    "current": 1,
+    "longest": 1,
+    "todayActive": false,
+    "shared": {
+     "current": 1,
+     "longest": 1
+    }
+   }
+  },
+  {
+   "name": "cutoff: 4:00am belongs to the new day",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-22T11:00:00Z",
+     "end": "2026-10-22T11:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-22T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 1,
+    "freezesLeft": 2,
+    "current": 1,
+    "longest": 1,
+    "todayActive": true,
+    "shared": {
+     "current": 1,
+     "longest": 1
+    }
+   }
+  },
+  {
+   "name": "worked: 4m59s doesn't count",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T17:00:00Z",
+     "end": "2026-10-21T17:04:59Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-21T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 0,
+    "freezesLeft": 2,
+    "current": 0,
+    "longest": 0,
+    "todayActive": false,
+    "shared": {
+     "current": 0,
+     "longest": 0
+    }
+   }
+  },
+  {
+   "name": "worked: exactly 5m counts",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T17:00:00Z",
+     "end": "2026-10-21T17:05:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-21T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 0,
+    "freezesLeft": 2,
+    "current": 1,
+    "longest": 1,
+    "todayActive": true,
+    "shared": {
+     "current": 1,
+     "longest": 1
+    }
+   }
+  },
+  {
+   "name": "worked: paused time is taken out",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T17:00:00Z",
+     "end": "2026-10-21T17:20:00Z",
+     "pausedMin": 16
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-21T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 0,
+    "freezesLeft": 2,
+    "current": 0,
+    "longest": 0,
+    "todayActive": false,
+    "shared": {
+     "current": 0,
+     "longest": 0
+    }
+   }
+  },
+  {
+   "name": "worked: an auto-ended session is zero",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T17:00:00Z",
+     "end": "2026-10-21T17:30:00Z",
+     "autoEnded": true,
+     "private": true
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-21T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 0,
+    "freezesLeft": 2,
+    "current": 0,
+    "longest": 0,
+    "todayActive": false,
+    "shared": {
+     "current": 0,
+     "longest": 0
+    }
+   }
+  },
+  {
+   "name": "midnight-crosser counts for the day it started",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-22T06:55:00Z",
+     "end": "2026-10-22T08:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-22T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": true,
+    "freezeDays": [],
+    "unsettled": 1,
+    "freezesLeft": 2,
+    "current": 1,
+    "longest": 1,
+    "todayActive": false,
+    "shared": {
+     "current": 1,
+     "longest": 1
+    }
+   }
+  },
+  {
+   "name": "running session counts once it has 5 minutes",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T18:50:00Z",
+     "end": null
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-21T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 0,
+    "freezesLeft": 2,
+    "current": 1,
+    "longest": 1,
+    "todayActive": true,
+    "shared": {
+     "current": 1,
+     "longest": 1
+    }
+   }
+  },
+  {
+   "name": "running session under 5 minutes doesn't yet",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T18:57:00Z",
+     "end": null
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-21T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 0,
+    "freezesLeft": 2,
+    "current": 0,
+    "longest": 0,
+    "todayActive": false,
+    "shared": {
+     "current": 0,
+     "longest": 0
+    }
+   }
+  },
+  {
+   "name": "habit: a tick made today for today",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [],
+   "ticks": [
+    {
+     "on": "2026-10-21",
+     "at": "2026-10-21T16:00:00Z"
+    }
+   ],
+   "now": "2026-10-21T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 0,
+    "freezesLeft": 2,
+    "current": 1,
+    "longest": 1,
+    "todayActive": true,
+    "shared": {
+     "current": 1,
+     "longest": 1
+    }
+   }
+  },
+  {
+   "name": "habit: a 1am tick for yesterday counts for yesterday",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [],
+   "ticks": [
+    {
+     "on": "2026-10-21",
+     "at": "2026-10-22T08:00:00Z"
+    }
+   ],
+   "now": "2026-10-22T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": true,
+    "freezeDays": [],
+    "unsettled": 1,
+    "freezesLeft": 2,
+    "current": 1,
+    "longest": 1,
+    "todayActive": false,
+    "shared": {
+     "current": 1,
+     "longest": 1
+    }
+   }
+  },
+  {
+   "name": "habit: a 1am tick for the new date counts for yesterday too",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [],
+   "ticks": [
+    {
+     "on": "2026-10-22",
+     "at": "2026-10-22T08:00:00Z"
+    }
+   ],
+   "now": "2026-10-22T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": true,
+    "freezeDays": [],
+    "unsettled": 1,
+    "freezesLeft": 2,
+    "current": 1,
+    "longest": 1,
+    "todayActive": false,
+    "shared": {
+     "current": 1,
+     "longest": 1
+    }
+   }
+  },
+  {
+   "name": "habit: a backfill never counts",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [],
+   "ticks": [
+    {
+     "on": "2026-10-21",
+     "at": "2026-10-23T17:00:00Z"
+    }
+   ],
+   "now": "2026-10-23T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 2,
+    "freezesLeft": 2,
+    "current": 0,
+    "longest": 0,
+    "todayActive": false,
+    "shared": {
+     "current": 0,
+     "longest": 0
+    }
+   }
+  },
+  {
+   "name": "a session and a tick on one day count once",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T17:00:00Z",
+     "end": "2026-10-21T17:30:00Z"
+    }
+   ],
+   "ticks": [
+    {
+     "on": "2026-10-21",
+     "at": "2026-10-21T16:00:00Z"
+    }
+   ],
+   "now": "2026-10-21T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 0,
+    "freezesLeft": 2,
+    "current": 1,
+    "longest": 1,
+    "todayActive": true,
+    "shared": {
+     "current": 1,
+     "longest": 1
+    }
+   }
+  },
+  {
+   "name": "freeze: bridges a miss without adding",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T17:00:00Z",
+     "end": "2026-10-21T17:30:00Z"
+    },
+    {
+     "start": "2026-10-22T17:00:00Z",
+     "end": "2026-10-22T17:30:00Z"
+    },
+    {
+     "start": "2026-10-24T17:00:00Z",
+     "end": "2026-10-24T17:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-24T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [
+     "2026-10-23"
+    ],
+    "unsettled": 3,
+    "freezesLeft": 1,
+    "current": 3,
+    "longest": 3,
+    "todayActive": true,
+    "shared": {
+     "current": 3,
+     "longest": 3
+    }
+   }
+  },
+  {
+   "name": "freeze: a third miss in a month breaks",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T17:00:00Z",
+     "end": "2026-10-21T17:30:00Z"
+    },
+    {
+     "start": "2026-10-23T17:00:00Z",
+     "end": "2026-10-23T17:30:00Z"
+    },
+    {
+     "start": "2026-10-25T17:00:00Z",
+     "end": "2026-10-25T17:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-27T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [
+     "2026-10-22",
+     "2026-10-24"
+    ],
+    "unsettled": 6,
+    "freezesLeft": 0,
+    "current": 0,
+    "longest": 3,
+    "todayActive": false,
+    "shared": {
+     "current": 0,
+     "longest": 3
+    }
+   }
+  },
+  {
+   "name": "freeze: two missed days in a row use both",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T17:00:00Z",
+     "end": "2026-10-21T17:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-24T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": true,
+    "freezeDays": [
+     "2026-10-22",
+     "2026-10-23"
+    ],
+    "unsettled": 3,
+    "freezesLeft": 0,
+    "current": 1,
+    "longest": 1,
+    "todayActive": false,
+    "shared": {
+     "current": 1,
+     "longest": 1
+    }
+   }
+  },
+  {
+   "name": "freeze: none used while there's no streak",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-22T17:00:00Z",
+     "end": "2026-10-22T17:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-22T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 1,
+    "freezesLeft": 2,
+    "current": 1,
+    "longest": 1,
+    "todayActive": true,
+    "shared": {
+     "current": 1,
+     "longest": 1
+    }
+   }
+  },
+  {
+   "name": "freeze: a new month brings two more, across the DST change",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-28T17:00:00Z",
+     "end": "2026-10-28T17:30:00Z"
+    },
+    {
+     "start": "2026-10-30T17:00:00Z",
+     "end": "2026-10-30T17:30:00Z"
+    },
+    {
+     "start": "2026-11-02T18:00:00Z",
+     "end": "2026-11-02T18:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-11-02T20:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [
+     "2026-10-29",
+     "2026-10-31",
+     "2026-11-01"
+    ],
+    "unsettled": 12,
+    "freezesLeft": 1,
+    "current": 3,
+    "longest": 3,
+    "todayActive": true,
+    "shared": {
+     "current": 3,
+     "longest": 3
+    }
+   }
+  },
+  {
+   "name": "ledger: a settled day stays active after its session is deleted",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-22T17:00:00Z",
+     "end": "2026-10-22T17:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-22T19:00:00Z",
+   "ledger": [
+    {
+     "day": "2026-10-21",
+     "active": true,
+     "sharedActive": true,
+     "freeze": false
+    }
+   ],
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 0,
+    "freezesLeft": 2,
+    "current": 2,
+    "longest": 2,
+    "todayActive": true,
+    "shared": {
+     "current": 2,
+     "longest": 2
+    }
+   }
+  },
+  {
+   "name": "ledger: a settled miss stays a miss whatever turns up later",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T17:00:00Z",
+     "end": "2026-10-21T17:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-22T19:00:00Z",
+   "ledger": [
+    {
+     "day": "2026-10-21",
+     "active": false,
+     "sharedActive": false,
+     "freeze": false
+    }
+   ],
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 0,
+    "freezesLeft": 2,
+    "current": 0,
+    "longest": 0,
+    "todayActive": false,
+    "shared": {
+     "current": 0,
+     "longest": 0
+    }
+   }
+  },
+  {
+   "name": "timezone change leaves settled days alone",
+   "tz": "Asia/Tokyo",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T23:00:00Z",
+     "end": "2026-10-21T23:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-22T10:00:00Z",
+   "ledger": [
+    {
+     "day": "2026-10-21",
+     "active": true,
+     "sharedActive": true,
+     "freeze": false
+    }
+   ],
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 0,
+    "freezesLeft": 2,
+    "current": 2,
+    "longest": 2,
+    "todayActive": true,
+    "shared": {
+     "current": 2,
+     "longest": 2
+    }
+   }
+  },
+  {
+   "name": "shared: a private-only day breaks the shared run and uses no freeze",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T17:00:00Z",
+     "end": "2026-10-21T17:30:00Z"
+    },
+    {
+     "start": "2026-10-22T17:00:00Z",
+     "end": "2026-10-22T17:30:00Z",
+     "private": true
+    },
+    {
+     "start": "2026-10-23T17:00:00Z",
+     "end": "2026-10-23T17:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-23T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 2,
+    "freezesLeft": 2,
+    "current": 3,
+    "longest": 3,
+    "todayActive": true,
+    "shared": {
+     "current": 1,
+     "longest": 1
+    }
+   }
+  },
+  {
+   "name": "shared: a freeze bridges the shared run too",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-21T17:00:00Z",
+     "end": "2026-10-21T17:30:00Z"
+    },
+    {
+     "start": "2026-10-23T17:00:00Z",
+     "end": "2026-10-23T17:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "now": "2026-10-23T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [
+     "2026-10-22"
+    ],
+    "unsettled": 2,
+    "freezesLeft": 1,
+    "current": 2,
+    "longest": 2,
+    "todayActive": true,
+    "shared": {
+     "current": 2,
+     "longest": 2
+    }
+   }
+  },
+  {
+   "name": "shared: a private habit doesn't count for friends",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [],
+   "ticks": [
+    {
+     "on": "2026-10-21",
+     "at": "2026-10-21T16:00:00Z",
+     "private": true
+    }
+   ],
+   "now": "2026-10-21T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 0,
+    "freezesLeft": 2,
+    "current": 1,
+    "longest": 1,
+    "todayActive": true,
+    "shared": {
+     "current": 0,
+     "longest": 0
+    }
+   }
+  },
+  {
+   "name": "joined after Day One: walks from their own first day",
+   "tz": "America/Los_Angeles",
+   "launch": "2026-10-21",
+   "sessions": [
+    {
+     "start": "2026-10-26T17:00:00Z",
+     "end": "2026-10-26T17:30:00Z"
+    }
+   ],
+   "ticks": [],
+   "from": "2026-10-25",
+   "now": "2026-10-26T19:00:00Z",
+   "expect": {
+    "state": "live",
+    "atRisk": false,
+    "freezeDays": [],
+    "unsettled": 1,
+    "freezesLeft": 2,
+    "current": 1,
+    "longest": 1,
+    "todayActive": true,
+    "shared": {
+     "current": 1,
+     "longest": 1
+    }
+   }
+  }
+ ]
+}
