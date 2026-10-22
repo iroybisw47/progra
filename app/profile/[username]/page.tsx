@@ -10,12 +10,14 @@ import { KudosButton } from "@/components/kudos-button";
 import { requireUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
-import { NUDGES, RECAP_V2, SOCIAL_ENABLED } from "@/lib/flags";
+import { NUDGES, RALLY, RECAP_V2, SOCIAL_ENABLED } from "@/lib/flags";
 import { getPublicProfileByUsername, getRelationship } from "@/lib/db/profiles";
 import { countFriendsForUser } from "@/lib/db/friends";
 import { listActiveGoalsForUser } from "@/lib/db/goals";
 import { getNudgeState } from "@/lib/db/nudges";
+import { getRallyMuted, getRallyState } from "@/lib/db/rally";
 import { NUDGE_HIDDEN } from "@/lib/social/nudges";
+import { RALLY_HIDDEN } from "@/lib/social/rally";
 import {
   listActiveHabitsForUser,
   listCompletionsForUserInRange,
@@ -41,6 +43,7 @@ import { todayInTimeZone, weekRangeInTimeZone } from "@/lib/dates";
 
 import { ProfileActions } from "./profile-actions";
 import { NudgeButton } from "./nudge-button";
+import { RallyButton } from "./rally-button";
 
 const HOUR_MS = 60 * 60 * 1000;
 const formatHours = (ms: number) => `${(ms / HOUR_MS).toFixed(1)}h`;
@@ -68,14 +71,25 @@ export default async function ProfilePage({
   });
   if (blocked) notFound();
 
-  // In parallel: get_nudge_state and get_friend_streak re-check friendship
-  // themselves, so asking for them alongside the relationship costs no extra
-  // round trip. Your own page shows your full streak; anyone else's, only the
-  // shared count, and only to an accepted friend (both null with STREAKS off).
+  // In parallel: get_rally_state / get_nudge_state and get_friend_streak
+  // re-check friendship themselves, so asking for them alongside the
+  // relationship costs no extra round trip. Your own page shows your full
+  // streak; anyone else's, only the shared count, and only to an accepted
+  // friend (both null with STREAKS off). With RALLY on, the Rally chip replaces
+  // the Nudge chip and the gear menu learns "Mute Rallies".
   const isSelf = me.id === target.userId;
-  const [relationship, nudgeState, myStreak, friendStreak] = await Promise.all([
+  const [
+    relationship,
+    rallyState,
+    nudgeState,
+    rallyMuted,
+    myStreak,
+    friendStreak,
+  ] = await Promise.all([
     getRelationship(target.userId),
-    NUDGES ? getNudgeState(target.userId) : Promise.resolve(NUDGE_HIDDEN),
+    RALLY ? getRallyState(target.userId) : Promise.resolve(RALLY_HIDDEN),
+    NUDGES && !RALLY ? getNudgeState(target.userId) : Promise.resolve(NUDGE_HIDDEN),
+    RALLY && !isSelf ? getRallyMuted(target.userId) : Promise.resolve(null),
     isSelf ? getMyStreak() : Promise.resolve(null),
     isSelf ? Promise.resolve(null) : getFriendStreak(target.userId),
   ]);
@@ -153,14 +167,25 @@ export default async function ProfilePage({
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-2 pt-1.5">
-            {relationship.kind === "friends" && (
-              <NudgeButton
-                state={nudgeState}
-                recipientId={target.userId}
-                name={target.displayName || `@${target.username}`}
-              />
-            )}
-            <ProfileActions target={target} relationship={relationship} />
+            {relationship.kind === "friends" &&
+              (RALLY ? (
+                <RallyButton
+                  state={rallyState}
+                  recipientId={target.userId}
+                  name={target.displayName || `@${target.username}`}
+                />
+              ) : (
+                <NudgeButton
+                  state={nudgeState}
+                  recipientId={target.userId}
+                  name={target.displayName || `@${target.username}`}
+                />
+              ))}
+            <ProfileActions
+              target={target}
+              relationship={relationship}
+              rallyMuted={relationship.kind === "friends" ? rallyMuted : null}
+            />
           </div>
         </div>
         {/* Internal only: profile_views. The RPC refuses a self-view anyway;

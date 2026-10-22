@@ -161,6 +161,16 @@ export const RECAP_V2 = envFlag(process.env.NEXT_PUBLIC_RECAP_V2) && REDESIGN;
 export const NUDGES =
   envFlag(process.env.NEXT_PUBLIC_NUDGES) && SOCIAL_ENABLED;
 
+// Rally replaces the Nudge chip on a friend's profile: pick Cheer (one habit
+// they finished today) or Nudge (an open habit, a goal behind weekly pace, or
+// their streak at risk), then a preset. Adds "Mute Rallies" to the profile's
+// gear menu and renames the Settings row. THIS FLAG MEANS .claude/plans/rally.sql
+// STEP 1 HAS RUN: the chip, the sheet and the mute read and write what it
+// creates. Implies NUDGES, whose table, push sender, panel rows, opt-out and
+// reports Rally reuses. Off, the Nudge chip is back exactly as it was, and it
+// still honours rally cooldowns and mutes (the SQL changed nudge_targets too).
+export const RALLY = envFlag(process.env.NEXT_PUBLIC_RALLY) && NUDGES;
+
 // Master switch for replies to comments: the Reply control and threads on the
 // session page, the "replied to you" panel rows, and reply pushes. Implies
 // SOCIAL_ENABLED — replies only exist inside the social layer. The PUSH half

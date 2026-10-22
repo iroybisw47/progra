@@ -11,6 +11,8 @@ import {
   formatCooldownLeft,
   isNudgePreset,
   isNudgeTargetKind,
+  isStoredNudgeTargetKind,
+  nudgeTargetCaption,
   nudgeRefusalMessage,
   nudgeRejectionFallback,
   nudgeStateRefusal,
@@ -383,5 +385,23 @@ describe("cooldown copy", () => {
     expect(copy("done_today")).toBe("They're all caught up today.");
     expect(copy("nothing_to_nudge")).toBe("They don't have any goals or habits to nudge.");
     expect(copy("unavailable")).toBe("They can't be nudged right now.");
+  });
+});
+
+describe("stored target kinds", () => {
+  it("accepts Rally's kinds for stored rows but not for sendNudge", () => {
+    for (const kind of ["goal", "habits", "habit", "streak"]) {
+      expect(isStoredNudgeTargetKind(kind)).toBe(true);
+    }
+    expect(isStoredNudgeTargetKind("praise")).toBe(false);
+    expect(isNudgeTargetKind("habit")).toBe(false);
+    expect(isNudgeTargetKind("streak")).toBe(false);
+  });
+
+  it("captions each kind for the panel", () => {
+    expect(nudgeTargetCaption("habits", "Habits")).toBe("Habits");
+    expect(nudgeTargetCaption("habit", "Gym")).toBe("Habit · Gym");
+    expect(nudgeTargetCaption("streak", "Streak")).toBe("Streak");
+    expect(nudgeTargetCaption("goal", "Thesis")).toBe("Goal · Thesis");
   });
 });

@@ -20,7 +20,11 @@ import {
 import { formatRelativeTime } from "@/lib/dates";
 import { NUDGES } from "@/lib/flags";
 import { commentAnchorId } from "@/lib/social/comment-threads";
-import { presetCopy, toneOfPreset } from "@/lib/social/nudges";
+import {
+  nudgeTargetCaption,
+  presetCopy,
+  toneOfPreset,
+} from "@/lib/social/nudges";
 import { cn } from "@/lib/utils";
 import type {
   NotificationItem,
@@ -156,13 +160,14 @@ function likeSummary(item: Pick<LikeNotification, "actors" | "totalActors">): st
 // Where a row navigates. Likes go to the session they're about; comments and
 // replies land ON the comment (#c-{id}, which expands a collapsed thread); a
 // nudge goes where its push would have — the clock picker with that goal
-// preselected, or home for habits — so acting on it is one tap either way.
+// preselected, or home for habits, one habit or the streak (Rally) — so acting
+// on it is one tap either way.
 function hrefFor(item: NotificationItem): string {
   if (item.kind === "nudge") {
     // Praise lands on Progress. /clock opens the clock-in picker, which is the
     // wrong thing to put in front of someone who just finished.
     if (toneOfPreset(item.presetKey) === "praise") return "/";
-    if (item.targetKind === "habits") return "/";
+    if (item.targetKind !== "goal") return "/";
     return item.goalId === null ? "/clock" : `/clock?goal=${item.goalId}`;
   }
   if (item.kind === "comment" || item.kind === "reply") {
@@ -267,9 +272,7 @@ function NotificationRow({
           )}
           <p className="text-caption mt-0.5 truncate text-xs">
             {item.kind === "nudge"
-              ? item.targetKind === "habits"
-                ? "Habits"
-                : `Goal · ${item.targetLabel}`
+              ? nudgeTargetCaption(item.targetKind, item.targetLabel)
               : item.kind === "recap_like" || item.kind === "recap_comment"
                 ? item.weekLabel
                 : item.sessionLabel}{" "}

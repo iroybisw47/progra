@@ -119,6 +119,19 @@ describe("validateEvent — no free text can pass", () => {
     });
   });
 
+  it("a rally names its mode and kind from the fixed lists", () => {
+    const sent = {
+      nudge_id: "3EDC1D62-DC8A-431E-8CD3-D35C9E66A934",
+      mode: "cheer",
+      kind: "habit",
+      preset: "lets_go",
+      pushed: true,
+    };
+    expect(validateEvent("rally_sent", sent)).toMatchObject({ ok: true });
+    expect(validateEvent("rally_sent", { ...sent, kind: "habits" })).toMatchObject({ ok: false });
+    expect(validateEvent("rally_mode_chosen", { mode: "praise" })).toMatchObject({ ok: false });
+  });
+
   it("a local notification key has exactly the reserved shape", () => {
     expect(
       validateEvent("notification_cancelled", { key: "local:9101:1759876543210" })

@@ -60,7 +60,10 @@ params are `Promise<{...}>` and must be `await`ed.
   thread-guard trigger stamped from the replied-to row, re-checked for
   visibility and blocks at send time; for a like or comment on a posted weekly
   review, the `recap_posts` row's owner, after `toggle_recap_reaction`'s
-  `can_see_recap` or the comment insert policy passed — `app/actions/recap-social.ts`). **(3) The scheduled senders** — the recap
+  `can_see_recap` or the comment insert policy passed — `app/actions/recap-social.ts`;
+  for a nudge or a rally, the `nudges` row's recipient, written by `send_nudge`
+  or `send_rally` after friendship, blocks, the opt-out and the per-friend mute
+  were checked). **(3) The scheduled senders** — the recap
   (`lib/push/send-recap-push.ts`) and, since streaks, the streak reminder and
   freeze note (`lib/push/send-streak-push.ts`, warranted by
   `/api/cron/streaks`'s `CRON_SECRET` check plus `streak_push_candidates()` and

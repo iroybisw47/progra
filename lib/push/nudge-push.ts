@@ -1,4 +1,4 @@
-import type { NudgeTargetKind, NudgeTone } from "@/lib/social/nudges";
+import type { NudgeTone, StoredNudgeTargetKind } from "@/lib/social/nudges";
 
 // WHAT a nudge push says and where a tap lands — pure, so the copy is testable
 // without touching APNs. Mirrors lib/push/social-push.ts; the orchestrator
@@ -16,9 +16,10 @@ export type NudgePushInput =
       tone?: NudgeTone;
       // display_name ?? username ?? fallback — resolved by the caller.
       senderName: string;
-      targetKind: NudgeTargetKind;
-      // Goal title, or "Habits". Snapshotted on the nudge row, so it survives
-      // the goal being renamed or deleted.
+      // "habit" and "streak" come from Rally.
+      targetKind: StoredNudgeTargetKind;
+      // Goal title, habit name, "Habits" or "Streak". Snapshotted on the nudge
+      // row, so it survives the goal or habit being renamed or deleted.
       targetLabel: string;
       // Null once the goal is gone (ON DELETE SET NULL) — the deep link then
       // falls back to the clock picker.
@@ -90,6 +91,24 @@ export function composeNudgePush(input: NudgePushInput): NudgePushContent {
     return {
       title: input.senderName,
       body: "nudged you to finish your habits.",
+      url: "/",
+    };
+  }
+
+  // Rally's two new targets both land on Progress, where the habit is a tap
+  // away and any session or tick saves the streak.
+  if (input.targetKind === "habit") {
+    return {
+      title: input.senderName,
+      body: `nudged you to get ${nudgeLabelSnippet(input.targetLabel)} done today.`,
+      url: "/",
+    };
+  }
+
+  if (input.targetKind === "streak") {
+    return {
+      title: input.senderName,
+      body: "nudged you to keep your streak alive.",
       url: "/",
     };
   }

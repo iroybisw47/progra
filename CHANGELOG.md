@@ -7,6 +7,35 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-22
 
+### 10:51 · Rally replaces the Nudge chip, dark behind `RALLY`
+On a friend's profile, **Rally** opens one sheet: choose **Cheer** (one habit they finished today, once they've clocked in) or **Nudge** (an open habit, a goal behind weekly pace, or their streak at risk), then a preset. Plan: `.claude/plans/rally.md`.
+- **SQL, `.claude/plans/rally.sql`, applied in prod 2026-10-22** (`$rally2$` passed 50/50 and nudges SP2 61/61; support@ is gone, so both suites now use ishaan@ as the stranger account):
+  - `nudges` gains `habit_id` and `source`, plus the new kinds `habit` and `streak`.
+  - `rally_mutes` stores per-friend mutes under own-row RLS.
+  - `rally_targets`, `get_rally_state` and `send_rally` are the new functions.
+  - `nudge_targets` changes in two ways only: a rally row spends both of its cooldowns, and a mute reads as its `disabled`. So turning the flag back off can't double-send or get round a mute.
+- **Rules:**
+  - There is one 6h cooldown per friend, shared by cheers, nudges and old-path rows.
+  - "Behind" means under the quota × days-so-far / 7 for the friend's week.
+  - Clocked in means a visible running session, or a visible one today worth at least 5 min.
+  - The streak target is their shared streak, and only while nothing shared has counted today.
+  - The 9am floor stays.
+  - A muted sender sees exactly the opt-out's lock.
+- **Code:**
+  - `lib/social/rally.ts` (with tests), `lib/db/rally.ts` and `app/actions/rally.ts` (`sendRally`, `setRallyMuted`).
+  - `rally-button.tsx` and `rally-sheet.tsx`.
+  - "Mute Rallies" in the profile gear menu.
+  - Settings says "Rallies" under the flag.
+  - The `/dev/rally` preview.
+  - The `rally_*` telemetry events.
+  - Sends reuse `sendNudgePush`.
+- **Patch 1.05, "Introducing Rally!"** (`RALLY_PATCH_NOTE` in `lib/patch-notes.ts`): an intro and four bullets (Cheer, Nudge, the 6h limit, Mute Rallies). It is gated on `RALLY`, unlike other notes, so it first shows in the same redeploy that turns Rally on, not in the earlier dark deploy.
+- **Shared, safe with the flag off:** the panel and the push know `habit` and `streak` rows (`nudgeTargetCaption`; habit and streak pushes land on `/`).
+- **Gate:**
+  - The harness (`nudges-harness/rally.mjs`): `$rally2$` passes 50/50, nudges SP2 passes 63/63 with rally applied, the 16 boundary checks pass, and it catches 20/20 planted bugs.
+  - vitest passes 1487 of 1487, and tsc is clean.
+  - eslint on the changed files shows only the known `Date.now()` purity error in the profile page.
+
 ### 09:37 · A friend's streak shows from 1 day
 A friend's profile showed their streak badge only from 2 days. Streaks launched yesterday, so only one day has closed (Oct 21: 23 members active, 22 with shared activity), and almost everyone sat at 1 and showed nothing. `FRIEND_STREAK_MIN` is now 1, the same as your own badge. It's display-only: the SQL never read it, so nothing needs to be run.
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   LATEST_PATCH_VERSION,
   PATCH_NOTES,
+  RALLY_PATCH_NOTE,
   type PatchNote,
   isKnownPatchVersion,
   noteSegments,
@@ -169,5 +170,31 @@ describe("PATCH_NOTES", () => {
       expect(n.items.length, n.version).toBeGreaterThan(0);
       for (const item of n.items) expect(item.trim(), n.version).not.toBe("");
     }
+  });
+});
+
+// Gated on RALLY, which is off under test, so the shape checks above never see
+// it. These are the same checks, on the note itself.
+describe("RALLY_PATCH_NOTE", () => {
+  it("would sort first, ahead of every authored note", () => {
+    const rank = (v: string) => v.split(".").map(Number);
+    const [maj, min] = rank(RALLY_PATCH_NOTE.version);
+    for (const n of PATCH_NOTES.filter((n) => n !== RALLY_PATCH_NOTE)) {
+      const [majB, minB] = rank(n.version);
+      expect(maj > majB || (maj === majB && min > minB), n.version).toBe(true);
+    }
+  });
+
+  it("is a complete note", () => {
+    const n = RALLY_PATCH_NOTE;
+    expect(n.version).toMatch(/^\d+\.\d+$/);
+    expect(n.title.trim()).not.toBe("");
+    expect(n.intro?.trim()).not.toBe("");
+    expect(n.items.length).toBeGreaterThan(0);
+    for (const item of n.items) {
+      expect(item.trim()).not.toBe("");
+      expect(item).not.toMatch(/\]\s*\(/);
+    }
+    for (const p of n.outro ?? []) expect(p.trim()).not.toBe("");
   });
 });

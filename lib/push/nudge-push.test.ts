@@ -49,6 +49,29 @@ describe("composeNudgePush", () => {
     ).toEqual({ title: "Sam", body: "nudged you to finish your habits.", url: "/" });
   });
 
+  it("sends Rally's habit and streak nudges home", () => {
+    const base = { mode: "single", senderName: "Sam", goalId: null } as const;
+    expect(
+      composeNudgePush({ ...base, targetKind: "habit", targetLabel: "Read 20 pages" })
+    ).toEqual({ title: "Sam", body: "nudged you to get Read 20 pages done today.", url: "/" });
+    expect(
+      composeNudgePush({ ...base, targetKind: "streak", targetLabel: "Streak" })
+    ).toEqual({ title: "Sam", body: "nudged you to keep your streak alive.", url: "/" });
+  });
+
+  it("cheers one habit by name (Rally)", () => {
+    expect(
+      composeNudgePush({
+        mode: "single",
+        tone: "praise",
+        senderName: "Sam",
+        targetKind: "habit",
+        targetLabel: "Gym",
+        goalId: null,
+      })
+    ).toEqual({ title: "Sam", body: "cheered you on for Gym.", url: "/" });
+  });
+
   it("counts the others in a coalesced push", () => {
     expect(
       composeNudgePush({ mode: "coalesced", senderName: "Sam", othersCount: 1 })

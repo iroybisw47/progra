@@ -137,6 +137,12 @@ export function revalidateNudgeSurfaces() {
   revalidatePath("/profile/[username]", "page");
 }
 
+// Rally's two writes both change only the profile page: a send flips the
+// sender's chip to its cooldown, and a mute flips the gear menu's row.
+export function revalidateRallySurfaces() {
+  revalidatePath("/profile/[username]", "page");
+}
+
 export function revalidateFriendSurfaces() {
   revalidatePath("/friends");
   revalidatePath("/feed");

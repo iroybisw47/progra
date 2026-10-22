@@ -8,7 +8,7 @@ import {
   nudgeCollapseId,
   nudgeDedupeKey,
 } from "@/lib/push/nudge-push";
-import { isNudgeTargetKind, toneOfPreset } from "@/lib/social/nudges";
+import { isStoredNudgeTargetKind, toneOfPreset } from "@/lib/social/nudges";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // The nudge-push orchestrator. Called ONLY inside next/server's after(), so it
@@ -16,9 +16,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 //
 // AUTHORIZATION PRECONDITION (why the service-role reads below are safe, and
 // the third sanctioned use of the admin client): this runs only after
-// send_nudge returned ok. That definer re-checked friendship, blocking, the
-// recipient's opt-out, their local 09:00 floor, mid-session state and the
-// cooldown, then wrote the row — so the row's existence IS the proof the sender
+// send_nudge or send_rally returned ok. Each definer re-checked friendship,
+// blocking, the recipient's opt-out (and, for a rally, their per-friend mute),
+// their local 09:00 floor, mid-session state and the cooldown, then wrote the
+// row — so the row's existence IS the proof the sender
 // may nudge this person. Note what is NOT trusted: the recipient is read from
 // the nudge row, never taken from the caller, and the caller's id must match
 // the row's sender. The admin client is needed because the RECIPIENT's rows
@@ -165,7 +166,7 @@ export async function sendNudgePush(event: {
               mode: "single",
               tone,
               senderName,
-              targetKind: isNudgeTargetKind(nudge.target_kind) ? nudge.target_kind : "habits",
+              targetKind: isStoredNudgeTargetKind(nudge.target_kind) ? nudge.target_kind : "habits",
               targetLabel: nudge.target_label,
               goalId: nudge.goal_id,
             });
@@ -174,7 +175,7 @@ export async function sendNudgePush(event: {
         mode: "single",
         tone,
         senderName,
-        targetKind: isNudgeTargetKind(nudge.target_kind) ? nudge.target_kind : "habits",
+        targetKind: isStoredNudgeTargetKind(nudge.target_kind) ? nudge.target_kind : "habits",
         targetLabel: nudge.target_label,
         goalId: nudge.goal_id,
       });

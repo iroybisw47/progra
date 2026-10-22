@@ -12,7 +12,10 @@ import { COMMENT_REPLIES, NUDGES, RECAP_V2 } from "@/lib/flags";
 import { weekOfLabel } from "@/lib/recap-story";
 import { reviewWeekISO } from "@/lib/weekly-review";
 import { mergeReplyNotifications } from "@/lib/social/reply-notifications";
-import { isNudgeTargetKind, type NudgeTargetKind } from "@/lib/social/nudges";
+import {
+  isStoredNudgeTargetKind,
+  type StoredNudgeTargetKind,
+} from "@/lib/social/nudges";
 
 // How far back the Notifications panel looks. Bounds cost and matches the
 // "recent activity" spirit of the feed. Tunable.
@@ -70,7 +73,7 @@ export type NudgeNotification = {
   key: string; // `nudge:${nudgeId}`
   nudgeId: string;
   sender: PublicUser;
-  targetKind: NudgeTargetKind;
+  targetKind: StoredNudgeTargetKind;
   goalId: string | null;
   // Snapshot taken at send time, so it survives a rename or deletion.
   targetLabel: string;
@@ -455,7 +458,7 @@ export const listMyNotifications = cache(
         key: `nudge:${row.id}`,
         nudgeId: row.id,
         sender,
-        targetKind: isNudgeTargetKind(row.target_kind) ? row.target_kind : "habits",
+        targetKind: isStoredNudgeTargetKind(row.target_kind) ? row.target_kind : "habits",
         goalId: row.goal_id,
         targetLabel: row.target_label,
         presetKey: row.preset_key,

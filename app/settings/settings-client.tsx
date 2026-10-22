@@ -37,6 +37,7 @@ import {
   DARK_MODE,
   HABIT_REMINDERS,
   NUDGES,
+  RALLY,
   RECAP_PUSH,
   SOCIAL_PUSH,
   STREAKS,
@@ -967,17 +968,17 @@ function HabitReminderRow() {
 }
 
 
-// Whether friends may nudge you. Distinct from the push toggle above it: this
-// one decides whether the nudge happens at all, that one only decides whether
-// it buzzes.
+// Whether friends may nudge you (with RALLY on, rally you). Distinct from the
+// push toggle above it: this one decides whether it happens at all, that one
+// only decides whether it buzzes. Same column and event either way.
 function NudgesRow({ initialEnabled }: { initialEnabled: boolean }) {
   const [enabled, setEnabled] = useState(initialEnabled);
 
   return (
     <>
       <ToggleRow
-        label="Nudges"
-        ariaLabel="Let friends nudge you"
+        label={RALLY ? "Rallies" : "Nudges"}
+        ariaLabel={RALLY ? "Let friends rally you" : "Let friends nudge you"}
         checked={enabled}
         onCheckedChange={(next) => {
           setEnabled(next);
@@ -992,9 +993,21 @@ function NudgesRow({ initialEnabled }: { initialEnabled: boolean }) {
       />
       <Inset>
         <p className="text-caption text-xs leading-relaxed text-pretty">
-          Let friends nudge you from 9am your time when a goal or habit is
-          still open, and cheer you on when you&rsquo;ve finished. Each friend
-          can do either at most once every six hours.
+          {RALLY ? (
+            <>
+              Let friends cheer you on once you&rsquo;ve clocked in and
+              finished a habit, or nudge you when a habit, goal or streak needs
+              you, from 9am your time. Each friend can rally you at most once
+              every six hours. To stop one friend, mute them from their
+              profile.
+            </>
+          ) : (
+            <>
+              Let friends nudge you from 9am your time when a goal or habit is
+              still open, and cheer you on when you&rsquo;ve finished. Each
+              friend can do either at most once every six hours.
+            </>
+          )}
         </p>
       </Inset>
     </>
@@ -1012,6 +1025,7 @@ function pushRowLabel(): string {
   }
   if (SOCIAL_PUSH && RECAP_PUSH) return "Social & weekly recap";
   if (RECAP_PUSH) return "Weekly recap";
+  if (RALLY) return "Likes, comments & rallies";
   return NUDGES ? "Likes, comments & nudges" : "Likes & comments";
 }
 
@@ -1040,7 +1054,8 @@ function SocialPushRow({ initialEnabled }: { initialEnabled: boolean }) {
           {SOCIAL_PUSH && (
             <>
               When a friend likes or comments on your session
-              {NUDGES ? ", or nudges you" : ""}, and when someone sends or
+              {RALLY ? ", or rallies you" : NUDGES ? ", or nudges you" : ""}, and
+              when someone sends or
               accepts a friend request.
             </>
           )}

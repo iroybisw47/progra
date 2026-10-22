@@ -15,6 +15,8 @@
 // Deliberately no `date` field: nothing renders one, and two hand-authored
 // fields can disagree. Add it alongside whatever first displays it.
 
+import { RALLY } from "@/lib/flags";
+
 export type PatchNote = {
   version: string;
   title: string;
@@ -35,7 +37,27 @@ export type PatchNote = {
   outro?: string[];
 };
 
+// Rally's note, gated on its flag. The code deploys dark and the flag flip
+// is a redeploy of its own, so gating it here makes the note appear in the
+// very deploy that turns Rally on, not in the earlier one where the chip still
+// says Nudge. Once RALLY is on for good, fold it into the array like any other
+// entry. Its version is frozen like any shipped note's.
+export const RALLY_PATCH_NOTE: PatchNote = {
+  version: "1.05",
+  title: "Introducing Rally!",
+  intro:
+    "Hey Progra users! Nudge is now Rally. Tap Rally on a friend's profile, then choose Cheer or Nudge:",
+  items: [
+    "Cheer: once a friend has clocked in and checked off a habit, cheer them on for it.",
+    "Nudge: give a friend a push on a habit they haven't done yet, a goal that's falling behind for the week, or a streak that's about to break.",
+    "You can rally each friend once every 6 hours.",
+    "Don't want rallies from someone? Open their profile, tap the gear and choose Mute Rallies. They won't be told.",
+  ],
+  outro: ["Go rally your friends!", "Sincerely,\nIsh from Progra"],
+};
+
 export const PATCH_NOTES: readonly PatchNote[] = [
+  ...(RALLY ? [RALLY_PATCH_NOTE] : []),
   {
     version: "1.04",
     title: "Introducing Streaks to Progra!",

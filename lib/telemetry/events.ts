@@ -227,6 +227,21 @@ export const EVENTS = {
   nudge_rejected: { reason: NUDGE_REASONS },
   nudge_locked_tapped: { reason: NUDGE_REASONS },
 
+  // --- rally (RALLY): the chip that replaces Nudge. Sends still write a
+  // nudges row, so rally_sent's nudge_id joins to it. ------------------------
+  rally_sheet_opened: {},
+  rally_mode_chosen: { mode: ["cheer", "nudge"] },
+  rally_sent: {
+    nudge_id: "uuid",
+    mode: ["cheer", "nudge"],
+    kind: ["habit", "goal", "streak"],
+    preset: NUDGE_PRESETS_ALL,
+    pushed: "bool",
+  },
+  rally_rejected: { reason: NUDGE_REASONS },
+  rally_locked_tapped: { reason: NUDGE_REASONS },
+  rally_muted_toggled: { muted: "bool" },
+
   // --- comments. The post itself is comment_given above. --------------------
   comment_reply_opened: {},
 

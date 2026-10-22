@@ -36,6 +36,7 @@ import {
   sendFriendRequest,
 } from "@/app/actions/friends";
 import { setProfileIdentity } from "@/app/actions/profile";
+import { setRallyMuted } from "@/app/actions/rally";
 import { ReportButton } from "@/components/report-button";
 import type { PublicUser } from "@/lib/db/friends";
 import type { Relationship } from "@/lib/db/profiles";
@@ -45,9 +46,13 @@ type Result = { ok: true } | { error: string };
 export function ProfileActions({
   target,
   relationship,
+  rallyMuted = null,
 }: {
   target: PublicUser;
   relationship: Relationship;
+  // Whether you've muted this friend's rallies; null hides the row (RALLY off,
+  // or not a friend).
+  rallyMuted?: boolean | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -235,6 +240,27 @@ export function ProfileActions({
                   onClick={friendRow.run}
                 />
               )
+            )}
+
+            {/* Quiet, not destructive: it only stops their rallies reaching
+                you, and they can't tell (their chip reads as if you'd turned
+                rallies off). */}
+            {k === "friends" && rallyMuted !== null && (
+              <MenuRow
+                label={rallyMuted ? "Unmute Rallies" : "Mute Rallies"}
+                disabled={pending}
+                onClick={() =>
+                  run(() => setRallyMuted({ userId: target.userId, muted: !rallyMuted }), {
+                    okMsg: rallyMuted
+                      ? "Rallies unmuted"
+                      : `Rallies from ${target.displayName?.split(" ")[0] || `@${target.username}`} muted`,
+                    then: () => {
+                      track("rally_muted_toggled", { muted: !rallyMuted });
+                      setMenuOpen(false);
+                    },
+                  })
+                }
+              />
             )}
 
             <MenuRow

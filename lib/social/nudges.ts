@@ -79,6 +79,34 @@ export function isNudgeTargetKind(value: string): value is NudgeTargetKind {
   return value === "goal" || value === "habits";
 }
 
+// What a stored nudges row can be about. Rally (rally.sql) writes one habit or
+// the streak as well; the old send path still writes only the two above, which
+// is why sendNudge keeps validating with NudgeTargetKind.
+export type StoredNudgeTargetKind = NudgeTargetKind | "habit" | "streak";
+
+export function isStoredNudgeTargetKind(
+  value: string
+): value is StoredNudgeTargetKind {
+  return isNudgeTargetKind(value) || value === "habit" || value === "streak";
+}
+
+// The panel row's caption for what a nudge or rally was about.
+export function nudgeTargetCaption(
+  kind: StoredNudgeTargetKind,
+  label: string
+): string {
+  switch (kind) {
+    case "habits":
+      return "Habits";
+    case "habit":
+      return `Habit · ${label}`;
+    case "streak":
+      return "Streak";
+    case "goal":
+      return `Goal · ${label}`;
+  }
+}
+
 export type NudgeGoalTarget = {
   goalId: string;
   title: string;
