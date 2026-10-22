@@ -95,10 +95,10 @@ describe("myBadge", () => {
 });
 
 describe("friendBadge", () => {
-  it("shows from 2", () => {
-    expect(friendBadge({ state: "live", launch: "2026-10-21", current: 1, longest: 9 })).toBeNull();
-    expect(friendBadge({ state: "live", launch: "2026-10-21", current: 2, longest: 9 })).toEqual({
-      count: 2,
+  it("shows from 1", () => {
+    expect(friendBadge({ state: "live", launch: "2026-10-21", current: 0, longest: 9 })).toBeNull();
+    expect(friendBadge({ state: "live", launch: "2026-10-21", current: 1, longest: 9 })).toEqual({
+      count: 1,
       dim: false,
       milestone: null,
     });

@@ -5,6 +5,11 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-22
+
+### 09:37 · A friend's streak shows from 1 day
+A friend's profile showed their streak badge only from 2 days. Streaks launched yesterday, so only one day has closed (Oct 21: 23 members active, 22 with shared activity), and almost everyone sat at 1 and showed nothing. `FRIEND_STREAK_MIN` is now 1, the same as your own badge. It's display-only: the SQL never read it, so nothing needs to be run.
+
 ## 2026-10-20
 
 ### 23:10 · Patch 1.04 announces dark mode too

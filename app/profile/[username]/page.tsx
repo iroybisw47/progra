@@ -82,7 +82,7 @@ export default async function ProfilePage({
   const canSeeContent =
     relationship.kind === "self" || relationship.kind === "friends";
   const displayName = target.displayName || `@${target.username}`;
-  // Yours from 1 day; a friend's from 2, and only on an accepted friend's page.
+  // From 1 day for both; a friend's only on an accepted friend's page.
   const ownBadge = myBadge(myStreak);
   const theirBadge = relationship.kind === "friends" ? friendBadge(friendStreak) : null;
   let streakBadge: React.ReactNode = null;

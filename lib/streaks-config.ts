@@ -34,8 +34,10 @@ export const STREAK_REMINDER_MIN = 3;
 // Quiet badges at these lengths. No celebration screen.
 export const STREAK_MILESTONES = [7, 30, 100] as const;
 
-// A friend's streak shows on their profile from this length.
-export const FRIEND_STREAK_MIN = 2;
+// A friend's streak shows on their profile from this length. Was 2 until
+// 2026-10-22: the day after launch that hid nearly everyone's, since every
+// streak was 1 day old.
+export const FRIEND_STREAK_MIN = 1;
 
 // The announcement card's words, approved by the owner 2026-10-20. Read before
 // and after Day One alike (the card adds its own "Starts …, from 4am" line
