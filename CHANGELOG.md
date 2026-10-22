@@ -7,6 +7,19 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-22
 
+### 14:22 · Rally: Cheer opens on either, and both modes can show at once
+The owner's change. Before, Cheer needed both a clock-in and a finished habit, and it hid Nudge.
+- **Cheer** is now for a habit done today (no clock-in needed) **or** a goal on or ahead of weekly pace, once they've clocked in today.
+- **Every goal is in one list or the other:** behind pace means Nudge, on pace means Cheer.
+- **Cheer and Nudge show together** when both apply. It's still one rally per friend per 6h, and there's still no nudging mid-session.
+- **SQL:** `rally.sql` **STEP 5** (`rally_targets` and `send_rally` replaced, `nudges_rally_cheer_shape` widened to habit|goal) was **applied in prod 2026-10-22**, and the updated STEP 2 passed 55/55 there.
+- **App:** `RallyCheer` gains `goals`. The sheet lists cheer goals first. The `/dev/rally?fixture=both` preview is new. The patch 1.05 Cheer bullet and the Settings copy are reworded.
+- **Gate:**
+  - The harness: STEP 1 and STEP 5 each run twice, `$rally2$` passes 55/55, and nudges SP2 passes 63/63.
+  - The new boundary checks cover pace, cheering without a clock-in, and a private session not counting as one.
+  - It catches 23/23 planted bugs.
+  - vitest passes 1490 of 1490, and tsc is clean.
+
 ### 10:51 · Rally replaces the Nudge chip, dark behind `RALLY`
 On a friend's profile, **Rally** opens one sheet: choose **Cheer** (one habit they finished today, once they've clocked in) or **Nudge** (an open habit, a goal behind weekly pace, or their streak at risk), then a preset. Plan: `.claude/plans/rally.md`.
 - **SQL, `.claude/plans/rally.sql`, applied in prod 2026-10-22** (`$rally2$` passed 50/50 and nudges SP2 61/61; support@ is gone, so both suites now use ishaan@ as the stranger account):

@@ -6,6 +6,7 @@ import type { RallyState } from "@/lib/social/rally";
 export const RALLY_PREVIEW_FIXTURES = [
   "cheer",
   "nudge",
+  "both",
   "nudge-streak",
   "cooldown",
   "disabled",
@@ -29,8 +30,23 @@ export function rallyPreview(fixture: RallyPreviewFixture, now: number): RallySt
             { habitId: id(1), name: "Gym", color: "#2E8B50" },
             { habitId: id(2), name: "Read 20 pages", color: "#77B7C6" },
           ],
+          goals: [
+            { goalId: id(6), title: "Learn Spanish", color: "#395AA0", workedMs: 3.5 * HOUR, quotaMs: 5 * HOUR },
+          ],
         },
         nudge: null,
+      };
+    case "both":
+      return {
+        status: "ok",
+        cheer: { habits: [{ habitId: id(1), name: "Gym", color: "#2E8B50" }], goals: [] },
+        nudge: {
+          habits: [{ habitId: id(3), name: "No phone before 9", color: "#D6A728" }],
+          goals: [
+            { goalId: id(5), title: "Ace organic chem", color: "#DE5148", workedMs: 1.5 * HOUR, quotaMs: 6 * HOUR },
+          ],
+          streak: null,
+        },
       };
     case "nudge":
     case "nudge-streak":

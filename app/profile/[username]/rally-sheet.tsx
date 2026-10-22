@@ -54,9 +54,8 @@ const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 // messages only, like Nudge: a push body is unfilterable, and the presets are
 // what keep it one-tap.
 //
-// The database offers at most one mode (rally_targets), so step 1 always shows
-// both rows and dims the one that's closed, with why in its meta: that's how
-// the rule ("cheer once they've clocked in and finished something") gets
+// Step 1 always shows both rows. Either or both can be open (rally_targets);
+// a closed one is dimmed with why in its meta, which is how the rules get
 // learned without a help screen.
 export function RallySheet({
   open,
@@ -77,10 +76,11 @@ export function RallySheet({
   const [step, setStep] = useState<Step>({ at: "mode" });
   const [pending, startTransition] = useTransition();
 
-  const cheerTargets: Target[] = (state.cheer?.habits ?? []).map((habit) => ({
-    kind: "habit",
-    habit,
-  }));
+  // Goals first: an on-pace week is the bigger thing to cheer.
+  const cheerTargets: Target[] = [
+    ...(state.cheer?.goals ?? []).map((goal): Target => ({ kind: "goal", goal })),
+    ...(state.cheer?.habits ?? []).map((habit): Target => ({ kind: "habit", habit })),
+  ];
   const nudge = state.nudge;
   // Streak first (it's the one with a clock on it), then goals, then habits.
   const nudgeTargets: Target[] = nudge
@@ -159,15 +159,15 @@ export function RallySheet({
                 label="Cheer"
                 meta={
                   state.cheer
-                    ? `${plural(state.cheer.habits.length, "habit")} done today`
-                    : "once they clock in and finish a habit"
+                    ? plural(cheerTargets.length, "thing") + " to cheer"
+                    : "once they finish a habit or get on pace"
                 }
                 disabled={!state.cheer}
                 onClick={() => choose("cheer")}
               />
               <MenuRow
                 label="Nudge"
-                meta={nudge ? plural(nudgeTargets.length, "thing") + " to nudge" : "they're on a roll"}
+                meta={nudge ? plural(nudgeTargets.length, "thing") + " to nudge" : "nothing to nudge right now"}
                 disabled={!nudge}
                 onClick={() => choose("nudge")}
               />
@@ -191,7 +191,7 @@ export function RallySheet({
                   return (
                     <MenuRow
                       key={target.goal.goalId}
-                      label={`Goal · ${target.goal.title}`}
+                      label={step.mode === "cheer" ? target.goal.title : `Goal · ${target.goal.title}`}
                       meta={goalPaceMeta(target.goal)}
                       marker={<CategoryMarker isGoal color={target.goal.color} />}
                       onClick={pick}

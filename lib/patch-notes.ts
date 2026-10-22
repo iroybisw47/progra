@@ -48,7 +48,7 @@ export const RALLY_PATCH_NOTE: PatchNote = {
   intro:
     "Hey Progra users! Nudge is now Rally. Tap Rally on a friend's profile, then choose Cheer or Nudge:",
   items: [
-    "Cheer: once a friend has clocked in and checked off a habit, cheer them on for it.",
+    "Cheer: cheer a friend on for a habit they've checked off today, or a goal they're on pace for this week.",
     "Nudge: give a friend a push on a habit they haven't done yet, a goal that's falling behind for the week, or a streak that's about to break.",
     "You can rally each friend once every 6 hours.",
     "Don't want rallies from someone? Open their profile, tap the gear and choose Mute Rallies. They won't be told.",

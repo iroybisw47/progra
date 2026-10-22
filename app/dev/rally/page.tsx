@@ -7,7 +7,7 @@ import { RallyPreviewClient } from "./rally-preview-client";
 // DEV ONLY: the Rally chip and its sheet with no sign-in and no database, for
 // screenshots.
 //
-//   /dev/rally?fixture=cheer|nudge|nudge-streak|cooldown|disabled|too-early|
+//   /dev/rally?fixture=cheer|nudge|both|nudge-streak|cooldown|disabled|too-early|
 //                      in-session|done[&sheet=1]
 //
 // It renders the real chip and sheet from made-up states (lib/rally-preview.ts)

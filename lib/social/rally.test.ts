@@ -16,14 +16,22 @@ const HABIT = { habit_id: "h1", name: "Read", color: "#77B7C6" };
 const GOAL = { goal_id: "g1", title: "Thesis", color: null, worked_ms: 5_400_000, quota_ms: 18_000_000 };
 
 describe("parseRallyState", () => {
-  it("reads a cheer", () => {
+  it("reads a cheer for a habit and an on-pace goal", () => {
     expect(
-      parseRallyState({ status: "ok", cheer: { habits: [HABIT] }, nudge: null })
+      parseRallyState({ status: "ok", cheer: { habits: [HABIT], goals: [GOAL] }, nudge: null })
     ).toEqual({
       status: "ok",
-      cheer: { habits: [{ habitId: "h1", name: "Read", color: "#77B7C6" }] },
+      cheer: {
+        habits: [{ habitId: "h1", name: "Read", color: "#77B7C6" }],
+        goals: [{ goalId: "g1", title: "Thesis", color: null, workedMs: 5_400_000, quotaMs: 18_000_000 }],
+      },
       nudge: null,
     });
+  });
+
+  it("reads a goal-only cheer (clocked in, no habit done)", () => {
+    const state = parseRallyState({ status: "ok", cheer: { habits: [], goals: [GOAL] }, nudge: null });
+    expect(state.status === "ok" && state.cheer?.goals.map((g) => g.goalId)).toEqual(["g1"]);
   });
 
   it("reads a nudge with all three kinds of target", () => {
@@ -44,20 +52,20 @@ describe("parseRallyState", () => {
     });
   });
 
-  it("keeps only the cheer if both modes arrive", () => {
+  it("keeps both modes when both arrive", () => {
     const state = parseRallyState({
       status: "ok",
-      cheer: { habits: [HABIT] },
-      nudge: { habits: [HABIT], goals: [], streak: null },
+      cheer: { habits: [HABIT], goals: [] },
+      nudge: { habits: [{ ...HABIT, habit_id: "h2" }], goals: [], streak: null },
     });
-    expect(state.status === "ok" && state.nudge).toBeNull();
+    expect(state.status === "ok" && state.cheer !== null && state.nudge !== null).toBe(true);
   });
 
   it("drops junk entries, and hides when nothing usable is left", () => {
     expect(
       parseRallyState({
         status: "ok",
-        cheer: { habits: [{ habit_id: 1, name: "x" }] },
+        cheer: { habits: [{ habit_id: 1, name: "x" }], goals: [{ ...GOAL, worked_ms: "x" }] },
         nudge: { habits: ["x"], goals: [{ ...GOAL, quota_ms: 0 }], streak: { current: 0 } },
       })
     ).toEqual(RALLY_HIDDEN);

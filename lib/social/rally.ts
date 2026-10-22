@@ -5,10 +5,12 @@
 //
 // Rally is Nudge reorganised around one choice. You pick Cheer or Nudge, then
 // one target, then a preset:
-//   * Cheer is for one habit a friend finished today, once they've clocked in.
+//   * Cheer is for a habit a friend finished today, or a goal they're on pace
+//     for this week once they've clocked in today. Either one opens it.
 //   * Nudge is for one open habit, one goal behind weekly pace, or their streak
-//     when it's at risk.
-// The database offers at most one of the two (rally_targets in rally.sql).
+//     when it's at risk. Never while they're mid-session.
+// Both can be on offer at once (rally_targets, rally.sql STEP 5); it's still
+// one rally per friend per 6 hours.
 
 import {
   formatCooldownLeft,
@@ -28,8 +30,9 @@ export function isRallyKind(value: string): value is RallyKind {
 
 export type RallyHabit = { habitId: string; name: string; color: string | null };
 
-// A goal behind its weekly pace, with the numbers the row's meta line shows.
-// Both sums are over the friend's visible sessions only.
+// A goal measured against its weekly pace (behind it under Nudge, on or ahead
+// of it under Cheer), with the numbers the row's meta line shows. Both sums are
+// over the friend's visible sessions only.
 export type RallyGoal = {
   goalId: string;
   title: string;
@@ -45,11 +48,13 @@ export type RallyNudge = {
   streak: { current: number } | null;
 };
 
+export type RallyCheer = { habits: RallyHabit[]; goals: RallyGoal[] };
+
 // hidden / cooldown / locked mean exactly what they mean for the old chip.
-// "ok" carries exactly one of cheer and nudge.
+// "ok" carries at least one of cheer and nudge, and may carry both.
 export type RallyState =
   | Exclude<NudgeState, { status: "ok" }>
-  | { status: "ok"; cheer: { habits: RallyHabit[] } | null; nudge: RallyNudge | null };
+  | { status: "ok"; cheer: RallyCheer | null; nudge: RallyNudge | null };
 
 export const RALLY_HIDDEN: RallyState = { status: "hidden" };
 
@@ -98,8 +103,7 @@ function parseGoals(value: unknown): RallyGoal[] {
 
 // Defensive, like parseNudgeState: anything unrecognised hides the chip rather
 // than offering something the database will refuse. Junk entries are dropped,
-// an empty mode becomes null, and if both modes somehow arrive, Cheer wins,
-// because that's the rule rally_targets enforces.
+// and a mode with nothing left in it becomes null.
 export function parseRallyState(json: unknown): RallyState {
   const row = asRecord(json);
   if (!row) return RALLY_HIDDEN;
@@ -110,8 +114,13 @@ export function parseRallyState(json: unknown): RallyState {
   }
   if (row.status !== "ok") return RALLY_HIDDEN;
 
-  const cheerHabits = parseHabits(asRecord(row.cheer)?.habits);
-  const cheer = cheerHabits.length > 0 ? { habits: cheerHabits } : null;
+  const cheerRow = asRecord(row.cheer);
+  const cheerHabits = parseHabits(cheerRow?.habits);
+  const cheerGoals = parseGoals(cheerRow?.goals);
+  const cheer =
+    cheerHabits.length > 0 || cheerGoals.length > 0
+      ? { habits: cheerHabits, goals: cheerGoals }
+      : null;
 
   const nudgeRow = asRecord(row.nudge);
   let nudge: RallyNudge | null = null;
@@ -126,9 +135,8 @@ export function parseRallyState(json: unknown): RallyState {
     }
   }
 
-  if (cheer) return { status: "ok", cheer, nudge: null };
-  if (nudge) return { status: "ok", cheer: null, nudge };
-  return RALLY_HIDDEN;
+  if (!cheer && !nudge) return RALLY_HIDDEN;
+  return { status: "ok", cheer, nudge };
 }
 
 // The refusal a non-ok chip stands for, or null when the chip can rally.

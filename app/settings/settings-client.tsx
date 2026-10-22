@@ -995,9 +995,9 @@ function NudgesRow({ initialEnabled }: { initialEnabled: boolean }) {
         <p className="text-caption text-xs leading-relaxed text-pretty">
           {RALLY ? (
             <>
-              Let friends cheer you on once you&rsquo;ve clocked in and
-              finished a habit, or nudge you when a habit, goal or streak needs
-              you, from 9am your time. Each friend can rally you at most once
+              Let friends cheer you on for a habit you&rsquo;ve finished or a
+              goal you&rsquo;re on pace for, or nudge you when a habit, goal or
+              streak needs you, from 9am your time. Each friend can rally you at most once
               every six hours. To stop one friend, mute them from their
               profile.
             </>
