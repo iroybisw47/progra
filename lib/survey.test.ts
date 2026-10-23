@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  LATEST_SURVEY,
   SURVEY,
   firstUnanswered,
   isComplete,
@@ -77,15 +78,18 @@ describe("isValidAnswer", () => {
   });
 });
 
-// The live survey's keys are what survey.sql's CHECK admits and what the
-// dashboard groups by.
-describe("SURVEY", () => {
+// The survey's keys are what survey.sql's CHECK admits and what the dashboard
+// groups by, whether or not it's still being asked.
+describe("LATEST_SURVEY", () => {
+  it("is not being asked (switched off 2026-10-22)", () => {
+    expect(SURVEY).toBeNull();
+  });
+
   it("has keys the database accepts, and no duplicates", () => {
-    if (!SURVEY) return;
-    expect(SURVEY.id).toMatch(/^[a-z0-9_-]{1,60}$/);
-    const qids = SURVEY.questions.map((q) => q.id);
+    expect(LATEST_SURVEY.id).toMatch(/^[a-z0-9_-]{1,60}$/);
+    const qids = LATEST_SURVEY.questions.map((q) => q.id);
     expect(new Set(qids).size).toBe(qids.length);
-    for (const q of SURVEY.questions) {
+    for (const q of LATEST_SURVEY.questions) {
       expect(q.id).toMatch(/^[a-z0-9_]{1,40}$/);
       const oids = q.options.map((o) => o.id);
       expect(new Set(oids).size).toBe(oids.length);
@@ -97,8 +101,8 @@ describe("SURVEY", () => {
   });
 
   it("pins the shipped keys (they are frozen once live)", () => {
-    expect(SURVEY?.id).toBe("2026-10-pricing-social");
-    expect(SURVEY?.questions.map((q) => [q.id, q.options.map((o) => o.id)])).toEqual([
+    expect(LATEST_SURVEY.id).toBe("2026-10-pricing-social");
+    expect(LATEST_SURVEY.questions.map((q) => [q.id, q.options.map((o) => o.id)])).toEqual([
       ["pricing", ["flat_subscription", "pro_tier", "would_stop"]],
       ["friend_hook", ["joint_sessions", "challenges", "daily_streaks", "share_progress"]],
       ["daily_notifications", ["appreciate", "tiresome", "none"]],

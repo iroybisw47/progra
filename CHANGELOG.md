@@ -7,6 +7,11 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-22
 
+### 21:43 · The in-app survey is switched off
+At the owner's request, nobody is asked the survey any more, including anyone partway through it. In `lib/survey.ts`, `SURVEY` is `null`.
+- **Results stay on the dashboard.** The questions now live in `LATEST_SURVEY`, which the admin Survey tab and `/dev/survey` read. The tab keeps showing everything answered so far, partial answers included.
+- **Untouched:** the database and the answers already stored. Turning it back on means pointing `SURVEY` at `LATEST_SURVEY` again; anyone who hasn't finished would then be asked again.
+
 ### 14:22 · Rally: Cheer opens on either, and both modes can show at once
 The owner's change. Before, Cheer needed both a clock-in and a finished habit, and it hid Nudge.
 - **Cheer** is now for a habit done today (no clock-in needed) **or** a goal on or ahead of weekly pace, once they've clocked in today.

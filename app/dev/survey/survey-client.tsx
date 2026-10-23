@@ -3,7 +3,8 @@
 import { useState } from "react";
 
 import { SurveyModal, type SurveyAnswerFn } from "@/components/v2/survey-modal";
-import { SURVEY } from "@/lib/survey";
+// The latest survey, previewed even now that nobody is being asked it.
+import { LATEST_SURVEY as SURVEY } from "@/lib/survey";
 
 // The client half of the survey's dev preview (page.tsx says what it's for).
 // `anywhere` lifts the modal's "/" allowlist, the one thing this can't show.

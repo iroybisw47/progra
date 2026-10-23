@@ -11,7 +11,7 @@ import {
   getAdminSurveyResults,
   getAdminUsageSocial,
 } from "@/lib/db/admin-analytics";
-import { SURVEY } from "@/lib/survey";
+import { LATEST_SURVEY } from "@/lib/survey";
 import { shapeSurveyResults } from "@/lib/survey-results";
 
 import { Filters } from "./filters";
@@ -74,10 +74,11 @@ export default async function AdminAnalyticsPage({
     generatedAt = usage?.generated_at ?? null;
     body = <UsageTab usage={usage} notifications={notifications} />;
   } else if (tab === "survey") {
-    const row = SURVEY ? await getAdminSurveyResults(SURVEY.id, inc, seg, cf, ct) : null;
-    const results = SURVEY && row ? shapeSurveyResults(row, SURVEY) : null;
+    // The last survey's results, whether or not it's still being asked.
+    const row = await getAdminSurveyResults(LATEST_SURVEY.id, inc, seg, cf, ct);
+    const results = row ? shapeSurveyResults(row, LATEST_SURVEY) : null;
     generatedAt = results?.generatedAt ?? null;
-    body = <SurveyTab survey={SURVEY} results={results} />;
+    body = <SurveyTab survey={LATEST_SURVEY} results={results} />;
   } else {
     const [onboarding, ghosts, roster] = await Promise.all([
       getAdminOnboardingStats(inc, seg, cf, ct),

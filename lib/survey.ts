@@ -12,11 +12,14 @@
 //                           stamped by answerSurvey once every question has a
 //                           row. It is what makes the gate free on every load.
 //
-// To run a NEW survey, replace SURVEY with one under a new `id`: everyone whose
-// survey_done isn't that id is asked again. Once a survey has shipped, its `id`,
-// question ids and option ids are FROZEN, because they are the keys the
-// dashboard groups by. Labels can be reworded freely. SURVEY = null switches the
-// whole thing off.
+// To run a NEW survey, define it under a new `id` and point SURVEY at it:
+// everyone whose survey_done isn't that id is asked again. Once a survey has
+// shipped, its `id`, question ids and option ids are FROZEN, because they are
+// the keys the dashboard groups by. Labels can be reworded freely.
+//
+// SURVEY is what's being ASKED; null asks nobody. LATEST_SURVEY is the last one
+// defined, kept after it stops being asked so the dashboard can still label
+// its results.
 //
 // Pure, so lib/survey.test.ts pins every case.
 
@@ -41,7 +44,7 @@ export type Survey = {
   questions: readonly SurveyQuestion[];
 };
 
-export const SURVEY: Survey | null = {
+export const LATEST_SURVEY: Survey = {
   id: "2026-10-pricing-social",
   title: "Help shape Progra",
   intro: "Three quick questions. Pick the answer that fits you best.",
@@ -126,6 +129,11 @@ export const SURVEY: Survey | null = {
     },
   ],
 };
+
+// Switched off 2026-10-22 at the owner's request: nobody is asked any more,
+// including anyone who hadn't finished. Their partial answers stay in
+// survey_answers and still count on the dashboard.
+export const SURVEY: Survey | null = null;
 
 // What the gate reads off the profile. Optional for the reason uw_prompt is on
 // Profile: before the SQL runs PostgREST leaves survey_done out.
