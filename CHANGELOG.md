@@ -5,6 +5,21 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-24
+
+### 21:06 · A new survey: what Progra is worth
+Four questions, asked one at a time on load with no skip, the same as before. The survey is `VALUE_SURVEY` (`id` `2026-10-value`) in `lib/survey.ts`, and `SURVEY` points at it. The id is new, so everyone is asked, including people who finished the pricing survey.
+- **Questions** (keys frozen once live):
+  - **Q1 `most_valued`:** clock_in / friends_feed / nudges / streaks_recap.
+  - **Q2 `time_impact`:** more_time / helped / tracking_only / not_sure.
+  - **Q3 `noticed`:** often / a_few_times / rarely / never.
+  - **Q4 `disappointment`:** very / somewhat / not / not_sure.
+- **Old results stay viewable.**
+  - `SURVEYS` lists every shipped survey, newest first. The pricing one is kept as `PRICING_SURVEY`, and `LATEST_SURVEY` is the first entry.
+  - The admin Survey tab gets a picker (`?survey=<id>`, newest by default). Its hint says "No longer asked" for a retired survey.
+- **No SQL needed:** `survey_answers` only checks the key format.
+- **Gate:** vitest passes 1492 of 1492 (the tests pin both surveys' keys), and tsc and eslint are clean.
+
 ## 2026-10-22
 
 ### 21:43 · The in-app survey is switched off

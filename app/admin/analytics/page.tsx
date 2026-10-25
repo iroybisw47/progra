@@ -11,7 +11,7 @@ import {
   getAdminSurveyResults,
   getAdminUsageSocial,
 } from "@/lib/db/admin-analytics";
-import { LATEST_SURVEY } from "@/lib/survey";
+import { LATEST_SURVEY, SURVEYS, surveyById } from "@/lib/survey";
 import { shapeSurveyResults } from "@/lib/survey-results";
 
 import { Filters } from "./filters";
@@ -60,35 +60,6 @@ export default async function AdminAnalyticsPage({
   };
   const [inc, seg, cf, ct] = [filters.includeInternal, filters.segment, filters.cohortFrom, filters.cohortTo];
 
-  let generatedAt: string | null = null;
-  let body: React.ReactNode;
-  if (tab === "overview") {
-    const overview = await getAdminOverview(inc, seg, cf, ct);
-    generatedAt = overview?.generated_at ?? null;
-    body = <OverviewTab overview={overview} />;
-  } else if (tab === "usage") {
-    const [usage, notifications] = await Promise.all([
-      getAdminUsageSocial(inc, seg, cf, ct, filters.from, filters.to),
-      getAdminNotificationStats(inc, seg, cf, ct, filters.from, filters.to),
-    ]);
-    generatedAt = usage?.generated_at ?? null;
-    body = <UsageTab usage={usage} notifications={notifications} />;
-  } else if (tab === "survey") {
-    // The last survey's results, whether or not it's still being asked.
-    const row = await getAdminSurveyResults(LATEST_SURVEY.id, inc, seg, cf, ct);
-    const results = row ? shapeSurveyResults(row, LATEST_SURVEY) : null;
-    generatedAt = results?.generatedAt ?? null;
-    body = <SurveyTab survey={LATEST_SURVEY} results={results} />;
-  } else {
-    const [onboarding, ghosts, roster] = await Promise.all([
-      getAdminOnboardingStats(inc, seg, cf, ct),
-      getAdminGhostBehavior(inc, seg, cf, ct),
-      getAdminRoster(inc, seg, cf, ct),
-    ]);
-    generatedAt = roster?.generatedAt ?? null;
-    body = <OnboardingTab onboarding={onboarding} ghosts={ghosts} roster={roster} />;
-  }
-
   // Tab links keep the filters.
   const query = new URLSearchParams();
   if (filters.from) query.set("from", filters.from);
@@ -103,6 +74,48 @@ export default async function AdminAnalyticsPage({
     const s = q.toString();
     return `/admin/analytics${s ? `?${s}` : ""}`;
   };
+
+  let generatedAt: string | null = null;
+  let body: React.ReactNode;
+  if (tab === "overview") {
+    const overview = await getAdminOverview(inc, seg, cf, ct);
+    generatedAt = overview?.generated_at ?? null;
+    body = <OverviewTab overview={overview} />;
+  } else if (tab === "usage") {
+    const [usage, notifications] = await Promise.all([
+      getAdminUsageSocial(inc, seg, cf, ct, filters.from, filters.to),
+      getAdminNotificationStats(inc, seg, cf, ct, filters.from, filters.to),
+    ]);
+    generatedAt = usage?.generated_at ?? null;
+    body = <UsageTab usage={usage} notifications={notifications} />;
+  } else if (tab === "survey") {
+    // Any survey that has shipped, newest by default, whether or not it's
+    // still being asked (?survey=<id>).
+    const survey = surveyById(p.survey) ?? LATEST_SURVEY;
+    const row = await getAdminSurveyResults(survey.id, inc, seg, cf, ct);
+    const results = row ? shapeSurveyResults(row, survey) : null;
+    generatedAt = results?.generatedAt ?? null;
+    body = (
+      <SurveyTab
+        survey={survey}
+        results={results}
+        choices={SURVEYS.map((s) => ({
+          id: s.id,
+          // hrefFor("survey") always carries ?tab=survey.
+          href: `${hrefFor("survey")}&survey=${s.id}`,
+        }))}
+      />
+    );
+  } else {
+    const [onboarding, ghosts, roster] = await Promise.all([
+      getAdminOnboardingStats(inc, seg, cf, ct),
+      getAdminGhostBehavior(inc, seg, cf, ct),
+      getAdminRoster(inc, seg, cf, ct),
+    ]);
+    generatedAt = roster?.generatedAt ?? null;
+    body = <OnboardingTab onboarding={onboarding} ghosts={ghosts} roster={roster} />;
+  }
+
 
   return (
     <div className="flex w-full flex-col items-center px-5 pt-8 pb-16">

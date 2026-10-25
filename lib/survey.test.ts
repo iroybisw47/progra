@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   LATEST_SURVEY,
+  PRICING_SURVEY,
   SURVEY,
+  SURVEYS,
+  VALUE_SURVEY,
+  surveyById,
   firstUnanswered,
   isComplete,
   isValidAnswer,
@@ -78,34 +82,52 @@ describe("isValidAnswer", () => {
   });
 });
 
-// The survey's keys are what survey.sql's CHECK admits and what the dashboard
+// A survey's keys are what survey.sql's CHECK admits and what the dashboard
 // groups by, whether or not it's still being asked.
-describe("LATEST_SURVEY", () => {
-  it("is not being asked (switched off 2026-10-22)", () => {
-    expect(SURVEY).toBeNull();
+describe("SURVEYS", () => {
+  it("asks the value survey, the newest", () => {
+    expect(SURVEY).toBe(VALUE_SURVEY);
+    expect(LATEST_SURVEY).toBe(VALUE_SURVEY);
+  });
+
+  it("has unique ids, and finds each by id", () => {
+    const ids = SURVEYS.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const s of SURVEYS) expect(surveyById(s.id)).toBe(s);
+    expect(surveyById("nope")).toBeNull();
+    expect(surveyById(undefined)).toBeNull();
   });
 
   it("has keys the database accepts, and no duplicates", () => {
-    expect(LATEST_SURVEY.id).toMatch(/^[a-z0-9_-]{1,60}$/);
-    const qids = LATEST_SURVEY.questions.map((q) => q.id);
-    expect(new Set(qids).size).toBe(qids.length);
-    for (const q of LATEST_SURVEY.questions) {
-      expect(q.id).toMatch(/^[a-z0-9_]{1,40}$/);
-      const oids = q.options.map((o) => o.id);
-      expect(new Set(oids).size).toBe(oids.length);
-      for (const o of q.options) {
-        expect(o.id).toMatch(/^[a-z0-9_]{1,40}$/);
-        expect(o.short.length).toBeLessThanOrEqual(18);
+    for (const survey of SURVEYS) {
+      expect(survey.id).toMatch(/^[a-z0-9_-]{1,60}$/);
+      const qids = survey.questions.map((q) => q.id);
+      expect(new Set(qids).size).toBe(qids.length);
+      for (const q of survey.questions) {
+        expect(q.id).toMatch(/^[a-z0-9_]{1,40}$/);
+        const oids = q.options.map((o) => o.id);
+        expect(new Set(oids).size).toBe(oids.length);
+        for (const o of q.options) {
+          expect(o.id).toMatch(/^[a-z0-9_]{1,40}$/);
+          expect(o.short.length).toBeLessThanOrEqual(18);
+        }
       }
     }
   });
 
   it("pins the shipped keys (they are frozen once live)", () => {
-    expect(LATEST_SURVEY.id).toBe("2026-10-pricing-social");
-    expect(LATEST_SURVEY.questions.map((q) => [q.id, q.options.map((o) => o.id)])).toEqual([
+    expect(PRICING_SURVEY.id).toBe("2026-10-pricing-social");
+    expect(PRICING_SURVEY.questions.map((q) => [q.id, q.options.map((o) => o.id)])).toEqual([
       ["pricing", ["flat_subscription", "pro_tier", "would_stop"]],
       ["friend_hook", ["joint_sessions", "challenges", "daily_streaks", "share_progress"]],
       ["daily_notifications", ["appreciate", "tiresome", "none"]],
+    ]);
+    expect(VALUE_SURVEY.id).toBe("2026-10-value");
+    expect(VALUE_SURVEY.questions.map((q) => [q.id, q.options.map((o) => o.id)])).toEqual([
+      ["most_valued", ["clock_in", "friends_feed", "nudges", "streaks_recap"]],
+      ["time_impact", ["more_time", "helped", "tracking_only", "not_sure"]],
+      ["noticed", ["often", "a_few_times", "rarely", "never"]],
+      ["disappointment", ["very", "somewhat", "not", "not_sure"]],
     ]);
   });
 });

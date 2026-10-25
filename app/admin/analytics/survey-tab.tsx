@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import type { Survey } from "@/lib/survey";
+import { SURVEY, type Survey } from "@/lib/survey";
 import type { SurveyResults } from "@/lib/survey-results";
 import { pct } from "@/lib/admin-dashboard";
 
@@ -13,9 +13,12 @@ import { Section, Tile, fmtPct } from "./ui";
 export function SurveyTab({
   survey,
   results,
+  choices = [],
 }: {
   survey: Survey | null;
   results: SurveyResults | null;
+  // Every shipped survey, for the picker; the current one is `survey`.
+  choices?: { id: string; href: string }[];
 }) {
   if (!survey) {
     return <p className="text-caption text-sm">No survey is running (SURVEY is null in lib/survey.ts).</p>;
@@ -31,9 +34,30 @@ export function SurveyTab({
 
   return (
     <div className="flex flex-col gap-7">
+      {choices.length > 1 && (
+        <nav className="flex flex-wrap gap-1.5 text-xs" aria-label="Survey">
+          {choices.map((c) => (
+            <Link
+              key={c.id}
+              href={c.href}
+              aria-current={c.id === survey.id ? "page" : undefined}
+              className={
+                "rounded-full border px-2.5 py-1 font-semibold " +
+                (c.id === survey.id ? "border-ink text-ink" : "border-hairline text-caption")
+              }
+            >
+              {c.id}
+            </Link>
+          ))}
+        </nav>
+      )}
       <Section
         title={survey.title}
-        hint={`Survey ${survey.id}. Onboarded members in this slice are eligible; it opens on their next Progress load and can't be skipped.`}
+        hint={
+          survey.id === SURVEY?.id
+            ? `Survey ${survey.id}. Onboarded members in this slice are eligible; it opens on their next Progress load and can't be skipped.`
+            : `Survey ${survey.id}. No longer asked; these are the answers it collected.`
+        }
       >
         <div className="grid grid-cols-3 gap-2">
           <Tile label="Eligible" value={String(results.eligible)} />

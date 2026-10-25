@@ -17,9 +17,9 @@
 // shipped, its `id`, question ids and option ids are FROZEN, because they are
 // the keys the dashboard groups by. Labels can be reworded freely.
 //
-// SURVEY is what's being ASKED; null asks nobody. LATEST_SURVEY is the last one
-// defined, kept after it stops being asked so the dashboard can still label
-// its results.
+// SURVEY is what's being ASKED; null asks nobody. SURVEYS is every survey
+// that has shipped, newest first, kept after it stops being asked so the
+// dashboard can still label its results; LATEST_SURVEY is its first entry.
 //
 // Pure, so lib/survey.test.ts pins every case.
 
@@ -44,7 +44,8 @@ export type Survey = {
   questions: readonly SurveyQuestion[];
 };
 
-export const LATEST_SURVEY: Survey = {
+// Asked 2026-10-20 to 2026-10-22.
+export const PRICING_SURVEY: Survey = {
   id: "2026-10-pricing-social",
   title: "Help shape Progra",
   intro: "Three quick questions. Pick the answer that fits you best.",
@@ -130,10 +131,81 @@ export const LATEST_SURVEY: Survey = {
   ],
 };
 
-// Switched off 2026-10-22 at the owner's request: nobody is asked any more,
-// including anyone who hadn't finished. Their partial answers stay in
-// survey_answers and still count on the dashboard.
-export const SURVEY: Survey | null = null;
+// Live from 2026-10-24: what Progra is worth to the people using it. A new id,
+// so everyone is asked, including those who finished the pricing survey.
+export const VALUE_SURVEY: Survey = {
+  id: "2026-10-value",
+  title: "Help shape Progra",
+  intro: "Four quick questions. Pick the answer that fits you best.",
+  questions: [
+    {
+      id: "most_valued",
+      prompt: "Which part of Progra matters most to you?",
+      options: [
+        { id: "clock_in", label: "Clocking in to track my sessions", short: "Clocking in" },
+        { id: "friends_feed", label: "Seeing what my friends are working on", short: "Friends' feed" },
+        { id: "nudges", label: "Nudges and encouragement from friends", short: "Nudges" },
+        { id: "streaks_recap", label: "The streaks and weekly recap", short: "Streaks & recap" },
+      ],
+    },
+    {
+      id: "time_impact",
+      prompt: "How much has Progra changed the time you put toward your goals?",
+      options: [
+        {
+          id: "more_time",
+          label: "It’s the reason I’ve put in more meaningful time than I would have otherwise",
+          short: "Reason I do more",
+        },
+        {
+          id: "helped",
+          label: "It’s helped me consistently, but I’d have made progress without it",
+          short: "Helped, not key",
+        },
+        {
+          id: "tracking_only",
+          label: "It’s useful for tracking, but it hasn’t changed how much time I put in",
+          short: "Tracking only",
+        },
+        { id: "not_sure", label: "I’m not sure yet", short: "Not sure yet" },
+      ],
+    },
+    {
+      id: "noticed",
+      prompt:
+        "Have you ever felt more motivated to show up because someone else on Progra noticed?",
+      options: [
+        { id: "often", label: "Yes, often", short: "Often" },
+        { id: "a_few_times", label: "Yes, a few times", short: "A few times" },
+        { id: "rarely", label: "Rarely", short: "Rarely" },
+        { id: "never", label: "Never", short: "Never" },
+      ],
+    },
+    {
+      id: "disappointment",
+      prompt: "If Progra disappeared tomorrow, how would you feel?",
+      options: [
+        { id: "very", label: "Very disappointed", short: "Very disappointed" },
+        { id: "somewhat", label: "Somewhat disappointed", short: "Somewhat" },
+        { id: "not", label: "Not disappointed", short: "Not disappointed" },
+        { id: "not_sure", label: "Not sure", short: "Not sure" },
+      ],
+    },
+  ],
+};
+
+// Every survey that has shipped, newest first. Their ids, question ids and
+// option ids are frozen; the dashboard can show any of them.
+export const SURVEYS: readonly Survey[] = [VALUE_SURVEY, PRICING_SURVEY];
+export const LATEST_SURVEY: Survey = SURVEYS[0];
+
+export function surveyById(id: string | null | undefined): Survey | null {
+  return SURVEYS.find((s) => s.id === id) ?? null;
+}
+
+// The pricing survey was switched off 2026-10-22; this one went live
+// 2026-10-24. null asks nobody.
+export const SURVEY: Survey | null = VALUE_SURVEY;
 
 // What the gate reads off the profile. Optional for the reason uw_prompt is on
 // Profile: before the SQL runs PostgREST leaves survey_done out.
