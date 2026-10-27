@@ -23,8 +23,6 @@ import { isUuid } from "@/lib/validate";
 
 type Result = { ok: true } | { error: string };
 
-const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-
 // Claims this device's ownerless events for the signed-in user. Idempotent and
 // cheap (one indexed UPDATE), so the lifecycle leaf calls it on EVERY signed-in
 // open rather than once: a batch that arrived with an expired cookie is stored
@@ -75,8 +73,8 @@ export async function recordProfileView(
   return { ok: true };
 }
 
-// The device's notification permission plus the two on-device reminder
-// toggles, mirrored so the dashboard can read them. The RPC writes only when
+// The device's notification permission plus the on-device reminder toggle,
+// mirrored so the dashboard can read them. The RPC writes only when
 // something changed or ten minutes have passed, like touch_last_seen.
 export async function syncDeviceState(
   permission: string,
@@ -91,10 +89,7 @@ export async function syncDeviceState(
   if (
     typeof prefs !== "object" ||
     prefs === null ||
-    typeof prefs.clock_reminders_off !== "boolean" ||
-    typeof prefs.habit_reminder_off !== "boolean" ||
-    typeof prefs.habit_reminder_time !== "string" ||
-    !HHMM_RE.test(prefs.habit_reminder_time)
+    typeof prefs.clock_reminders_off !== "boolean"
   ) {
     return { error: "Bad prefs" };
   }
@@ -103,8 +98,6 @@ export async function syncDeviceState(
     p_permission: permission,
     p_prefs: {
       clock_reminders_off: prefs.clock_reminders_off,
-      habit_reminder_off: prefs.habit_reminder_off,
-      habit_reminder_time: prefs.habit_reminder_time,
     },
   });
   if (error) return { error: "Couldn't sync device state." };

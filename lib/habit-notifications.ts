@@ -1,15 +1,13 @@
 import { allHabitReminderIds } from "@/lib/habit-reminders";
 import { createReminderSync } from "@/lib/notification-sync";
 
-// The habit family's scheduled notifications: the daily unchecked-habits
-// nudge, one per day up to a week out. Mechanics in the shared engine
-// (lib/notification-sync.ts), decisions in lib/habit-reminders.ts (pure and
-// tested); this file binds the two to the habit family's reserved id range.
+// The retired habit family's scheduled notifications. Nothing schedules into
+// this range any more; the engine (lib/notification-sync.ts) is bound to it
+// only so the reminders an older build queued can be cleared, and their
+// cancellation logged like any other.
 const engine = createReminderSync(allHabitReminderIds);
 
-export const syncHabitReminders = engine.sync;
-
-// Clear everything the habit family owns. Used when a session ends (sign-out,
-// account deletion, switching users) — reminders are wall-clock scheduled on
-// the device, so nothing expires them on its own.
+// Clear everything the habit family owns. Run once per app launch
+// (components/clear-habit-reminders.tsx) and when a session ends (sign-out,
+// account deletion, switching users).
 export const cancelHabitReminders = engine.cancelAll;

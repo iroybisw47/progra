@@ -55,7 +55,9 @@ export function SurveyTab({
         title={survey.title}
         hint={
           survey.id === SURVEY?.id
-            ? `Survey ${survey.id}. Onboarded members in this slice are eligible; it opens on their next Progress load and can't be skipped.`
+            ? `Survey ${survey.id}. Onboarded members in this slice are eligible; it opens on their next Progress load${
+                survey.questions.some((q) => q.freeText) ? "." : " and can't be skipped."
+              }`
             : `Survey ${survey.id}. No longer asked; these are the answers it collected.`
         }
       >
@@ -91,6 +93,25 @@ export function SurveyTab({
               <p className="text-caption text-[11px] tabular-nums">
                 {q.options.map((o) => `${o.short} ${fmtPct(o.pct)}`).join(" · ")}
               </p>
+              {/* A free-text question's words, newest first. */}
+              {q.texts.length > 0 && (
+                <ul className="flex flex-col">
+                  {q.texts.map((t) => (
+                    <li key={t.respondentId} className="border-hairline border-t py-2.5 text-sm">
+                      <p className="text-ink leading-[1.5] whitespace-pre-wrap">{t.text}</p>
+                      <p className="text-caption mt-1 text-[11px]">
+                        <Link
+                          href={`/admin/analytics/user/${t.respondentId}`}
+                          className="underline-offset-2 hover:underline"
+                        >
+                          {t.name}
+                        </Link>{" "}
+                        · <span className="tabular-nums">{t.answeredAt.replace("T", " ").slice(0, 16)}</span>
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </>
           )}
         </Section>

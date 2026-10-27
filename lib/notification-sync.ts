@@ -10,7 +10,7 @@ import {
 // The ONLY file that talks to @capacitor/local-notifications.
 //
 // Deliberately thin: a pure module decides which reminders exist and when
-// (lib/clock-reminders.ts, lib/habit-reminders.ts — both tested), and this
+// (lib/clock-reminders.ts, tested), and this
 // just hands that list to iOS. Keeping the plugin behind one module means the
 // decision-making stays testable without mocking a native bridge.
 //
@@ -57,9 +57,9 @@ export function createReminderSync(allIds: () => number[]): {
   // previous run's notifications before they can fire. Nothing survives,
   // pending stays 0, and the failure is invisible.
   //
-  // It covers title and body, not just id@at: today's habit reminder keeps its
-  // id and 18:00 instant when one of three habits gets checked — only the name
-  // list changes, and skipping that resync would fire a stale body.
+  // It covers title and body, not just id@at: a reminder can keep its id and
+  // instant while only its text changes, and skipping that resync would fire
+  // a stale body.
   //
   // null, NOT "": an empty reminder list fingerprints to "", and notifications
   // deliberately outlive app launches — so the FIRST sync after a relaunch

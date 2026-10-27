@@ -1,5 +1,7 @@
 // The in-app survey: questions asked one at a time, on load, until every one is
-// answered. There is no skip, by the owner's decision (2026-10-20).
+// answered. A multiple-choice question has no skip, by the owner's decision
+// (2026-10-20); a free-text question (FEATURE_SURVEY, 2026-10-27) has one, and
+// skipping counts as its answer.
 //
 // Authored here rather than in a DB table, like lib/patch-notes.ts: the copy
 // ships in the same deploy as the modal that shows it.
@@ -7,7 +9,10 @@
 // Storage (.claude/plans/survey.sql):
 //   survey_answers          one row per (user, survey, question), the option's
 //                           KEY, never its label. Write-once: a retry or a stale
-//                           tab can't change an answer already given.
+//                           tab can't change an answer already given. A
+//                           free-text question stores TEXT_ANSWERED or
+//                           TEXT_SKIPPED as the key, and the words beside it in
+//                           text_answer (.claude/plans/survey-text.sql).
 //   profiles.survey_done    the id of the last survey this member finished,
 //                           stamped by answerSurvey once every question has a
 //                           row. It is what makes the gate free on every load.
@@ -35,7 +40,25 @@ export type SurveyQuestion = {
   id: string;
   prompt: string;
   options: readonly SurveyOption[];
+  // A text box and a Skip instead of the options, which are then
+  // TEXT_OPTIONS: the keys the dashboard counts. Build it with textQuestion().
+  freeText?: { placeholder: string };
 };
+
+// The two keys a free-text question stores, so its bars read "wrote / skipped".
+export const TEXT_ANSWERED = "answered";
+export const TEXT_SKIPPED = "skipped";
+// survey-text.sql's CHECK caps the words at this many characters.
+export const TEXT_MAX = 1000;
+
+const TEXT_OPTIONS: readonly SurveyOption[] = [
+  { id: TEXT_ANSWERED, label: "Wrote an answer", short: "Answered" },
+  { id: TEXT_SKIPPED, label: "Skipped", short: "Skipped" },
+];
+
+export function textQuestion(id: string, prompt: string, placeholder: string): SurveyQuestion {
+  return { id, prompt, options: TEXT_OPTIONS, freeText: { placeholder } };
+}
 
 export type Survey = {
   id: string;
@@ -194,18 +217,33 @@ export const VALUE_SURVEY: Survey = {
   ],
 };
 
+// Live from 2026-10-27: one open question, with a Skip. A new id, so everyone
+// is asked, including those who finished the value survey.
+export const FEATURE_SURVEY: Survey = {
+  id: "2026-10-feature-request",
+  title: "Help shape Progra",
+  intro: "One quick question. Write as much or as little as you like, or skip it.",
+  questions: [
+    textQuestion(
+      "feature_request",
+      "What feature would you like to be added to Progra?",
+      "I'd love it if Progra could…"
+    ),
+  ],
+};
+
 // Every survey that has shipped, newest first. Their ids, question ids and
 // option ids are frozen; the dashboard can show any of them.
-export const SURVEYS: readonly Survey[] = [VALUE_SURVEY, PRICING_SURVEY];
+export const SURVEYS: readonly Survey[] = [FEATURE_SURVEY, VALUE_SURVEY, PRICING_SURVEY];
 export const LATEST_SURVEY: Survey = SURVEYS[0];
 
 export function surveyById(id: string | null | undefined): Survey | null {
   return SURVEYS.find((s) => s.id === id) ?? null;
 }
 
-// The pricing survey was switched off 2026-10-22; this one went live
-// 2026-10-24. null asks nobody.
-export const SURVEY: Survey | null = VALUE_SURVEY;
+// The pricing survey was switched off 2026-10-22; the value survey ran
+// 2026-10-24 to 2026-10-27, then this one. null asks nobody.
+export const SURVEY: Survey | null = FEATURE_SURVEY;
 
 // What the gate reads off the profile. Optional for the reason uw_prompt is on
 // Profile: before the SQL runs PostgREST leaves survey_done out.
@@ -245,16 +283,29 @@ export function firstUnanswered(
 }
 
 // The action's validation: the question exists in the CURRENT survey and the
-// option is one of its own. Anything else never reaches the database.
+// option is one of its own. Words go only with TEXT_ANSWERED on a free-text
+// question, trimmed (cleanText), non-empty and at most TEXT_MAX; a skip or a
+// choice carries none. Anything else never reaches the database.
 export function isValidAnswer(
   surveyId: string,
   questionId: string,
   optionId: string,
+  text: string | null = null,
   survey: Survey | null = SURVEY,
 ): boolean {
   if (!survey || survey.id !== surveyId) return false;
   const q = survey.questions.find((x) => x.id === questionId);
-  return q?.options.some((o) => o.id === optionId) ?? false;
+  if (!q?.options.some((o) => o.id === optionId)) return false;
+  if (q.freeText && optionId === TEXT_ANSWERED) {
+    return text !== null && text.length > 0 && text.length <= TEXT_MAX;
+  }
+  return text === null;
+}
+
+// What a free-text answer stores: trimmed, and null when nothing is left.
+export function cleanText(text: string | null | undefined): string | null {
+  const t = text?.trim() ?? "";
+  return t === "" ? null : t;
 }
 
 // Whether a set of answered question ids covers the whole survey.

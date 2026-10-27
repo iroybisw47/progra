@@ -14,6 +14,9 @@ export type SurveyResultsRow = {
     display_name: string | null;
     segment: string;
     answers: Record<string, string>;
+    // A free-text question's words, by question id (survey-text.sql). Absent
+    // before that SQL runs.
+    texts?: Record<string, string>;
     answered: number;
     last_answered_at: string;
   }[];
@@ -33,6 +36,16 @@ export type SurveyQuestionResult = {
   prompt: string;
   answered: number;
   options: SurveyOptionResult[];
+  // A free-text question's words, in the respondents' order (newest first);
+  // empty for a multiple-choice question.
+  texts: SurveyTextAnswer[];
+};
+
+export type SurveyTextAnswer = {
+  respondentId: string;
+  name: string;
+  text: string;
+  answeredAt: string;
 };
 
 export type SurveyRespondent = {
@@ -59,6 +72,8 @@ export type SurveyResults = {
 // which the freeze rule in lib/survey.ts forbids) still counts, under its key,
 // so the bars always add up to `answered`.
 export function shapeSurveyResults(row: SurveyResultsRow, survey: Survey): SurveyResults {
+  const nameOf = (r: SurveyResultsRow["respondents"][number]) =>
+    r.display_name || (r.username ? `@${r.username}` : "Unnamed");
   const questions = survey.questions.map((q): SurveyQuestionResult => {
     const counts = row.counts.filter((c) => c.question_id === q.id);
     const answered = counts.reduce((n, c) => n + c.n, 0);
@@ -73,7 +88,13 @@ export function shapeSurveyResults(row: SurveyResultsRow, survey: Survey): Surve
         .filter((c) => !known.has(c.answer))
         .map((c) => ({ id: c.answer, label: c.answer, short: c.answer, n: c.n, pct: pct(c.n) })),
     ];
-    return { id: q.id, prompt: q.prompt, answered, options };
+    const texts = row.respondents.flatMap((r) => {
+      const text = r.texts?.[q.id];
+      return text
+        ? [{ respondentId: r.id, name: nameOf(r), text, answeredAt: r.last_answered_at }]
+        : [];
+    });
+    return { id: q.id, prompt: q.prompt, answered, options, texts };
   });
 
   const shortFor = (questionId: string, optionId: string | undefined): string | null => {
@@ -85,7 +106,7 @@ export function shapeSurveyResults(row: SurveyResultsRow, survey: Survey): Surve
     const answers = survey.questions.map((q) => shortFor(q.id, r.answers[q.id]));
     return {
       id: r.id,
-      name: r.display_name || (r.username ? `@${r.username}` : "Unnamed"),
+      name: nameOf(r),
       segment: r.segment,
       complete: answers.every((a) => a !== null),
       lastAnsweredAt: r.last_answered_at,

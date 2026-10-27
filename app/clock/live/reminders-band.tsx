@@ -2,8 +2,7 @@
 
 import { ToggleSwitch } from "@/components/v2/toggle-switch";
 import { track } from "@/lib/analytics";
-import { CLOCK_REMINDERS, HABIT_REMINDERS } from "@/lib/flags";
-import { enableHabitReminderDefault, habitDefaultOnGrant } from "@/lib/habit-reminder-prefs";
+import { CLOCK_REMINDERS } from "@/lib/flags";
 import {
   openNotificationSettings,
   requestNotificationPermission,
@@ -62,13 +61,9 @@ export function RemindersBand({
 
   // Never been asked. Offering here rather than pointing at Settings, because
   // this is the moment of maximum relevance — they are clocked in right now.
-  // Legal caller #3 of the gesture-only ask.
-  //
-  // Onboarding v3 asks on its own notifications screen, but "Not now" there
-  // leaves the device unasked, and its first session lands here. So a grant
-  // turns the daily habit reminder on, as both onboardings' asks do. The
-  // device has never been asked, so the reminder is still at its untouched
-  // default, and this only states it.
+  // Legal caller #3 of the gesture-only ask. Onboarding v3 asks on its own
+  // notifications screen, but "Not now" there leaves the device unasked, and
+  // its first session lands here.
   if (permission === "prompt") {
     return (
       <button
@@ -79,9 +74,6 @@ export function RemindersBand({
               source: "live_timer",
               result,
             });
-            if (habitDefaultOnGrant(result, HABIT_REMINDERS)) {
-              enableHabitReminderDefault();
-            }
           });
         }}
         className="border-hairline text-caption hover:text-ink mx-6 mb-2 self-center rounded-full border px-3 py-[7px] text-xs font-medium active:scale-95"

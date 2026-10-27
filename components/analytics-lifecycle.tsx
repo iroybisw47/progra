@@ -5,7 +5,6 @@ import { useEffect, useRef } from "react";
 import { touchLastSeen } from "@/app/actions/profile";
 import { linkDeviceEvents, syncDeviceState } from "@/app/actions/telemetry";
 import { ANALYTICS } from "@/lib/flags";
-import { habitReminderPref } from "@/lib/habit-reminder-prefs";
 import { appPlugin } from "@/lib/native-plugins";
 import { checkNotificationPermission } from "@/lib/notification-permission";
 import { remindersEnabled } from "@/lib/reminder-prefs";
@@ -128,8 +127,8 @@ export function AnalyticsLifecycle({
 let openedThisPageLife = false;
 let lastUserId: string | null = null;
 
-// The device's notification permission plus the two on-device reminder
-// toggles, mirrored to the profile so the dashboard can read them. Throttled
+// The device's notification permission plus the on-device reminder toggle,
+// mirrored to the profile so the dashboard can read them. Throttled
 // here and again in the RPC (which also writes whenever something CHANGED, so
 // a toggle flipped in Settings lands on the next open regardless).
 const DEVICE_STATE_MIN_INTERVAL_MS = 10 * 60 * 1000;
@@ -141,11 +140,8 @@ async function syncDevice(activeSessionId: string | null): Promise<void> {
   try {
     // A pure read; it never prompts.
     const permission = await checkNotificationPermission();
-    const habit = habitReminderPref();
     await syncDeviceState(permission, {
       clock_reminders_off: !remindersEnabled(activeSessionId),
-      habit_reminder_off: !habit.enabled,
-      habit_reminder_time: habit.time,
     });
   } catch {
     // Telemetry never surfaces.

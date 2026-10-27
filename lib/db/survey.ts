@@ -12,6 +12,9 @@ import { createClient } from "@/lib/supabase/server";
 // answers yet" would put up a dialog whose writes are failing too. The layout
 // shows nothing on null. Only called while surveyOwed() says the survey is
 // still owed, so a member who finished pays nothing.
+//
+// text_answer is selected only as a probe: until survey-text.sql adds it, this
+// errors, so no survey opens whose typed answers would fail to save.
 export const listMySurveyAnswers = cache(
   async (surveyId: string): Promise<string[] | null> => {
     const user = await getCurrentUser();
@@ -19,7 +22,7 @@ export const listMySurveyAnswers = cache(
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("survey_answers")
-      .select("question_id")
+      .select("question_id, text_answer")
       .eq("user_id", user.id)
       .eq("survey_id", surveyId);
     if (error || !data) return null;

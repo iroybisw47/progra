@@ -107,18 +107,6 @@ describe("validateEvent — no free text can pass", () => {
     expect(validateEvent("nudges_toggled", { enabled: 1 })).toMatchObject({ ok: false });
   });
 
-  it("a clock time is HH:MM, 24h", () => {
-    expect(validateEvent("habit_reminder_time_changed", { time: "18:00" })).toMatchObject({
-      ok: true,
-    });
-    expect(validateEvent("habit_reminder_time_changed", { time: "6pm" })).toMatchObject({
-      ok: false,
-    });
-    expect(validateEvent("habit_reminder_time_changed", { time: "24:00" })).toMatchObject({
-      ok: false,
-    });
-  });
-
   it("a rally names its mode and kind from the fixed lists", () => {
     const sent = {
       nudge_id: "3EDC1D62-DC8A-431E-8CD3-D35C9E66A934",

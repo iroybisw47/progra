@@ -1,0 +1,117 @@
+/* Progra dark mode — paste into app/globals.css.
+   Step 1: add the NEW tokens to the existing :root block (their light values).
+   Step 2: register them in @theme inline (so bg-/text-/border- utilities exist).
+   Step 3: add the .dark block after :root.
+   Apply the theme by putting class="dark" on <html> (see README §4.4). */
+
+/* ── Step 1: new tokens, light values (add inside :root) ───────────────── */
+:root {
+  --logo: #1c3a5e;                       /* PrograMark square — never inverts */
+  --uncategorized: #9fa6b0;              /* lib/colors.ts FALLBACK */
+  --unchecked: #dfe3e8;                  /* unchecked habit box */
+  --today-ring: #b7c4d3;                 /* /clock day strip, today */
+  --dash: #d5d9df;                       /* /clock "+ Add a session" dash */
+  --destructive-line: #f0e3e0;           /* Delete button border (manage sheets) */
+  --backdrop: rgba(18, 23, 29, 0.34);    /* bottom-sheet overlay */
+  --glow: rgba(28, 58, 94, 0.55);        /* navy CTA glow */
+  --nav-glass: rgba(255, 255, 255, 0.92);/* bottom nav frosted fill */
+}
+
+/* ── Step 2: inside @theme inline ──────────────────────────────────────── */
+/*
+  --color-logo: var(--logo);
+  --color-uncategorized: var(--uncategorized);
+  --color-unchecked: var(--unchecked);
+  --color-today-ring: var(--today-ring);
+  --color-dash: var(--dash);
+  --color-destructive-line: var(--destructive-line);
+  --color-backdrop: var(--backdrop);
+*/
+
+/* ── Step 3: the dark theme ────────────────────────────────────────────── */
+.dark {
+  color-scheme: dark;
+
+  /* shadcn semantic tokens */
+  --background: #14181f;
+  --foreground: #d8e0eb;
+  --card: #1b1f26;
+  --card-foreground: #d8e0eb;
+  --popover: #1b1f26;
+  --popover-foreground: #d8e0eb;
+  --primary: #a5c0e1;
+  --primary-foreground: #142c49;
+  --secondary: rgba(255, 255, 255, 0.055);
+  --secondary-foreground: #d8e0eb;
+  --muted: rgba(255, 255, 255, 0.055);
+  --muted-foreground: #8c95a2;
+  --accent: rgba(255, 255, 255, 0.035);
+  --accent-foreground: #d8e0eb;
+  --destructive: #cc7c72;
+  --border: rgba(255, 255, 255, 0.09);
+  --input: rgba(255, 255, 255, 0.09);
+  --ring: #a5c0e1;
+
+  /* Entity palette — hues unchanged; only maroon, dark blue and dark purple
+     are lifted (to 3:1 on #1b1f26). Inks lifted to 4.5:1 on their 12% wash. */
+  --palette-0: #a44e57;  --palette-0-ink: #cd737a;  /* Maroon */
+  --palette-1: #DE5148;  --palette-1-ink: #ee6056;  /* Red */
+  --palette-2: #E07042;  --palette-2-ink: #e27244;  /* Orange */
+  --palette-3: #D6A728;  --palette-3-ink: #D6A728;  /* Gold */
+  --palette-4: #7CBE6D;  --palette-4-ink: #7CBE6D;  /* Light green */
+  --palette-5: #2E8B50;  --palette-5-ink: #46a164;  /* Green */
+  --palette-6: #77B7C6;  --palette-6-ink: #77B7C6;  /* Light blue */
+  --palette-7: #4567ae;  --palette-7-ink: #688dd7;  /* Dark blue */
+  --palette-8: #A084B3;  --palette-8-ink: #a488b7;  /* Purple */
+  --palette-9: #7b5aa0;  --palette-9-ink: #a07fc8;  /* Dark purple */
+  --palette-10: #D06DA1; --palette-10-ink: #d471a5; /* Pink */
+  /* --cat-* and --chart-* need no entries: they are var(--palette-N) aliases
+     on :root and resolve to the values above when .dark is on <html>. */
+
+  /* Progra tokens */
+  --brand: #a5c0e1;            /* pale navy: fills carry --primary-foreground text */
+  --brand-deep: #142c49;       /* UNCHANGED — recap navy grounds, navy-on-white text */
+  --sand: rgba(165, 192, 225, 0.14);
+  --sand-ink: #bed6f5;
+  --screen: #14181f;
+  --screen-recap: #14181f;
+  --card-warm: #1b1f26;
+  --app-bg: #0b0d11;
+  --inset: rgba(255, 255, 255, 0.035);
+  --inset-2: rgba(255, 255, 255, 0.02);
+  --track: rgba(255, 255, 255, 0.055);
+  --hairline: rgba(255, 255, 255, 0.07);
+  --divider: rgba(255, 255, 255, 0.045);
+  --control-border: rgba(255, 255, 255, 0.09);
+  --warm-border: rgba(255, 255, 255, 0.14);
+  --ink: #e9f1fa;
+  --body: #d8e0eb;
+  --secondary-ink: #8c95a2;
+  --caption: #646b74;
+  --faint: #555b64;
+  --disabled: #3e4247;
+  --success: #65a887;
+  --done: #65a887;
+  --busy: rgba(255, 255, 255, 0.055);
+  --tint-you: rgba(165, 192, 225, 0.06);
+
+  --sidebar: #1b1f26;
+  --sidebar-foreground: #d8e0eb;
+  --sidebar-primary: #a5c0e1;
+  --sidebar-primary-foreground: #142c49;
+  --sidebar-accent: rgba(255, 255, 255, 0.035);
+  --sidebar-accent-foreground: #d8e0eb;
+  --sidebar-border: rgba(255, 255, 255, 0.09);
+  --sidebar-ring: #a5c0e1;
+
+  /* New tokens, dark values */
+  --logo: #1c3a5e;
+  --uncategorized: #5f6670;
+  --unchecked: rgba(255, 255, 255, 0.11);
+  --today-ring: rgba(165, 192, 225, 0.4);
+  --dash: rgba(255, 255, 255, 0.16);
+  --destructive-line: rgba(204, 124, 114, 0.28);
+  --backdrop: rgba(0, 0, 0, 0.55);
+  --glow: rgba(165, 192, 225, 0.16);
+  --nav-glass: rgba(20, 24, 31, 0.9);
+}

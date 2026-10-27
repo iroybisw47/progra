@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/require-user";
 import { requireSeat } from "@/lib/auth/require-seat";
 import { revalidateSurveySurfaces } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
-import { SURVEY, isComplete, isValidAnswer } from "@/lib/survey";
+import { SURVEY, cleanText, isComplete, isValidAnswer } from "@/lib/survey";
 
 type Result = { ok: true; done: boolean } | { error: string };
 
@@ -19,12 +19,17 @@ type Result = { ok: true; done: boolean } | { error: string };
 //
 // The stamp is its own statement, best-effort: if it fails, every answer is
 // still stored, and the layout sees the complete set and shows nothing.
+//
+// `text` is a free-text question's words, sent only with TEXT_ANSWERED; it is
+// trimmed here, and text_answer is left out of every other insert.
 export async function answerSurvey(
   surveyId: string,
   questionId: string,
-  optionId: string
+  optionId: string,
+  text?: string | null
 ): Promise<Result> {
-  if (!SURVEY || !isValidAnswer(surveyId, questionId, optionId)) {
+  const words = cleanText(text);
+  if (!SURVEY || !isValidAnswer(surveyId, questionId, optionId, words)) {
     return { error: "Couldn't save that answer." };
   }
   const user = await getCurrentUser();
@@ -39,6 +44,7 @@ export async function answerSurvey(
       survey_id: surveyId,
       question_id: questionId,
       answer: optionId,
+      ...(words !== null && { text_answer: words }),
     },
     { onConflict: "user_id,survey_id,question_id", ignoreDuplicates: true }
   );

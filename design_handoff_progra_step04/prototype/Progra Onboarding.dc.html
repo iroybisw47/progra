@@ -1,0 +1,1522 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/_ds_bundle.css">
+  <link rel="stylesheet" href="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/styles.css">
+  <script src="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/_ds_bundle.js"></script>
+  <style>
+    html, body { margin: 0; background: #e9ebef; }
+    body { font-family: var(--font-hanken); color: var(--body); -webkit-font-smoothing: antialiased; }
+    a { color: var(--brand); text-decoration: none; }
+    a:hover { color: var(--brand-deep); }
+    button { -webkit-tap-highlight-color: transparent; }
+    input::placeholder, textarea::placeholder { color: var(--disabled); opacity: 1; }
+  </style>
+</helmet>
+<div style="min-height:100vh; display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:40px 64px; padding:24px; box-sizing:border-box;">
+  <div style="position:relative; flex-shrink:0; width:{{ phoneW }}px; height:{{ phoneH }}px;">
+    <div style="position:absolute; left:0; top:0; width:393px; height:852px; transform-origin:0 0; transform:scale({{ scale }});">
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" width="{{ 393 }}" height="{{ 852 }}" hint-size="393px,852px">
+        <div style="position:relative; z-index:0; width:393px; height:852px; overflow:hidden; background:#fff; font-family:var(--font-hanken); color:var(--body); transform:translateZ(0);">
+
+          <!-- top row -->
+          <div style="position:absolute; left:20px; top:64px; width:32px; height:32px; opacity:{{ top.o }}; transition:{{ top.tr }}; pointer-events:{{ top.pe }};">
+            <button onClick="{{ back }}" aria-label="Back" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:0; border-radius:11px; border:1.5px solid var(--hairline); background:#fff; color:var(--caption); cursor:pointer; opacity:{{ top.backO }}; transform:{{ top.backT }}; transition:{{ top.slotTr }}; pointer-events:{{ top.backPE }};" style-hover="border-color: var(--brand);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>
+            </button>
+          </div>
+          <div style="position:absolute; left:64px; top:79px; width:269px; height:3px; border-radius:9999px; background:var(--track); overflow:hidden; opacity:{{ top.o }}; transition:{{ top.tr }};">
+            <div style="width:100%; height:100%; border-radius:9999px; background:var(--brand); transform-origin:0 50%; transform:scaleX({{ top.progress }}); transition:{{ top.progressTr }};"></div>
+          </div>
+
+          <!-- 01 who are you -->
+          <div data-screen-label="01 Who are you" style="position:absolute; inset:0; pointer-events:none;">
+            <div class="section-label" style="position:absolute; left:20px; top:114px; opacity:{{ s0.eyebrow.o }}; transform:{{ s0.eyebrow.t }}; transition:{{ s0.eyebrow.tr }};">Welcome to Progra</div>
+            <div style="position:absolute; left:0; top:0; width:253px; transform-origin:0 0; opacity:{{ s0.name.o }}; transform:{{ s0.name.t }}; transition:{{ s0.name.tr }}; pointer-events:{{ s0.name.pe }};">
+              <input ref="{{ nameIn }}" value="{{ name }}" onChange="{{ onName }}" onKeyDown="{{ onNameKey }}" onFocus="{{ focusName }}" onBlur="{{ onBlurField }}" placeholder="Your name" maxLength="24" autoComplete="name" autoCapitalize="words" spellCheck="false" style="display:block; width:100%; height:42px; padding:0; margin:0; border:0; border-bottom:1.5px solid {{ s0.nameLine }}; border-radius:0; outline:none; background:transparent; font-family:var(--font-newsreader); font-weight:500; font-size:28px; letter-spacing:-0.015em; color:var(--ink); caret-color:var(--brand); transition:border-color 200ms ease;">
+            </div>
+            <div style="position:absolute; left:0; top:0; width:253px; transform-origin:0 0; opacity:{{ s0.user.o }}; transform:{{ s0.user.t }}; transition:{{ s0.user.tr }}; pointer-events:{{ s0.user.pe }};">
+              <div ref="{{ uRow }}" style="display:flex; align-items:center; gap:1px; height:30px;">
+                <span style="font-size:15px; font-weight:600; color:var(--disabled);">@</span>
+                <input ref="{{ userIn }}" value="{{ username }}" onChange="{{ onUsername }}" onKeyDown="{{ onUserKey }}" onFocus="{{ focusUser }}" onBlur="{{ onBlurField }}" placeholder="username" maxLength="20" autoComplete="off" autoCapitalize="none" spellCheck="false" style="flex:1; min-width:0; height:30px; padding:0; margin:0; border:0; outline:none; background:transparent; font-family:var(--font-hanken); font-size:15px; font-weight:600; color:var(--body); caret-color:var(--brand);">
+                <span style="width:18px; height:18px; flex-shrink:0; display:flex; align-items:center; justify-content:center; opacity:{{ s0.iconO }}; transition:opacity 160ms linear;">
+                  <sc-if value="{{ u.checking }}" hint-placeholder-val="{{ false }}"><span class="animate-spin" style="width:12px; height:12px; box-sizing:border-box; border-radius:9999px; border:1.5px solid var(--disabled); border-top-color:transparent;"></span></sc-if>
+                  <sc-if value="{{ u.ok }}" hint-placeholder-val="{{ false }}"><span ref="{{ uOk }}" style="width:16px; height:16px; border-radius:9999px; background:var(--done); color:#fff; display:flex; align-items:center; justify-content:center;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span></sc-if>
+                </span>
+              </div>
+              <div style="height:16px; font-size:11.5px; line-height:16px; font-weight:500; color:{{ u.color }}; opacity:{{ s0.statusO }}; transition:opacity 200ms linear;">{{ u.text }}</div>
+            </div>
+            <div ref="{{ sugBox }}" style="position:absolute; left:20px; right:20px; top:248px; display:flex; flex-wrap:wrap; gap:8px; opacity:{{ s0.sug.o }}; transform:{{ s0.sug.t }}; transition:{{ s0.sug.tr }}; pointer-events:{{ s0.sug.pe }};">
+              <sc-for list="{{ u.suggest }}" as="s" hint-placeholder-count="0">
+                <button onMouseDown="{{ s.keep }}" onClick="{{ s.pick }}" style="height:32px; padding:0 13px; border-radius:9999px; border:1.5px solid var(--control-border); background:#fff; font-family:var(--font-hanken); font-size:12.5px; font-weight:600; color:var(--body); cursor:pointer;" style-active="transform: scale(0.96);">@{{ s.label }}</button>
+              </sc-for>
+            </div>
+
+            <div style="position:absolute; left:20px; right:20px; top:318px; font-family:var(--font-newsreader); font-weight:500; font-size:32px; line-height:1.1; letter-spacing:-0.02em; color:var(--ink); opacity:{{ s0.q.o }}; transform:{{ s0.q.t }}; transition:{{ s0.q.tr }};">Are you a<br>UW student?</div>
+            <div style="position:absolute; left:20px; right:20px; top:410px; height:300px; display:flex; gap:10px; pointer-events:{{ s0.tilesPE }};">
+              <div style="flex:1; min-width:0; display:flex; opacity:{{ yesT.o }}; transform:{{ yesT.t }}; transition:{{ yesT.tr }};">
+                <button ref="{{ yesTile }}" onClick="{{ pickYes }}" style="position:relative; flex:1; min-width:0; padding:0; margin:0; overflow:hidden; text-align:left; cursor:pointer; border-radius:18px; border:1.5px solid {{ yesT.bc }}; background:#fff; font-family:var(--font-hanken); box-shadow:{{ yesT.sh }}; transition:transform 160ms cubic-bezier(0.22,1,0.36,1), box-shadow 240ms ease;" style-active="transform: scale(0.98);">
+                  <span style="position:absolute; inset:0; padding:18px; display:flex; flex-direction:column; justify-content:space-between;">
+                    <span style="align-self:flex-end; width:26px; height:26px; box-sizing:border-box; border-radius:9999px; border:1.5px solid var(--control-border);"></span>
+                    <span style="display:flex; flex-direction:column; gap:8px;"><span style="font-family:var(--font-newsreader); font-weight:500; font-size:56px; line-height:0.9; letter-spacing:-0.025em; color:var(--ink);">Yes</span><span style="font-size:13px; line-height:1.35; color:var(--secondary-ink);">Find UW friends</span></span>
+                  </span>
+                  <span style="position:absolute; inset:0; padding:18px; display:flex; flex-direction:column; justify-content:space-between; background:var(--palette-9); opacity:{{ yesT.selO }}; transition:opacity 180ms linear;">
+                    <span ref="{{ yesCheck }}" style="align-self:flex-end; width:26px; height:26px; border-radius:9999px; background:#fff; color:var(--palette-9); display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+                    <span style="display:flex; flex-direction:column; gap:8px;"><span style="font-family:var(--font-newsreader); font-weight:500; font-size:56px; line-height:0.9; letter-spacing:-0.025em; color:#fff;">Yes</span><span style="font-size:13px; line-height:1.35; color:rgba(255,255,255,0.75);">Find UW friends</span></span>
+                  </span>
+                </button>
+              </div>
+              <div style="flex:1; min-width:0; display:flex; opacity:{{ noT.o }}; transform:{{ noT.t }}; transition:{{ noT.tr }};">
+                <button ref="{{ noTile }}" onClick="{{ pickNo }}" style="position:relative; flex:1; min-width:0; padding:0; margin:0; overflow:hidden; text-align:left; cursor:pointer; border-radius:18px; border:1.5px solid {{ noT.bc }}; background:#fff; font-family:var(--font-hanken); box-shadow:{{ noT.sh }}; transition:transform 160ms cubic-bezier(0.22,1,0.36,1), box-shadow 240ms ease;" style-active="transform: scale(0.98);">
+                  <span style="position:absolute; inset:0; padding:18px; display:flex; flex-direction:column; justify-content:space-between;">
+                    <span style="align-self:flex-end; width:26px; height:26px; box-sizing:border-box; border-radius:9999px; border:1.5px solid var(--control-border);"></span>
+                    <span style="display:flex; flex-direction:column; gap:8px;"><span style="font-family:var(--font-newsreader); font-weight:500; font-size:56px; line-height:0.9; letter-spacing:-0.025em; color:var(--ink);">No</span><span style="font-size:13px; line-height:1.35; color:var(--secondary-ink);">Bring your own crew</span></span>
+                  </span>
+                  <span style="position:absolute; inset:0; padding:18px; display:flex; flex-direction:column; justify-content:space-between; background:var(--brand); opacity:{{ noT.selO }}; transition:opacity 180ms linear;">
+                    <span ref="{{ noCheck }}" style="align-self:flex-end; width:26px; height:26px; border-radius:9999px; background:#fff; color:var(--brand); display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+                    <span style="display:flex; flex-direction:column; gap:8px;"><span style="font-family:var(--font-newsreader); font-weight:500; font-size:56px; line-height:0.9; letter-spacing:-0.025em; color:#fff;">No</span><span style="font-size:13px; line-height:1.35; color:rgba(255,255,255,0.75);">Bring your own crew</span></span>
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div ref="{{ barRef }}" style="position:absolute; left:20px; top:168px; width:353px; height:52px; border-radius:15px; background:var(--palette-9); transform-origin:0 0; box-shadow:0 10px 22px -10px rgba(111,78,147,.5); opacity:{{ bar.o }}; transition:{{ bar.tr }}; pointer-events:{{ bar.pe }};">
+              <div ref="{{ barInner }}" style="position:absolute; inset:0; display:flex; align-items:center; gap:10px; padding:0 6px 0 14px;">
+                <span style="flex-shrink:0; width:22px; height:22px; border-radius:9999px; background:#fff; color:var(--palette-9); display:flex; align-items:center; justify-content:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+                <span style="flex:1; color:#fff; font-size:15px; font-weight:600;">UW student</span>
+                <button onClick="{{ uwChange }}" style="height:40px; padding:0 12px; border:0; background:transparent; font-family:var(--font-hanken); font-size:12px; font-weight:600; color:rgba(255,255,255,0.75); cursor:pointer;">Change</button>
+              </div>
+            </div>
+            <div ref="{{ uwScroll }}" style="position:absolute; left:20px; right:20px; top:236px; bottom:{{ s0.fieldsBottom }}px; overflow-y:{{ s0.fieldsOverflow }}; scrollbar-width:none; display:flex; flex-direction:column; pointer-events:{{ uwf.pe }};">
+              <div class="section-label" style="flex-shrink:0; opacity:{{ uwf.e0.o }}; transform:{{ uwf.e0.t }}; transition:{{ uwf.e0.tr }};">Optional: helps us suggest UW friends</div>
+              <div style="flex-shrink:0; margin-top:16px; opacity:{{ uwf.e1.o }}; transform:{{ uwf.e1.t }}; transition:{{ uwf.e1.tr }};">
+                <div style="display:flex; align-items:baseline; justify-content:space-between; gap:10px;"><span style="font-size:13px; font-weight:600; color:var(--body);">Major</span><span style="font-size:11px; color:var(--caption);">Double major? Add both</span></div>
+                <div ref="{{ majorBox }}" onClick="{{ focusMajorBox }}" style="margin-top:7px; min-height:44px; box-sizing:border-box; padding:6px; display:flex; flex-wrap:wrap; align-items:center; gap:6px; border-radius:12px; border:1.5px solid {{ majorBorder }}; background:#fff; cursor:text;">
+                  <sc-for list="{{ majorChips }}" as="o" hint-placeholder-count="0">
+                    <span style="display:inline-flex; align-items:center; gap:2px; max-width:100%; height:28px; padding:0 3px 0 11px; box-sizing:border-box; border-radius:9999px; background:var(--brand); color:#fff; font-size:12px; font-weight:600;">
+                      <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ o.label }}</span>
+                      <button onMouseDown="{{ o.keep }}" onClick="{{ o.remove }}" aria-label="Remove" style="flex-shrink:0; width:22px; height:22px; padding:0; border:0; background:transparent; color:rgba(255,255,255,0.7); display:flex; align-items:center; justify-content:center; cursor:pointer;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+                    </span>
+                  </sc-for>
+                  <sc-if value="{{ majorCanAdd }}" hint-placeholder-val="{{ true }}">
+                    <input ref="{{ majorIn }}" value="{{ major }}" onChange="{{ onMajor }}" onKeyDown="{{ onMajorKey }}" onFocus="{{ focusMajor }}" onBlur="{{ onBlurField }}" placeholder="{{ majorPh }}" autoComplete="off" spellCheck="false" style="flex:1; min-width:120px; height:30px; padding:0 8px; border:0; outline:none; background:transparent; font-family:var(--font-hanken); font-size:15px; color:var(--body);">
+                  </sc-if>
+                  <sc-if value="{{ majorShowAdd }}" hint-placeholder-val="{{ false }}">
+                    <button onMouseDown="{{ keep }}" onClick="{{ addMajor }}" style="height:30px; padding:0 10px; border:0; background:transparent; font-family:var(--font-hanken); font-size:12px; font-weight:700; color:var(--brand); cursor:pointer;">Add</button>
+                  </sc-if>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none;">
+                  <sc-for list="{{ majorSug }}" as="m" hint-placeholder-count="0">
+                    <button onMouseDown="{{ m.keep }}" onClick="{{ m.pick }}" style="flex-shrink:0; height:30px; padding:0 12px; border-radius:9999px; border:1.5px solid var(--control-border); background:#fff; font-family:var(--font-hanken); font-size:12px; font-weight:600; color:var(--body); white-space:nowrap; cursor:pointer;" style-active="transform: scale(0.96);">+ {{ m.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="flex-shrink:0; margin-top:16px; opacity:{{ uwf.e2.o }}; transform:{{ uwf.e2.t }}; transition:{{ uwf.e2.tr }};">
+                <div style="font-size:13px; font-weight:600; color:var(--body);">Interests</div>
+                <div ref="{{ orgBox }}" onClick="{{ focusOrgBox }}" style="margin-top:7px; min-height:44px; box-sizing:border-box; padding:6px; display:flex; flex-wrap:wrap; align-items:center; gap:6px; border-radius:12px; border:1.5px solid {{ orgBorder }}; background:#fff; cursor:text;">
+                  <sc-for list="{{ orgChips }}" as="o" hint-placeholder-count="0">
+                    <span style="display:inline-flex; align-items:center; gap:2px; max-width:100%; height:28px; padding:0 3px 0 11px; box-sizing:border-box; border-radius:9999px; background:var(--brand); color:#fff; font-size:12px; font-weight:600;">
+                      <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ o.label }}</span>
+                      <button onMouseDown="{{ o.keep }}" onClick="{{ o.remove }}" aria-label="Remove" style="flex-shrink:0; width:22px; height:22px; padding:0; border:0; background:transparent; color:rgba(255,255,255,0.7); display:flex; align-items:center; justify-content:center; cursor:pointer;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+                    </span>
+                  </sc-for>
+                  <sc-if value="{{ orgCanAdd }}" hint-placeholder-val="{{ true }}">
+                    <input ref="{{ orgIn }}" value="{{ orgDraft }}" onChange="{{ onOrgDraft }}" onKeyDown="{{ onOrgKey }}" onFocus="{{ focusOrg }}" onBlur="{{ onBlurField }}" placeholder="{{ orgPh }}" autoComplete="off" spellCheck="false" style="flex:1; min-width:120px; height:30px; padding:0 8px; border:0; outline:none; background:transparent; font-family:var(--font-hanken); font-size:15px; color:var(--body);">
+                  </sc-if>
+                  <sc-if value="{{ orgShowAdd }}" hint-placeholder-val="{{ false }}">
+                    <button onMouseDown="{{ keep }}" onClick="{{ addOrg }}" style="height:30px; padding:0 10px; border:0; background:transparent; font-family:var(--font-hanken); font-size:12px; font-weight:700; color:var(--brand); cursor:pointer;">Add</button>
+                  </sc-if>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none;">
+                  <sc-for list="{{ interestSug }}" as="m" hint-placeholder-count="0">
+                    <button onMouseDown="{{ m.keep }}" onClick="{{ m.pick }}" style="flex-shrink:0; height:30px; padding:0 12px; border-radius:9999px; border:1.5px solid var(--control-border); background:#fff; font-family:var(--font-hanken); font-size:12px; font-weight:600; color:var(--body); white-space:nowrap; cursor:pointer;" style-active="transform: scale(0.96);">+ {{ m.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            <input ref="{{ file }}" type="file" accept="image/*" onChange="{{ onFile }}" style="display:none;">
+          </div>
+
+          <!-- 02 your goal -->
+          <div data-screen-label="02 Your goal" style="position:absolute; inset:0; pointer-events:none;">
+            <div class="section-label" style="position:absolute; left:20px; top:112px; opacity:{{ s1.e0.o }}; transform:{{ s1.e0.t }}; transition:{{ s1.e0.tr }};">Your goal</div>
+            <div style="position:absolute; left:20px; right:20px; top:132px; font-family:var(--font-newsreader); font-weight:500; font-size:25px; line-height:1.18; letter-spacing:-0.015em; color:var(--ink); text-wrap:pretty; opacity:{{ s1.e1.o }}; transform:{{ s1.e1.t }}; transition:{{ s1.e1.tr }};">What's something you want to put real time toward in the next few months?</div>
+            <div ref="{{ goalList }}" style="position:absolute; left:20px; right:20px; top:240px; display:flex; flex-direction:column; opacity:{{ s1.e2.o }}; transform:{{ s1.e2.t }}; transition:{{ s1.e2.tr }}; pointer-events:{{ s1.pe }};">
+              <sc-for list="{{ goalRows }}" as="r" hint-placeholder-count="0">
+                <div style="display:flex; align-items:center; gap:10px; height:40px; border-bottom:1px solid var(--divider);">
+                  <span style="flex-shrink:0; width:3px; height:20px; border-radius:2px; background:{{ r.color }};"></span>
+                  <span style="flex:1; min-width:0; font-family:var(--font-newsreader); font-weight:500; font-size:18px; letter-spacing:-0.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ r.title }}</span>
+                  <button onMouseDown="{{ r.keep }}" onClick="{{ r.remove }}" aria-label="Remove goal" style="flex-shrink:0; width:28px; height:28px; padding:0; border:0; background:transparent; color:var(--disabled); display:flex; align-items:center; justify-content:center; cursor:pointer;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+                </div>
+              </sc-for>
+            </div>
+            <div style="position:absolute; left:20px; right:20px; top:240px; opacity:{{ s1.e3.o }}; transform:{{ s1.e3.t }}; transition:{{ s1.e3.tr }}; pointer-events:{{ s1.pe }};">
+              <div style="transform:translateY({{ s1.inputY }}px); transition:{{ s1.inputTr }};">
+                <div style="display:flex; gap:10px; align-items:flex-start;">
+                  <span style="margin-top:8px; flex-shrink:0; width:3px; height:26px; border-radius:2px; transform-origin:50% 0; background:{{ s1.nextColor }}; opacity:{{ s1.markO }}; transform:scaleY({{ s1.markS }}); transition:opacity 200ms linear, transform 320ms cubic-bezier(0.22,1,0.36,1);"></span>
+                  <textarea ref="{{ goalIn }}" value="{{ goalDraft }}" onChange="{{ onGoal }}" onKeyDown="{{ onGoalKey }}" onFocus="{{ focusGoal }}" onBlur="{{ onBlurField }}" rows="2" maxLength="60" placeholder="{{ s1.ph }}" spellCheck="false" style="flex:1; min-width:0; height:72px; resize:none; overflow:hidden; padding:0; margin:0; border:0; outline:none; background:transparent; font-family:var(--font-newsreader); font-weight:500; font-size:28px; line-height:1.22; letter-spacing:-0.015em; color:var(--ink); caret-color:var(--brand);"></textarea>
+                </div>
+                <div style="margin-top:4px; padding-left:13px; height:16px; font-size:11.5px; font-weight:500; color:var(--caption); opacity:{{ s1.hintO }}; transition:opacity 200ms linear;">{{ s1.hint }}</div>
+              </div>
+            </div>
+            <div style="position:absolute; left:0; right:0; top:712px; opacity:{{ s1.e4.o }}; transform:{{ s1.e4.t }}; transition:{{ s1.e4.tr }}; pointer-events:{{ s1.pe }};">
+              <div style="transform:translateY({{ s1.chipsY }}px); transition:{{ s1.chipsTr }};">
+                <div style="display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; padding:0 20px;">
+                  <sc-for list="{{ goalChips }}" as="r" hint-placeholder-count="4">
+                    <button onMouseDown="{{ r.keep }}" onClick="{{ r.pick }}" style="flex-shrink:0; height:34px; padding:0 14px; border-radius:9999px; border:1.5px solid var(--control-border); background:#fff; font-family:var(--font-hanken); font-size:13px; font-weight:600; color:var(--body); white-space:nowrap; cursor:pointer;" style-active="transform: scale(0.96);">{{ r.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 03 your habits -->
+          <div data-screen-label="03 Your habits" style="position:absolute; inset:0; pointer-events:none;">
+            <div class="section-label" style="position:absolute; left:20px; top:112px; opacity:{{ s2.e0.o }}; transform:{{ s2.e0.t }}; transition:{{ s2.e0.tr }};">Your habits</div>
+            <div style="position:absolute; left:20px; right:20px; top:132px; font-family:var(--font-newsreader); font-weight:500; font-size:25px; line-height:1.18; letter-spacing:-0.015em; color:var(--ink); text-wrap:pretty; opacity:{{ s2.e1.o }}; transform:{{ s2.e1.t }}; transition:{{ s2.e1.tr }};">Small things you want to do every day</div>
+            <div style="position:absolute; left:20px; right:20px; top:200px; font-size:13px; line-height:1.45; color:var(--secondary-ink); text-wrap:pretty; opacity:{{ s2.e2.o }}; transform:{{ s2.e2.t }}; transition:{{ s2.e2.tr }};">Separate from your goals. You tick these off once a day.</div>
+            <div ref="{{ habitBox }}" style="position:absolute; left:20px; right:20px; top:244px; display:flex; flex-wrap:wrap; gap:8px; opacity:{{ s2.e3.o }}; transform:{{ s2.e3.t }}; transition:{{ s2.e3.tr }}; pointer-events:{{ s2.pe }};">
+              <sc-for list="{{ habitChips }}" as="h" hint-placeholder-count="5">
+                <button data-habit="{{ h.label }}" onMouseDown="{{ h.keep }}" onClick="{{ h.toggle }}" style="display:inline-flex; align-items:center; gap:7px; height:38px; padding:0 14px 0 10px; box-sizing:border-box; border-radius:9999px; border:1.5px solid {{ h.bc }}; background:{{ h.bg }}; color:{{ h.fg }}; font-family:var(--font-hanken); font-size:13px; font-weight:600; cursor:pointer; transition:background-color 160ms ease, border-color 160ms ease, color 160ms ease;">
+                  <span style="position:relative; width:18px; height:18px; flex-shrink:0;">
+                    <span style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--disabled); opacity:{{ h.plusO }}; transition:opacity 120ms linear;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></span>
+                    <span data-check="1" style="position:absolute; inset:0; border-radius:9999px; background:#fff; color:var(--brand); display:flex; align-items:center; justify-content:center; opacity:{{ h.checkO }};"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+                  </span>
+                  {{ h.label }}
+                </button>
+              </sc-for>
+              <sc-if value="{{ s2.customClosed }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ openCustom }}" style="display:inline-flex; align-items:center; height:38px; padding:0 14px; box-sizing:border-box; border-radius:9999px; border:1.5px dashed var(--disabled); background:#fff; font-family:var(--font-hanken); font-size:13px; font-weight:600; color:var(--caption); cursor:pointer;">+ Your own</button>
+              </sc-if>
+              <sc-if value="{{ s2.customOpen }}" hint-placeholder-val="{{ false }}">
+                <span style="display:inline-flex; align-items:center; height:38px; padding:0 6px 0 14px; box-sizing:border-box; border-radius:9999px; border:1.5px solid var(--brand); background:#fff;">
+                  <input ref="{{ customIn }}" value="{{ habitDraft }}" onChange="{{ onHabitDraft }}" onKeyDown="{{ onHabitKey }}" onFocus="{{ focusCustom }}" onBlur="{{ onCustomBlur }}" placeholder="e.g. Floss" maxLength="32" spellCheck="false" style="width:130px; height:30px; padding:0; border:0; outline:none; background:transparent; font-family:var(--font-hanken); font-size:15px; color:var(--body);">
+                  <button onMouseDown="{{ keep }}" onClick="{{ addHabit }}" style="height:28px; padding:0 8px; border:0; background:transparent; font-family:var(--font-hanken); font-size:12px; font-weight:700; color:var(--brand); cursor:pointer;">Add</button>
+                </span>
+              </sc-if>
+            </div>
+            <div style="position:absolute; left:20px; right:20px; top:690px; display:flex; align-items:center; gap:10px; opacity:{{ s2.e4.o }}; transform:{{ s2.e4.t }}; transition:{{ s2.e4.tr }};">
+              <span style="flex-shrink:0; height:26px; padding:0 10px; display:inline-flex; align-items:center; gap:5px; border-radius:9999px; border:1.5px solid var(--hairline); font-size:11px; font-weight:600; color:var(--caption);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0v1"></path><path d="M14 10V4a2 2 0 0 0-4 0v2"></path><path d="M10 10.5V6a2 2 0 0 0-4 0v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg>Nudge</span>
+              <span style="font-size:12px; line-height:1.4; color:var(--secondary-ink); text-wrap:pretty;">{{ s2.nudgeText }}</span>
+            </div>
+          </div>
+
+          <!-- 04 what progra is -->
+          <div data-screen-label="04 What Progra is" style="position:absolute; inset:0; pointer-events:none;">
+            <div style="position:absolute; left:20px; right:20px; top:110px; display:flex; flex-direction:column;">
+              <div ref="{{ d4Hero }}" style="padding:12px; border-radius:22px; background:var(--inset); opacity:{{ d4.iv.o }}; transform:{{ d4.iv.t }}; transition:{{ d4.iv.tr }};">
+                <div style="background:#fff; border-radius:16px; padding:14px 16px 12px;">
+                  <div style="display:flex; align-items:center; gap:16px;">
+                    <div data-wheel="1" style="flex-shrink:0;"><x-import component-from-global-scope="Progra.Donut" segments="{{ heroSegs }}" size="{{ 112 }}" stroke="{{ 12 }}" label="{{ heroTotal }}" sub="This week" hint-size="112px,112px"></x-import></div>
+                    <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:9px;">
+                      <span class="section-label">Goals this week</span>
+                      <x-import component-from-global-scope="Progra.GoalQuotaRows" goals="{{ heroGoals }}" hint-size="100%,70px"></x-import>
+                    </div>
+                  </div>
+                  <div style="height:1px; margin:12px 0 9px; background:var(--hairline);"></div>
+                  <span class="section-label">Habits</span>
+                  <div style="margin-top:4px;"><x-import component-from-global-scope="Progra.HabitWeekGrid" habits="{{ heroHabits }}" completions="{{ heroDone }}" week-start="2026-10-12" today="2026-10-16" hint-size="100%,96px"></x-import></div>
+                </div>
+              </div>
+              <div style="margin-top:24px; font-family:var(--font-newsreader); font-weight:500; font-size:34px; line-height:1.1; letter-spacing:-0.02em; color:var(--ink); opacity:{{ d4.i0.o }}; transform:{{ d4.i0.t }}; transition:{{ d4.i0.tr }};">What is Progra?</div>
+              <div style="margin-top:12px; font-family:var(--font-newsreader); font-weight:500; font-size:22px; line-height:1.3; letter-spacing:-0.01em; color:var(--secondary-ink); text-wrap:pretty; opacity:{{ d4.i1.o }}; transform:{{ d4.i1.t }}; transition:{{ d4.i1.tr }};">Progra is a productivity app designed to be used with your friends!</div>
+              <div style="margin-top:14px; font-size:15px; line-height:1.55; color:var(--secondary-ink); text-wrap:pretty; opacity:{{ d4.i2.o }}; transform:{{ d4.i2.t }}; transition:{{ d4.i2.tr }};">You clock in hours towards goals, or anything you want to keep track of/post, and friends can see your posts on a shared feed!</div>
+              <div style="margin-top:16px; font-size:15px; line-height:1.4; font-weight:600; color:var(--body); opacity:{{ d4.i3.o }}; transform:{{ d4.i3.t }}; transition:{{ d4.i3.tr }};">Lets start with an example.</div>
+            </div>
+            <div style="position:absolute; left:20px; right:20px; top:112px; height:14px;">
+              <div style="position:absolute; left:0; right:0; top:0; height:14px; display:flex; align-items:center; justify-content:space-between; opacity:{{ d4.eyClock.o }}; transform:{{ d4.eyClock.t }}; transition:{{ d4.eyClock.tr }};"><span class="section-label">Clock in</span><span style="font-size:10px; font-weight:600; letter-spacing:0.06em; color:var(--caption);">{{ d4.today }}</span></div>
+              <div style="position:absolute; left:0; right:0; top:0; height:14px; display:flex; align-items:center; gap:7px; opacity:{{ d4.eyLive.o }}; transform:{{ d4.eyLive.t }}; transition:{{ d4.eyLive.tr }};">
+                <span style="position:relative; width:14px; height:14px; flex-shrink:0;">
+                  <span class="animate-[pulse-dot_1.6s_ease_infinite]" style="position:absolute; left:3.5px; top:3.5px; width:7px; height:7px; border-radius:9999px; background:var(--done);"></span>
+                  <span ref="{{ d4Check }}" style="position:absolute; inset:0; border-radius:9999px; background:var(--done); color:#fff; display:flex; align-items:center; justify-content:center; opacity:{{ d4.checkO }};"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+                </span>
+                <span class="section-label" style="color:var(--done);">{{ d4.liveLabel }}</span>
+                <span style="flex:1;"></span>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; color:var(--caption);">PRACTICE RUN</span>
+              </div>
+              <div style="position:absolute; left:0; right:0; top:0; height:14px; display:flex; align-items:center; justify-content:space-between; opacity:{{ d4.eyPost.o }}; transform:{{ d4.eyPost.t }}; transition:{{ d4.eyPost.tr }};"><span class="section-label">Session done</span><span style="font-size:10px; font-weight:600; letter-spacing:0.06em; color:var(--caption);">PRACTICE RUN</span></div>
+              <div style="position:absolute; left:0; right:0; top:0; height:14px; display:flex; align-items:center; gap:7px; opacity:{{ d4.eyFeed.o }}; transform:{{ d4.eyFeed.t }}; transition:{{ d4.eyFeed.tr }};"><span style="width:7px; height:7px; border-radius:9999px; background:var(--done);"></span><span class="section-label">Your friends' feed</span></div>
+            </div>
+
+            <div style="position:absolute; left:20px; right:20px; top:146px; pointer-events:{{ d4.cpPE }};">
+              <div style="opacity:{{ d4.c1.o }}; transform:{{ d4.c1.t }}; transition:{{ d4.c1.tr }};"><x-import component-from-global-scope="Progra.SectionHeader" label="Working on" meta="{{ d4.pickMeta }}" class-name="pb-2" hint-size="353px,18px"></x-import></div>
+              <div ref="{{ d4List }}" style="display:flex; flex-direction:column; gap:8px; opacity:{{ d4.c2.o }}; transform:{{ d4.c2.t }}; transition:{{ d4.c2.tr }};">
+                <sc-for list="{{ d4Goals }}" as="g" hint-placeholder-count="1">
+                  <button onClick="{{ g.pick }}" style="display:flex; align-items:center; gap:11px; width:100%; height:56px; padding:0 14px; box-sizing:border-box; border-radius:14px; border:1.5px solid {{ g.bc }}; background:#fff; text-align:left; cursor:pointer; font-family:var(--font-hanken); transition:border-color 160ms ease;" style-active="transform: scale(0.99);">
+                    <span style="flex-shrink:0; width:3px; height:24px; border-radius:2px; background:{{ g.color }};"></span>
+                    <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;"><span data-gt="{{ g.i }}" style="font-family:var(--font-newsreader); font-weight:500; font-size:17px; letter-spacing:-0.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ g.title }}</span><span style="font-size:11px; color:var(--faint);">{{ g.sub }}</span></span>
+                    <span style="flex-shrink:0; width:22px; height:22px; box-sizing:border-box; border-radius:9999px; display:flex; align-items:center; justify-content:center; background:{{ g.dotBg }}; border:1.5px solid {{ g.dotBc }}; color:#fff; transition:background-color 160ms ease, border-color 160ms ease;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:{{ g.checkO }};"><path d="M20 6 9 17l-5-5"></path></svg></span>
+                  </button>
+                </sc-for>
+              </div>
+              <div style="margin-top:22px; opacity:{{ d4.c3.o }}; transform:{{ d4.c3.t }}; transition:{{ d4.c3.tr }};">
+                <x-import component-from-global-scope="Progra.SectionHeader" label="Timer" class-name="pb-2" hint-size="353px,18px"></x-import>
+                <div style="display:flex; align-items:center; gap:11px; height:56px; padding:0 14px; box-sizing:border-box; border-radius:14px; border:1.5px solid var(--control-border); background:#fff;">
+                  <span style="flex-shrink:0; width:24px; display:flex; justify-content:center; color:var(--caption);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" x2="14" y1="2" y2="2"></line><line x1="12" x2="15" y1="14" y2="11"></line><circle cx="12" cy="14" r="8"></circle></svg></span>
+                  <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;"><span style="font-family:var(--font-newsreader); font-weight:500; font-size:17px; letter-spacing:-0.01em; color:var(--ink);">25 min</span><span style="font-size:11px; color:var(--faint);">{{ d4.endsAt }}</span></span>
+                </div>
+              </div>
+            </div>
+
+            <div style="position:absolute; left:20px; right:20px; top:272px; display:flex; flex-direction:column; align-items:center; text-align:center;">
+              <div style="max-width:100%; opacity:{{ d4.lt.o }}; transform:{{ d4.lt.t }}; transition:{{ d4.lt.tr }};">
+                <div ref="{{ d4LiveTitle }}" style="display:flex; align-items:center; gap:9px; max-width:353px;"><span style="flex-shrink:0; width:10px; height:10px; border-radius:2px; background:{{ goal1Color }};"></span><span style="min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:var(--font-newsreader); font-weight:500; font-size:22px; letter-spacing:-0.015em; color:var(--ink);">{{ d4.goalTitle }}</span></div>
+              </div>
+              <div style="margin-top:22px; opacity:{{ d4.t0.o }}; transform:{{ d4.t0.t }}; transition:{{ d4.t0.tr }};"><div ref="{{ d4Timer }}" class="stat-num" style="font-size:52px; line-height:0.9;">{{ d4.timerText }}</div></div>
+              <div style="margin-top:14px; font-size:13px; line-height:1.45; color:var(--caption); opacity:{{ d4.t1.o }}; transform:{{ d4.t1.t }}; transition:{{ d4.t1.tr }};">{{ d4.status }}</div>
+              <div style="margin-top:22px; opacity:{{ d4.ff.o }}; transform:{{ d4.ff.t }}; transition:{{ d4.ff.tr }};">
+                <span style="display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 12px; border-radius:9999px; background:var(--track); font-size:11.5px; font-weight:600; color:var(--secondary-ink); white-space:nowrap;"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>Fast-forwarding 25 minutes</span>
+              </div>
+            </div>
+            <div ref="{{ d4Ring }}" style="position:absolute; left:121px; top:272px; width:150px; height:150px; box-sizing:border-box; border-radius:9999px; border:2px solid var(--done); opacity:0; pointer-events:none;"></div>
+
+            <div style="position:absolute; left:20px; right:20px; top:136px; font-family:var(--font-newsreader); font-weight:500; font-size:25px; line-height:1.18; letter-spacing:-0.015em; color:var(--ink); text-wrap:pretty; opacity:{{ d4.p0.o }}; transform:{{ d4.p0.t }}; transition:{{ d4.p0.tr }};">This is just practice, but will be your first post, so feel free to post anything!</div>
+            <div style="position:absolute; left:20px; top:248px; width:353px; height:340px; opacity:{{ d4.p1.o }}; transform:{{ d4.p1.t }}; transition:{{ d4.p1.tr }}; pointer-events:{{ d4.p1.pe }};">
+              <button ref="{{ d4Slot }}" onClick="{{ pickPostPhoto }}" style="position:relative; display:block; width:100%; height:100%; padding:0; margin:0; box-sizing:border-box; border-radius:14px; border:1.5px dashed {{ d4.slotBc }}; background:var(--inset); overflow:hidden; cursor:pointer; font-family:var(--font-hanken);" style-active="transform: scale(0.99);">
+                <span style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;">
+                  <span style="width:52px; height:52px; border-radius:9999px; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 22px -10px rgba(28,58,94,.55);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg></span>
+                  <span style="font-size:14px; font-weight:600; color:var(--body);">Add a photo</span>
+                  <span style="font-size:12px; color:var(--caption);">Your desk, your notes, the view</span>
+                </span>
+                <sc-if value="{{ hasPostPhoto }}" hint-placeholder-val="{{ false }}">
+                  <img ref="{{ d4Img }}" alt="" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;">
+                  <span style="position:absolute; right:10px; bottom:10px; display:inline-flex; align-items:center; gap:5px; height:28px; padding:0 11px; border-radius:9999px; background:rgba(255,255,255,0.92); font-size:11.5px; font-weight:600; color:var(--body);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>Change</span>
+                </sc-if>
+              </button>
+            </div>
+            <div style="position:absolute; left:20px; right:20px; top:600px; display:flex; justify-content:center; opacity:{{ d4.p2.o }}; transform:{{ d4.p2.t }}; transition:{{ d4.p2.tr }}; pointer-events:{{ d4.p2.pe }};">
+              <button onClick="{{ postNoPhoto }}" style="height:44px; padding:0 14px; border:0; background:transparent; font-family:var(--font-hanken); font-size:12px; font-weight:500; color:var(--caption); white-space:nowrap; cursor:pointer;" style-hover="color: var(--brand);">Post without a photo</button>
+            </div>
+            <input ref="{{ postFile }}" type="file" accept="image/*" onChange="{{ onPostFile }}" style="display:none;">
+
+            <div style="position:absolute; left:20px; top:136px; width:353px; display:flex; flex-direction:column; gap:14px;">
+              <div style="padding:14px; border-radius:22px; background:var(--inset); opacity:{{ d4.f0.o }}; transform:{{ d4.f0.t }}; transition:{{ d4.f0.tr }};">
+                <div style="background:#fff; border-radius:16px; padding:14px 16px; display:flex; flex-direction:column; gap:10px;">
+                  <div style="display:flex; align-items:flex-start; gap:11px;">
+                    <div style="width:34px; height:34px; flex-shrink:0; font-size:12px;"><x-import component-from-global-scope="Progra.AvatarInitials" name="{{ name }}" username="{{ avUser }}" avatar-url="{{ photo }}" class-name="size-full" hint-size="34px,34px"></x-import></div>
+                    <span style="flex:1; min-width:0; padding-top:1px; font-size:13px; line-height:1.4; color:var(--secondary-ink); text-wrap:pretty;"><span style="font-weight:600; color:var(--body);">{{ meName }}</span> just joined Progra, and their first goal is <span style="display:inline-block; width:7px; height:7px; margin:0 4px 1px 1px; border-radius:2px; background:{{ goal1Color }};"></span><span style="font-weight:600; color:var(--body);">{{ d4.goalTitle }}</span></span>
+                    <span style="flex-shrink:0; padding-top:1px; font-size:12px; color:var(--faint);">just now</span>
+                  </div>
+                  <sc-if value="{{ hasPostPhoto }}" hint-placeholder-val="{{ false }}"><div ref="{{ d4CardPhoto }}" style="height:282px; border-radius:14px; overflow:hidden; background:var(--track); transform-origin:0 0;"><img ref="{{ d4CardImg }}" alt="" style="display:block; width:100%; height:100%; object-fit:cover;"></div></sc-if>
+                  <div style="display:flex; align-items:center; justify-content:flex-end;">
+                    <span style="display:inline-flex; align-items:center; gap:2px; padding:2px; border-radius:9999px; border:1px solid var(--hairline); color:var(--disabled);">
+                      <span style="display:inline-flex; align-items:center; padding:3px 8px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg></span>
+                      <span style="display:inline-flex; align-items:center; padding:3px 8px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg></span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div style="padding:0 2px; font-size:13px; line-height:1.45; color:var(--secondary-ink); text-wrap:pretty; opacity:{{ d4.f1.o }}; transform:{{ d4.f1.t }}; transition:{{ d4.f1.tr }};">Posted. Next, add the friends who'll see it in their feed.</div>
+            </div>
+          </div>
+
+          <!-- 05 find your friends -->
+          <div data-screen-label="05 Find your friends" style="position:absolute; inset:0; pointer-events:none;">
+            <div style="position:absolute; left:20px; right:20px; top:110px; opacity:{{ s4.e0.o }}; transform:{{ s4.e0.t }}; transition:{{ s4.e0.tr }};">
+              <div style="font-family:var(--font-newsreader); font-weight:500; font-size:26px; line-height:1.15; letter-spacing:-0.015em; color:var(--ink);">Find your friends</div>
+              <div style="margin-top:6px; font-size:13px; line-height:1.45; color:var(--secondary-ink); text-wrap:pretty;">{{ s4.sub }}</div>
+            </div>
+            <div style="position:absolute; left:20px; right:20px; top:196px; opacity:{{ s4.e1.o }}; transform:{{ s4.e1.t }}; transition:{{ s4.e1.tr }}; pointer-events:{{ s4.e1.pe }};">
+              <button ref="{{ inviteBtn }}" onClick="{{ openSheet }}" style="display:flex; align-items:center; gap:12px; width:100%; height:76px; padding:0 16px; border:0; border-radius:18px; background:var(--brand); box-shadow:0 10px 24px rgba(28,58,94,.3); color:#fff; text-align:left; cursor:pointer; font-family:var(--font-hanken);" style-active="transform: scale(0.98);">
+                <span style="flex-shrink:0; width:42px; height:42px; border-radius:9999px; background:rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
+                <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:3px;"><span style="font-size:16px; font-weight:700;">Invite your friends</span><span style="font-size:12px; color:rgba(255,255,255,0.75); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ inviteSub }}</span></span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><path d="m16 6-4-4-4 4"></path><path d="M12 2v13"></path></svg>
+              </button>
+            </div>
+            <div style="position:absolute; left:20px; right:20px; top:286px; opacity:{{ s4.e2.o }}; transform:{{ s4.e2.t }}; transition:{{ s4.e2.tr }}; pointer-events:{{ s4.pe }};">
+              <div style="display:flex; align-items:center; gap:10px; transform:translateY({{ s4.searchY }}px); transition:{{ s4.searchTr }};">
+                <div style="flex:1; display:flex; align-items:center; gap:8px; height:44px; padding:0 12px; box-sizing:border-box; border-radius:12px; border:1.5px solid {{ s4.searchBc }}; background:#fff;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--caption)" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                  <input ref="{{ searchIn }}" value="{{ search }}" onChange="{{ onSearch }}" onFocus="{{ focusSearch }}" onBlur="{{ onBlurField }}" placeholder="Search by username" autoComplete="off" autoCapitalize="none" spellCheck="false" style="flex:1; min-width:0; height:40px; padding:0; border:0; outline:none; background:transparent; font-family:var(--font-hanken); font-size:15px; color:var(--body);">
+                </div>
+                <sc-if value="{{ s4.searchMode }}" hint-placeholder-val="{{ false }}"><button onMouseDown="{{ keep }}" onClick="{{ cancelSearch }}" style="padding:0; border:0; background:transparent; font-family:var(--font-hanken); font-size:13px; font-weight:600; color:var(--brand); cursor:pointer;">Cancel</button></sc-if>
+              </div>
+            </div>
+            <div ref="{{ s5Box }}" style="position:absolute; left:0; right:0; top:{{ s4.listTop }}px; bottom:{{ s4.listBottom }}px; overflow-y:auto; scrollbar-width:none; opacity:{{ s4.e3.o }}; transform:{{ s4.e3.t }}; transition:{{ s4.e3.tr }}; pointer-events:{{ s4.pe }};">
+              <sc-for list="{{ s5list }}" as="e" hint-placeholder-count="4">
+                <sc-if value="{{ e.hdr }}" hint-placeholder-val="{{ false }}"><div style="display:flex; align-items:center; gap:7px; padding:14px 20px 8px;"><span class="section-label">{{ e.label }}</span><span style="flex:1;"></span><span style="font-size:10px; font-weight:600; letter-spacing:0.06em; color:var(--caption);">{{ e.meta }}</span></div></sc-if>
+                <sc-if value="{{ e.row }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; align-items:center; gap:11px; padding:9px 20px; border-top:1px solid var(--divider); background:{{ e.bg }}; transition:background-color 260ms linear;">
+                    <div style="width:36px; height:36px; flex-shrink:0; font-size:13px;"><x-import component-from-global-scope="Progra.AvatarInitials" name="{{ e.n }}" username="{{ e.u }}" class-name="size-full" hint-size="36px,36px"></x-import></div>
+                    <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;">
+                      <span style="font-size:13px; font-weight:600; line-height:1.25; color:var(--body); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ e.title }}</span>
+                      <span style="font-size:11px; line-height:1.3; color:{{ e.subColor }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ e.sub }}</span>
+                    </div>
+                    <button data-add="{{ e.u }}" onClick="{{ e.add }}" style="flex-shrink:0; display:flex; align-items:center; gap:5px; height:30px; padding:0 12px; border-radius:10px; border:1.5px solid {{ e.btnBc }}; background:{{ e.btnBg }}; color:{{ e.btnFg }}; font-family:var(--font-hanken); font-size:12px; font-weight:600; cursor:pointer; transition:background-color 180ms ease, border-color 180ms ease, color 180ms ease;" style-active="transform: scale(0.94);">
+                      <sc-if value="{{ e.isAdded }}" hint-placeholder-val="{{ false }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>{{ e.btnLabel }}
+                    </button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ e.founders }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; align-items:center; gap:11px; padding:10px 20px; border-top:1px solid var(--divider); background:{{ e.bg }}; transition:background-color 260ms linear;">
+                    <div style="position:relative; width:66px; height:36px; flex-shrink:0;">
+                      <div style="position:absolute; left:0; top:3px; width:30px; height:30px; box-sizing:border-box; border-radius:9999px; border:2px solid #fff; background:#fff; font-size:10px;"><x-import component-from-global-scope="Progra.AvatarInitials" name="" username="ishaanroybiswas" class-name="size-full" hint-size="26px,26px"></x-import></div>
+                      <div style="position:absolute; left:18px; top:3px; width:30px; height:30px; box-sizing:border-box; border-radius:9999px; border:2px solid #fff; background:#fff; font-size:10px;"><x-import component-from-global-scope="Progra.AvatarInitials" name="" username="zack" class-name="size-full" hint-size="26px,26px"></x-import></div>
+                      <div style="position:absolute; left:36px; top:3px; width:30px; height:30px; box-sizing:border-box; border-radius:9999px; border:2px solid #fff; background:#fff; font-size:10px;"><x-import component-from-global-scope="Progra.AvatarInitials" name="" username="jillybean" class-name="size-full" hint-size="26px,26px"></x-import></div>
+                    </div>
+                    <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;">
+                      <span style="font-size:13px; font-weight:600; line-height:1.25; color:var(--body);">Add the founders</span>
+                      <span style="font-size:11px; line-height:1.3; color:var(--faint);">@ishaanroybiswas · @zack · @jillybean</span>
+                    </div>
+                    <button data-add="founders" onClick="{{ e.add }}" style="flex-shrink:0; display:flex; align-items:center; gap:5px; height:30px; padding:0 12px; border-radius:10px; border:1.5px solid {{ e.btnBc }}; background:{{ e.btnBg }}; color:{{ e.btnFg }}; font-family:var(--font-hanken); font-size:12px; font-weight:600; cursor:pointer; transition:background-color 180ms ease, border-color 180ms ease, color 180ms ease;" style-active="transform: scale(0.94);">
+                      <sc-if value="{{ e.isAdded }}" hint-placeholder-val="{{ false }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>{{ e.btnLabel }}
+                    </button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ e.note }}" hint-placeholder-val="{{ false }}"><p style="margin:0; padding:12px 20px; border-top:1px solid var(--divider); font-size:13px; line-height:1.45; color:var(--caption); text-wrap:pretty;">{{ e.text }}</p></sc-if>
+                <sc-if value="{{ e.preview }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:4px 20px 14px; display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                    <div style="max-width:270px; padding:9px 13px; border-radius:18px 18px 4px 18px; background:var(--brand); color:#fff; font-size:13px; line-height:1.4;">{{ inviteText }}</div>
+                    <div style="width:220px; border-radius:14px; border:1px solid var(--hairline); background:#fff; padding:10px 12px; display:flex; align-items:center; gap:10px;">
+                      <x-import component-from-global-scope="Progra.PrograMark" size="{{ 30 }}" hint-size="30px,30px"></x-import>
+                      <span style="display:flex; flex-direction:column; min-width:0;"><span style="font-size:12px; font-weight:600; color:var(--body);">Join me on Progra</span><span style="font-size:11px; color:var(--faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ inviteUrl }}</span></span>
+                    </div>
+                  </div>
+                </sc-if>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- 06 start your first session -->
+          <div data-screen-label="06 Start your first session" style="position:absolute; inset:0; pointer-events:none;">
+            <div style="position:absolute; left:126px; top:178px; width:140px; opacity:{{ s5.e0.o }}; transform:{{ s5.e0.t }}; transition:{{ s5.e0.tr }};">
+              <x-import component-from-global-scope="Progra.WeekPulse" hint-size="140px,30px"></x-import>
+            </div>
+            <div style="position:absolute; left:20px; right:20px; top:236px; text-align:center; font-family:var(--font-newsreader); font-weight:500; font-size:64px; line-height:1; letter-spacing:-0.03em; color:var(--ink); opacity:{{ s5.e1.o }}; transform:{{ s5.e1.t }}; transition:{{ s5.e1.tr }};">Ready?</div>
+            <div style="position:absolute; left:20px; right:20px; top:322px; text-align:center; font-family:var(--font-newsreader); font-weight:500; font-size:24px; line-height:1.2; letter-spacing:-0.015em; color:var(--caption); opacity:{{ s5.e2.o }}; transform:{{ s5.e2.t }}; transition:{{ s5.e2.tr }};">Start your first session on</div>
+            <div style="position:absolute; left:20px; right:20px; top:368px; display:flex; justify-content:center; opacity:{{ s5.e3.o }}; transform:{{ s5.e3.t }}; transition:{{ s5.e3.tr }};">
+              <div ref="{{ pill }}" style="display:flex; align-items:center; gap:12px; width:max-content; max-width:100%; padding:14px 20px; box-sizing:border-box; border-radius:18px; border:1.5px solid var(--control-border); background:#fff;">
+                <span style="flex-shrink:0; width:12px; height:12px; border-radius:3px; background:{{ firstColor }};"></span>
+                <span style="min-width:0; font-family:var(--font-newsreader); font-weight:500; font-size:24px; line-height:1.2; letter-spacing:-0.015em; color:var(--ink);">{{ firstTitle }}</span>
+              </div>
+            </div>
+            <div style="position:absolute; left:40px; right:40px; top:452px; text-align:center; font-size:13px; line-height:1.45; color:var(--secondary-ink); opacity:{{ s5.e4.o }}; transform:{{ s5.e4.t }}; transition:{{ s5.e4.tr }};">{{ s5.note }}</div>
+          </div>
+
+          <!-- app: clock -->
+          <div data-screen-label="App · Clock" style="position:absolute; inset:0; pointer-events:none;">
+            <div style="position:absolute; left:20px; right:20px; top:76px; display:flex; align-items:center; justify-content:space-between; opacity:{{ ck.e0.o }}; transform:{{ ck.e0.t }}; transition:{{ ck.e0.tr }};"><span class="section-label">Clock in</span><span style="font-size:10px; font-weight:600; letter-spacing:0.06em; color:var(--caption);">THU, OCT 8</span></div>
+            <div style="position:absolute; left:20px; right:20px; top:110px; pointer-events:{{ ck.pe }};">
+              <div style="opacity:{{ ck.e1.o }}; transform:{{ ck.e1.t }}; transition:{{ ck.e1.tr }};"><x-import component-from-global-scope="Progra.SectionHeader" label="Working on" meta="{{ ck.meta }}" class-name="pb-2" hint-size="353px,18px"></x-import></div>
+              <div ref="{{ clockList }}" style="display:flex; flex-direction:column; gap:8px; opacity:{{ ck.e2.o }}; transition:{{ ck.e2.tr }};">
+                <sc-for list="{{ clockGoals }}" as="g" hint-placeholder-count="1">
+                  <button onClick="{{ g.pick }}" style="display:flex; align-items:center; gap:11px; width:100%; height:56px; padding:0 14px; box-sizing:border-box; border-radius:14px; border:1.5px solid {{ g.bc }}; background:#fff; text-align:left; cursor:pointer; font-family:var(--font-hanken); transform-origin:0 0; transition:border-color 160ms ease;">
+                    <span style="flex-shrink:0; width:3px; height:24px; border-radius:2px; background:{{ g.color }};"></span>
+                    <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;"><span style="font-family:var(--font-newsreader); font-weight:500; font-size:17px; letter-spacing:-0.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ g.title }}</span><span style="font-size:11px; color:var(--faint);">{{ g.sub }}</span></span>
+                    <span style="flex-shrink:0; width:22px; height:22px; box-sizing:border-box; border-radius:9999px; display:flex; align-items:center; justify-content:center; background:{{ g.dotBg }}; border:1.5px solid {{ g.dotBc }}; color:#fff;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:{{ g.checkO }};"><path d="M20 6 9 17l-5-5"></path></svg></span>
+                  </button>
+                </sc-for>
+              </div>
+              <div style="margin-top:22px; opacity:{{ ck.e3.o }}; transform:{{ ck.e3.t }}; transition:{{ ck.e3.tr }};">
+                <x-import component-from-global-scope="Progra.SectionHeader" label="Session" class-name="pb-2" hint-size="353px,18px"></x-import>
+                <x-import component-from-global-scope="Progra.SessionPlanPicker" mode="{{ mode }}" onModeChange="{{ setMode }}" plannedMinutes="{{ planned }}" onPlannedMinutesChange="{{ setPlanned }}" breakPreset="{{ breakPreset }}" onBreakPresetChange="{{ setBreak }}" hint-size="353px,40px"></x-import>
+              </div>
+            </div>
+          </div>
+
+          <!-- app: live session -->
+          <div data-screen-label="App · Live session" style="position:absolute; inset:0; pointer-events:none;">
+            <div style="position:absolute; left:20px; right:20px; top:76px; display:flex; align-items:center; gap:8px; opacity:{{ tm.e0.o }}; transform:{{ tm.e0.t }}; transition:{{ tm.e0.tr }};">
+              <span class="animate-[pulse-dot_1.6s_ease_infinite]" style="width:7px; height:7px; border-radius:9999px; background:var(--done);"></span>
+              <span class="section-label" style="color:var(--done);">Clocked in</span>
+              <span style="flex:1;"></span>
+              <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; color:var(--caption);">VISIBLE TO FRIENDS</span>
+            </div>
+            <div style="position:absolute; left:20px; right:20px; top:236px; display:flex; flex-direction:column; align-items:center; text-align:center; opacity:{{ tm.e1.o }}; transform:{{ tm.e1.t }}; transition:{{ tm.e1.tr }};">
+              <div style="display:flex; align-items:center; gap:9px; width:max-content; max-width:100%;"><span style="flex-shrink:0; width:10px; height:10px; border-radius:2px; background:{{ clockColor }};"></span><span style="min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:var(--font-newsreader); font-weight:500; font-size:22px; letter-spacing:-0.015em; color:var(--ink);">{{ clockTitle }}</span></div>
+              <div class="stat-num" style="margin-top:22px; font-size:52px; line-height:0.9;">{{ timerText }}</div>
+              <div style="margin-top:14px; font-size:13px; line-height:1.45; color:var(--caption);">{{ timerSub }}</div>
+            </div>
+            <div style="position:absolute; left:20px; right:20px; top:690px; opacity:{{ tm.e2.o }}; transform:{{ tm.e2.t }}; transition:{{ tm.e2.tr }}; pointer-events:{{ tm.pe }};">
+              <button onClick="{{ clockOut }}" style="width:100%; height:52px; border-radius:15px; border:1.5px solid var(--control-border); background:#fff; font-family:var(--font-hanken); font-size:15px; font-weight:600; color:var(--body); cursor:pointer;" style-active="transform: scale(0.98);">Clock out</button>
+            </div>
+          </div>
+
+          <!-- app: friends tab -->
+          <div data-screen-label="App · Friends" style="position:absolute; inset:0; pointer-events:none;">
+            <div ref="{{ ftBox }}" style="position:absolute; left:0; right:0; top:54px; bottom:86px; overflow-y:auto; scrollbar-width:none; opacity:{{ ft.o }}; transform:{{ ft.t }}; transition:{{ ft.tr }}; pointer-events:{{ ft.pe }};">
+              <div style="padding:22px 20px 0; display:flex; align-items:center; justify-content:space-between;"><span class="section-label">Friends</span><span style="font-size:10px; font-weight:600; letter-spacing:0.06em; color:var(--caption);">{{ ftMeta }}</span></div>
+              <div style="padding:12px 20px 0; display:flex; align-items:center; gap:10px;">
+                <div style="flex:1; display:flex; align-items:center; gap:8px; height:44px; padding:0 12px; box-sizing:border-box; border-radius:12px; border:1.5px solid {{ ftSearchBc }}; background:#fff;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--caption)" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                  <input ref="{{ fSearchIn }}" value="{{ fSearch }}" onChange="{{ onFSearch }}" onFocus="{{ focusFSearch }}" onBlur="{{ onBlurField }}" placeholder="Search by username" autoComplete="off" autoCapitalize="none" spellCheck="false" style="flex:1; min-width:0; height:40px; padding:0; border:0; outline:none; background:transparent; font-family:var(--font-hanken); font-size:15px; color:var(--body);">
+                </div>
+                <sc-if value="{{ ftSearching }}" hint-placeholder-val="{{ false }}"><button onMouseDown="{{ keep }}" onClick="{{ cancelFSearch }}" style="padding:0; border:0; background:transparent; font-family:var(--font-hanken); font-size:13px; font-weight:600; color:var(--brand); cursor:pointer;">Cancel</button></sc-if>
+              </div>
+              <sc-if value="{{ ftBrowse }}" hint-placeholder-val="{{ true }}">
+                <div style="padding:12px 20px 4px;">
+                  <button ref="{{ ftInvite }}" onClick="{{ openSheet }}" style="display:flex; align-items:center; gap:12px; width:100%; height:68px; padding:0 16px; border:0; border-radius:18px; background:var(--brand); box-shadow:0 10px 24px rgba(28,58,94,.3); color:#fff; text-align:left; cursor:pointer; font-family:var(--font-hanken);" style-active="transform: scale(0.98);">
+                    <span style="flex-shrink:0; width:38px; height:38px; border-radius:9999px; background:rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
+                    <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:3px;"><span style="font-size:15px; font-weight:700;">Invite your friends</span><span style="font-size:12px; color:rgba(255,255,255,0.75); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ inviteSub }}</span></span>
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><path d="m16 6-4-4-4 4"></path><path d="M12 2v13"></path></svg>
+                  </button>
+                </div>
+              </sc-if>
+              <sc-for list="{{ ftList }}" as="e" hint-placeholder-count="4">
+                <sc-if value="{{ e.hdr }}" hint-placeholder-val="{{ false }}"><div style="display:flex; align-items:center; gap:7px; padding:16px 20px 8px;"><span class="section-label">{{ e.label }}</span><span style="flex:1;"></span><span style="font-size:10px; font-weight:600; letter-spacing:0.06em; color:var(--caption);">{{ e.meta }}</span></div></sc-if>
+                <sc-if value="{{ e.row }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; align-items:center; gap:11px; padding:9px 20px; border-top:1px solid var(--divider);">
+                    <div style="width:36px; height:36px; flex-shrink:0; font-size:13px;"><x-import component-from-global-scope="Progra.AvatarInitials" name="{{ e.n }}" username="{{ e.u }}" class-name="size-full" hint-size="36px,36px"></x-import></div>
+                    <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;"><span style="font-size:13px; font-weight:600; line-height:1.25; color:var(--body); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ e.title }}</span><span style="font-size:11px; line-height:1.3; color:{{ e.subColor }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ e.sub }}</span></div>
+                    <button data-add="{{ e.u }}" onClick="{{ e.add }}" style="flex-shrink:0; display:flex; align-items:center; gap:5px; height:30px; padding:0 12px; border-radius:10px; border:1.5px solid {{ e.btnBc }}; background:{{ e.btnBg }}; color:{{ e.btnFg }}; font-family:var(--font-hanken); font-size:12px; font-weight:600; cursor:pointer; transition:background-color 180ms ease, border-color 180ms ease, color 180ms ease;" style-active="transform: scale(0.94);"><sc-if value="{{ e.isAdded }}" hint-placeholder-val="{{ false }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>{{ e.btnLabel }}</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ e.req }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; align-items:center; gap:11px; padding:9px 20px; border-top:1px solid var(--divider);">
+                    <div style="width:36px; height:36px; flex-shrink:0; font-size:13px;"><x-import component-from-global-scope="Progra.AvatarInitials" name="{{ e.n }}" username="{{ e.u }}" class-name="size-full" hint-size="36px,36px"></x-import></div>
+                    <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;"><span style="font-size:13px; font-weight:600; line-height:1.25; color:var(--body); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ e.title }}</span><span style="font-size:11px; line-height:1.3; color:var(--faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ e.sub }}</span></div>
+                    <button onClick="{{ e.decline }}" aria-label="Decline" style="flex-shrink:0; width:30px; height:30px; padding:0; border-radius:10px; border:1.5px solid var(--control-border); background:#fff; color:var(--caption); display:flex; align-items:center; justify-content:center; cursor:pointer;" style-active="transform: scale(0.94);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+                    <button onClick="{{ e.accept }}" style="flex-shrink:0; height:30px; padding:0 12px; border-radius:10px; border:1.5px solid var(--brand); background:var(--brand); color:#fff; font-family:var(--font-hanken); font-size:12px; font-weight:600; cursor:pointer;" style-active="transform: scale(0.94);">Accept</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ e.friend }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; align-items:center; gap:11px; padding:9px 20px; border-top:1px solid var(--divider);">
+                    <div style="width:36px; height:36px; flex-shrink:0; font-size:13px;"><x-import component-from-global-scope="Progra.AvatarInitials" name="{{ e.n }}" username="{{ e.u }}" class-name="size-full" hint-size="36px,36px"></x-import></div>
+                    <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;"><span style="font-size:13px; font-weight:600; line-height:1.25; color:var(--body); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ e.title }}</span><span style="font-size:11px; line-height:1.3; color:var(--faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ e.sub }}</span></div>
+                    <span style="flex-shrink:0; font-size:13px; font-weight:600; color:var(--body); font-variant-numeric:tabular-nums;">{{ e.h }}</span>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ e.founders }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; align-items:center; gap:11px; padding:10px 20px; border-top:1px solid var(--divider);">
+                    <div style="position:relative; width:66px; height:36px; flex-shrink:0;">
+                      <div style="position:absolute; left:0; top:3px; width:30px; height:30px; box-sizing:border-box; border-radius:9999px; border:2px solid #fff; background:#fff; font-size:10px;"><x-import component-from-global-scope="Progra.AvatarInitials" name="" username="ishaanroybiswas" class-name="size-full" hint-size="26px,26px"></x-import></div>
+                      <div style="position:absolute; left:18px; top:3px; width:30px; height:30px; box-sizing:border-box; border-radius:9999px; border:2px solid #fff; background:#fff; font-size:10px;"><x-import component-from-global-scope="Progra.AvatarInitials" name="" username="zack" class-name="size-full" hint-size="26px,26px"></x-import></div>
+                      <div style="position:absolute; left:36px; top:3px; width:30px; height:30px; box-sizing:border-box; border-radius:9999px; border:2px solid #fff; background:#fff; font-size:10px;"><x-import component-from-global-scope="Progra.AvatarInitials" name="" username="jillybean" class-name="size-full" hint-size="26px,26px"></x-import></div>
+                    </div>
+                    <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;"><span style="font-size:13px; font-weight:600; line-height:1.25; color:var(--body);">Add the founders</span><span style="font-size:11px; line-height:1.3; color:var(--faint);">@ishaanroybiswas · @zack · @jillybean</span></div>
+                    <button data-add="founders" onClick="{{ e.add }}" style="flex-shrink:0; display:flex; align-items:center; gap:5px; height:30px; padding:0 12px; border-radius:10px; border:1.5px solid {{ e.btnBc }}; background:{{ e.btnBg }}; color:{{ e.btnFg }}; font-family:var(--font-hanken); font-size:12px; font-weight:600; cursor:pointer;" style-active="transform: scale(0.94);">{{ e.btnLabel }}</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ e.note }}" hint-placeholder-val="{{ false }}"><p style="margin:0; padding:12px 20px; border-top:1px solid var(--divider); font-size:13px; line-height:1.45; color:var(--caption); text-wrap:pretty;">{{ e.text }}</p></sc-if>
+              </sc-for>
+              <div style="height:28px;"></div>
+            </div>
+          </div>
+
+          <!-- @@screens -->
+
+          <!-- shared avatar -->
+          <div ref="{{ avWrap }}" onClick="{{ pickPhoto }}" style="position:absolute; left:0; top:0; width:160px; height:160px; transform-origin:0 0; transform:{{ av.t }}; opacity:{{ av.o }}; transition:{{ av.tr }}; cursor:{{ av.cursor }}; pointer-events:{{ av.pe }};">
+            <div style="position:absolute; inset:0; border-radius:9999px; background:var(--track);"></div>
+            <div ref="{{ avInit }}" style="position:absolute; inset:0; font-size:58px; opacity:{{ av.initO }}; transition:opacity 160ms linear;">
+              <x-import component-from-global-scope="Progra.AvatarInitials" name="{{ name }}" username="{{ avUser }}" class-name="size-full transition-colors" hint-size="160px,160px"></x-import>
+            </div>
+            <sc-if value="{{ hasPhoto }}" hint-placeholder-val="{{ false }}">
+              <div ref="{{ avPhoto }}" style="position:absolute; inset:0;"><x-import component-from-global-scope="Progra.AvatarInitials" name="{{ name }}" username="{{ avUser }}" avatar-url="{{ photo }}" class-name="size-full" hint-size="160px,160px"></x-import></div>
+            </sc-if>
+            <div ref="{{ ring }}" style="position:absolute; inset:0; border-radius:9999px; border:3px solid var(--brand); opacity:0; pointer-events:none;"></div>
+            <div style="position:absolute; right:0; bottom:2px; width:52px; height:52px; box-sizing:border-box; border-radius:9999px; border:5px solid #fff; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; opacity:{{ av.badgeO }}; transform:{{ av.badgeT }}; transition:{{ av.badgeTr }};">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+            </div>
+          </div>
+
+          <!-- primary action -->
+          <div onMouseDown="{{ keep }}" style="position:absolute; left:20px; top:758px; width:353px; height:52px; opacity:{{ cta.o }}; transform:{{ cta.t }}; transition:{{ cta.tr }}; pointer-events:{{ cta.pe }};">
+            <div ref="{{ ctaRing }}" style="position:absolute; inset:0; border-radius:15px; border:2px solid var(--brand); opacity:0; pointer-events:none;"></div>
+            <div style="position:absolute; inset:0; opacity:{{ cta.priO }}; transition:opacity 180ms linear; pointer-events:{{ cta.priPE }};">
+              <x-import component-from-global-scope="Progra.PrimaryButton" size="screen" disabled="{{ cta.disabled }}" onClick="{{ onCta }}" hint-size="353px,52px">{{ cta.label }}</x-import>
+            </div>
+            <button onClick="{{ onCta }}" style="position:absolute; inset:0; width:100%; height:52px; border-radius:15px; border:1.5px solid var(--control-border); background:#fff; font-family:var(--font-hanken); font-size:16px; font-weight:600; color:var(--body); cursor:pointer; opacity:{{ cta.secO }}; transition:opacity 180ms linear; pointer-events:{{ cta.secPE }};" style-active="transform: scale(0.98);">{{ cta.secLabel }}</button>
+          </div>
+
+          <div onClickCapture="{{ navClick }}" style="position:absolute; left:0; right:0; bottom:22px; height:64px; z-index:5; transform:{{ nav.t }}; transition:{{ nav.tr }}; pointer-events:{{ nav.pe }};">
+            <x-import component-from-global-scope="Progra.BottomNav" activePath="{{ nav.path }}" hint-size="393px,64px"></x-import>
+          </div>
+          <div style="position:absolute; left:0; right:0; bottom:0; height:23px; z-index:5; background:rgba(255,255,255,0.92); transform:{{ nav.t }}; transition:{{ nav.tr }};"></div>
+          <!-- @@app-chrome -->
+
+          <!-- keyboard -->
+          <div onMouseDown="{{ keep }}" style="position:absolute; left:0; right:0; top:533px; height:319px; border-radius:27px 27px 0 0; background:#e9ebef; transform:{{ kb.t }}; transition:{{ kb.tr }};">
+            <x-import component-from-global-scope="IOSKeyboard" from="./ios-frame.jsx" hint-size="393px,319px"></x-import>
+          </div>
+
+          <!-- share sheet (iOS system) -->
+          <div onClick="{{ closeSheet }}" style="position:absolute; inset:0; z-index:20; background:rgba(18,23,29,0.32); opacity:{{ sheet.o }}; transition:opacity 280ms linear; pointer-events:{{ sheet.pe }};"></div>
+          <div style="position:absolute; left:0; right:0; bottom:0; z-index:21; height:520px; border-radius:26px 26px 0 0; background:#f2f2f7; box-shadow:0 -12px 32px rgba(0,0,0,0.12); font-family:-apple-system, system-ui, sans-serif; transform:{{ sheet.t }}; transition:{{ sheet.tr }}; pointer-events:{{ sheet.pe }};">
+            <div style="margin:8px auto 0; width:36px; height:5px; border-radius:9999px; background:#c7c7cc;"></div>
+            <div style="display:flex; align-items:center; gap:12px; padding:14px 20px 12px;">
+              <x-import component-from-global-scope="Progra.PrograMark" size="{{ 44 }}" hint-size="44px,44px"></x-import>
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;"><span style="font-size:15px; font-weight:600; color:#000;">Join me on Progra</span><span style="font-size:12px; color:#8e8e93;">{{ inviteUrl }}</span></div>
+              <button onClick="{{ closeSheet }}" aria-label="Close" style="width:30px; height:30px; padding:0; border:0; border-radius:9999px; background:#e5e5ea; color:#8e8e93; display:flex; align-items:center; justify-content:center; cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+            </div>
+            <div style="margin:0 16px; padding:12px 14px; border-radius:14px; background:#fff; font-size:13px; line-height:1.45; color:#1c1c1e;">{{ inviteText }} {{ inviteUrl }}</div>
+            <div style="display:flex; gap:12px; padding:18px 16px 4px; overflow-x:auto; scrollbar-width:none;">
+              <sc-for list="{{ chats }}" as="h" hint-placeholder-count="4">
+                <button onClick="{{ h.send }}" style="flex-shrink:0; width:72px; display:flex; flex-direction:column; align-items:center; gap:6px; padding:0; border:0; background:transparent; cursor:pointer; font-family:-apple-system, system-ui, sans-serif;" style-active="transform: scale(0.95);">
+                  <div style="width:60px; height:60px; font-size:19px;"><x-import component-from-global-scope="Progra.AvatarInitials" name="{{ h.label }}" username="{{ h.label }}" class-name="size-full" hint-size="60px,60px"></x-import></div>
+                  <span style="font-size:11px; line-height:1.25; color:#3c3c43; text-align:center;">{{ h.label }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <div style="margin:14px 16px 0; border-radius:12px; background:#fff; overflow:hidden;">
+              <button onClick="{{ copyInvite }}" style="display:flex; align-items:center; justify-content:space-between; width:100%; height:48px; padding:0 16px; border:0; background:#fff; font-family:-apple-system, system-ui, sans-serif; font-size:16px; color:#000; cursor:pointer;">Copy link<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3c3c43" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+              <div style="height:0.5px; margin-left:16px; background:#c6c6c8;"></div>
+              <button onClick="{{ sendMessages }}" style="display:flex; align-items:center; justify-content:space-between; width:100%; height:48px; padding:0 16px; border:0; background:#fff; font-family:-apple-system, system-ui, sans-serif; font-size:16px; color:#000; cursor:pointer;">Messages<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3c3c43" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg></button>
+            </div>
+          </div>
+
+          <!-- toast -->
+          <div style="position:absolute; left:20px; right:20px; top:58px; z-index:30; display:flex; justify-content:center; pointer-events:none; opacity:{{ toastV.o }}; transform:{{ toastV.t }}; transition:{{ toastV.tr }};">
+            <div style="display:inline-flex; align-items:center; gap:8px; max-width:100%; padding:10px 14px; box-sizing:border-box; border-radius:9999px; background:var(--brand); color:#fff; font-size:13px; font-weight:600; box-shadow:0 10px 22px -10px rgba(28,58,94,.55);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+              <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ toastText }}</span>
+            </div>
+          </div>
+          <!-- @@overlays -->
+        </div>
+      </x-import>
+    </div>
+  </div>
+
+  <aside style="width:300px; max-width:100%; max-height:calc(100vh - 48px); overflow-y:auto; scrollbar-width:thin; display:flex; flex-direction:column;">
+    <div style="font-size:10px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:var(--secondary-ink);">Progra · onboarding redesign</div>
+    <div style="margin-top:12px; font-family:var(--font-newsreader); font-weight:500; font-size:26px; letter-spacing:-0.015em; color:var(--ink);">Download to first clock-in</div>
+    <p style="margin:8px 0 14px; font-size:13px; line-height:1.5; color:var(--secondary-ink); text-wrap:pretty;">Six screens. What you tell it carries forward: your avatar rides along the top, your goal becomes the feed post, the climax and the clock-in.</p>
+    <div style="display:flex; flex-direction:column;">
+      <sc-for list="{{ panelSteps }}" as="p" hint-placeholder-count="8">
+        <button onClick="{{ p.go }}" style="display:flex; align-items:flex-start; gap:11px; width:100%; padding:9px 0; border:0; border-top:1px solid #dfe2e7; background:transparent; text-align:left; cursor:pointer; font-family:var(--font-hanken);" style-active="transform: scale(0.99);">
+          <span style="flex-shrink:0; width:3px; height:30px; margin-top:1px; border-radius:2px; background:{{ p.bar }};"></span>
+          <span style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+            <span style="display:flex; gap:8px; font-size:13px; font-weight:600; line-height:1.25; color:var(--body);"><span style="color:var(--secondary-ink); font-variant-numeric:tabular-nums;">{{ p.num }}</span>{{ p.label }}</span>
+            <span style="font-size:11.5px; line-height:1.4; color:var(--secondary-ink); text-wrap:pretty;">{{ p.note }}</span>
+          </span>
+        </button>
+      </sc-for>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px; padding:12px 0; border-top:1px solid #dfe2e7;">
+      <span style="font-size:13px; font-weight:600; color:var(--body);">Friends scenario</span>
+      <div style="display:flex; gap:2px; padding:3px; border-radius:9999px; background:#dfe2e7; align-self:flex-start;">
+        <sc-for list="{{ scenarios }}" as="c" hint-placeholder-count="3">
+          <button onClick="{{ c.pick }}" style="border:0; cursor:pointer; border-radius:9999px; padding:5px 11px; font-family:var(--font-hanken); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; background:{{ c.bg }}; color:{{ c.fg }};">{{ c.label }}</button>
+        </sc-for>
+      </div>
+      <span style="font-size:11.5px; line-height:1.4; color:var(--secondary-ink);">Follows your UW answer until you pick one.</span>
+    </div>
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 0; border-top:1px solid #dfe2e7;">
+      <span style="display:flex; flex-direction:column; gap:3px;"><span style="font-size:13px; font-weight:600; color:var(--body);">Reduced motion</span><span style="font-size:11.5px; line-height:1.4; color:var(--secondary-ink); text-wrap:pretty;">Nothing travels: elements crossfade in place, pops become fades, counters land on their final value.</span></span>
+      <x-import component-from-global-scope="Progra.ToggleSwitch" checked="{{ rm }}" onCheckedChange="{{ setRm }}" ariaLabel="Reduced motion" hint-size="44px,26px"></x-import>
+    </div>
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 0 14px; border-top:1px solid #dfe2e7;">
+      <span style="display:flex; flex-direction:column; gap:3px;"><span style="font-size:13px; font-weight:600; color:var(--body);">Slow motion</span><span style="font-size:11.5px; line-height:1.4; color:var(--secondary-ink);">Quarter speed, to study transitions.</span></span>
+      <x-import component-from-global-scope="Progra.ToggleSwitch" checked="{{ slow }}" onCheckedChange="{{ setSlow }}" ariaLabel="Slow motion" hint-size="44px,26px"></x-import>
+    </div>
+    <button onClick="{{ replay }}" style="flex-shrink:0; height:44px; border-radius:15px; border:1.5px solid var(--control-border); background:#fff; font-family:var(--font-hanken); font-size:14px; font-weight:600; color:var(--body); cursor:pointer;" style-active="transform: scale(0.98);">Replay from the start</button>
+    <p style="margin:12px 0 0; font-size:11.5px; line-height:1.5; color:var(--secondary-ink); text-wrap:pretty;">Type with your keyboard. Try @zack for a taken handle. Tap the avatar on screen 1 to add a photo.</p>
+  </aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;reducedMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Motion&quot;},&quot;slowMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Motion&quot;}}">
+class Component extends DCLogic {
+  state = {
+    screen: 0, tab: 'clock', running: false, startedAt: 0, now: 0,
+    name: '', username: '', uEdited: false, uStatus: 'idle', photo: null,
+    uw: null, uwPhase: 'choose', major: '', majors: [], orgs: [], orgDraft: '',
+    goals: [], goalDraft: '',
+    habits: [], extraHabits: [], customOpen: false, habitDraft: '',
+    demo: 'ready', ff: false, demoAt: 0, demoGoal: 0, demoEnd: null, demoSecs: 0, postTitle: 'Day one', postPhoto: null,
+    added: {}, search: '', sheet: false, sentTo: null, scenario: null, toast: null,
+    fSearch: '', requests: ['leo.m', 'nina.k'], accepted: {},
+    clockGoal: 0, mode: 'open', planned: null, breakPreset: 'none',
+    focus: null, rmUser: false, slow: false, osRM: false, scale: 1,
+  };
+
+  nameIn = React.createRef(); userIn = React.createRef(); uRow = React.createRef(); uOk = React.createRef();
+  sugBox = React.createRef(); file = React.createRef(); yesTile = React.createRef(); noTile = React.createRef();
+  yesCheck = React.createRef(); noCheck = React.createRef(); bar = React.createRef(); barInner = React.createRef();
+  majorIn = React.createRef(); orgIn = React.createRef(); orgBox = React.createRef(); majorBox = React.createRef(); uwScroll = React.createRef();
+  avWrap = React.createRef(); avInit = React.createRef(); avPhoto = React.createRef(); ring = React.createRef(); ctaRing = React.createRef();
+  goalIn = React.createRef(); goalList = React.createRef(); habitBox = React.createRef(); customIn = React.createRef();
+  seg0 = React.createRef(); seg1 = React.createRef(); seg2 = React.createRef(); stat = React.createRef();
+  pill = React.createRef(); clockList = React.createRef(); searchIn = React.createRef(); fSearchIn = React.createRef();
+  inviteBtn = React.createRef(); screenBox = React.createRef();
+  timers = [];
+
+  PAL = ['#8E3A44', '#DE5148', '#E07042', '#D6A728', '#7CBE6D', '#2E8B50', '#77B7C6', '#395AA0', '#A084B3', '#6F4E93', '#D06DA1'];
+  INK = ['#6E2530', '#BE362D', '#C24E14', '#8F6C0A', '#356B2F', '#175E33', '#22758C', '#33518F', '#7A57A0', '#533672', '#BA4485'];
+  GOAL_C = [7, 2, 5];
+  FOUNDERS = ['ishaanroybiswas', 'zack', 'jillybean'];
+  PEOPLE = [
+    { u: 'priya.r', n: 'Priya Raman', uw: true, major: 'Economics', interests: ['Investing', 'Startups'], goal: 'Pass the CFA Level I', h: '9h 10m' },
+    { u: 'marcuslee', n: 'Marcus Lee', uw: true, major: 'Informatics', interests: ['Design', 'Startups'], goal: 'Ship my portfolio site', h: '4h 20m' },
+    { u: 'sofia.alv', n: 'Sofia Alvarez', uw: true, major: 'Economics', interests: ['Startups', 'Photography'], goal: 'Launch my side project', h: '7h 45m' },
+    { u: 'hannahcho', n: 'Hannah Cho', uw: true, major: 'Biochemistry', interests: ['Pre-med', 'Climbing'], goal: 'Ace organic chem', h: '11h 05m' },
+    { u: 'ebrooks', n: 'Ethan Brooks', uw: true, major: 'Mechanical Engineering', interests: ['Running', 'Hiking'], goal: 'Train for a half marathon', h: '5h 30m' },
+    { u: 'dkim', n: 'Daniel Kim', uw: true, major: 'Computer Science', interests: ['Lifting', 'AI'], goal: 'Get stronger', h: '3h 50m' },
+    { u: 'aisha.b', n: 'Aisha Bello', uw: true, major: 'Economics', interests: ['Writing', 'Running'], goal: 'Write my honors thesis', h: '6h 40m' },
+    { u: 'owen.t', n: 'Owen Tran', uw: true, major: 'Economics', interests: ['Investing', 'Lifting'], goal: 'Pass the CFA Level I', h: '5h 10m' },
+    { u: 'tnguyen', n: 'Tommy Nguyen', uw: true, major: 'Computer Science', interests: ['AI', 'Chess'], goal: 'Ace my internship interviews', h: '8h 15m' },
+    { u: 'graceo', n: 'Grace Okafor', uw: true, major: 'Public Health', interests: ['Running', 'Cooking'], goal: 'Train for a half marathon', h: '4h 05m' },
+    { u: 'jpark', n: 'Jordan Park', uw: true, major: 'Informatics', interests: ['Design', 'Film'], goal: 'Ship my portfolio site', h: '3h 25m' },
+    { u: 'mia.r', n: 'Mia Rossi', uw: true, major: 'Psychology', interests: ['Music', 'Writing'], goal: 'Read 20 books this year', h: '2h 50m' },
+    { u: 'lilyc', n: 'Lily Chen', uw: true, major: 'Bioengineering', interests: ['Climbing', 'Photography'], goal: 'Ace organic chem', h: '7h 00m' },
+    { u: 'sam.w', n: 'Sam Whitaker', uw: true, major: 'Business Administration', interests: ['Startups', 'Investing'], goal: 'Launch my side project', h: '6h 20m' },
+    { u: 'ravi.k', n: 'Ravi Kumar', uw: true, major: 'Mechanical Engineering', interests: ['AI', 'Hiking'], goal: 'Build a robot arm', h: '5h 45m' },
+    { u: 'zoe.m', n: 'Zoe Martin', uw: true, major: 'English', interests: ['Writing', 'Film'], goal: 'Finish my novel draft', h: '4h 30m' },
+    { u: 'leo.m', n: 'Leo Martins', uw: false, goal: 'Learn Spanish', h: '2h 40m' },
+    { u: 'nina.k', n: 'Nina Kowalski', uw: false, goal: 'Write every day', h: '6h 15m' },
+  ];
+  TAKEN = ['zack', 'jillybean', 'ishaanroybiswas', 'maya', 'alex', 'sam', 'jordan', 'chris', 'emma', 'sarah', 'david', 'admin', 'progra', 'husky', 'priya.r', 'marcuslee', 'dkim', 'leo.m', 'nina.k'];
+  MAJORS = ['Economics', 'Computer Science', 'Informatics', 'Psychology', 'Biology', 'Business Administration', 'Bioengineering', 'Neuroscience', 'Political Science', 'Mechanical Engineering', 'Biochemistry', 'Communication', 'Statistics', 'Mathematics', 'Electrical & Computer Engineering', 'Public Health', 'Design', 'Nursing', 'English', 'Philosophy', 'Chemistry', 'Physics', 'Human Centered Design & Engineering', 'International Studies', 'Sociology', 'Environmental Science'];
+
+  INTERESTS = ['Startups', 'Investing', 'Running', 'Lifting', 'Climbing', 'Hiking', 'Design', 'AI', 'Music', 'Photography', 'Pre-med', 'Writing', 'Chess', 'Cooking', 'Film'];
+  get rm() { return !!(this.props.reducedMotion || this.state.rmUser || this.state.osRM); }
+  get k() { return (this.props.slowMotion || this.state.slow) ? 4 : 1; }
+
+  componentDidMount() {
+    try {
+      this.mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      this.onMQ = () => this.setState({ osRM: this.mq.matches });
+      this.onMQ();
+      if (this.mq.addEventListener) this.mq.addEventListener('change', this.onMQ);
+    } catch (e) {}
+    this.onResize = () => {
+      const s = Math.min(1, (window.innerHeight - 48) / 852, (window.innerWidth - 32) / 393);
+      this.setState({ scale: Math.max(0.5, Math.round(s * 1000) / 1000) });
+    };
+    this.onResize();
+    window.addEventListener('resize', this.onResize);
+    window.addEventListener('keydown', this.onGlobalKey);
+    this.tickT = setInterval(() => { if (this.state.running) this.setState({ now: Date.now() }); }, 1000);
+    this._ps = this.state;
+    this.later(() => this.focusEl(this.nameIn), 300);
+  }
+  componentWillUnmount() {
+    this.clearTimers(); clearTimeout(this.checkT); clearTimeout(this.blurT); clearInterval(this.tickT); clearInterval(this.typeT);
+    if (this.raf) cancelAnimationFrame(this.raf);
+    window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('keydown', this.onGlobalKey);
+    if (this.mq && this.mq.removeEventListener) this.mq.removeEventListener('change', this.onMQ);
+  }
+  componentDidUpdate() {
+    const st = this.state, ps = this._ps || st;
+    this._ps = st;
+    if (ps !== st) this.afterChange(st, ps);
+  }
+
+  afterChange(st, ps) {
+    const rm = this.rm;
+    if (st.name !== ps.name) {
+      const a = this.initials(ps.name), b = this.initials(st.name);
+      if (!a && b) this.anim(this.avInit.current, rm ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'scale(0.5)' }, { transform: 'scale(1.06)', offset: 0.7 }, { opacity: 1, transform: 'scale(1)' }], { duration: rm ? 200 : 420 });
+      else if (a !== b && b && !rm) this.anim(this.avInit.current, [{ transform: 'scale(1)' }, { transform: 'scale(1.06)' }, { transform: 'scale(1)' }], { duration: 260 });
+    }
+    if (st.uStatus !== ps.uStatus) {
+      if (st.uStatus === 'ok') this.anim(this.uOk.current, rm ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: 'scale(0.4)', opacity: 0 }, { transform: 'scale(1.15)', offset: 0.7 }, { transform: 'scale(1)', opacity: 1 }], { duration: 300 });
+      if (st.uStatus === 'taken' && !rm) this.anim(this.uRow.current, [{ transform: 'translateX(0)' }, { transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'translateX(-3px)' }, { transform: 'translateX(0)' }], { duration: 400, easing: 'ease' });
+    }
+    if (st.uStatus === 'taken' && (ps.uStatus !== 'taken' || ps.username !== st.username) && !rm) this.stagger(this.sugBox.current, 60);
+    if (st.photo && st.photo !== ps.photo) {
+      this.anim(this.avPhoto.current, rm ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'scale(1.1)' }, { opacity: 1, transform: 'scale(1)' }], { duration: rm ? 200 : 460 });
+      if (!rm) this.anim(this.ring.current, [{ opacity: 0.6, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(1.3)' }], { duration: 700, delay: 120 });
+    }
+    if (st.majors.length > ps.majors.length && !rm) {
+      const mb = this.majorBox.current, mc = mb ? Array.from(mb.children).filter(c => c.tagName === 'SPAN') : [];
+      this.popEl(mc[mc.length - 1]);
+    }
+    if (st.orgs.length > ps.orgs.length && !rm) {
+      const box = this.orgBox.current, chips = box ? Array.from(box.children).filter(c => c.tagName === 'SPAN') : [];
+      this.popEl(chips[chips.length - 1]);
+    }
+    if (st.uwPhase === 'selecting' && ps.uwPhase !== 'selecting') {
+      const yes = st.uw === 'yes';
+      this.anim((yes ? this.yesCheck : this.noCheck).current, rm ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: 'scale(0.4)', opacity: 0 }, { transform: 'scale(1.15)', offset: 0.7 }, { transform: 'scale(1)', opacity: 1 }], { duration: 300 });
+      if (!rm) this.anim((yes ? this.yesTile : this.noTile).current, [{ transform: 'scale(0.97)' }, { transform: 'scale(1.015)', offset: 0.6 }, { transform: 'scale(1)' }], { duration: 340 });
+    }
+    if (st.screen !== ps.screen) {
+      if (rm) this.anim(this.avWrap.current, [{ opacity: 0 }, { opacity: 1 }], { duration: 240, easing: 'linear' });
+      const fn = this['enter' + st.screen]; if (fn) fn.call(this, ps.screen);
+    }
+    if (this.more) this.more(st, ps);
+  }
+
+  enter0() {
+    const st = this.state;
+    if (!st.name.trim()) this.later(() => this.focusEl(this.nameIn), 80);
+    else if (st.uStatus !== 'ok') this.later(() => this.focusEl(this.userIn), 80);
+  }
+
+  later(fn, ms) { const t = setTimeout(fn, ms * this.k); this.timers.push(t); return t; }
+  clearTimers() { this.timers.forEach(clearTimeout); this.timers = []; }
+  anim(el, frames, o) {
+    if (!el || !el.animate) return null;
+    return el.animate(frames, Object.assign({ easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }, o, { duration: (o.duration || 300) * this.k, delay: (o.delay || 0) * this.k }));
+  }
+  popEl(el, big) {
+    if (!el) return;
+    if (this.rm) return this.anim(el, [{ opacity: 0.4 }, { opacity: 1 }], { duration: 180, easing: 'linear' });
+    this.anim(el, [{ transform: 'scale(' + (big ? 0.5 : 0.9) + ')', opacity: big ? 0 : 1 }, { transform: 'scale(1.08)', opacity: 1, offset: 0.65 }, { transform: 'scale(1)', opacity: 1 }], { duration: 340 });
+  }
+  stagger(box, delay, sel) {
+    if (!box || this.rm) return;
+    Array.from(sel ? box.querySelectorAll(sel) : box.children).forEach((c, i) => this.anim(c, [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 340, delay: (delay || 0) + i * 50, fill: 'backwards' }));
+  }
+  focusEl(ref) {
+    const el = ref && ref.current; if (!el) return;
+    try { el.focus({ preventScroll: true }); const n = (el.value || '').length; el.setSelectionRange(n, n); } catch (e) {}
+  }
+  keep = (e) => e.preventDefault();
+  blurAll() { const a = document.activeElement; if (a && a.blur && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) a.blur(); clearTimeout(this.blurT); }
+  setFocus(id) { clearTimeout(this.blurT); if (this.state.focus !== id) this.setState({ focus: id }); }
+  onBlurField = () => { clearTimeout(this.blurT); this.blurT = setTimeout(() => this.setState({ focus: null }), 120); };
+  initials(n) { const s = (n || '').trim(); if (!s) return ''; const p = s.split(/\s+/); return (p.length >= 2 ? p[0][0] + p[1][0] : s.slice(0, 2)).toUpperCase(); }
+  tint(hex, a) { const h = hex.replace('#', ''); return 'rgba(' + parseInt(h.slice(0, 2), 16) + ',' + parseInt(h.slice(2, 4), 16) + ',' + parseInt(h.slice(4, 6), 16) + ',' + a + ')'; }
+  firstName() { return (this.state.name.trim().split(/\s+/)[0]) || 'You'; }
+  goalTitle(i) { const g = this.state.goals[i || 0] || this.state.goalDraft.trim(); return g || 'Launch my side project'; }
+  candidates(name) {
+    const p = (name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/).filter(Boolean);
+    if (!p.length) return [];
+    const f = p[0], l = p.length > 1 ? p[p.length - 1] : '';
+    const list = l ? [f + l, f + '.' + l, f + '_' + l, f + l[0], l + f, f + l + '1'] : [f, f + '_', f + '1', 'its' + f, f + 'works'];
+    return Array.from(new Set(list.map(u => u.slice(0, 20)).filter(u => u.length >= 3)));
+  }
+  isFree(u) { return this.TAKEN.indexOf(u) === -1; }
+  firstFree(name) { return this.candidates(name).find(u => this.isFree(u)) || ''; }
+  altsFor(u) {
+    const list = [u + '_', u + '26', 'its' + u, u + 'works'].concat(this.candidates(this.state.name));
+    return Array.from(new Set(list.map(x => x.slice(0, 20)))).filter(x => x !== u && x.length >= 3 && this.isFree(x)).slice(0, 3);
+  }
+
+  onName = (e) => {
+    let v = e.target.value.replace(/\s{2,}/g, ' ').replace(/^\s+/, '');
+    v = v.replace(/(^|\s)([a-z])/g, (m, a, b) => a + b.toUpperCase()).slice(0, 24);
+    const patch = { name: v };
+    if (!this.state.uEdited) {
+      const u = this.firstFree(v);
+      patch.username = u; patch.uStatus = u ? 'checking' : 'idle';
+      this.runCheck(u, true);
+    }
+    this.setState(patch);
+  };
+  onNameKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); if (this.state.name.trim()) this.focusEl(this.userIn); } };
+  focusName = () => this.setFocus('name');
+  focusUser = () => this.setFocus('user');
+  runCheck(v, auto) {
+    clearTimeout(this.checkT);
+    if (!v || v.length < 3) return;
+    this.checkT = setTimeout(() => { if (this.state.username === v) this.setState({ uStatus: this.isFree(v) ? 'ok' : 'taken' }); }, (this.rm ? 250 : auto ? 650 : 520) * this.k);
+  }
+  setUsername(v) {
+    v = (v || '').toLowerCase().replace(/[^a-z0-9._]/g, '').slice(0, 20);
+    this.setState({ username: v, uEdited: true, uStatus: v.length < 3 ? (v.length ? 'short' : 'idle') : 'checking' });
+    this.runCheck(v);
+  }
+  onUsername = (e) => this.setUsername(e.target.value);
+  onUserKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); this.finishIdentity(); } };
+  identityOk() { return !!this.state.name.trim() && this.state.uStatus === 'ok'; }
+  finishIdentity() {
+    if (!this.state.name.trim()) { this.shake(this.nameIn.current); return this.focusEl(this.nameIn); }
+    if (this.state.uStatus !== 'ok') { this.shake(this.uRow.current); return this.focusEl(this.userIn); }
+    this.blurAll(); this.setState({ focus: null });
+  }
+  shake(el) { if (!this.rm) this.anim(el, [{ transform: 'translateX(0)' }, { transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'translateX(-3px)' }, { transform: 'translateX(0)' }], { duration: 400, easing: 'ease' }); }
+  pickPhoto = () => { if (this.state.screen === 0 && this.file.current) this.file.current.click(); };
+  onFile = (e) => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    if (this.state.photo) { try { URL.revokeObjectURL(this.state.photo); } catch (x) {} }
+    this.setState({ photo: URL.createObjectURL(f) }); e.target.value = '';
+  };
+
+  pickYes = () => {
+    const st = this.state; if (st.screen !== 0 || st.uwPhase !== 'choose') return;
+    if (!this.identityOk()) return this.finishIdentity();
+    this.setState({ uwPhase: 'selecting', uw: 'yes' });
+    this.later(() => this.expandYes(), this.rm ? 160 : 320);
+  };
+  pickNo = () => {
+    const st = this.state; if (st.screen !== 0 || st.uwPhase !== 'choose') return;
+    if (!this.identityOk()) return this.finishIdentity();
+    this.setState({ uwPhase: 'selecting', uw: 'no' });
+    this.later(() => this.go(1), this.rm ? 450 : 780);
+  };
+  expandYes() {
+    const tile = this.yesTile.current, s = this.state.scale || 1;
+    const first = tile ? tile.getBoundingClientRect() : null;
+    this.setState({ uwPhase: 'open' }, () => {
+      const bar = this.bar.current;
+      if (bar && first && !this.rm) {
+        const last = bar.getBoundingClientRect();
+        this.anim(bar, [{ transform: 'translate(' + (first.left - last.left) / s + 'px, ' + (first.top - last.top) / s + 'px) scale(' + first.width / last.width + ', ' + first.height / last.height + ')' }, { transform: 'none' }], { duration: 560 });
+        this.anim(this.barInner.current, [{ opacity: 0 }, { opacity: 0, offset: 0.5 }, { opacity: 1 }], { duration: 560, easing: 'linear' });
+      } else if (bar) this.anim(bar, [{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'linear' });
+      this.later(() => this.focusEl(this.majorIn), this.rm ? 120 : 480);
+    });
+  }
+  uwChange = () => { this.blurAll(); this.setState({ uwPhase: 'choose', uw: null, focus: null }); };
+  focusMajor = () => this.setFocus('major');
+  focusOrg = () => { this.setFocus('org'); setTimeout(() => { const el = this.uwScroll.current; if (el && el.scrollTo) el.scrollTo({ top: el.scrollHeight, behavior: this.rm ? 'auto' : 'smooth' }); }, 80); };
+  onMajor = (e) => this.setState({ major: e.target.value.slice(0, 60) });
+  onMajorKey = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); if (this.state.major.trim()) this.addMajor(); else this.focusEl(this.orgIn); }
+    else if (e.key === 'Backspace' && !this.state.major && this.state.majors.length) this.setState(s => ({ majors: s.majors.slice(0, -1) }));
+  };
+  pushMajor(v) {
+    v = (v || '').trim().replace(/\s+/g, ' '); if (!v) return;
+    const canon = this.MAJORS.find(m => m.toLowerCase() === v.toLowerCase()) || v;
+    this.setState(s => ({ majors: s.majors.some(m => m.toLowerCase() === canon.toLowerCase()) || s.majors.length >= 3 ? s.majors : s.majors.concat([canon]), major: '' }), () => this.focusEl(this.majorIn));
+  }
+  addMajor = () => this.pushMajor(this.state.major);
+  pickMajor(m) { this.pushMajor(m); }
+  removeMajor(i) { this.setState(s => ({ majors: s.majors.filter((_, j) => j !== i) })); }
+  focusMajorBox = (e) => { if (e.target === e.currentTarget) this.focusEl(this.majorIn); };
+  pickInterest(x) { this.setState(s => ({ orgs: s.orgs.some(o => o.toLowerCase() === x.toLowerCase()) || s.orgs.length >= 6 ? s.orgs : s.orgs.concat([x]), orgDraft: '' }), () => this.focusEl(this.orgIn)); }
+  onOrgDraft = (e) => { const v = e.target.value; if (v.slice(-1) === ',') this.setState({ orgDraft: v.slice(0, -1) }, () => this.addOrg()); else this.setState({ orgDraft: v.slice(0, 60) }); };
+  onOrgKey = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); this.addOrg(); }
+    else if (e.key === 'Backspace' && !this.state.orgDraft && this.state.orgs.length) this.setState(s => ({ orgs: s.orgs.slice(0, -1) }));
+  };
+  addOrg = () => {
+    const v = this.state.orgDraft.trim().replace(/\s+/g, ' '); if (!v) return;
+    this.setState(s => ({ orgs: s.orgs.some(o => o.toLowerCase() === v.toLowerCase()) || s.orgs.length >= 6 ? s.orgs : s.orgs.concat([v]), orgDraft: '' }), () => this.focusEl(this.orgIn));
+  };
+  removeOrg(i) { this.setState(s => ({ orgs: s.orgs.filter((_, j) => j !== i) })); }
+  focusOrgBox = (e) => { if (e.target === e.currentTarget) this.focusEl(this.orgIn); };
+
+  onGlobalKey = (e) => {
+    const a = document.activeElement;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
+    if (e.metaKey || e.ctrlKey || e.altKey || (e.key.length !== 1 && e.key !== 'Backspace')) return;
+    const st = this.state;
+    const r = st.screen === 0 && st.uwPhase === 'choose' ? (!st.name.trim() ? this.nameIn : this.userIn) : st.screen === 1 ? this.goalIn : null;
+    if (r && r.current) this.focusEl(r);
+  };
+
+  go = (to) => {
+    const st = this.state; if (to === st.screen) return;
+    this.clearTimers(); if (this.stopBeats) this.stopBeats();
+    const patch = { screen: to, focus: null, sheet: false };
+    if (to === 0 && st.uw === 'no') { patch.uw = null; patch.uwPhase = 'choose'; }
+    if (to === 0 && st.uwPhase === 'selecting' && st.uw === 'yes') patch.uwPhase = 'open';
+    if (to === 3) patch.beat = 0;
+    if (to === 6) { patch.tab = 'clock'; patch.running = false; }
+    this.blurAll();
+    this.setState(patch);
+  };
+  back = () => { if (this.state.screen > 0 && this.state.screen < 6) this.go(this.state.screen - 1); };
+  onCta = () => {
+    const st = this.state, fn = this['cta' + st.screen];
+    if (fn) return fn.call(this);
+  };
+  cta0() {
+    const st = this.state;
+    if (st.focus === 'name' || st.focus === 'user' || st.uwPhase === 'choose') return this.finishIdentity();
+    if (st.uwPhase === 'open') { if (st.major.trim()) this.addMajor(); if (st.orgDraft.trim()) this.addOrg(); this.go(1); }
+  }
+  setRm = (v) => this.setState({ rmUser: !!v });
+  setSlow = (v) => this.setState({ slow: !!v });
+  replay = () => {
+    this.clearTimers(); clearTimeout(this.checkT); this.blurAll(); if (this.stopBeats) this.stopBeats();
+    if (this.state.photo) { try { URL.revokeObjectURL(this.state.photo); } catch (x) {} }
+    if (this.state.postPhoto) { try { URL.revokeObjectURL(this.state.postPhoto); } catch (x) {} }
+    const was = this.state.screen;
+    this.setState({ screen: 0, tab: 'clock', running: false, name: '', username: '', uEdited: false, uStatus: 'idle', photo: null, uw: null, uwPhase: 'choose', major: '', majors: [], orgs: [], orgDraft: '', goals: [], goalDraft: '', habits: [], extraHabits: [], customOpen: false, habitDraft: '', demo: 'ready', ff: false, demoGoal: 0, demoEnd: null, demoSecs: 0, postTitle: 'Day one', postPhoto: null, added: {}, search: '', sheet: false, sentTo: null, toast: null, fSearch: '', requests: ['leo.m', 'nina.k'], accepted: {}, clockGoal: 0, focus: null });
+    if (was === 0) this.later(() => this.focusEl(this.nameIn), 60);
+  };
+  sample() {
+    const st = this.state, p = {};
+    if (!st.name.trim()) p.name = 'Maya Chen';
+    const name = p.name || st.name;
+    if (st.uStatus !== 'ok') { p.username = this.firstFree(name); p.uStatus = 'ok'; p.uEdited = false; }
+    if (!st.uw) { p.uw = 'yes'; p.uwPhase = 'open'; }
+    else if (st.uwPhase === 'selecting') p.uwPhase = st.uw === 'yes' ? 'open' : 'choose';
+    if ((p.uw || st.uw) === 'yes' && !st.majors.length && !st.orgs.length) { p.majors = ['Economics']; p.major = ''; p.orgs = ['Startups', 'Running']; }
+    if (!st.goals.length) p.goals = [st.goalDraft.trim() || 'Launch my side project'];
+    if (!st.habits.length) p.habits = ['Drink water', 'Stretch'];
+    return p;
+  }
+  jump(to, tab) {
+    this.clearTimers(); clearTimeout(this.checkT); this.blurAll(); if (this.stopBeats) this.stopBeats();
+    const p = to === 0 ? {} : this.sample();
+    Object.assign(p, { screen: to, focus: null, sheet: false });
+    if (to === 0 && this.state.uw === 'no') { p.uw = null; p.uwPhase = 'choose'; }
+    if (to === 3) p.demo = 'ready';
+    if (to === 6) { p.tab = tab || 'clock'; p.running = false; }
+    const same = this.state.screen === to;
+    this.setState(p, () => { if (same && this['enter' + to]) this['enter' + to](to); });
+  }
+  more(st, ps) {
+    ['m1', 'm3', 'm4', 'mF'].forEach(n => { if (this[n]) this[n](st, ps); });
+    this.syncPulse('ob', this.inviteBtn, st.screen === 4);
+    this.syncPulse('ft', this.ftInvite, st.screen === 6 && st.tab === 'friends');
+  }
+
+  GOAL_EX = ['Launch my side project', 'Get stronger', 'Ace organic chem', 'Train for a half marathon', 'Learn Spanish', 'Finish my thesis'];
+  enter1() { this.later(() => this.focusEl(this.goalIn), 140); }
+  focusGoal = () => this.setFocus('goal');
+  onGoal = (e) => { clearInterval(this.typeT); this.setState({ goalDraft: e.target.value.replace(/\n/g, '').slice(0, 60) }); };
+  onGoalKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); this.commitGoal(); } };
+  commitGoal() {
+    const st = this.state, v = st.goalDraft.trim();
+    if (!v) { if (st.goals.length) this.go(2); return; }
+    if (st.goals.length >= 3) return;
+    clearInterval(this.typeT);
+    this.setState(s => ({ goals: s.goals.concat([v]), goalDraft: '' }));
+  }
+  removeGoal(i) { this.setState(s => ({ goals: s.goals.filter((_, j) => j !== i) })); }
+  pickGoalChip(t) {
+    clearInterval(this.typeT);
+    this.focusEl(this.goalIn);
+    if (this.rm) return this.setState({ goalDraft: t });
+    let n = 0;
+    this.setState({ goalDraft: '' });
+    this.typeT = setInterval(() => { n += 1; this.setState({ goalDraft: t.slice(0, n) }); if (n >= t.length) clearInterval(this.typeT); }, 20 * this.k);
+  }
+  m1(st, ps) {
+    if (st.goals.length > ps.goals.length) {
+      const box = this.goalList.current, row = box && box.children[box.children.length - 1];
+      if (row) this.anim(row, this.rm ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(30px) scale(1.04)' }, { opacity: 1, transform: 'none' }], { duration: this.rm ? 200 : 460 });
+    }
+  }
+  cta1() {
+    const st = this.state, v = st.goalDraft.trim();
+    if (v && st.goals.length < 3) { clearInterval(this.typeT); this.setState(s => ({ goals: s.goals.concat([v]), goalDraft: '' }), () => this.go(2)); }
+    else if (st.goals.length) this.go(2);
+  }
+  ctaSpec1() { return { label: 'Continue', disabled: !(this.state.goals.length || this.state.goalDraft.trim()) }; }
+  vals1(c) {
+    const st = c.st, on = c.sc === 1, n = st.goals.length, typing = !!st.goalDraft.trim();
+    const s1 = c.blk(on, c.sc > 1, 5);
+    Object.assign(s1, {
+      inputY: n * 40 + (n ? 14 : 0), inputTr: c.rm ? 'none' : 'transform ' + c.ms(420) + ' ' + c.E,
+      nextColor: this.PAL[this.GOAL_C[Math.min(n, 2)]], markO: typing ? 1 : 0, markS: typing || c.rm ? 1 : 0.2,
+      ph: n >= 3 ? 'Three is plenty' : n ? 'Add another (optional)' : 'Type your own',
+      hint: typing && n < 2 ? 'Return adds it, then add another or continue' : typing ? 'Return adds it' : '',
+      chipsY: c.kbUp ? -289 : 0, chipsTr: 'transform ' + c.ms(c.rm ? 260 : 440) + ' ' + c.KB,
+    });
+    s1.hintO = s1.hint ? 1 : 0;
+    return {
+      s1, goalDraft: st.goalDraft, goalIn: this.goalIn, goalList: this.goalList,
+      goalRows: st.goals.map((t, i) => ({ title: t, color: this.PAL[this.GOAL_C[i]], remove: () => this.removeGoal(i), keep: this.keep })),
+      goalChips: n >= 3 ? [] : this.GOAL_EX.filter(x => st.goals.indexOf(x) === -1).map(x => ({ label: x, pick: () => this.pickGoalChip(x), keep: this.keep })),
+      onGoal: this.onGoal, onGoalKey: this.onGoalKey, focusGoal: this.focusGoal,
+    };
+  }
+
+  HABITS = ['Drink water', 'Meditate', 'Journal', 'Sub 1 hour Instagram', 'Stretch'];
+  toggleHabit(h) {
+    const on = this.state.habits.indexOf(h) !== -1;
+    this.setState(s => ({ habits: on ? s.habits.filter(x => x !== h) : s.habits.concat([h]) }), () => {
+      const box = this.habitBox.current;
+      const el = box && Array.from(box.querySelectorAll('[data-habit]')).find(b => b.getAttribute('data-habit') === h);
+      if (!el) return;
+      if (!on) { this.popEl(el); this.popEl(el.querySelector('[data-check]'), true); }
+      else if (!this.rm) this.anim(el, [{ transform: 'scale(0.94)' }, { transform: 'scale(1)' }], { duration: 220 });
+    });
+  }
+  openCustom = () => this.setState({ customOpen: true }, () => this.focusEl(this.customIn));
+  focusCustom = () => this.setFocus('custom');
+  onCustomBlur = () => { this.onBlurField(); setTimeout(() => { if (!this.state.habitDraft.trim() && this.state.focus !== 'custom') this.setState({ customOpen: false }); }, 160); };
+  onHabitDraft = (e) => this.setState({ habitDraft: e.target.value.slice(0, 32) });
+  onHabitKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); this.addHabit(); } else if (e.key === 'Escape') { this.blurAll(); this.setState({ customOpen: false, habitDraft: '' }); } };
+  addHabit = () => {
+    const v = this.state.habitDraft.trim();
+    if (!v) { this.blurAll(); return this.setState({ customOpen: false }); }
+    const h = v.charAt(0).toUpperCase() + v.slice(1);
+    this.blurAll();
+    this.setState(s => ({ extraHabits: s.extraHabits.indexOf(h) === -1 && this.HABITS.indexOf(h) === -1 ? s.extraHabits.concat([h]) : s.extraHabits, habits: s.habits.indexOf(h) === -1 ? s.habits.concat([h]) : s.habits, habitDraft: '', customOpen: false, focus: null }), () => {
+      const box = this.habitBox.current, el = box && Array.from(box.querySelectorAll('[data-habit]')).find(b => b.getAttribute('data-habit') === h);
+      this.popEl(el, true);
+    });
+  };
+  cta2() { if (this.state.customOpen && this.state.habitDraft.trim()) this.addHabit(); this.go(3); }
+  ctaSpec2() { return this.state.habits.length ? { label: 'Continue' } : { secondary: 'Skip for now' }; }
+  vals2(c) {
+    const st = c.st, on = c.sc === 2;
+    const s2 = c.blk(on, c.sc > 2, 5);
+    const first = st.habits[0];
+    Object.assign(s2, {
+      customOpen: st.customOpen, customClosed: !st.customOpen,
+      nudgeText: first ? 'Friends can nudge you if “' + first + '” is still open tonight.' : 'If a habit’s still open at night, friends can send you a nudge.',
+    });
+    return {
+      s2, habitBox: this.habitBox, customIn: this.customIn, habitDraft: st.habitDraft,
+      habitChips: this.HABITS.concat(st.extraHabits).map((h, i) => {
+        const sel = st.habits.indexOf(h) !== -1;
+        return { label: h, toggle: () => this.toggleHabit(h), keep: this.keep, bg: sel ? 'var(--brand)' : '#fff', fg: sel ? '#fff' : 'var(--body)', bc: sel ? 'var(--brand)' : 'var(--control-border)', plusO: sel ? 0 : 1, checkO: sel ? 1 : 0 };
+      }),
+      openCustom: this.openCustom, focusCustom: this.focusCustom, onCustomBlur: this.onCustomBlur, onHabitDraft: this.onHabitDraft, onHabitKey: this.onHabitKey, addHabit: this.addHabit,
+    };
+  }
+  d4List = React.createRef(); d4LiveTitle = React.createRef(); d4Timer = React.createRef(); d4Check = React.createRef(); d4Ring = React.createRef();
+  d4Slot = React.createRef(); d4Img = React.createRef(); d4CardPhoto = React.createRef(); d4CardImg = React.createRef(); postFile = React.createRef();
+  noop = () => {};
+  d4Hero = React.createRef();
+  animHero() {
+    if (this.rm || this.state.screen !== 3 || this.state.demo !== 'intro') return;
+    const w = this.d4Hero.current; if (!w) return;
+    const svg = w.querySelector('[data-wheel] svg');
+    if (svg) this.anim(svg, [{ opacity: 0, transform: 'rotate(-90deg) rotate(-140deg) scale(0.86)' }, { opacity: 1, transform: 'rotate(-90deg)' }], { duration: 900, delay: 120, fill: 'backwards' });
+    Array.from(w.querySelectorAll('.bg-track > div')).forEach((b, i) => { b.style.transformOrigin = '0 50%'; this.anim(b, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: 900, delay: 380 + i * 120, fill: 'backwards' }); });
+    Array.from(w.querySelectorAll('[aria-label$=" done"]')).forEach((c, i) => this.anim(c, [{ opacity: 0, transform: 'scale(0.4)' }, { transform: 'scale(1.12)', offset: 0.7 }, { opacity: 1, transform: 'scale(1)' }], { duration: 340, delay: 620 + i * 55, fill: 'backwards' }));
+  }
+  syncPostImgs() { const u = this.state.postPhoto; [this.d4Img, this.d4CardImg].forEach(r => { const el = r.current; if (el && u && el.getAttribute('src') !== u) el.setAttribute('src', u); }); }
+  demoGoals() { return this.state.goals.length ? this.state.goals : [this.goalTitle(0)]; }
+  demoIdx() { return Math.min(this.state.demoGoal || 0, this.demoGoals().length - 1); }
+  enter3() { this.stopBeats(); this.setState({ demo: 'intro', ff: false, demoEnd: null, demoSecs: 0 }, () => this.paintTimer(0)); }
+  stopBeats() { if (this.demoRaf) cancelAnimationFrame(this.demoRaf); this.demoRaf = null; }
+  paintTimer(sim) {
+    this.curSim = sim;
+    const el = this.d4Timer.current, txt = this.fmtT(Math.floor(sim));
+    if (el) { const tn = el.firstChild; if (tn && tn.nodeType === 3) tn.nodeValue = txt; else el.textContent = txt; }
+  }
+  startDemo() {
+    this.stopBeats(); this.blurAll();
+    const gi = this.demoIdx(), list = this.d4List.current, src = list && list.querySelector('[data-gt="' + gi + '"]'), first = src ? src.getBoundingClientRect() : null;
+    const t0 = performance.now(), k = this.k, rm = this.rm;
+    this.setState({ demo: 'running', ff: false, demoAt: Date.now(), demoEnd: null, demoSecs: 0, focus: null }, () => {
+      this.paintTimer(0);
+      const el = this.d4LiveTitle.current;
+      if (!first || !el || rm) return;
+      const last = el.getBoundingClientRect(), s = this.state.scale || 1;
+      if (!last.height) return;
+      const sc = first.height / last.height, dx = (first.left - last.left) / s - 19 * sc, dy = (first.top - last.top) / s;
+      this.anim(el, [{ transform: 'translate(' + dx.toFixed(1) + 'px, ' + dy.toFixed(1) + 'px) scale(' + sc.toFixed(4) + ')', transformOrigin: '0 0' }, { transform: 'none', transformOrigin: '0 0' }], { duration: 640 });
+    });
+    if (!rm) this.later(() => { if (this.state.screen === 3 && this.state.demo === 'running') this.setState({ ff: true }); }, 900);
+    const step = (now) => {
+      const u = (now - t0) / k;
+      let sim, done;
+      if (rm) { sim = Math.min(1500, Math.floor(u / 500) * 300); done = u >= 2800; }
+      else if (u < 1000) { sim = u / 1000; done = false; }
+      else { const p = Math.min(1, (u - 1000) / 3400), ez = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; sim = 1 + 1499 * ez; done = p >= 1; }
+      this.paintTimer(sim);
+      if (done) { this.demoRaf = null; this.finishDemo(false); return; }
+      this.demoRaf = requestAnimationFrame(step);
+    };
+    this.demoRaf = requestAnimationFrame(step);
+  }
+  finishDemo(early) {
+    if (this.state.screen !== 3 || this.state.demo !== 'running') return;
+    this.stopBeats();
+    const secs = early ? Math.max(1, Math.floor(this.curSim || 0)) : 1500;
+    this.paintTimer(secs);
+    this.setState({ demo: 'ended', ff: false, demoEnd: early ? 'early' : 'auto', demoSecs: secs });
+  }
+  pickPostPhoto = () => { if (this.state.screen === 3 && this.state.demo === 'post' && this.postFile.current) this.postFile.current.click(); };
+  onPostFile = (e) => {
+    const file = e.target.files && e.target.files[0]; if (!file) return;
+    if (this.state.postPhoto) { try { URL.revokeObjectURL(this.state.postPhoto); } catch (x) {} }
+    this.setState({ postPhoto: URL.createObjectURL(file) }); e.target.value = '';
+  };
+  postNoPhoto = () => { if (this.state.demo === 'post') this.postIt(); };
+  postIt() {
+    const slot = this.d4Slot.current, first = this.state.postPhoto && slot ? slot.getBoundingClientRect() : null;
+    this.blurAll();
+    this.setState({ demo: 'posted', focus: null }, () => {
+      const el = this.d4CardPhoto.current;
+      if (!first || !el || this.rm) return;
+      const last = el.getBoundingClientRect(), s = this.state.scale || 1;
+      if (!last.width) return;
+      this.anim(el, [{ transform: 'translate(' + ((first.left - last.left) / s).toFixed(1) + 'px, ' + ((first.top - last.top) / s).toFixed(1) + 'px) scale(' + (first.width / last.width).toFixed(4) + ')' }, { transform: 'none' }], { duration: 660 });
+    });
+  }
+  m3(st, ps) {
+    this.syncPostImgs();
+    if (st.screen !== 3) return;
+    if (st.demo === 'intro' && (ps.demo !== 'intro' || ps.screen !== 3)) this.later(() => this.animHero(), 120);
+    const rm = this.rm;
+    if (st.demo !== ps.demo && st.demo === 'ended') {
+      this.anim(this.d4Check.current, rm ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: 'scale(0.4)', opacity: 0 }, { transform: 'scale(1.2)', offset: 0.7 }, { transform: 'scale(1)', opacity: 1 }], { duration: 320 });
+      if (!rm) {
+        this.anim(this.d4Timer.current, [{ transform: 'scale(1)' }, { transform: 'scale(1.08)', offset: 0.4 }, { transform: 'scale(1)' }], { duration: 520 });
+        this.anim(this.d4Ring.current, [{ opacity: 0.5, transform: 'scale(0.55)' }, { opacity: 0, transform: 'scale(1.5)' }], { duration: 900 });
+        this.later(() => this.anim(this.ctaRing.current, [{ opacity: 0.5, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(1.06, 1.5)' }], { duration: 800 }), 520);
+      }
+    }
+    if (st.postPhoto && st.postPhoto !== ps.postPhoto) this.anim(this.d4Img.current, rm ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'scale(1.08)' }, { opacity: 1, transform: 'scale(1)' }], { duration: rm ? 200 : 460 });
+  }
+  weekMins() { return [390, 180, 95].slice(0, Math.max(1, this.state.goals.length)).reduce((a, b) => a + b, 0); }
+  fmtH(m) { const h = Math.floor(m / 60), mm = m % 60; return h ? h + 'h ' + (mm < 10 ? '0' : '') + mm + 'm' : mm + 'm'; }
+  cta3() {
+    const st = this.state, d = st.demo;
+    if (d === 'intro') this.setState({ demo: 'ready' });
+    else if (d === 'ready') this.startDemo();
+    else if (d === 'running') this.finishDemo(true);
+    else if (d === 'ended') this.setState({ demo: 'post' });
+    else if (d === 'post') { if (st.postPhoto) this.postIt(); else this.pickPostPhoto(); }
+    else this.go(4);
+  }
+  ctaSpec3() { const st = this.state, d = st.demo; return d === 'intro' ? { label: 'Start the example' } : d === 'ready' ? { label: 'Clock in' } : d === 'running' ? { secondary: 'Clock out' } : d === 'ended' ? { label: 'Continue' } : d === 'post' ? { label: st.postPhoto ? 'Post' : 'Add a photo' } : { label: 'Continue' }; }
+  vals3(c) {
+    const st = c.st, on = c.sc === 3, d = st.demo, past = c.sc > 3, ms = c.ms, rm = c.rm, it = c.item;
+    const goals = this.demoGoals(), gi = this.demoIdx();
+    const col = this.PAL[this.GOAL_C[gi]], ink = this.INK[this.GOAL_C[gi]], goal = goals[gi];
+    const I = on && d === 'intro', afterI = past || (on && !I);
+    const R = on && d === 'ready', RUN = on && (d === 'running' || d === 'ended'), POST = on && d === 'post', DONE = on && d === 'posted';
+    const afterR = past || (on && !R && !I), afterRun = past || POST || DONE, afterPost = past || DONE;
+    const tf = (x) => new Date(x).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const early = st.demoEnd === 'early', ended = d === 'ended' || d === 'post' || d === 'posted', photo = !!st.postPhoto;
+    const mins = Math.max(1, Math.round((st.demoSecs || 0) / 60));
+    const heroHabits = (st.habits.length ? st.habits : ['Drink water', 'Stretch']).slice(0, 2);
+    const heroSegs = [{ color: this.PAL[this.GOAL_C[0]], value: 390 }, { color: this.PAL[this.GOAL_C[1]], value: 180 }, { color: this.PAL[9], value: 130 }];
+    const heroMins = heroSegs.reduce((a, x) => a + x.value, 0);
+    return {
+      d4: {
+        today: new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase(),
+        iv: it(I, 0, afterI), i0: it(I, 1, afterI), i1: it(I, 2, afterI), i2: it(I, 3, afterI), i3: it(I, 5, afterI),
+        endsAt: 'Clocks you out at ' + tf(Date.now() + 25 * 60000), pickMeta: goals.length > 1 ? 'PICK ONE' : '',
+        eyClock: it(R, 0, afterR), eyLive: it(RUN, 0, afterRun), eyPost: it(POST, 0, afterPost), eyFeed: it(DONE, 0, past),
+        liveLabel: d === 'ended' ? (early ? 'Clocked out' : 'Timer done') : 'Clocked in', checkO: d === 'ended' ? 1 : 0,
+        cpPE: R ? 'auto' : 'none', c1: it(R, 1, afterR), c2: it(R, 2, afterR), c3: it(R, 3, afterR),
+        lt: RUN ? { o: 1, t: 'none', tr: 'opacity ' + ms(rm ? 200 : 120) + ' linear' } : it(false, 0, afterRun),
+        t0: it(RUN, 1, afterRun), t1: it(RUN, 2, afterRun),
+        ff: it(on && d === 'running' && !!st.ff, 0, d !== 'running'),
+        status: d === 'ended' ? (early ? 'Clocked out at ' + mins + 'm.' : '25 minutes done. Your timer clocked you out.') : 'Started ' + tf(st.demoAt || Date.now()) + ' · 25 min timer',
+        timerText: ended ? this.fmtT(early ? st.demoSecs : 1500) : '0:00:00',
+        p0: it(POST, 1, afterPost), p1: it(POST, 2, afterPost), p2: it(POST && !photo, 3, afterPost),
+        slotBc: photo ? 'transparent' : 'var(--disabled)',
+        f0: DONE && photo && !rm ? { o: 1, t: 'none', tr: 'opacity ' + ms(140) + ' linear' } : it(DONE, 1, past),
+        f1: it(DONE, 4, past), goalTitle: goal,
+      },
+      d4Goals: goals.map((g, i) => { const sel = i === gi; return { i, title: g, sub: 'Goal · 0h this week', color: this.PAL[this.GOAL_C[i]], bc: sel ? 'var(--brand)' : 'var(--control-border)', dotBg: sel ? 'var(--brand)' : '#fff', dotBc: sel ? 'var(--brand)' : 'var(--control-border)', checkO: sel ? 1 : 0, pick: () => this.setState({ demoGoal: i }) }; }),
+      goal1: goal, goal1Color: col, goal1Ink: ink, goal1Wash: this.tint(col, 0.14), meName: st.name || 'You',
+      heroGoals: [{ id: 'hg0', title: 'Study', color: this.PAL[this.GOAL_C[0]], quotaHours: 10, actualMs: 6.5 * 3600000 }],
+      heroSegs: heroSegs, heroTotal: this.fmtH(heroMins),
+      heroHabits: heroHabits.map((h, i) => ({ id: 'hh' + i, name: h, color: this.PAL[[4, 6][i]] })),
+      heroDone: [['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-16'], ['2026-10-12', '2026-10-14', '2026-10-15', '2026-10-16']].slice(0, heroHabits.length).reduce((a, days, i) => a.concat(days.map(d => ({ habitId: 'hh' + i, completedOn: d }))), []),
+      d4Hero: this.d4Hero,
+      hasPostPhoto: photo, noop: this.noop,
+      d4List: this.d4List, d4LiveTitle: this.d4LiveTitle, d4Timer: this.d4Timer, d4Check: this.d4Check, d4Ring: this.d4Ring,
+      d4Slot: this.d4Slot, d4Img: this.d4Img, d4CardPhoto: this.d4CardPhoto, d4CardImg: this.d4CardImg, postFile: this.postFile,
+      pickPostPhoto: this.pickPostPhoto, onPostFile: this.onPostFile, postNoPhoto: this.postNoPhoto,
+    };
+  }
+  s5Box = React.createRef(); ftBox = React.createRef();
+  scenario() { const s = this.state.scenario; return s || (this.state.uw === 'yes' ? 'uw' : 'none'); }
+  sig(s) { return (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && ['the', 'and', 'club', 'group', 'society', 'husky', 'huskies', 'for', 'team', 'my'].indexOf(w) === -1); }
+  overlap(a, b) { const B = this.sig(b); return this.sig(a).some(w => B.indexOf(w) !== -1); }
+  matches() {
+    const st = this.state;
+    if (this.scenario() !== 'uw') return [];
+    return this.PEOPLE.filter(p => p.uw).map(p => {
+      let score = 0, reason = 'At UW';
+      const goalHit = st.goals.some(g => this.overlap(g, p.goal));
+      if (goalHit) { score += 10; reason = 'Also working on “' + p.goal + '”'; }
+      const mine = (p.interests || []).find(x => st.orgs.some(m => m.toLowerCase() === x.toLowerCase() || this.overlap(x, m)));
+      if (mine) { score += 50; reason = 'Also into ' + mine; }
+      const myMajors = st.majors.concat(st.major.trim() ? [st.major.trim()] : []).map(m => m.toLowerCase());
+      if (myMajors.indexOf(p.major.toLowerCase()) !== -1) { score += 100; reason = 'Also studying ' + p.major; }
+      return Object.assign({}, p, { score, reason });
+    }).sort((a, b) => b.score - a.score);
+  }
+  searchResults(q) {
+    q = q.trim().replace(/^@/, '').toLowerCase();
+    if (q.length < 2) return null;
+    const all = this.PEOPLE.map(p => ({ u: p.u, n: p.n })).concat(this.FOUNDERS.map(u => ({ u, n: '' })));
+    return all.filter(p => p.u.indexOf(q) !== -1 || p.n.toLowerCase().indexOf(q) !== -1).slice(0, 5);
+  }
+  toggleAdd(u) { this.setState(s => { const a = Object.assign({}, s.added); if (a[u]) delete a[u]; else a[u] = true; return { added: a }; }); }
+  addedCount(st) { return Object.keys(st.added).reduce((n, u) => n + (u === 'founders' ? 3 : 1), 0); }
+  personRow(p, sub, subColor) {
+    const on = !!this.state.added[p.u];
+    return { row: true, u: p.u, n: p.n, title: p.n || '@' + p.u, sub, subColor: subColor || 'var(--faint)', isAdded: on, btnLabel: on ? 'Added' : 'Add', btnBg: on ? 'var(--brand)' : '#fff', btnFg: on ? '#fff' : 'var(--caption)', btnBc: on ? 'var(--brand)' : 'var(--control-border)', bg: 'transparent', add: () => this.toggleAdd(p.u) };
+  }
+  uwGroups() {
+    const st = this.state;
+    if (this.scenario() !== 'uw') return null;
+    const mine = st.majors.concat(st.major.trim() ? [st.major.trim()] : []);
+    const myM = mine.map(m => m.toLowerCase()), myI = st.orgs.map(o => o.toLowerCase());
+    const major = [], interest = [], rest = [];
+    this.PEOPLE.filter(p => p.uw).forEach(p => {
+      if (myM.indexOf(p.major.toLowerCase()) !== -1) return major.push(Object.assign({}, p, { reason: 'Also studying ' + p.major }));
+      const x = (p.interests || []).find(i => myI.indexOf(i.toLowerCase()) !== -1);
+      if (x) interest.push(Object.assign({}, p, { reason: 'Also into ' + x }));
+      else rest.push(Object.assign({}, p, { reason: p.major }));
+    });
+    return { major, interest, rest, majorText: mine.join(' & ') };
+  }
+  pushUwGroups(list, keep) {
+    const g = this.uwGroups(); if (!g) return 0;
+    const k = keep || (() => true), M = g.major.filter(k), I = g.interest.filter(k), R = g.rest.filter(k);
+    if (M.length) { list.push({ hdr: true, label: 'In ' + g.majorText, meta: String(M.length) }); M.forEach(p => list.push(this.personRow(p, p.reason, 'var(--secondary-ink)'))); }
+    if (I.length) { list.push({ hdr: true, label: 'Shares your interests', meta: String(I.length) }); I.forEach(p => list.push(this.personRow(p, p.reason, 'var(--secondary-ink)'))); }
+    if (R.length) { list.push({ hdr: true, label: 'More at UW', meta: String(R.length) }); R.forEach(p => list.push(this.personRow(p, p.reason))); }
+    return M.length + I.length + R.length;
+  }
+  foundersRow() { const on = !!this.state.added.founders; return { founders: true, isAdded: on, btnLabel: on ? 'Added' : 'Add all', btnBg: on ? 'var(--brand)' : '#fff', btnFg: on ? '#fff' : 'var(--caption)', btnBc: on ? 'var(--brand)' : 'var(--control-border)', bg: 'transparent', add: () => this.toggleAdd('founders') }; }
+  inviteText() { return 'I’m putting real time toward “' + this.goalTitle(0) + '” on Progra. Join so we can keep each other going.'; }
+  focusSearch = () => this.setFocus('search');
+  onSearch = (e) => this.setState({ search: e.target.value.slice(0, 30) });
+  cancelSearch = () => { this.blurAll(); this.setState({ search: '', focus: null }); };
+  openSheet = () => { this.blurAll(); this.setState({ sheet: true, focus: null }); };
+  closeSheet = () => this.setState({ sheet: false });
+  sendInvite(label) {
+    this.setState({ sheet: false, sentTo: label, toast: label === 'copy' ? 'Invite link copied' : 'Invite sent to ' + label });
+    clearTimeout(this.toastT); this.toastT = setTimeout(() => this.setState({ toast: null }), 2400 * this.k);
+  }
+  enter4() {}
+  ftInvite = React.createRef();
+  syncPulse(key, ref, on) {
+    const k = 'pulse_' + key, cur = this[k];
+    if (on && !this.rm && !cur && ref.current) this[k] = this.anim(ref.current, [{ transform: 'scale(1)' }, { transform: 'scale(1.045)' }, { transform: 'scale(1)' }], { duration: 1500, delay: 700, iterations: Infinity, easing: 'ease-in-out' });
+    else if ((!on || this.rm) && cur) { cur.cancel(); this[k] = null; }
+  }
+  m4(st, ps) {
+    if (st.added === ps.added) return;
+    Object.keys(st.added).filter(u => !ps.added[u]).forEach(u => [this.s5Box.current, this.ftBox.current].forEach(box => { if (box) this.popEl(box.querySelector('[data-add="' + u + '"]')); }));
+    if (st.screen === 4 && this.addedCount(st) > 0 && this.addedCount(ps) === 0 && !this.rm) this.anim(this.ctaRing.current, [{ opacity: 0.5, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(1.06, 1.5)' }], { duration: 700 });
+  }
+  cta4() { this.go(5); }
+  ctaSpec4() { const n = this.addedCount(this.state); return n ? { label: 'Continue · ' + n + ' added' } : { secondary: 'Skip for now' }; }
+  vals4(c) {
+    const st = c.st, on = c.sc === 4, scen = this.scenario();
+    const searchMode = on && (st.focus === 'search' || !!st.search.trim());
+    const s4 = c.blk(on, c.sc > 4, 4);
+    if (searchMode) { s4.e0 = c.item(false, 0, true); s4.e1 = c.item(false, 0, true); }
+    Object.assign(s4, {
+      sub: scen === 'uw' ? 'Your feed is your friends clocking in. A few people from UW are already here.' : 'Your feed is your friends clocking in. Bring yours. It takes one message.',
+      searchMode, searchY: searchMode ? -174 : 0, searchTr: c.rm ? 'none' : 'transform ' + c.ms(460) + ' ' + c.E,
+      searchBc: st.focus === 'search' ? 'var(--brand)' : 'var(--control-border)',
+      listTop: searchMode ? 168 : 342, listBottom: c.kbUp ? 852 - 461 : 852 - 748,
+    });
+    let list = [];
+    if (searchMode) {
+      const r = this.searchResults(st.search);
+      if (!r) list.push({ note: true, text: 'Type a username, like “priya” or “zack”.' });
+      else if (!r.length) list.push({ note: true, text: 'No one with that username yet. Send them your link instead.' });
+      else { list.push({ hdr: true, label: 'Results', meta: '' }); r.forEach(p => list.push(this.personRow(p, '@' + p.u))); }
+    } else {
+      if (scen === 'uw') {
+        this.pushUwGroups(list);
+      } else {
+        list.push({ note: true, text: scen === 'uw-empty' ? 'You’re early. No one from UW is on Progra yet. Send your link and they’ll show up here.' : 'Progra works best with people you already talk to. Here’s what your group chat gets:' });
+        list.push({ preview: true });
+      }
+    }
+    return {
+      s4, s5list: list, s5Box: this.s5Box, inviteBtn: this.inviteBtn, search: st.search, searchIn: this.searchIn,
+      inviteSub: st.sentTo && st.sentTo !== 'copy' ? 'Sent to ' + st.sentTo + '. Send it to another chat' : 'Drop your link in the group chat',
+      inviteText: this.inviteText(), inviteUrl: 'progra.world/i/' + (st.username || 'you'),
+      onSearch: this.onSearch, focusSearch: this.focusSearch, cancelSearch: this.cancelSearch, openSheet: this.openSheet,
+    };
+  }
+  cta5() {
+    this.clearTimers(); this.blurAll();
+    this.setState({ screen: 6, tab: 'clock', running: false, clockGoal: 0, focus: null }, () => {
+      if (!this.rm) this.later(() => this.anim(this.ctaRing.current, [{ opacity: 0.55, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(1.05, 1.45)' }], { duration: 900, iterations: 2 }), 1100);
+    });
+  }
+  clockItems() {
+    const goals = this.state.goals.length ? this.state.goals : [this.goalTitle(0)];
+    return [{ title: 'Schoolwork', color: this.PAL[9], sub: 'Category · 0h this week' }].concat(goals.map((g, i) => ({ title: g, color: this.PAL[this.GOAL_C[i]], sub: 'Goal · 0h this week' })));
+  }
+  ctaSpec5() { return { label: 'Start session' }; }
+  setMode = (m) => this.setState({ mode: m });
+  setPlanned = (v) => this.setState({ planned: v });
+  setBreak = (b) => this.setState({ breakPreset: b });
+  cta6() { if (this.state.tab === 'clock' && !this.state.running) { const t = Date.now(); this.setState({ running: true, startedAt: t, now: t }); } }
+  ctaSpec6() { const st = this.state; return st.tab === 'clock' && !st.running ? { label: 'Clock in', y: 698 } : null; }
+  fmtT(s) { const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return h + ':' + (m < 10 ? '0' : '') + m + ':' + (x < 10 ? '0' : '') + x; }
+  showToast(t) { this.setState({ toast: t }); clearTimeout(this.toastT); this.toastT = setTimeout(() => this.setState({ toast: null }), 2600 * this.k); }
+  clockOut = () => {
+    const st = this.state, secs = Math.max(1, Math.round((Date.now() - st.startedAt) / 1000));
+    this.setState({ running: false });
+    this.showToast('Logged ' + this.fmtT(secs) + ' on ' + (this.clockItems()[st.clockGoal] || this.clockItems()[0]).title);
+  };
+  navClick = (e) => {
+    const a = e.target && e.target.closest ? e.target.closest('a') : null;
+    if (!a) return;
+    e.preventDefault(); e.stopPropagation();
+    const href = a.getAttribute('href') || '';
+    if (href.indexOf('/friends') === 0) this.setState({ tab: 'friends', fSearch: '' });
+    else if (href.indexOf('/clock') === 0) this.setState({ tab: 'clock' });
+    else this.showToast('Clock and Friends are the live tabs in this prototype');
+  };
+  vals5(c) {
+    const st = c.st, s5 = c.blk(c.sc === 5, c.sc > 5, 5), n = this.addedCount(st);
+    s5.note = n ? 'The ' + n + (n === 1 ? ' friend' : ' friends') + ' you added will see it in their feed.' : 'It lands in your feed the moment you clock in.';
+    return { s5, pill: this.pill, firstTitle: 'Schoolwork', firstColor: this.PAL[9] };
+  }
+  vals6(c) {
+    const st = c.st, app = c.sc === 6, clock = app && st.tab === 'clock' && !st.running, live = app && st.tab === 'clock' && st.running;
+    const items = this.clockItems();
+    const ck = c.blk(clock, false, 4);
+    ck.meta = '';
+    const secs = live ? Math.max(0, Math.floor((st.now - st.startedAt) / 1000)) : 0;
+    const gi = Math.min(st.clockGoal, items.length - 1);
+    return {
+      ck, tm: c.blk(live, false, 3), clockList: this.clockList,
+      clockGoals: items.map((g, i) => { const sel = i === gi; return { title: g.title, sub: g.sub, color: g.color, bc: sel ? 'var(--brand)' : 'var(--control-border)', dotBg: sel ? 'var(--brand)' : '#fff', dotBc: sel ? 'var(--brand)' : 'var(--control-border)', checkO: sel ? 1 : 0, pick: () => this.setState({ clockGoal: i }) }; }),
+      mode: st.mode, planned: st.planned, breakPreset: st.breakPreset, setMode: this.setMode, setPlanned: this.setPlanned, setBreak: this.setBreak,
+      clockTitle: items[gi].title, clockColor: items[gi].color,
+      timerText: this.fmtT(secs), timerSub: live ? 'Started ' + new Date(st.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ' · your friends can see you’re in' : '',
+      clockOut: this.clockOut, navClick: this.navClick,
+      nav: { t: app ? 'translateY(0px)' : 'translateY(110px)', tr: c.rm ? 'none' : app ? 'transform ' + c.ms(640) + ' ' + c.E + ' ' + c.ms(240) : 'transform ' + c.ms(260) + ' ease-in', pe: app ? 'auto' : 'none', path: st.tab === 'friends' ? '/friends' : '/clock' },
+    };
+  }
+  FHOURS = { zack: '5h 45m', ishaanroybiswas: '8h 20m', jillybean: '6h 05m' };
+  focusFSearch = () => this.setFocus('fsearch');
+  onFSearch = (e) => this.setState({ fSearch: e.target.value.slice(0, 30) });
+  cancelFSearch = () => { this.blurAll(); this.setState({ fSearch: '', focus: null }); };
+  person(u) { return this.PEOPLE.find(p => p.u === u) || { u, n: '', goal: '' }; }
+  acceptReq(u) {
+    this.setState(s => ({ requests: s.requests.filter(x => x !== u), accepted: Object.assign({}, s.accepted, { [u]: true }) }));
+    this.showToast('You and ' + (this.person(u).n.split(' ')[0] || '@' + u) + ' are now friends');
+  }
+  declineReq(u) { this.setState(s => ({ requests: s.requests.filter(x => x !== u) })); }
+  copyInvite = () => this.sendInvite('copy');
+  sendMessages = () => this.sendInvite('Messages');
+  valsFriends(c) {
+    const st = c.st, ms = c.ms, on = c.sc === 6 && st.tab === 'friends';
+    const searching = on && (st.focus === 'fsearch' || !!st.fSearch.trim());
+    const list = [];
+    const friends = Object.keys(st.added).filter(u => u !== 'founders').concat(Object.keys(st.accepted)).concat(st.added.founders ? this.FOUNDERS : []);
+    if (searching) {
+      const r = this.searchResults(st.fSearch);
+      if (!r) list.push({ note: true, text: 'Type a username, like “priya” or “zack”.' });
+      else if (!r.length) list.push({ note: true, text: 'No one with that username yet. Send them your link instead.' });
+      else { list.push({ hdr: true, label: 'Results', meta: '' }); r.forEach(p => list.push(friends.indexOf(p.u) !== -1 && !st.added[p.u] ? { friend: true, u: p.u, n: p.n, title: p.n || '@' + p.u, sub: '@' + p.u, h: 'Friends' } : this.personRow(p, '@' + p.u))); }
+    } else {
+      if (st.requests.length) {
+        list.push({ hdr: true, label: 'Requests', meta: String(st.requests.length) });
+        st.requests.forEach(u => { const p = this.person(u); list.push({ req: true, u, n: p.n, title: p.n || '@' + u, sub: '@' + u + ' wants to be friends', accept: () => this.acceptReq(u), decline: () => this.declineReq(u) }); });
+      }
+      this.pushUwGroups(list, p => !st.added[p.u]);
+      list.push({ hdr: true, label: 'Your friends', meta: friends.length ? String(friends.length) : '' });
+      if (!friends.length) list.push({ note: true, text: 'No friends yet. Search above, or send your link to a group chat.' });
+      friends.forEach(u => { const p = this.person(u); list.push({ friend: true, u, n: p.n, title: p.n || '@' + u, sub: p.goal ? 'Working on ' + p.goal : '@' + u, h: p.h || this.FHOURS[u] || '0m' }); });
+    }
+    if (st.toast) this.lastToast = st.toast;
+    return {
+      ftBox: this.ftBox, ftInvite: this.ftInvite, ftList: list, ftBrowse: !searching, ftSearching: searching, fSearch: st.fSearch, fSearchIn: this.fSearchIn,
+      ftSearchBc: st.focus === 'fsearch' ? 'var(--brand)' : 'var(--control-border)', ftMeta: friends.length + (friends.length === 1 ? ' FRIEND' : ' FRIENDS'),
+      ft: { o: on ? 1 : 0, t: on || c.rm ? 'none' : 'translateY(12px)', tr: c.rm ? 'opacity ' + ms(200) + ' linear' : on ? 'opacity ' + ms(300) + ' linear, transform ' + ms(460) + ' ' + c.E : 'opacity ' + ms(140) + ' linear', pe: on ? 'auto' : 'none' },
+      onFSearch: this.onFSearch, focusFSearch: this.focusFSearch, cancelFSearch: this.cancelFSearch,
+      sheet: { o: st.sheet ? 1 : 0, pe: st.sheet ? 'auto' : 'none', t: st.sheet ? 'translateY(0px)' : 'translateY(540px)', tr: c.rm ? 'none' : 'transform ' + ms(st.sheet ? 480 : 300) + ' ' + (st.sheet ? c.KB : 'ease-in') },
+      chats: ['Roommates', 'CSE 142 crew', 'Family', 'Priya Raman', 'Run club'].map(l => ({ label: l, send: () => this.sendInvite(l) })),
+      closeSheet: this.closeSheet, copyInvite: this.copyInvite, sendMessages: this.sendMessages,
+      toastV: { o: st.toast ? 1 : 0, t: st.toast || c.rm ? 'none' : 'translateY(-10px)', tr: 'opacity ' + ms(200) + ' linear, transform ' + ms(360) + ' ' + c.E }, toastText: st.toast || this.lastToast || '',
+    };
+  }
+  // @@methods
+
+  renderVals() {
+    const st = this.state, rm = this.rm, k = this.k, sc = st.screen;
+    const E = 'cubic-bezier(0.22, 1, 0.36, 1)', KB = 'cubic-bezier(0.32, 0.72, 0, 1)';
+    const ms = (n) => Math.round(n * k) + 'ms';
+    const item = (active, i, past) => {
+      if (rm) return { o: active ? 1 : 0, t: 'none', tr: 'opacity ' + ms(200) + ' linear ' + (active ? ms(60) : '0ms'), pe: active ? 'auto' : 'none' };
+      if (active) { const d = ms(140 + i * 55); return { o: 1, t: 'none', tr: 'opacity ' + ms(420) + ' ' + E + ' ' + d + ', transform ' + ms(560) + ' ' + E + ' ' + d, pe: 'auto' }; }
+      return { o: 0, t: past ? 'translateY(-14px)' : 'translateY(18px)', tr: 'opacity ' + ms(160) + ' ease-in, transform ' + ms(220) + ' ease-in', pe: 'none' };
+    };
+    const blk = (active, past, n, off) => { const o = { pe: active ? 'auto' : 'none' }; for (let i = 0; i < n; i++) o['e' + i] = item(active, i + (off || 0), past); return o; };
+    const app = sc === 6, kbUp = !!st.focus;
+    const c = { st, rm, k, sc, E, KB, ms, item, blk, app, kbUp };
+
+    const on0 = sc === 0, ph = st.uwPhase, B = on0 && ph === 'open';
+    const idEdit = st.focus === 'name' || st.focus === 'user';
+    const morph = rm ? 'opacity ' + ms(200) + ' linear' : 'transform ' + ms(620) + ' ' + E + ', opacity ' + ms(300) + ' linear';
+    const place = (a, b, show) => { const p = sc === 0 && !B ? a : b; return { t: 'translate(' + p[0] + 'px, ' + (p[1] + (sc > 0 && !rm ? -12 : 0)) + 'px) scale(' + p[2] + ')', o: on0 && show ? 1 : 0, tr: morph, pe: on0 && !B && show ? 'auto' : 'none' }; };
+    const nameSet = !!st.name.trim();
+    const s0 = {
+      eyebrow: item(on0 && !B, 0, sc > 0 || B),
+      name: place([120, 136, 1], [72, 103, 0.786], true),
+      user: place([120, 186, 1], [72, 131, 0.8], nameSet || !!st.username),
+      nameLine: B || sc > 0 ? 'transparent' : (st.focus === 'name' ? 'var(--brand)' : 'var(--control-border)'),
+      iconO: !B && st.username ? 1 : 0, statusO: !B && st.username ? 1 : 0,
+      sug: item(on0 && !B && st.uStatus === 'taken', 0, false),
+      q: (() => { const vis = on0 && (ph === 'choose' || ph === 'selecting') && !idEdit; if (on0 && idEdit && ph === 'choose') return { o: 0, t: rm ? 'none' : 'translateY(240px)', tr: rm ? 'opacity ' + ms(160) + ' linear' : 'opacity ' + ms(200) + ' linear, transform ' + ms(440) + ' ' + KB }; return item(vis, 0, sc > 0 || B); })(),
+      tilesPE: on0 && ph === 'choose' && !idEdit ? 'auto' : 'none',
+      fieldsBottom: kbUp ? 852 - 455 : 852 - 744, fieldsOverflow: B ? 'auto' : 'hidden',
+    };
+    const tile = (which, i) => {
+      const chosen = st.uw === which;
+      const sel = which === 'yes' ? { selO: 1, bc: 'var(--palette-9)', sh: '0 14px 28px -14px rgba(111,78,147,.6)' } : { selO: 1, bc: 'var(--brand)', sh: '0 14px 28px -14px rgba(28,58,94,.65)' }, unsel = { selO: 0, bc: 'var(--control-border)', sh: 'none' };
+      if (on0 && ph === 'choose' && idEdit) return Object.assign({ o: 0, t: rm ? 'none' : 'translateY(260px)', tr: rm ? 'opacity ' + ms(160) + ' linear' : 'opacity ' + ms(220) + ' linear, transform ' + ms(440) + ' ' + KB }, unsel);
+      if (on0 && ph === 'selecting') return chosen ? Object.assign({ o: 1, t: 'none', tr: 'none' }, sel) : Object.assign({ o: 0, t: rm ? 'none' : 'translateY(16px) scale(0.96)', tr: rm ? 'opacity ' + ms(160) + ' linear' : 'opacity ' + ms(200) + ' ease-out, transform ' + ms(320) + ' ' + E }, unsel);
+      if (B) return Object.assign({ o: 0, t: 'none', tr: 'none' }, chosen ? sel : unsel);
+      return Object.assign(item(on0 && ph === 'choose', i, sc > 0), sc > 0 && chosen ? sel : unsel);
+    };
+    const q = st.major.trim().toLowerCase(), picked = st.majors.map(m => m.toLowerCase());
+    const iq = st.orgDraft.trim().toLowerCase(), ipicked = st.orgs.map(o => o.toLowerCase());
+    const hasUw = !!(st.majors.length || st.major.trim() || st.orgs.length || st.orgDraft.trim());
+
+    const AV = [[20, 136, 84], [20, 110, 40], [345, 66, 28]];
+    const P = sc === 0 ? (B ? AV[1] : AV[0]) : AV[2];
+    const top0 = !app;
+    const ctaSpec = (this['ctaSpec' + sc] ? this['ctaSpec' + sc](c) : null) || (on0 ? (idEdit || ph === 'choose' ? (idEdit ? { label: 'Continue', disabled: !this.identityOk() } : null) : ph === 'open' ? (hasUw ? { label: 'Continue' } : { secondary: 'Skip for now' }) : null) : null);
+    const ctaY = kbUp ? 469 : (ctaSpec && ctaSpec.y) || 758;
+    const u = {
+      checking: st.uStatus === 'checking', ok: st.uStatus === 'ok',
+      text: st.uStatus === 'ok' ? 'Available. Friends find you by this' : st.uStatus === 'taken' ? '@' + st.username + ' is taken. Try one of these' : st.uStatus === 'short' ? 'At least 3 characters' : st.uStatus === 'checking' ? 'Checking…' : '',
+      color: st.uStatus === 'ok' ? 'var(--done)' : st.uStatus === 'taken' ? 'var(--secondary-ink)' : 'var(--caption)',
+      suggest: st.uStatus === 'taken' ? this.altsFor(st.username).map(x => ({ label: x, pick: () => { this.setUsername(x); this.focusEl(this.userIn); }, keep: this.keep })) : [],
+    };
+    const cur = app ? (st.tab === 'friends' ? 7 : 6) : sc;
+    const panel = [
+      ['01', 'Who are you', 'One screen: name, auto-suggested handle with a live check, photo, then the big UW choice.'],
+      ['02', 'Your goal', 'Write your own or tap an example. Return adds another; one is enough.'],
+      ['03', 'Your habits', 'Five quick picks plus your own. Tap one and it pops a check.'],
+      ['04', 'What Progra is', 'What Progra is in one paragraph, then a practice run: your first goal on the Clock page with a 25 minute timer that fast-forwards, then your first post.'],
+      ['05', 'Find your friends', 'Invite on top, then people in your major, people with your interests, and everyone else at UW.'],
+      ['06', 'First session', 'Ready? One tap opens the Clock tab with Schoolwork picked.'],
+      ['→', 'Clock (app)', 'Clock in to start the live timer.'],
+      ['→', 'Friends tab (app)', 'Same rows and invite as screen 5, plus requests and your friends.'],
+    ].map((r, i) => ({ num: r[0], label: r[1], note: r[2], bar: i === cur ? 'var(--brand)' : '#d3d7dd', go: () => this.jump(Math.min(i, 6), i === 7 ? 'friends' : 'clock') }));
+    const scen = this.scenario ? this.scenario() : 'none';
+    const scenarios = [['uw', 'UW matches'], ['uw-empty', 'UW, none yet'], ['none', 'Not UW']].map(r => ({ label: r[1], bg: scen === r[0] ? 'var(--brand)' : 'transparent', fg: scen === r[0] ? '#fff' : 'var(--secondary-ink)', pick: () => this.setState({ scenario: r[0] }) }));
+
+    const base = {
+      scale: st.scale, phoneW: Math.round(393 * st.scale), phoneH: Math.round(852 * st.scale),
+      top: {
+        o: top0 ? 1 : 0, pe: top0 ? 'auto' : 'none', tr: 'opacity ' + ms(260) + ' linear',
+        markO: sc === 0 ? 1 : 0, markT: sc === 0 || rm ? 'none' : 'scale(0.6) rotate(-40deg)',
+        backO: sc === 0 ? 0 : 1, backT: sc === 0 && !rm ? 'scale(0.6)' : 'none', backPE: sc === 0 || app ? 'none' : 'auto',
+        slotTr: rm ? 'opacity ' + ms(200) + ' linear' : 'opacity ' + ms(260) + ' ' + E + ', transform ' + ms(460) + ' ' + E,
+        progress: (Math.min(sc + 1, 6) / 6).toFixed(4), progressTr: 'transform ' + ms(rm ? 200 : 760) + ' ' + (rm ? 'linear' : E),
+      },
+      s0, yesT: tile('yes', 1), noT: tile('no', 2),
+      bar: { o: B ? 1 : 0, tr: B ? 'none' : 'opacity ' + ms(180) + ' linear', pe: B ? 'auto' : 'none' },
+      uwf: blk(B, sc > 0, 3, 4),
+      av: {
+        t: 'translate(' + P[0] + 'px, ' + P[1] + 'px) scale(' + (P[2] / 160).toFixed(4) + ')', o: app ? 0 : 1,
+        tr: rm ? 'opacity ' + ms(200) + ' linear' : 'transform ' + ms(680) + ' ' + E + ', opacity ' + ms(240) + ' linear',
+        pe: on0 ? 'auto' : 'none', cursor: on0 ? 'pointer' : 'default', initO: nameSet ? 1 : 0,
+        badgeO: on0 && !B ? 1 : 0, badgeT: (on0 && !B) || rm ? 'scale(1)' : 'scale(0.3)',
+        badgeTr: rm ? 'opacity ' + ms(200) + ' linear' : on0 && !B ? 'opacity ' + ms(240) + ' ' + E + ' ' + ms(300) + ', transform ' + ms(460) + ' cubic-bezier(0.34, 1.56, 0.64, 1) ' + ms(300) : 'opacity ' + ms(120) + ' linear, transform ' + ms(160) + ' ease-in',
+      },
+      avUser: st.username || this.firstFree(st.name), name: st.name, username: st.username,
+      hasPhoto: !!st.photo, photo: st.photo, u,
+      major: st.major, majorSug: st.majors.length >= 3 ? [] : this.MAJORS.filter(m => picked.indexOf(m.toLowerCase()) === -1 && (!q || m.toLowerCase().indexOf(q) !== -1)).slice(0, 6).map(m => ({ label: m, pick: () => this.pickMajor(m), keep: this.keep })),
+      majorChips: st.majors.map((m, i) => ({ label: m, remove: () => this.removeMajor(i), keep: this.keep })),
+      majorCanAdd: st.majors.length < 3, majorShowAdd: st.majors.length < 3 && !!st.major.trim(),
+      majorPh: st.majors.length ? 'Add another' : 'e.g. Economics', majorBorder: st.focus === 'major' ? 'var(--brand)' : 'var(--control-border)',
+      interestSug: st.orgs.length >= 6 ? [] : this.INTERESTS.filter(x => ipicked.indexOf(x.toLowerCase()) === -1 && (!iq || x.toLowerCase().indexOf(iq) !== -1)).slice(0, 8).map(x => ({ label: x, pick: () => this.pickInterest(x), keep: this.keep })),
+      majorBox: this.majorBox, uwScroll: this.uwScroll, addMajor: this.addMajor, focusMajorBox: this.focusMajorBox,
+      orgChips: st.orgs.map((o, i) => ({ label: o, remove: () => this.removeOrg(i), keep: this.keep })),
+      orgDraft: st.orgDraft, orgCanAdd: st.orgs.length < 6, orgShowAdd: st.orgs.length < 6 && !!st.orgDraft.trim(),
+      orgPh: st.orgs.length ? 'Add another' : 'Type your own, or pick below',
+      orgBorder: st.focus === 'org' ? 'var(--brand)' : 'var(--control-border)',
+      cta: {
+        o: ctaSpec ? 1 : 0, pe: ctaSpec ? 'auto' : 'none',
+        t: 'translateY(' + ((ctaY - 758) + (ctaSpec ? 0 : 28)) + 'px)',
+        tr: 'transform ' + ms(rm ? 260 : 440) + ' ' + KB + ', opacity ' + ms(200) + ' linear',
+        label: (ctaSpec && ctaSpec.label) || 'Continue', disabled: !!(ctaSpec && ctaSpec.disabled),
+        priO: ctaSpec && !ctaSpec.secondary ? 1 : 0, priPE: ctaSpec && !ctaSpec.secondary ? 'auto' : 'none',
+        secO: ctaSpec && ctaSpec.secondary ? 1 : 0, secPE: ctaSpec && ctaSpec.secondary ? 'auto' : 'none', secLabel: (ctaSpec && ctaSpec.secondary) || '',
+      },
+      kb: { t: kbUp ? 'translateY(0px)' : 'translateY(330px)', tr: 'transform ' + ms(rm ? 260 : 440) + ' ' + KB },
+      panelSteps: panel, scenarios, rm, slow: !!(this.props.slowMotion || st.slow),
+      nameIn: this.nameIn, userIn: this.userIn, uRow: this.uRow, uOk: this.uOk, sugBox: this.sugBox, file: this.file,
+      yesTile: this.yesTile, noTile: this.noTile, yesCheck: this.yesCheck, noCheck: this.noCheck, barRef: this.bar, barInner: this.barInner,
+      majorIn: this.majorIn, orgIn: this.orgIn, orgBox: this.orgBox, avWrap: this.avWrap, avInit: this.avInit, avPhoto: this.avPhoto, ring: this.ring, ctaRing: this.ctaRing,
+      back: this.back, onName: this.onName, onNameKey: this.onNameKey, focusName: this.focusName, focusUser: this.focusUser, onBlurField: this.onBlurField,
+      onUsername: this.onUsername, onUserKey: this.onUserKey, pickPhoto: this.pickPhoto, onFile: this.onFile, pickYes: this.pickYes, pickNo: this.pickNo,
+      uwChange: this.uwChange, onMajor: this.onMajor, onMajorKey: this.onMajorKey, focusMajor: this.focusMajor, focusOrg: this.focusOrg, focusOrgBox: this.focusOrgBox,
+      onOrgDraft: this.onOrgDraft, onOrgKey: this.onOrgKey, addOrg: this.addOrg, keep: this.keep, onCta: this.onCta, setRm: this.setRm, setSlow: this.setSlow, replay: this.replay,
+    };
+    for (let i = 1; i <= 6; i++) if (this['vals' + i]) Object.assign(base, this['vals' + i](c));
+    if (this.valsFriends) Object.assign(base, this.valsFriends(c));
+    return base;
+  }
+}
+</script>
+</body>
+</html>

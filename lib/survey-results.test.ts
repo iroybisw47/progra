@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Survey } from "@/lib/survey";
+import { textQuestion, type Survey } from "@/lib/survey";
 import { shapeSurveyResults, type SurveyResultsRow } from "@/lib/survey-results";
 
 const S: Survey = {
@@ -10,6 +10,7 @@ const S: Survey = {
   questions: [
     { id: "a", prompt: "A?", options: [{ id: "x", label: "Ex", short: "X" }, { id: "y", label: "Why", short: "Y" }] },
     { id: "b", prompt: "B?", options: [{ id: "z", label: "Zed", short: "Z" }] },
+    textQuestion("c", "C?", "Type"),
   ],
 };
 
@@ -20,10 +21,12 @@ const row: SurveyResultsRow = {
     { question_id: "a", answer: "x", n: 2 },
     { question_id: "a", answer: "y", n: 1 },
     { question_id: "b", answer: "z", n: 2 },
+    { question_id: "c", answer: "answered", n: 1 },
+    { question_id: "c", answer: "skipped", n: 1 },
   ],
   respondents: [
-    { id: "1", username: "al", display_name: "Al", segment: "uw", answers: { a: "x", b: "z" }, answered: 2, last_answered_at: "2026-10-20T11:00:00Z" },
-    { id: "2", username: "bo", display_name: null, segment: "non_uw", answers: { a: "x", b: "z" }, answered: 2, last_answered_at: "2026-10-20T10:00:00Z" },
+    { id: "1", username: "al", display_name: "Al", segment: "uw", answers: { a: "x", b: "z", c: "answered" }, texts: { c: "Joint sessions" }, answered: 3, last_answered_at: "2026-10-20T11:00:00Z" },
+    { id: "2", username: "bo", display_name: null, segment: "non_uw", answers: { a: "x", b: "z", c: "skipped" }, texts: {}, answered: 3, last_answered_at: "2026-10-20T10:00:00Z" },
     { id: "3", username: null, display_name: null, segment: "non_uw", answers: { a: "y" }, answered: 1, last_answered_at: "2026-10-20T09:00:00Z" },
   ],
 };
@@ -56,9 +59,24 @@ describe("shapeSurveyResults", () => {
 
   it("lays each respondent's answers out in question order, null where unanswered", () => {
     expect(r.respondents.map((p) => [p.name, p.answers, p.complete])).toEqual([
-      ["Al", ["X", "Z"], true],
-      ["@bo", ["X", "Z"], true],
-      ["Unnamed", ["Y", null], false],
+      ["Al", ["X", "Z", "Answered"], true],
+      ["@bo", ["X", "Z", "Skipped"], true],
+      ["Unnamed", ["Y", null, null], false],
     ]);
+  });
+
+  it("collects a free-text question's words, and none for a choice question", () => {
+    expect(r.questions[2].texts).toEqual([
+      { respondentId: "1", name: "Al", text: "Joint sessions", answeredAt: "2026-10-20T11:00:00Z" },
+    ]);
+    expect(r.questions[0].texts).toEqual([]);
+  });
+
+  it("reads a row from before survey-text.sql, with no texts at all", () => {
+    const old = shapeSurveyResults(
+      { ...row, respondents: row.respondents.map((p) => ({ ...p, texts: undefined })) },
+      S
+    );
+    expect(old.questions[2].texts).toEqual([]);
   });
 });

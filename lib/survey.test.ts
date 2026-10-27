@@ -1,16 +1,22 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  FEATURE_SURVEY,
   LATEST_SURVEY,
   PRICING_SURVEY,
   SURVEY,
   SURVEYS,
+  TEXT_ANSWERED,
+  TEXT_MAX,
+  TEXT_SKIPPED,
   VALUE_SURVEY,
+  cleanText,
   surveyById,
   firstUnanswered,
   isComplete,
   isValidAnswer,
   surveyOwed,
+  textQuestion,
   type Survey,
 } from "@/lib/survey";
 
@@ -21,6 +27,7 @@ const S: Survey = {
   questions: [
     { id: "a", prompt: "A?", options: [{ id: "x", label: "X", short: "X" }, { id: "y", label: "Y", short: "Y" }] },
     { id: "b", prompt: "B?", options: [{ id: "z", label: "Z", short: "Z" }] },
+    textQuestion("c", "C?", "Type here"),
   ],
 };
 const onboarded = "2026-09-01T00:00:00Z";
@@ -63,31 +70,59 @@ describe("firstUnanswered / isComplete", () => {
   });
 
   it("is null once every question has an answer, whatever else is stored", () => {
-    expect(firstUnanswered(["b", "a", "gone"], S)).toBeNull();
-    expect(isComplete(["a", "b"], S)).toBe(true);
+    expect(firstUnanswered(["c", "b", "a", "gone"], S)).toBeNull();
+    expect(isComplete(["a", "b", "c"], S)).toBe(true);
     expect(isComplete(["a"], S)).toBe(false);
   });
 });
 
 describe("isValidAnswer", () => {
   it("accepts one of the question's own options", () => {
-    expect(isValidAnswer("test-survey", "a", "y", S)).toBe(true);
+    expect(isValidAnswer("test-survey", "a", "y", null, S)).toBe(true);
   });
 
   it("refuses another question's option, an unknown question, or another survey", () => {
-    expect(isValidAnswer("test-survey", "a", "z", S)).toBe(false);
-    expect(isValidAnswer("test-survey", "nope", "x", S)).toBe(false);
-    expect(isValidAnswer("other", "a", "x", S)).toBe(false);
-    expect(isValidAnswer("test-survey", "a", "x", null)).toBe(false);
+    expect(isValidAnswer("test-survey", "a", "z", null, S)).toBe(false);
+    expect(isValidAnswer("test-survey", "nope", "x", null, S)).toBe(false);
+    expect(isValidAnswer("other", "a", "x", null, S)).toBe(false);
+    expect(isValidAnswer("test-survey", "a", "x", null, null)).toBe(false);
+  });
+
+  it("refuses words on a multiple-choice question", () => {
+    expect(isValidAnswer("test-survey", "a", "x", "hi", S)).toBe(false);
+  });
+
+  it("takes words with answered, and none with skipped", () => {
+    expect(isValidAnswer("test-survey", "c", TEXT_ANSWERED, "Dark mode", S)).toBe(true);
+    expect(isValidAnswer("test-survey", "c", TEXT_SKIPPED, null, S)).toBe(true);
+    expect(isValidAnswer("test-survey", "c", TEXT_ANSWERED, null, S)).toBe(false);
+    expect(isValidAnswer("test-survey", "c", TEXT_ANSWERED, "", S)).toBe(false);
+    expect(isValidAnswer("test-survey", "c", TEXT_SKIPPED, "words", S)).toBe(false);
+    expect(isValidAnswer("test-survey", "c", "other", null, S)).toBe(false);
+  });
+
+  it("caps the words at TEXT_MAX, the SQL's limit", () => {
+    expect(isValidAnswer("test-survey", "c", TEXT_ANSWERED, "x".repeat(TEXT_MAX), S)).toBe(true);
+    expect(isValidAnswer("test-survey", "c", TEXT_ANSWERED, "x".repeat(TEXT_MAX + 1), S)).toBe(false);
+  });
+});
+
+describe("cleanText", () => {
+  it("trims, and makes blank null", () => {
+    expect(cleanText("  Joint sessions \n")).toBe("Joint sessions");
+    expect(cleanText("   ")).toBeNull();
+    expect(cleanText("")).toBeNull();
+    expect(cleanText(null)).toBeNull();
+    expect(cleanText(undefined)).toBeNull();
   });
 });
 
 // A survey's keys are what survey.sql's CHECK admits and what the dashboard
 // groups by, whether or not it's still being asked.
 describe("SURVEYS", () => {
-  it("asks the value survey, the newest", () => {
-    expect(SURVEY).toBe(VALUE_SURVEY);
-    expect(LATEST_SURVEY).toBe(VALUE_SURVEY);
+  it("asks the feature-request survey, the newest", () => {
+    expect(SURVEY).toBe(FEATURE_SURVEY);
+    expect(LATEST_SURVEY).toBe(FEATURE_SURVEY);
   });
 
   it("has unique ids, and finds each by id", () => {
@@ -128,6 +163,10 @@ describe("SURVEYS", () => {
       ["time_impact", ["more_time", "helped", "tracking_only", "not_sure"]],
       ["noticed", ["often", "a_few_times", "rarely", "never"]],
       ["disappointment", ["very", "somewhat", "not", "not_sure"]],
+    ]);
+    expect(FEATURE_SURVEY.id).toBe("2026-10-feature-request");
+    expect(FEATURE_SURVEY.questions.map((q) => [q.id, q.options.map((o) => o.id), !!q.freeText])).toEqual([
+      ["feature_request", ["answered", "skipped"], true],
     ]);
   });
 });

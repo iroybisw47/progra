@@ -215,7 +215,6 @@ function NotificationsSection({ stats }: { stats: NotificationStats | null }) {
             ["Social pushes off", `${stats.toggles.social_pushes_off} of ${stats.toggles.users}`],
             ["Nudges off", `${stats.toggles.nudges_off} of ${stats.toggles.users}`],
             ["Clock reminders off (this session)", `${stats.toggles.clock_reminders_off} of ${stats.toggles.prefs_reported} reporting`],
-            ["Habit reminder off", `${stats.toggles.habit_reminder_off} of ${stats.toggles.prefs_reported} reporting`],
           ]}
         />
       </Section>

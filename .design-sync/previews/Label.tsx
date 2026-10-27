@@ -21,7 +21,7 @@ export function DisabledGroup() {
   return (
     <div data-disabled="true" className="group flex flex-col gap-2 w-full max-w-sm">
       <Label htmlFor="cal-id">Calendar</Label>
-      <Input id="cal-id" disabled defaultValue="tapa@quantluxdigital.io" />
+      <Input id="cal-id" disabled defaultValue="maya.chen@example.com" />
     </div>
   );
 }

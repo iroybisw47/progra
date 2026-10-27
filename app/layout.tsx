@@ -22,7 +22,7 @@ import {
   resolveAttribution,
   resolveAttributionColor,
 } from "@/lib/session-attribution";
-import { SyncHabitReminders } from "@/components/sync-habit-reminders";
+import { ClearHabitReminders } from "@/components/clear-habit-reminders";
 import { PlanCompleteModal } from "@/components/v2/plan-complete-modal";
 import { WhatsNewModal } from "@/components/v2/whats-new-modal";
 import { UwPromptOnLoad } from "@/components/v2/uw-prompt-on-load";
@@ -31,13 +31,11 @@ import {
   getActiveSession,
   getUnreviewedPlanComplete,
 } from "@/lib/db/sessions";
-import { getHabitReminderData } from "@/lib/db/habits";
 import { getNavBadges } from "@/lib/db/notifications";
 import { listMySurveyAnswers } from "@/lib/db/survey";
 import {
   DARK_MODE,
   FRIENDS_V3,
-  HABIT_REMINDERS,
   LIVE_ACTIVITY,
   UW,
 } from "@/lib/flags";
@@ -148,7 +146,7 @@ export default async function RootLayout({
   // page; the auth read inside each is shared via cache(). The profile feeds
   // EnsureProfileSync's stored-timezone comparison (and is free on routes that
   // fetch it anyway).
-  const [user, activeSession, profile, navBadges, planComplete, habitData] =
+  const [user, activeSession, profile, navBadges, planComplete] =
     await Promise.all([
       getOptionalUser(),
       getActiveSession(),
@@ -156,10 +154,6 @@ export default async function RootLayout({
       getNavBadges(),
       // Null on the common path — the partial index makes it a cheap miss.
       getUnreviewedPlanComplete(),
-      // Feeds the habit-reminder sync leaf. It awaits getProfile internally
-      // (cache()'d, shared with the read above), so it can sit here without
-      // serializing the others. Skipped entirely while the flag is dark.
-      HABIT_REMINDERS ? getHabitReminderData() : Promise.resolve(null),
     ]);
 
   // The Live Activity card names what the session counts towards and paints it
@@ -369,17 +363,10 @@ export default async function RootLayout({
           onBreak={activeSession?.onBreak ?? false}
         />
       )}
-      {/* Same flat-primitives rule as the clock leaf: the name lists ride
-          in as "\n"-joined strings, so the effect re-runs only when the
-          habit data actually changes. Habit toggles reach it because
-          revalidateHabitSurfaces revalidates the layout. */}
-      {user && (
-        <SyncHabitReminders
-          uncheckedNames={habitData?.uncheckedNames.join("\n") ?? ""}
-          activeNames={habitData?.activeNames.join("\n") ?? ""}
-          statusDate={habitData?.statusDate ?? null}
-        />
-      )}
+      {/* The retired daily habit reminder's leftovers: cancels the week of
+          them an older build queued on this device. Ungated, because the
+          queue belongs to the phone, not the account. */}
+      <ClearHabitReminders />
       {/* One listener for every notification family — routes a tap by its
           reserved id. Lives outside the sync leaves so it survives either
           flag being off. */}

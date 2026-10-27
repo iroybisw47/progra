@@ -78,7 +78,6 @@ export function progressFor(screen: number, shown: boolean): { at: number; of: n
 // Each row is a flag's feature (lib/flags.ts).
 export function notifyReasons(flags: {
   clockReminders: boolean;
-  habitReminders: boolean;
   socialPush: boolean;
   nudges: boolean;
   recapPush: boolean;
@@ -87,7 +86,6 @@ export function notifyReasons(flags: {
 }): string[] {
   const out: string[] = [];
   if (flags.clockReminders) out.push("A reminder each hour you’re still clocked in");
-  if (flags.habitReminders) out.push("A daily reminder for your habits");
   if (flags.socialPush) out.push("When friends like or comment on your sessions");
   if (flags.socialPush) out.push("When someone sends you a friend request");
   // A nudge only buzzes with SOCIAL_PUSH on too (lib/flags.ts, NUDGES).

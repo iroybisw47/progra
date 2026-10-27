@@ -5,6 +5,16 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-27
+
+### 15:22 · A new survey: one open question, with a Skip
+"What feature would you like to be added to Progra?", with a text box. It's `FEATURE_SURVEY` (`id` `2026-10-feature-request`) in `lib/survey.ts`, and `SURVEY` points at it. The id is new, so everyone is asked again. Anyone partway through the value survey stops being asked it.
+- **Free-text questions** are new to the survey: `textQuestion()` gives a question a text box (max 1000 chars) plus Skip and Submit buttons. Skipping counts as the answer, and the survey is then done. Multiple-choice questions still have no skip.
+- **Storage:** `answer` is still a key, `answered` or `skipped`, so the bars on the dashboard show "Answered / Skipped". The words go in a new column, `survey_answers.text_answer`, which is insert-only and readable only by its owner. The admin Survey tab lists each response under the question, newest first.
+- **SQL applied in prod (2026-10-27, through the Supabase MCP):** STEP 0 3/3, STEP 1 committed, STEP 1V 6/6, STEP 2 10/10, and no `st2-probe` rows left behind. The code can deploy now.
+- **SQL (was needed before the deploy):** `.claude/plans/survey-text.sql` (adds the column and returns `texts` from `admin_survey_results`). Until it runs, the survey read selects a missing column and fails, so no survey opens. Proven on PGlite: `node survey-text.mjs ../survey-text.sql --mutants` gives 17/17, STEP 2 10/10, and 7/7 mutants caught.
+- **Gate:** tsc is clean, eslint is clean on the changed files, vitest passes 1498/1498, and `next build` passes.
+
 ## 2026-10-24
 
 ### 21:06 · A new survey: what Progra is worth
@@ -71,6 +81,24 @@ On a friend's profile, **Rally** opens one sheet: choose **Cheer** (one habit th
 
 ### 09:37 · A friend's streak shows from 1 day
 A friend's profile showed their streak badge only from 2 days. Streaks launched yesterday, so only one day has closed (Oct 21: 23 members active, 22 with shared activity), and almost everyone sat at 1 and showed nothing. `FRIEND_STREAK_MIN` is now 1, the same as your own badge. It's display-only: the SQL never read it, so nothing needs to be run.
+
+## 2026-10-21
+
+### 20:55 · The daily habit reminder is retired
+The 6pm "Your habits are waiting" local notification is gone. The streak reminder's 7pm push covers the same moment.
+- **Removed:**
+  - The scheduler (`habitReminders()`), the sync leaf, and the layout's `getHabitReminderData` read.
+  - The per-device pref (`lib/habit-reminder-prefs.ts`, `lib/use-habit-reminder-pref.ts`) and the `HABIT_REMINDERS` flag.
+  - Settings → Notifications → "Daily habit reminder" and its time picker.
+  - The three places that switched it on after a permission grant: onboarding v2, onboarding v3, and the live timer's "Turn on reminders".
+  - The onboarding v3 notifications screen's "A daily reminder for your habits" line.
+- **Telemetry:**
+  - `habit_reminder_toggled` / `habit_reminder_time_changed` are gone, along with the then-unused `hhmm` prop type.
+  - `syncDeviceState` now mirrors only `clock_reminders_off`. The RPC takes any object, so no SQL change is needed.
+  - The dashboard's "Habit reminder off" row is gone.
+  - `habit_reminder` stays a notification type, for historical rows and the cleanup's cancellations.
+- **Cleanup that stays for now:** each sync of the old reminder queued a week of one-shot notifications (ids 9201–9207) on the device, and iOS fires those whether or not the code still exists. `components/clear-habit-reminders.tsx`, mounted ungated in the root layout, cancels that range once per launch. The id range, the tap routing to `/` and the sign-out cancel are kept for the same reason. Delete the leaf and `lib/habit-notifications.ts` a week or two after this ships.
+- **Gate:** tsc and eslint (changed files) are clean, vitest passes 1471 of 1471, and the build passes.
 
 ## 2026-10-20
 

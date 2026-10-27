@@ -5,38 +5,61 @@
   "globalName": "Progra",
   "entry": "./.design-sync/entry.ts",
   "srcDir": "components",
-  "tsconfig": "tsconfig.json",
+  "tsconfig": ".design-sync/tsconfig.json",
   "buildCmd": "./.ds-sync/node_modules/.bin/tailwindcss -i app/globals.css -o .design-sync/.cache/tailwind-compiled.css",
   "cssEntry": ".design-sync/.cache/tailwind-compiled.css",
   "tokensPkg": "progra",
   "tokensGlob": ".design-sync/fonts.css",
-  "runtimeFontPrefixes": ["Hanken Grotesk", "Newsreader"],
+  "runtimeFontPrefixes": [
+    "Hanken Grotesk",
+    "Newsreader"
+  ],
   "readmeHeader": ".design-sync/conventions.md",
   "overrides": {
-    "Dialog": { "cardMode": "single", "viewport": "520x480" },
-    "AlertDialog": { "cardMode": "single", "viewport": "520x420" },
-    "Toaster": { "cardMode": "single", "viewport": "420x300" },
-    "BottomNav": { "cardMode": "single", "viewport": "420x180" }
+    "Dialog": {
+      "cardMode": "single",
+      "viewport": "520x480"
+    },
+    "AlertDialog": {
+      "cardMode": "single",
+      "viewport": "520x420"
+    },
+    "Toaster": {
+      "cardMode": "single",
+      "viewport": "420x300"
+    },
+    "BottomNav": {
+      "cardMode": "single",
+      "viewport": "420x180"
+    },
+    "BottomSheet": {
+      "cardMode": "single",
+      "viewport": "420x560"
+    },
+    "WhatsNewModal": {
+      "cardMode": "single",
+      "viewport": "460x560"
+    }
   },
   "componentSrcMap": {
     "Button": "components/ui/button.tsx",
     "Card": "components/ui/card.tsx",
     "Input": "components/ui/input.tsx",
     "Label": "components/ui/label.tsx",
-    "Tabs": "components/ui/tabs.tsx",
+    "Tabs": null,
     "Toaster": "components/ui/sonner.tsx",
     "Checkbox": "components/ui/checkbox.tsx",
-    "Separator": "components/ui/separator.tsx",
+    "Separator": null,
     "Dialog": "components/ui/dialog.tsx",
     "AlertDialog": "components/ui/alert-dialog.tsx",
     "Badge": "components/ui/badge.tsx",
     "Textarea": "components/ui/textarea.tsx",
-    "WeekStrip": "components/week-strip.tsx",
+    "WeekStrip": null,
     "PageSkeleton": "components/page-skeleton.tsx",
     "GoalProgressBar": "components/goal-progress.tsx",
     "CategoryPicker": "components/category-picker.tsx",
     "CategoryMarker": "components/category-marker.tsx",
-    "WeekBreakdown": "components/week-breakdown.tsx",
+    "WeekBreakdown": null,
     "ColorSwatches": "components/color-swatches.tsx",
     "BottomNav": "components/bottom-nav.tsx",
     "WeeklyHabits": null,
@@ -49,6 +72,48 @@
     "CategorizePeriodButton": null,
     "EventCategoryDialog": null,
     "SyncCalendarButton": null,
-    "EnsureProfileSync": null
-  }
+    "EnsureProfileSync": null,
+    "PrimaryButton": "components/v2/primary-button.tsx",
+    "SectionHeader": "components/v2/section-header.tsx",
+    "MenuRow": "components/v2/menu-row.tsx",
+    "ChipRail": "components/v2/period-chips.tsx",
+    "ToggleSwitch": "components/v2/toggle-switch.tsx",
+    "BackButton": "components/v2/back-button.tsx",
+    "BackLink": "components/v2/back-link.tsx",
+    "BottomSheet": "components/v2/bottom-sheet.tsx",
+    "AvatarInitials": "components/avatar-initials.tsx",
+    "PrograMark": "components/progra-mark.tsx",
+    "WeekPulse": "components/v2/week-pulse.tsx",
+    "Donut": "components/v2/donut.tsx",
+    "CategoryDonut": "components/v2/category-donut.tsx",
+    "GoalQuotaRows": "components/v2/goal-quota-rows.tsx",
+    "WeekSummary": "components/v2/week-summary.tsx",
+    "HabitWeekGrid": "components/v2/habit-week-grid.tsx",
+    "FriendsLeaderboard": "components/v2/friends-leaderboard.tsx",
+    "SessionCard": "components/v2/session-card.tsx",
+    "ClockedInStrip": "components/clocked-in-strip.tsx",
+    "RecapFeedCard": "components/v2/recap-feed-card.tsx",
+    "InviteShare": "components/v2/invite-share.tsx",
+    "ReferFriendButton": "components/v2/refer-friend-button.tsx",
+    "WhatsNewModal": "components/v2/whats-new-modal.tsx",
+    "AutoEndNudge": "components/v2/auto-end-nudge.tsx",
+    "RecapNudge": "components/v2/recap-nudge.tsx",
+    "SessionPlanPicker": "components/v2/session-plan-picker.tsx",
+    "ProgressClient": null,
+    "FeedV2": null,
+    "ManageGoals": null,
+    "ManageHabits": null,
+    "ManageSessions": null,
+    "CommentThreads": null,
+    "HoldToDelete": null,
+    "SuggestSheet": null,
+    "ReportBugSheet": null,
+    "PlanCompleteModal": null,
+    "KudosButton": null,
+    "ReactionBar": null,
+    "TypedHeadline": null
+  },
+  "guidelinesGlob": [
+    "docs/SCREENS.md"
+  ]
 }

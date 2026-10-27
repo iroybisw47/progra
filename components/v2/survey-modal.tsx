@@ -14,7 +14,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PrimaryButton } from "@/components/v2/primary-button";
-import { firstUnanswered, type Survey } from "@/lib/survey";
+import {
+  TEXT_ANSWERED,
+  TEXT_MAX,
+  TEXT_SKIPPED,
+  cleanText,
+  firstUnanswered,
+  type Survey,
+} from "@/lib/survey";
 import { useTakeoverActive } from "@/lib/takeover";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +32,8 @@ type Result = { ok: true; done: boolean } | { error: string };
 export type SurveyAnswerFn = (
   surveyId: string,
   questionId: string,
-  optionId: string
+  optionId: string,
+  text?: string | null
 ) => Promise<Result>;
 
 // The in-app survey (lib/survey.ts), mounted by the root layout only while
@@ -34,6 +42,10 @@ export type SurveyAnswerFn = (
 // decision: no close button, the backdrop and Escape do nothing, and the only
 // control is Next once an option is picked. Answers are write-once, so picking
 // is a separate step from committing.
+//
+// A free-text question (textQuestion() in lib/survey.ts) is the exception: a
+// text box, Submit once it holds something, and a Skip, which is stored as
+// its answer like any other.
 //
 // Progress, for WhatsNewModal's reasons: an allowlist of "/", and never over
 // the weekly review takeover. It waits, unanswered, until then.
@@ -58,6 +70,7 @@ export function SurveyModal({
   const takenOver = useTakeoverActive();
   const [local, setLocal] = useState<string[]>([]);
   const [picked, setPicked] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
   const [finished, setFinished] = useState(false);
   const [pending, startTransition] = useTransition();
   const headerRef = useRef<HTMLDivElement>(null);
@@ -71,13 +84,12 @@ export function SurveyModal({
   const total = survey.questions.length;
   const last = index === total - 1;
 
-  function next() {
-    if (!picked || pending) return;
-    const optionId = picked;
+  function commit(optionId: string, text: string | null = null) {
+    if (pending) return;
     startTransition(async () => {
       let r: Result;
       try {
-        r = await submit(survey.id, question.id, optionId);
+        r = await submit(survey.id, question.id, optionId, text);
       } catch {
         r = { error: "Couldn't save that answer. Check your connection and try again." };
       }
@@ -86,13 +98,19 @@ export function SurveyModal({
         return;
       }
       setPicked(null);
+      setDraft("");
       setLocal((l) => [...l, question.id]);
       if (r.done) {
         setFinished(true);
-        toast.success("Thanks! Your answers help decide what's next for Progra.");
+        // A one-question survey that was skipped has nothing to thank for.
+        if (optionId !== TEXT_SKIPPED || total > 1) {
+          toast.success("Thanks! Your answers help decide what's next for Progra.");
+        }
       }
     });
   }
+
+  const words = cleanText(draft);
 
   return (
     // Controlled and never closed from inside: Escape asks onOpenChange(false),
@@ -146,44 +164,78 @@ export function SurveyModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div role="radiogroup" aria-label={question.prompt} className="flex flex-col gap-2">
-          {question.options.map((o) => {
-            const on = picked === o.id;
-            return (
+        {question.freeText ? (
+          <>
+            <textarea
+              aria-label={question.prompt}
+              className="text-ink border-control-border w-full rounded-[13px] border-[1.5px] px-3.5 py-2.5 text-[15px] leading-[1.5] outline-none placeholder:text-disabled disabled:opacity-60"
+              placeholder={question.freeText.placeholder}
+              maxLength={TEXT_MAX}
+              rows={4}
+              disabled={pending}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+            />
+            <div className="flex gap-2">
               <button
-                key={o.id}
                 type="button"
-                role="radio"
-                aria-checked={on}
                 disabled={pending}
-                onClick={() => setPicked(o.id)}
-                className={cn(
-                  "flex items-start gap-3 rounded-[15px] border-[1.5px] px-3.5 py-3 text-left transition-colors disabled:opacity-60",
-                  on
-                    ? "border-brand bg-[color-mix(in_oklab,var(--brand)_7%,transparent)]"
-                    : "border-control-border"
-                )}
+                onClick={() => commit(TEXT_SKIPPED)}
+                className="border-control-border text-ink h-12 rounded-[15px] border-[1.5px] px-5 text-sm font-semibold disabled:opacity-50"
               >
-                <span
-                  aria-hidden
-                  className={cn(
-                    "mt-[1px] flex size-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px]",
-                    on ? "border-brand" : "border-control-border"
-                  )}
-                >
-                  {on && <span className="bg-brand size-2 rounded-full" />}
-                </span>
-                <span className="text-ink text-[14px] leading-[1.45] text-pretty">
-                  {o.label}
-                </span>
+                Skip
               </button>
-            );
-          })}
-        </div>
+              <PrimaryButton
+                className="flex-1"
+                disabled={!words || pending}
+                onClick={() => words && commit(TEXT_ANSWERED, words)}
+              >
+                {pending ? "Saving…" : last ? "Submit" : "Next"}
+              </PrimaryButton>
+            </div>
+          </>
+        ) : (
+          <>
+            <div role="radiogroup" aria-label={question.prompt} className="flex flex-col gap-2">
+              {question.options.map((o) => {
+                const on = picked === o.id;
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    disabled={pending}
+                    onClick={() => setPicked(o.id)}
+                    className={cn(
+                      "flex items-start gap-3 rounded-[15px] border-[1.5px] px-3.5 py-3 text-left transition-colors disabled:opacity-60",
+                      on
+                        ? "border-brand bg-[color-mix(in_oklab,var(--brand)_7%,transparent)]"
+                        : "border-control-border"
+                    )}
+                  >
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "mt-[1px] flex size-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px]",
+                        on ? "border-brand" : "border-control-border"
+                      )}
+                    >
+                      {on && <span className="bg-brand size-2 rounded-full" />}
+                    </span>
+                    <span className="text-ink text-[14px] leading-[1.45] text-pretty">
+                      {o.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-        <PrimaryButton disabled={!picked || pending} onClick={next}>
-          {pending ? "Saving…" : last ? "Submit" : "Next"}
-        </PrimaryButton>
+            <PrimaryButton disabled={!picked || pending} onClick={() => picked && commit(picked)}>
+              {pending ? "Saving…" : last ? "Submit" : "Next"}
+            </PrimaryButton>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -281,7 +281,6 @@ export type NotificationStats = {
     social_pushes_off: number;
     nudges_off: number;
     clock_reminders_off: number;
-    habit_reminder_off: number;
     prefs_reported: number;
   };
   collecting_data: boolean;

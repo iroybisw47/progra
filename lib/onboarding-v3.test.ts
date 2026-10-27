@@ -65,8 +65,8 @@ describe("screens", () => {
 });
 
 describe("the notifications screen", () => {
-  const ALL = { clockReminders: true, habitReminders: true, socialPush: true, nudges: true, recapPush: true };
-  const NONE = { clockReminders: false, habitReminders: false, socialPush: false, nudges: false, recapPush: false };
+  const ALL = { clockReminders: true, socialPush: true, nudges: true, recapPush: true };
+  const NONE = { clockReminders: false, socialPush: false, nudges: false, recapPush: false };
 
   it("is shown only while iOS can still ask, and only with something to send", () => {
     const reasons = notifyReasons(ALL);
@@ -79,9 +79,9 @@ describe("the notifications screen", () => {
 
   it("lists only what this build sends", () => {
     expect(notifyReasons(NONE)).toEqual([]);
-    expect(notifyReasons(ALL)).toHaveLength(6);
-    expect(notifyReasons({ ...NONE, habitReminders: true })).toEqual([
-      "A daily reminder for your habits",
+    expect(notifyReasons(ALL)).toHaveLength(5);
+    expect(notifyReasons({ ...NONE, clockReminders: true })).toEqual([
+      "A reminder each hour you’re still clocked in",
     ]);
     // A nudge only buzzes with social pushes on.
     expect(notifyReasons({ ...NONE, nudges: true })).toEqual([]);

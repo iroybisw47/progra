@@ -15,11 +15,6 @@ import {
 } from "@/app/actions/profile";
 import { PrimaryButton } from "@/components/v2/primary-button";
 import { track } from "@/lib/analytics";
-import { HABIT_REMINDERS } from "@/lib/flags";
-import {
-  DEFAULT_HABIT_REMINDER_TIME,
-  setHabitReminderPref,
-} from "@/lib/habit-reminder-prefs";
 import { shareInvite } from "@/lib/invite-share";
 import { requestNotificationPermission } from "@/lib/notification-permission";
 import {
@@ -330,11 +325,6 @@ export function OnboardingClientV2({
     }
     void requestNotificationPermission().then((result) => {
       track("notification_permission_asked", { source: "onboarding", result });
-      // The habits they just saved get the default daily reminder, now that
-      // reminders can actually arrive.
-      if (result === "granted" && HABIT_REMINDERS && savedHabits.length > 0) {
-        setHabitReminderPref({ enabled: true, time: DEFAULT_HABIT_REMINDER_TIME });
-      }
       onward();
     });
   }

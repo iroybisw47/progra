@@ -82,13 +82,13 @@ export const PERMISSION_STATES = [
 ] as const;
 export const PERMISSION_SOURCES = ["onboarding", "settings", "live_timer"] as const;
 
-// The two on-device reminder toggles, as mirrored to profiles.reminder_prefs by
+// The on-device reminder toggle, as mirrored to profiles.reminder_prefs by
 // syncDeviceState. The clock-reminder pref is per session, so `clock_reminders_off`
 // is whether it is off for the session running right now (false when idle).
+// Rows written before 2026-10-21 also carry the retired habit_reminder_off /
+// habit_reminder_time.
 export type DevicePrefs = {
   clock_reminders_off: boolean;
-  habit_reminder_off: boolean;
-  habit_reminder_time: string;
 };
 export const NUDGE_REASONS = [
   "cooldown",
@@ -142,7 +142,6 @@ export type PropType =
   | "uuid"
   | "int"
   | "bool"
-  | "hhmm"
   | "local_key"
   | readonly string[];
 
@@ -203,8 +202,6 @@ export const EVENTS = {
   notification_permission_skipped: { source: PERMISSION_SOURCES, state: PERMISSION_STATES },
   notification_settings_opened: { source: PERMISSION_SOURCES, state: PERMISSION_STATES },
   clock_reminders_toggled: { enabled: "bool" },
-  habit_reminder_toggled: { enabled: "bool" },
-  habit_reminder_time_changed: { time: "hhmm" },
   social_pushes_toggled: { enabled: "bool" },
   nudges_toggled: { enabled: "bool" },
   // Local notifications exist only on the device, so scheduling and
@@ -303,7 +300,6 @@ export type ValidationResult =
   | { ok: true; name: AnalyticsEvent; props: CleanProps }
   | { ok: false; reason: string };
 
-const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 // local:<notification id>:<epoch ms>. The id is one of the reserved ranges in
 // lib/clock-reminders.ts / lib/habit-reminders.ts (four digits); the instant
 // is 13 digits for every date this app will ever see.
@@ -328,11 +324,6 @@ function checkValue(
   }
   if (type === "bool") {
     return typeof value === "boolean" ? { ok: true, value } : { ok: false };
-  }
-  if (type === "hhmm") {
-    return typeof value === "string" && HHMM_RE.test(value)
-      ? { ok: true, value }
-      : { ok: false };
   }
   if (type === "local_key") {
     return typeof value === "string" && LOCAL_KEY_RE.test(value)

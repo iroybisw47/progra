@@ -84,16 +84,6 @@ export const CLOCK_REMINDERS_FAST = CLOCK_REMINDERS_RAW === "fast";
 export const CLOCK_REMINDERS =
   envFlag(CLOCK_REMINDERS_RAW) || CLOCK_REMINDERS_FAST;
 
-// Master switch for the daily habit reminder: an on-device notification at a
-// user-chosen time (default 18:00) on days with unchecked habits. Ships dark
-// for the same reason CLOCK_REMINDERS did — default-on for everyone with
-// permission granted, so flipping it is a deliberate announcement, not a side
-// effect of a deploy.
-//
-// No "fast" mode: unlike the hourly nudge, the fire time is user-settable, so
-// it's tested by picking a time two minutes out.
-export const HABIT_REMINDERS = envFlag(process.env.NEXT_PUBLIC_HABIT_REMINDERS);
-
 // Master switch for server-sent social pushes ("X liked your session") AND
 // the Settings row that opts out of them. NEXT_PUBLIC_ per this file's
 // convention — the toggle row is client-gated, and the server-side sender

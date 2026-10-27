@@ -13,8 +13,7 @@ import {
   type FriendRelations,
 } from "@/lib/find-friends";
 import { clockHandoffHref } from "@/lib/clock-handoff";
-import { CLOCK_REMINDERS, HABIT_REMINDERS, NUDGES, RECAP_PUSH, SOCIAL_PUSH, STREAKS } from "@/lib/flags";
-import { enableHabitReminderDefault, habitDefaultOnGrant } from "@/lib/habit-reminder-prefs";
+import { CLOCK_REMINDERS, NUDGES, RECAP_PUSH, SOCIAL_PUSH, STREAKS } from "@/lib/flags";
 import { usePrefersReducedMotion } from "@/lib/hooks";
 import { handoffExitMs, type Box, type ItemPhase } from "@/lib/motion";
 import { markNavRise, sessionFlagStore } from "@/lib/nav-rise";
@@ -210,7 +209,6 @@ type Props = {
 // screen is never shown (notifyScreenShown).
 const NOTIFY_REASONS = notifyReasons({
   clockReminders: CLOCK_REMINDERS,
-  habitReminders: HABIT_REMINDERS,
   socialPush: SOCIAL_PUSH,
   nudges: NUDGES,
   recapPush: RECAP_PUSH,
@@ -735,9 +733,8 @@ export function OnboardingClientV3({
 
   // "Turn on notifications": iOS's dialog, then the hand-off to the Clock tab
   // however it was answered (a refusal must never hold anyone in
-  // onboarding), unless Back or the ✕ moved the wizard while it was up. A grant
-  // turns the daily habit reminder on, as v2's notify step did. The push
-  // token registers by itself once the permission store reads granted
+  // onboarding), unless Back or the ✕ moved the wizard while it was up. The
+  // push token registers by itself once the permission store reads granted
   // (components/push-registration.tsx).
   function askNotifications() {
     if (asking || screen !== SCREEN.notify) return;
@@ -748,7 +745,6 @@ export function OnboardingClientV3({
       .then(
         (result) => {
           services.track("notification_permission_asked", { source: "onboarding", result });
-          if (habitDefaultOnGrant(result, HABIT_REMINDERS)) enableHabitReminderDefault();
         },
         () => {}
       )

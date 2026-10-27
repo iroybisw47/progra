@@ -14,9 +14,10 @@ export function SurveyPreviewClient({ fail, at }: { fail: boolean; at: number })
   // Boxed: useState would call a bare function value as its initializer.
   const [{ submit }] = useState<{ submit: SurveyAnswerFn }>(() => {
     const seen = new Set(answered);
-    const submit: SurveyAnswerFn = async (surveyId, questionId, optionId) => {
+    const submit: SurveyAnswerFn = async (surveyId, questionId, optionId, text) => {
       await new Promise((r) => setTimeout(r, 150));
-      setLog((l) => [...l, `${fail ? "FAILED " : ""}answerSurvey("${surveyId}", "${questionId}", "${optionId}")`]);
+      const words = text ? `, ${JSON.stringify(text)}` : "";
+      setLog((l) => [...l, `${fail ? "FAILED " : ""}answerSurvey("${surveyId}", "${questionId}", "${optionId}"${words})`]);
       if (fail) return { error: "Couldn't save that answer. Try again." };
       seen.add(questionId);
       return { ok: true, done: SURVEY?.questions.every((q) => seen.has(q.id)) ?? true };

@@ -35,7 +35,6 @@ import {
   CALENDAR_CONNECT,
   CLOCK_REMINDERS,
   DARK_MODE,
-  HABIT_REMINDERS,
   NUDGES,
   RALLY,
   RECAP_PUSH,
@@ -43,11 +42,6 @@ import {
   STREAKS,
   UW,
 } from "@/lib/flags";
-import {
-  habitReminderPref,
-  setHabitReminderPref,
-} from "@/lib/habit-reminder-prefs";
-import { useHabitReminderPref } from "@/lib/use-habit-reminder-pref";
 import { useAppearance } from "@/lib/use-appearance";
 import type { AppearancePref } from "@/lib/appearance";
 import {
@@ -821,7 +815,7 @@ function NotificationsSection({
 }) {
   const permission = useNotificationPermission();
 
-  if (!CLOCK_REMINDERS && !HABIT_REMINDERS && !SOCIAL_PUSH) return null;
+  if (!CLOCK_REMINDERS && !SOCIAL_PUSH) return null;
   if (permission === null || permission === "unavailable") return null;
 
   const value =
@@ -860,11 +854,6 @@ function NotificationsSection({
       {CLOCK_REMINDERS && (
         <Row label="Clock reminders" value={value} onClick={onClick} />
       )}
-      {/* Not gated on CLOCK_REMINDERS — the permission plumbing above is
-          shared, but the habit reminder is its own feature. Only shown once
-          granted: until then the ask/denied rows above govern everything,
-          and a time picker for notifications that can't arrive is noise. */}
-      {HABIT_REMINDERS && permission === "granted" && <HabitReminderRow />}
       {/* Account-level (the server sends these, and servers know accounts,
           not phones) — but only shown once granted, like the rows above: a
           toggle for notifications that can't arrive here is noise. */}
@@ -917,56 +906,6 @@ function ToggleRow({
     </div>
   );
 }
-
-// The daily habit reminder: on/off and the fire time, both per-device
-// (lib/habit-reminder-prefs.ts — scheduled on the device, so the preference is
-// a statement about this phone). Defaults to on at 18:00, which makes this row
-// the way out for anyone who never chose in onboarding.
-function HabitReminderRow() {
-  const pref = useHabitReminderPref();
-
-  return (
-    <>
-      <ToggleRow
-        label="Daily habit reminder"
-        ariaLabel="Daily habit reminder"
-        checked={pref.enabled}
-        onCheckedChange={(next) => {
-          // habitReminderPref() re-read rather than closing over `pref`, so
-          // a toggle right after a time change can't resurrect a stale time.
-          setHabitReminderPref({ ...habitReminderPref(), enabled: next });
-          track("habit_reminder_toggled", { enabled: next });
-        }}
-      />
-      {pref.enabled && (
-        <Inset>
-          <div className="flex items-center gap-3">
-            <span className="text-caption flex-1 text-xs leading-relaxed text-pretty">
-              On days you haven&rsquo;t checked off all your habits, at
-            </span>
-            <input
-              type="time"
-              aria-label="Habit reminder time"
-              value={pref.time}
-              onChange={(e) => {
-                // <input type="time"> can emit "" mid-edit (a cleared field);
-                // keep the previous time rather than storing garbage.
-                if (!e.target.value) return;
-                setHabitReminderPref({
-                  ...habitReminderPref(),
-                  time: e.target.value,
-                });
-                track("habit_reminder_time_changed", { time: e.target.value });
-              }}
-              className="border-control-border text-ink shrink-0 rounded-[11px] border-[1.5px] px-2.5 py-1.5 text-[13px] font-medium tabular-nums"
-            />
-          </div>
-        </Inset>
-      )}
-    </>
-  );
-}
-
 
 // Whether friends may nudge you (with RALLY on, rally you). Distinct from the
 // push toggle above it: this one decides whether it happens at all, that one

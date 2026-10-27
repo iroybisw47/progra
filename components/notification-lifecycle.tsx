@@ -8,13 +8,12 @@ import { endLiveActivity } from "@/lib/live-activity-sync";
 
 // Clears every scheduled local notification when the signed-in user goes away.
 //
-// THE BUG THIS FIXES: clock and habit reminders are wall-clock scheduled on the
-// device and nothing expires them on its own. SyncClockReminders/
-// SyncHabitReminders keep them in step while someone is signed in — but both
-// are gated on `user`, so signing out or deleting an account simply UNMOUNTS
-// them. Nothing cancels. The phone then goes on firing "Still going?" and
-// "3 habits left today" for an account that no longer exists, for up to a week
-// in the habit family's case.
+// THE BUG THIS FIXES: clock reminders are wall-clock scheduled on the device
+// and nothing expires them on its own. SyncClockReminders keeps them in step
+// while someone is signed in — but it is gated on `user`, so signing out or
+// deleting an account simply UNMOUNTS it. Nothing cancels. The phone then goes
+// on firing "Still going?" for an account that no longer exists. (The retired
+// habit family is cleared here too, for whatever an older build left queued.)
 //
 // It also covers the shared-device case: user A signs out, user B signs in, and
 // without this B receives A's reminders.

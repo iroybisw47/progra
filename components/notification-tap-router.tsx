@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { track } from "@/lib/analytics";
-import { CLOCK_REMINDERS, HABIT_REMINDERS, SOCIAL_PUSH } from "@/lib/flags";
+import { CLOCK_REMINDERS, SOCIAL_PUSH } from "@/lib/flags";
 import { isHabitReminderId } from "@/lib/habit-reminders";
 import {
   localNotificationsPlugin,
@@ -17,7 +17,8 @@ import { reminderTypeForId } from "@/lib/telemetry/reminder-diff";
 // the notification's reserved id — two leaves each attaching their own
 // listener would both fire on every tap and race their pushes.
 //
-// Habit reminders open the dashboard, where the habit checklist lives. Clock
+// Habit reminders (retired, but one may still sit in Notification Center)
+// open the dashboard, where the habit checklist lives. Clock
 // reminders (and anything unrecognised — the tap must go SOMEWHERE) open the
 // live timer; a tap can arrive after the session ended, and /clock/live
 // already redirects to /clock when there's nothing running.
@@ -29,7 +30,7 @@ export function NotificationTapRouter() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!CLOCK_REMINDERS && !HABIT_REMINDERS) return;
+    if (!CLOCK_REMINDERS) return;
     let handle: { remove: () => void } | null = null;
     let cancelled = false;
 

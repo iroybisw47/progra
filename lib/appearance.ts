@@ -2,7 +2,7 @@ import { setStatusBarText, type StatusBarText } from "@/lib/status-bar";
 
 // Light or dark, on THIS device (design_handoff_dark_mode §4.4).
 //
-// Per-device rather than an account setting, like lib/habit-reminder-prefs.ts:
+// Per-device rather than an account setting, like lib/reminder-prefs.ts:
 // it's a statement about this phone (whose system appearance "System" follows),
 // so there's no column, no server action and nothing threaded through the root
 // layout's data fetch. The default — unset, garbage, storage unavailable — is

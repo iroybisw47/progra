@@ -14,18 +14,36 @@ Repo-specific gotchas for future syncs.
     original Windows `New-Item -ItemType Junction` has no equivalent here and
     isn't needed — esbuild follows the symlink fine).
   - Windows: `New-Item -ItemType Junction`.
-- **`server-only` must be stubbed.** `lib/db/*` imports the `server-only`
-  package, which the repo never installs directly — Next ships its own copy at
-  `next/dist/compiled/server-only`, and that copy's `index.js` **throws by
-  design**. Either way the bundle won't build. Fix: create a no-op package at
-  `node_modules/server-only/` (`package.json` + empty `index.js`). Machine
-  state — recreate on a fresh clone. It's safe because `.design-sync/entry.ts`
-  only exposes the client-safe surface, so nothing server-coupled is reached.
+- **Server edges are stubbed through `cfg.tsconfig`, not by excluding
+  components** (2026-10-08). `cfg.tsconfig` points at
+  `.design-sync/tsconfig.json`, whose `paths` send `@/app/actions/<mod>` to
+  `.design-sync/stubs/actions/<mod>.ts` and `next/navigation` to
+  `stubs/next-navigation.ts`, ahead of the catch-all `@/*` rule. The builder's
+  tsconfig-paths plugin takes the FIRST matching rule in key order and falls
+  through to the next on a miss — so an action module with no stub file
+  silently resolves to the REAL action and drags `lib/supabase/server` into
+  the bundle. Each stub is typed against the real action with an
+  `import type * as real` (erased by esbuild), which is how two return-shape
+  mismatches (`reacted` on the kudos toggles) were caught. Check after any
+  entry change: no `app/actions`, `lib/db` or `lib/supabase` path in the
+  bundle metafile's inputs.
+  - Consequence: the old `node_modules/server-only` no-op package is no longer
+    needed — nothing reaches `lib/db` values any more (type-only imports are
+    erased). Don't recreate it.
+  - The tsconfig's comments must not contain a slash-star pair: the plugin
+    strips block comments with a regex before `JSON.parse`.
+  - Still excluded (`null`): anything that reads on the server or is a whole
+    screen — ProgressClient, FeedV2, Manage*, CommentThreads, etc.
 - **process shim**: `next/link` / `next/navigation` internals read
   `process.env.__NEXT_*` at module scope; `.design-sync/process-shim.ts` (the
   entry's first import) defines `globalThis.process` so the bundle evaluates
   in the browser. Without it `window.Progra` comes up empty and every card
   errors `process is not defined`.
+  It also sets the PRODUCTION flags (`NEXT_PUBLIC_REDESIGN=1`,
+  `NEXT_PUBLIC_SOCIAL_ENABLED=1`). Without them `lib/flags` reads false and
+  BottomNav renders the retired Home/Search/Goals/Habits tabs — which is what
+  the August sync shipped. Keep it in step with the flags prod runs; leave
+  `NEXT_PUBLIC_ANALYTICS` unset so `track()` stays a no-op.
 - **CSS is compiled per-sync**: `cfg.buildCmd` runs the Tailwind v4 CLI over
   `app/globals.css` into `.design-sync/.cache/tailwind-compiled.css`
   (`cfg.cssEntry`). Consequence: **only utility classes the app itself uses
@@ -47,10 +65,11 @@ Repo-specific gotchas for future syncs.
 - **`_vendor/` filenames** are `react.js` and `react-dom.js` — not the
   `*.production.min.js` names the layout docs suggest. Build the upload list
   from the live `ds-bundle/` tree, never from remembered names.
-- **Excluded components** (import server actions / Supabase): WeeklyHabits,
-  RecapCard, GoalPicker, HomeActions, SessionDialog,
-  CategorizationReviewDialog, CategorizeEventsButton, CategorizePeriodButton,
-  EventCategoryDialog, SyncCalendarButton, EnsureProfileSync.
+- **Excluded components** — see the `null` entries in `cfg.componentSrcMap`.
+  **Retired 2026-10-08:** WeekStrip, Tabs, Separator (nothing in the app
+  imports them) and WeekBreakdown (only the pre-REDESIGN screens do). Keeping
+  dead components in the DS invites mockups built from patterns the app no
+  longer has.
 - **Overlay/fixed overrides**: Dialog / AlertDialog / Toaster / BottomNav have
   `cardMode: single` (+ viewports) in `cfg.overrides` — Dialog family renders
   open-state via portals, BottomNav is `position: fixed`.
@@ -83,23 +102,59 @@ Repo-specific gotchas for future syncs.
   crashed the tab matchers — this fix is what makes BottomNav usable in
   Claude Design at all.
 - Generated `.d.ts` are untyped (`[key: string]: unknown`) — prop shapes come
-  from `components/*.tsx` sources. Data shapes: `WeekStrip.markedDates` =
-  `Set<"YYYY-MM-DD">` (Mon-first weeks); `WeekBreakdown` rows =
-  `CategoryBreakdownRow` (`lib/aggregate.ts`; goal rows use
-  `color: "var(--primary)"`, names prefixed `"Goal: "`); `CategoryPicker`
-  takes `lib/storage.ts` `Category` with hexes from `lib/category-colors.ts`
-  (12 fixed; `color: null` valid). `CategoryMarker` with `color=null,
-  isGoal=false` renders nothing by design.
+  from `components/*.tsx` sources. Type-check previews against the real types
+  before building, with a throwaway tsconfig that maps `progra` →
+  `.design-sync/entry.ts` and `@/app/actions/*` → the stubs (the app's own
+  `tsc` never sees `.design-sync/` — dot-directories fall outside its glob).
+  The PageSkeleton preview sat broken from August to October because nothing
+  checked it. ESLint DOES lint `.design-sync/`: read `Date.now()` at module
+  scope in previews, never during render (react-hooks/purity).
+- Use current palette hexes (`lib/palette.ts`) in fixtures, and pass goal
+  `color`s — GoalQuotaRows falls back to an id-derived hue without one.
+- `CategoryMarker` with `color=null` renders nothing by design.
+
+- Fixture dates: build day-anchored timestamps at **noon UTC**
+  (`Date.UTC(y, m, d, 12)`). UTC midnight renders as the previous day in
+  every US timezone — the RecapFeedCard preview read "Week of Sep 27" (a
+  Sunday; weeks start Monday) until this was fixed.
+- Fixture data is uploaded and browsed by people: fictional names and
+  `example.com` addresses only. The August Label preview shipped a
+  real-looking address (`…@quantluxdigital.io`); replaced 2026-10-08.
+- Visually inert states don't get a cell. ToggleSwitch's `disabled` blocks
+  taps but doesn't dim, so a Disabled cell photographed identically to Off.
+- WeekPulse is captured at its first frame (the staggered `bar-pulse`
+  delays haven't started), so its bars read as full-height squares. That IS
+  the app's first paint at the app's real width (200px, done-splash) —
+  graded good, not a bug.
+- FriendsLeaderboard's "resets in …" reads the live clock (`useNowMinute`);
+  it changes pixels between runs but grades follow sources, so it never
+  invalidates.
+
+- **`cfg.guidelinesGlob` is pinned to `docs/SCREENS.md`.** The default
+  (`docs/*.md`, …) swept in the App Store review docs added to `docs/` after
+  the August sync — including `app-review-demo-account.md` — and they would
+  have shipped into the design project. Anything new in `docs/` stays local
+  unless it is added to the glob on purpose.
 
 ## Known render warns
 
-- `[RENDER_THIN]` on **Dialog, AlertDialog, Toaster** (`maxHeight: 0`) —
+- `[RENDER_THIN]` on **Dialog, AlertDialog, Toaster, BottomSheet,
+  WhatsNewModal** (`maxHeight: 0`) —
   their content renders in portals outside the measured root; the screenshots
   (9–21KB) show full dialogs/toasts and all cells are graded good. Legitimate,
   expected on every sync.
 
 ## Re-sync risks
 
+- **`conventions.md` is ~13.7k chars** — well past the skill's 2–4k
+  guidance but deliberately so (it carries the token tables, palette and a
+  full screen example the design agent needs). The README is ~16k, inside the
+  ~32k inline window; if the component count grows a lot, watch the build's
+  size warning and trim the header's tables first.
+- Fetch the real `_ds_sync.json` from the project before trusting a diff.
+  On 2026-10-08 verification first ran against the local August copy (no
+  DesignSync auth yet); the real anchor turned out identical, but that is luck,
+  not a guarantee.
 - **`conventions.md` is hand-written prose and does not track the tokens.**
   It went stale exactly this way once: it described the pre-V2 palette
   ("warm, paper-like, cream surfaces, deep-teal brand `#355a52`") long after
@@ -110,9 +165,9 @@ Repo-specific gotchas for future syncs.
   verbatim into the README the design agent reads, a stale palette misdirects
   the brand of every design built from it. **On each re-sync, diff its colour
   claims against `app/globals.css` `:root` before uploading.**
-- The `node_modules/progra` symlink (junction on Windows), the `server-only`
-  stub, and `.ds-sync/` staging are all machine state — recreate all three on
-  a fresh clone before running the driver.
+- The `node_modules/progra` symlink (junction on Windows) and `.ds-sync/`
+  staging are machine state — recreate both on a fresh clone before running
+  the driver.
 - The compiled Tailwind CSS goes stale whenever `app/globals.css` or app
   class usage changes — `cfg.buildCmd` must run before the converter on every
   re-sync (the driver does this when configured).
@@ -122,4 +177,8 @@ Repo-specific gotchas for future syncs.
   `app/layout.tsx` (Hanken 300–700, Newsreader 400–600 + italic) — update it
   if the app's font config changes.
 - New components added under `components/` do NOT auto-appear: add them to
-  `.design-sync/entry.ts` AND `cfg.componentSrcMap` (client-safe only).
+  `.design-sync/entry.ts` AND `cfg.componentSrcMap`, author a preview, and if
+  the component calls a server action, add a stub file for that module.
+- Groups in the DS pane follow source folders: `components/v2/*` → **v2**,
+  everything else → **general**. `conventions.md` tells the design agent to
+  prefer **v2**; moving a component between folders changes its group.

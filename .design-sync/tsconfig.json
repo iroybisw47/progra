@@ -1,0 +1,21 @@
+{
+  // design-sync ONLY (cfg.tsconfig). The builder's tsconfig-paths plugin tries
+  // these rules in key order, first match wins — so the two stub rules must
+  // stay ABOVE the catch-all "@/" rule. They swap the server-only edges of the app for inert
+  // browser stand-ins, so components that call a server action or read the
+  // router can still be bundled and rendered as design cards:
+  //   @/app/actions/<mod> → stubs/actions/<mod>.ts (one file per module;
+  //                      a missing stub falls through to the REAL action and
+  //                      drags lib/supabase/server into the bundle)
+  //   next/navigation  → stubs/next-navigation.ts (useRouter throws outside an
+  //                      app router; BackButton and the nudges call it)
+  // The app's own tsconfig.json is untouched and never sees this file.
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/app/actions/*": ["./stubs/actions/*"],
+      "next/navigation": ["./stubs/next-navigation.ts"],
+      "@/*": ["../*"]
+    }
+  }
+}
