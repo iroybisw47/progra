@@ -242,8 +242,9 @@ export function surveyById(id: string | null | undefined): Survey | null {
 }
 
 // The pricing survey was switched off 2026-10-22; the value survey ran
-// 2026-10-24 to 2026-10-27, then this one. null asks nobody.
-export const SURVEY: Survey | null = FEATURE_SURVEY;
+// 2026-10-24 to 2026-10-27, and the feature-request one was switched off the
+// same day it shipped. null asks nobody.
+export const SURVEY: Survey | null = null;
 
 // What the gate reads off the profile. Optional for the reason uw_prompt is on
 // Profile: before the SQL runs PostgREST leaves survey_done out.

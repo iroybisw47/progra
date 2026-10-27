@@ -120,8 +120,8 @@ describe("cleanText", () => {
 // A survey's keys are what survey.sql's CHECK admits and what the dashboard
 // groups by, whether or not it's still being asked.
 describe("SURVEYS", () => {
-  it("asks the feature-request survey, the newest", () => {
-    expect(SURVEY).toBe(FEATURE_SURVEY);
+  it("asks nobody (switched off 2026-10-27); the newest is the feature-request survey", () => {
+    expect(SURVEY).toBeNull();
     expect(LATEST_SURVEY).toBe(FEATURE_SURVEY);
   });
 

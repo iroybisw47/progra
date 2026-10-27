@@ -7,6 +7,10 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-27
 
+### 16:00 · The feature-request survey is switched off
+`SURVEY` is `null` again, at the owner's request, so nobody is asked, including anyone partway through. `FEATURE_SURVEY` stays first in `SURVEYS`, so its answers so far still show on the admin Survey tab. No SQL; `text_answer` and the stored answers are untouched.
+- **Gate:** tsc and eslint are clean, vitest passes 1498/1498, and the build passes.
+
 ### 15:22 · A new survey: one open question, with a Skip
 "What feature would you like to be added to Progra?", with a text box. It's `FEATURE_SURVEY` (`id` `2026-10-feature-request`) in `lib/survey.ts`, and `SURVEY` points at it. The id is new, so everyone is asked again. Anyone partway through the value survey stops being asked it.
 - **Free-text questions** are new to the survey: `textQuestion()` gives a question a text box (max 1000 chars) plus Skip and Submit buttons. Skipping counts as the answer, and the survey is then done. Multiple-choice questions still have no skip.
