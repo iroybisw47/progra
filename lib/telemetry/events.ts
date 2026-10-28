@@ -80,7 +80,13 @@ export const PERMISSION_STATES = [
   // What the onboarding step reports when it never looked.
   "unknown",
 ] as const;
-export const PERMISSION_SOURCES = ["onboarding", "settings", "live_timer"] as const;
+export const PERMISSION_SOURCES = [
+  "onboarding",
+  "settings",
+  "live_timer",
+  // The "Turn on notifications?" sheet on Progress (NOTIFY_PROMPT).
+  "prompt_sheet",
+] as const;
 
 // The on-device reminder toggle, as mirrored to profiles.reminder_prefs by
 // syncDeviceState. The clock-reminder pref is per session, so `clock_reminders_off`

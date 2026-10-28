@@ -299,6 +299,13 @@ export const STREAKS = envFlag(process.env.NEXT_PUBLIC_STREAKS);
 // capacitor.config.ts).
 export const DARK_MODE = envFlag(process.env.NEXT_PUBLIC_DARK_MODE);
 
+// Master switch for the "Turn on notifications?" sheet on Progress
+// (components/v2/notify-prompt-on-load.tsx, lib/notify-prompt.ts): native
+// members who never answered iOS's dialog get the one-tap ask, and those who
+// said no get a route to iOS Settings. Up to three times, a week apart, never
+// on the first day. Web-only, no SQL, no binary.
+export const NOTIFY_PROMPT = envFlag(process.env.NEXT_PUBLIC_NOTIFY_PROMPT);
+
 // How long an "hour" is for the hourly nudge. Only ever anything else in test
 // mode; lib/clock-reminders.ts stays pure and takes this as an argument rather
 // than reading the flag itself.

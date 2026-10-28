@@ -27,6 +27,7 @@ import { PlanCompleteModal } from "@/components/v2/plan-complete-modal";
 import { WhatsNewModal } from "@/components/v2/whats-new-modal";
 import { UwPromptOnLoad } from "@/components/v2/uw-prompt-on-load";
 import { SurveyModal } from "@/components/v2/survey-modal";
+import { NotifyPromptOnLoad } from "@/components/v2/notify-prompt-on-load";
 import {
   getActiveSession,
   getUnreviewedPlanComplete,
@@ -37,6 +38,7 @@ import {
   DARK_MODE,
   FRIENDS_V3,
   LIVE_ACTIVITY,
+  NOTIFY_PROMPT,
   UW,
 } from "@/lib/flags";
 import { APPEARANCE_SCRIPT, THEME_COLOR } from "@/lib/appearance";
@@ -321,6 +323,21 @@ export default async function RootLayout({
       {user && uwPrompt.sheet && !planComplete && !showSurvey && !patchNote && (
         <UwPromptOnLoad groupsLive={FRIENDS_V3} />
       )}
+      {/* "Turn on notifications?" (lib/notify-prompt.ts), last in line behind
+          everything above. The profile's mirrored permission is only a
+          pre-filter, so a member whose phone already said yes isn't sent the
+          chunk; the leaf reads the real permission and its own schedule on the
+          device. */}
+      {user &&
+        NOTIFY_PROMPT &&
+        profile?.onboarded_at != null &&
+        profile.notification_permission !== "granted" &&
+        !planComplete &&
+        !showSurvey &&
+        !patchNote &&
+        !uwPrompt.sheet && (
+          <NotifyPromptOnLoad onboardedAt={profile.onboarded_at} />
+        )}
       {/* Flat primitives again: an object literal is a fresh reference every
           render and would re-sync the device's notification schedule on every
           layout render. Only these five are needed — clockReminders reads

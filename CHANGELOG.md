@@ -5,6 +5,22 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-28
+
+### 13:07 · A "Turn on notifications?" sheet, behind `NOTIFY_PROMPT` (dark)
+For members whose phone has never answered the iOS notification dialog (36 in prod by the mirrored `profiles.notification_permission`), plus the one who said no.
+- **The sheet** (`components/v2/notify-prompt-on-load.tsx`), on Progress only:
+  - **Never asked:** "Turn on notifications?", then one line naming what they'd get, then **Turn on notifications** (the real iOS dialog, legal caller #5) and **Not now**.
+  - **Said no:** "Notifications are off", the same line plus "iOS only asks once…", then **Open Settings** and **Not now**.
+  - Granted, or the website: nothing.
+- **The line is built from the flags** (`notifyPromptBody`, `lib/notify-prompt.ts`), so it never promises a notification nobody sends. "a heads-up when your clock-in time is up" needs `CLOCK_REMINDERS`. "a reminder before your streak breaks" needs `STREAKS` + `SOCIAL_PUSH`. The friend ping needs `SOCIAL_PUSH` and reads "cheers you on" under `RALLY`, "nudges you" under `NUDGES`, and otherwise "likes your session". With none of them on, no sheet.
+- **When:** stored per device in `localStorage`, so no SQL. Never in the first 24h after onboarding (they just saw onboarding's own ask), then at most 3 times, 7 days apart. Every close path counts as a showing.
+- **Queue:** last in line behind the plan-complete modal, the survey, the release note and the UW prompt, and it defers under the weekly-review takeover. The layout skips mounting it when the profile already says `granted`.
+- **Telemetry:** a new `prompt_sheet` source on `notification_permission_asked` / `_skipped` / `notification_settings_opened`, so the dashboard can show this sheet's grant rate. TS-only; the ingest has no SQL check on it.
+- A grant registers the phone for push in the same session: `PushRegistration` is keyed on the permission store.
+- **Gate:** tsc and eslint (changed files) are clean, vitest passes 1509/1509 (11 new in `lib/notify-prompt.test.ts`), the build passes with the flag on, and signed-out `/`, `/login`, `/terms` and `/support` return 200. **Not checked on a device.** The sheet only renders where the native plugin answers, so it can't be seen in a desktop browser.
+- **To ship:** set `NEXT_PUBLIC_NOTIFY_PROMPT=1` in Vercel and deploy.
+
 ## 2026-10-27
 
 ### 16:00 · The feature-request survey is switched off

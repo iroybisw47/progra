@@ -11,7 +11,7 @@ import { localNotificationsPlugin } from "@/lib/native-plugins";
 //
 // So the read and the ask are separate functions. Everything that merely wants
 // to know the state calls checkNotificationPermission(), which CANNOT prompt.
-// Only the four gesture-driven surfaces call requestNotificationPermission().
+// Only the five gesture-driven surfaces call requestNotificationPermission().
 
 export type NotifyPermission =
   | "granted"
@@ -94,6 +94,8 @@ export async function checkNotificationPermission(): Promise<NotifyPermission> {
 //   4. onboarding v3's "Turn on notifications" CTA, on its notifications
 //      screen (onboarding-client-v3.tsx askNotifications, through
 //      services.askNotifications)
+//   5. the "Turn on notifications?" sheet's CTA on Progress
+//      (components/v2/notify-prompt-on-load.tsx, NOTIFY_PROMPT)
 //
 // Checks first and returns early unless the state is `prompt`. Without that, a
 // stray call on an already-denied device resolves to "denied" having shown
