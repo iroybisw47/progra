@@ -9,6 +9,8 @@ import { appleDisplayName } from "@/lib/auth/apple-name";
 import { buildNonce } from "@/lib/auth/nonce";
 import { useIsNativeApp } from "@/lib/use-is-native-app";
 
+import { cn } from "@/lib/utils";
+
 import { AUTH_BUTTON } from "./auth-button";
 
 // MODULE scope, not component state: at most one native sign-in at a time. A
@@ -36,6 +38,7 @@ export function AppleSignInButton({
   locked = false,
   onLocked,
   describedBy,
+  className,
 }: {
   next?: string;
   // Inviter's username, carried through so the action can call claim_invite.
@@ -47,6 +50,8 @@ export function AppleSignInButton({
   locked?: boolean;
   onLocked?: () => void;
   describedBy?: string;
+  // Onboarding v4's sign-in draws it taller (app/login/sign-in-v4.tsx).
+  className?: string;
 }) {
   const [loading, setLoading] = useState(false);
   const isNative = useIsNativeApp();
@@ -143,7 +148,7 @@ export function AppleSignInButton({
       type="button"
       // Same height as the Google button — 4.8 asks for equal prominence, and
       // the two sit directly above one another.
-      className={`${AUTH_BUTTON} bg-black text-white`}
+      className={cn(`${AUTH_BUTTON} bg-black text-white`, className)}
       onClick={handleClick}
       disabled={loading}
       aria-disabled={locked || undefined}

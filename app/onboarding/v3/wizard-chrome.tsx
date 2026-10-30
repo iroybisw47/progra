@@ -48,6 +48,7 @@ export function WizardChrome({
   avatar,
   leaving = false,
   progress = { at: screen, of: SCREEN_COUNT },
+  fill: fillOverride,
 }: {
   screen: number;
   // The welcome form is in front: no top row but a replayer's ✕. Screen 1
@@ -61,9 +62,12 @@ export function WizardChrome({
   avatar: { name: string; colorKey: string; photoUrl: string | null };
   leaving?: boolean;
   progress?: { at: number; of: number };
+  // The bar's fill (0-1) where it isn't a whole step: onboarding v4's "How
+  // Progra works" creeps through its four steps (lib/onboarding-v4.ts).
+  fill?: number;
 }) {
   const step = Math.min(progress.at + 1, progress.of);
-  const fill = (step / progress.of).toFixed(4);
+  const fill = (fillOverride ?? step / progress.of).toFixed(4);
   const backMotion = reduced
     ? "opacity 200ms linear"
     : `opacity 260ms ${EASING.E}, transform 460ms ${EASING.E}`;

@@ -227,6 +227,18 @@ export const UW = envFlag(process.env.NEXT_PUBLIC_UW);
 export const ONBOARDING_V3 =
   envFlag(process.env.NEXT_PUBLIC_ONBOARDING_V3) && REDESIGN;
 
+// Master switch for onboarding v4 (design_handoff_onboarding_v4): the
+// live-feed sign-in screen, then eight steps (the welcome, goals with a color
+// each, daily habits, "How Progra works", a practice clock-in and post, the UW
+// question moved after the post, find your friends, notifications last). On,
+// it wins over ONBOARDING_V3 at `/` (first run, and the signed-out sign-in),
+// `/onboarding` (Replay) and `/login`. Off, v3 and v2 run exactly as today.
+//
+// Implies REDESIGN, as v3 does. NEEDS NO SQL: goal colors go in goals.color,
+// habit colors in habits.color, through the actions that already write them.
+export const ONBOARDING_V4 =
+  envFlag(process.env.NEXT_PUBLIC_ONBOARDING_V4) && REDESIGN;
+
 // Master switch for the v3 Friends tab: search, the breathing invite button,
 // Requests, the UW groups and "Your friends" with this week's hours, in the
 // same visual language as onboarding v3's find-your-friends screen. Off,

@@ -19,11 +19,16 @@ function BottomSheetContent({
   children,
   title,
   meta,
+  header,
   ...props
 }: DialogPrimitive.Popup.Props & {
   // Rendered as the sheet's serif title next to an optional right-hand caption.
   title: string;
   meta?: string;
+  // Replaces that title row for a sheet laid out its own way (onboarding v4's
+  // goal color sheet). It must render a BottomSheetTitle, which names the
+  // dialog; `title` is then unused.
+  header?: React.ReactNode;
 }) {
   const popupRef = React.useRef<HTMLDivElement>(null);
 
@@ -84,15 +89,17 @@ function BottomSheetContent({
           <div className="bg-warm-border mx-auto h-1 w-[38px] rounded-full" />
         </div>
 
-        <div className="flex flex-none items-baseline gap-2.5 pb-3.5">
-          <DialogPrimitive.Title className="font-serif text-[21px] leading-none font-medium tracking-[-0.01em]">
-            {title}
-          </DialogPrimitive.Title>
-          <span className="flex-1" />
-          {meta && (
-            <span className="text-faint text-xs whitespace-nowrap">{meta}</span>
-          )}
-        </div>
+        {header ?? (
+          <div className="flex flex-none items-baseline gap-2.5 pb-3.5">
+            <DialogPrimitive.Title className="font-serif text-[21px] leading-none font-medium tracking-[-0.01em]">
+              {title}
+            </DialogPrimitive.Title>
+            <span className="flex-1" />
+            {meta && (
+              <span className="text-faint text-xs whitespace-nowrap">{meta}</span>
+            )}
+          </div>
+        )}
 
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
           {children}
@@ -111,8 +118,12 @@ function BottomSheetContent({
   );
 }
 
+function BottomSheetTitle({ ...props }: DialogPrimitive.Title.Props) {
+  return <DialogPrimitive.Title data-slot="bottom-sheet-title" {...props} />;
+}
+
 function BottomSheetClose({ ...props }: DialogPrimitive.Close.Props) {
   return <DialogPrimitive.Close data-slot="bottom-sheet-close" {...props} />;
 }
 
-export { BottomSheet, BottomSheetClose, BottomSheetContent };
+export { BottomSheet, BottomSheetClose, BottomSheetContent, BottomSheetTitle };

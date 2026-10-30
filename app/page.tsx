@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { TrackView } from "@/components/track-view";
 import { AddToHomeHint } from "@/components/add-to-home-hint";
 import { SignInButtons } from "@/app/login/sign-in-buttons";
+import { SignInV4 } from "@/app/login/sign-in-v4";
 import { Dashboard } from "@/components/dashboard";
 import { Feed } from "@/components/feed";
 import { ProgressClient } from "@/components/v2/progress-client";
@@ -12,10 +13,11 @@ import { RecapGround } from "@/components/recap-story/recap-ground";
 import { RecapStoryV2 } from "@/components/recap-story/recap-story-v2";
 import { OnboardingClientV2 } from "@/app/onboarding/onboarding-client-v2";
 import { OnboardingClientV3 } from "@/app/onboarding/onboarding-client-v3";
+import { OnboardingClientV4 } from "@/app/onboarding/onboarding-client-v4";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
-import { ONBOARDING_V3, RECAP_V2, REDESIGN, SOCIAL_ENABLED, UW } from "@/lib/flags";
+import { ONBOARDING_V3, ONBOARDING_V4, RECAP_V2, REDESIGN, SOCIAL_ENABLED, UW } from "@/lib/flags";
 import { isJohnUser } from "@/lib/john/cohort";
 import { getFriendRelations } from "@/lib/db/friends";
 import { listActiveGoals } from "@/lib/db/goals";
@@ -76,7 +78,29 @@ export default async function Page({
     // or an /i/ link's request to the inviter) and anyone already a friend.
     // And with UW on, the profile's UW answer: one reloaded after the UW
     // sheet saved Yes finds it open on the bar rather than asking again (P9c).
+    //
+    // ONBOARDING_V4 wins over v3 and reads the same things.
     if (!profile?.onboarded_at) {
+      if (ONBOARDING_V4) {
+        const [goals, habits, relations] = await Promise.all([
+          listActiveGoals(),
+          listActiveHabits(),
+          getFriendRelations(),
+        ]);
+        return (
+          <OnboardingClientV4
+            initialUsername={profile?.username ?? ""}
+            initialDisplayName={profile?.display_name ?? null}
+            avatarUrl={avatarPublicUrl(profile?.avatar_path ?? null)}
+            replay={false}
+            existingGoals={accountGoalsFrom(goals)}
+            existingHabits={accountHabitsFrom(habits)}
+            relations={relations}
+            uw={UW}
+            savedUw={UW ? savedUwFrom(profile) : undefined}
+          />
+        );
+      }
       if (ONBOARDING_V3) {
         const [goals, habits, relations] = await Promise.all([
           listActiveGoals(),
@@ -180,6 +204,16 @@ async function DueReview({ weekStartISO }: { weekStartISO: string }) {
 }
 
 function SignedOutLanding() {
+  // Onboarding v4's "live feed" sign-in (app/login/sign-in-v4.tsx), which is
+  // what the app shows signed out.
+  if (ONBOARDING_V4) {
+    return (
+      <>
+        <SignInV4 />
+        <TrackView event="landing_viewed" />
+      </>
+    );
+  }
   return (
     <div className="flex flex-1 flex-col items-center px-5">
       {/* my-auto keeps the hero vertically centered while the footer sits at

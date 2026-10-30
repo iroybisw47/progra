@@ -10,7 +10,7 @@ import {
   type Ref,
 } from "react";
 import { flushSync } from "react-dom";
-import { XIcon } from "lucide-react";
+import { ChevronDownIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -31,6 +31,7 @@ import {
   type AccountGoal,
   type GoalRow,
 } from "@/lib/onboarding-v3-goals-habits";
+import { themedColor } from "@/lib/colors";
 import { isImeKeyDown, overlapPx } from "@/lib/keyboard";
 import type { OnboardingV3Services } from "@/lib/onboarding-v3-services";
 import {
@@ -103,10 +104,12 @@ export function useGoalWrites({
     hours: readonly number[],
     rowIds: readonly (string | null)[],
     onRowIds: (ids: (string | null)[]) => void,
-    onSaved: () => void
+    onSaved: () => void,
+    // Onboarding v4's picked colors, by position (goalSteps' `chosen`).
+    colors?: readonly string[]
   ) {
     if (writing.current) return;
-    const steps = goalSteps(rows, titles, hours, rowIds);
+    const steps = goalSteps(rows, titles, hours, rowIds, colors);
     // The ids createGoal returned, by the goal each was created for.
     const created = new Map<number, string>();
     const report = () => onRowIds(savedRowIds(rows, titles, hours, rowIds, created));
@@ -220,6 +223,8 @@ export function GoalScreen({
   onSetHours,
   onContinue,
   onDraftChange,
+  examples: examplesFrom,
+  picked,
 }: {
   ref?: Ref<GoalScreenHandle>;
   phase: ItemPhase;
@@ -243,6 +248,12 @@ export function GoalScreen({
   onContinue: (draft: string, hoursEdits: readonly GoalHoursEdit[]) => void;
   // Whether the field holds anything, for the CTA's disabled state (R:96).
   onDraftChange: (hasDraft: boolean) => void;
+  // Onboarding v4's: its own example chips, and each goal's color as picked
+  // (the reducer's goalColors) with the next one's default, which a color
+  // button on each row opens the sheet for. v3 passes neither, and draws the
+  // slot colors (goalColors) as bars.
+  examples?: readonly string[];
+  picked?: { colors: readonly string[]; next: string; onOpen: (index: number) => void };
 }) {
   const active = phase === "active";
   // The draft lives here, not in the shell: typing an example in sets it
@@ -280,10 +291,12 @@ export function GoalScreen({
   const full = n >= MAX_GOALS;
   const typed = draft.trim().length > 0;
   const keys = goalKeys(goals);
-  const { colors, next } = goalColors(rows, goals, goalHours, goalRowIds);
+  const slots = goalColors(rows, goals, goalHours, goalRowIds);
+  const colors = picked?.colors ?? slots.colors;
+  const next = picked?.next ?? slots.next;
   // The field and its hint fade out (fit, and the list at the cap).
   const fieldHidden = full || fadeBelow !== null;
-  const examples = goalExamplesFor(goals);
+  const examples = goalExamplesFor(goals, examplesFrom);
   const hint = goalHint(n, draft);
 
   function setDraft(value: string) {
@@ -567,11 +580,38 @@ export function GoalScreen({
                       }}
                     >
                       <div className="flex h-10 shrink-0 items-center gap-2.5">
-                        <span
-                          aria-hidden
-                          className="h-5 w-[3px] shrink-0 rounded-[2px]"
-                          style={{ background: colors[i] }}
-                        />
+                        {picked ? (
+                          // v4's color button (R:80-81): the goal's swatch and
+                          // a chevron, opening the color sheet.
+                          <button
+                            type="button"
+                            aria-label={`Change color for “${title}”`}
+                            aria-haspopup="dialog"
+                            aria-disabled={busy || undefined}
+                            onPointerDown={keepFocus}
+                            onClick={() => {
+                              if (!busy) picked.onOpen(i);
+                            }}
+                            className="border-control-border hover:border-brand flex h-7 shrink-0 items-center gap-[5px] rounded-[9px] border-[1.5px] bg-card pr-[7px] pl-2 transition-[transform,border-color] duration-150 active:scale-[.94]"
+                          >
+                            <span
+                              aria-hidden
+                              className="size-3 rounded-[3px]"
+                              style={{ background: themedColor(colors[i]) }}
+                            />
+                            <ChevronDownIcon
+                              aria-hidden
+                              className="text-caption size-[11px]"
+                              strokeWidth={2.6}
+                            />
+                          </button>
+                        ) : (
+                          <span
+                            aria-hidden
+                            className="h-5 w-[3px] shrink-0 rounded-[2px]"
+                            style={{ background: colors[i] }}
+                          />
+                        )}
                         <span className="text-ink min-w-0 flex-1 truncate font-serif text-[18px] font-medium tracking-[-0.01em]">
                           {title}
                         </span>
@@ -631,7 +671,7 @@ export function GoalScreen({
                     aria-hidden
                     className="mt-2 h-[26px] w-[3px] shrink-0 origin-top rounded-[2px]"
                     style={{
-                      background: next,
+                      background: picked ? themedColor(next) : next,
                       opacity: typed ? 1 : 0,
                       transform: `scaleY(${typed || reduced ? 1 : 0.2})`,
                       transition: `opacity 200ms linear, transform 320ms ${EASING.E}`,

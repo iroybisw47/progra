@@ -70,7 +70,9 @@ export function normalizeRoute(pathname: string): (typeof ROUTES)[number] {
 // step N" for a v3 user the way it does for v2 (.claude/plans/analytics/
 // phase4.sql, admin_onboarding_stats). A step event without `flow` predates
 // this property and is v2's.
-export const ONBOARDING_FLOWS = ["v2", "v3"] as const;
+// v4 (ONBOARDING_V4) reorders them again and adds back the practice clock-in
+// and post, so it's a flow of its own too.
+export const ONBOARDING_FLOWS = ["v2", "v3", "v4"] as const;
 
 export const PERMISSION_STATES = [
   "granted",

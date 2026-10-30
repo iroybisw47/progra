@@ -18,7 +18,7 @@
 
 import type { ShareOutcome } from "@/lib/invite-share";
 import type { NotifyPermission } from "@/lib/notification-permission";
-import type { V3Step } from "@/lib/onboarding";
+import type { Step } from "@/lib/onboarding";
 import type { AnalyticsEvent, TrackProps } from "@/lib/telemetry/events";
 import type { UwProfileInput } from "@/lib/uw";
 import type { UwBucket, UwPeerCursor, UwPeerGroups, UwPeerPage } from "@/lib/uw-peers";
@@ -85,8 +85,9 @@ export type OnboardingV3Services = {
     patch: { title?: string; color?: string | null; weeklyQuotaHours?: number }
   ): Promise<ActionResult>;
   archiveGoal(id: string): Promise<ActionResult>;
-  // Screen 3's, likewise. No color: createHabit assigns one.
-  createHabit(name: string): Promise<CreatedResult>;
+  // Screen 3's, likewise. v3 passes no color, and createHabit assigns one;
+  // v4 passes each tile's own (lib/onboarding-v4.ts, habitColor).
+  createHabit(name: string, color?: string): Promise<CreatedResult>;
   archiveHabit(id: string): Promise<ActionResult>;
   // Screen 5's (P6). Search, requests and accepting are the Friends tab's
   // own actions. A request is sent the moment Add is tapped and taken back
@@ -117,7 +118,9 @@ export type OnboardingV3Services = {
 
   // The per-user "last step reached" column (setOnboardingStep). Fire and
   // forget, like v2's: a failed analytics write must never surface.
-  recordStep(step: V3Step): void;
+  // Any step name analytics accepts: v3's screens, or v4's, which add back
+  // the practice post.
+  recordStep(step: Step): void;
   // lib/analytics' track().
   track(name: AnalyticsEvent, props?: TrackProps): void;
 };

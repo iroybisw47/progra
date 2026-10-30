@@ -482,6 +482,17 @@
   }
 }
 /* The terms row, when a sign-in button is tapped before agreeing. */
+/* Onboarding v4's sign-in (app/login/sign-in-v4.tsx): the live feed drifting
+   down, its posts rendered twice so the loop is seamless. Under reduced motion
+   the [data-login] rule below runs it once, instantly, which leaves it still. */
+@keyframes feed-drift {
+  from {
+    transform: translateY(-50%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
 @keyframes nudge-x {
   0%,
   100% {

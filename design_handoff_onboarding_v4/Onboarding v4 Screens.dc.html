@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="stylesheet" href="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/styles.css">
+  <script src="_ds/progra-034ff31e-6522-4a93-a725-705d999802c9/_ds_bundle.js"></script>
+  <style>
+    body { margin: 0; background: #e9ebef; }
+    a { color: #1b2129; }
+    a:hover { color: #1c3a5e; }
+  </style>
+</helmet>
+<div style="display:flex; flex-direction:column; gap:72px; padding:72px 80px 120px; font-family:var(--font-hanken); color:var(--body); width:max-content;">
+  <header style="display:flex; flex-direction:column; gap:12px; max-width:780px;">
+    <span style="font-size:11px; line-height:1; font-weight:600; text-transform:uppercase; letter-spacing:0.14em; color:var(--faint);">Onboarding v4 · merged</span>
+    <h1 style="margin:0; color:var(--ink); font-family:var(--font-newsreader); font-size:44px; line-height:1.1; font-weight:500; letter-spacing:-0.02em;">v3 welcome and goal, v1 habits and practice, v3 friends and UW, notifications last</h1>
+    <p style="margin:0; font-size:15px; line-height:1.6; color:var(--secondary-ink);">Sign in (new) → welcome (v3) → goal (v3) → habits (v1) → how Progra works (new) → practice clock-in (v1) → practice post (v1) → UW question + page (v3) → Find your friends (v3) → notifications (new, last). All in the v3 shell: back, progress bar, avatar, one CTA. Clickable flow: <a href="Onboarding v4.dc.html">Onboarding v4</a>.</p>
+    <div style="display:flex; gap:16px; font-size:13px; color:var(--secondary-ink);"><span style="display:flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:2px; background:var(--brand);"></span>from v3</span><span style="display:flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:2px; background:var(--palette-2);"></span>from v1</span><span style="display:flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:2px; background:var(--palette-9);"></span>UW (v3)</span><span style="display:flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:2px; background:var(--ink);"></span>new</span></div>
+  </header>
+
+  <section style="display:flex; flex-direction:column; gap:28px;">
+    <h2 style="margin:0; color:var(--ink); font-family:var(--font-newsreader); font-size:28px; font-weight:500; letter-spacing:-0.015em;">Sign in, you and your goal</h2>
+    <div style="display:flex; gap:56px; align-items:flex-start;">
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--ink); color:#fff; font-size:12px; font-weight:700;">00</span><span style="font-size:15px; font-weight:600;">Sign in</span><span style="font-size:13px; color:var(--caption);">new · live feed</span></div>
+        <dc-import name="Onboarding v4" start="login" landing="b" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--brand); color:#fff; font-size:12px; font-weight:700;">01</span><span style="font-size:15px; font-weight:600;">Welcome</span><span style="font-size:13px; color:var(--caption);">v3</span></div>
+        <dc-import name="Onboarding v4" start="welcome" variant="filled" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--brand); color:#fff; font-size:12px; font-weight:700;">02</span><span style="font-size:15px; font-weight:600;">Your goal</span><span style="font-size:13px; color:var(--caption);">v3, empty</span></div>
+        <dc-import name="Onboarding v4" start="goal" variant="empty" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--brand); color:#fff; font-size:12px; font-weight:700;">02</span><span style="font-size:15px; font-weight:600;">Your goal</span><span style="font-size:13px; color:var(--caption);">v3, two added · tap a color to change it</span></div>
+        <dc-import name="Onboarding v4" start="goal" variant="filled" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:flex; flex-direction:column; gap:28px;">
+    <h2 style="margin:0; color:var(--ink); font-family:var(--font-newsreader); font-size:28px; font-weight:500; letter-spacing:-0.015em;">Habits and how it works</h2>
+    <div style="display:flex; gap:56px; align-items:flex-start;">
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--palette-2); color:#fff; font-size:12px; font-weight:700;">03</span><span style="font-size:15px; font-weight:600;">Habits</span><span style="font-size:13px; color:var(--caption);">v1</span></div>
+        <dc-import name="Onboarding v4" start="habits" variant="filled" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--ink); color:#fff; font-size:12px; font-weight:700;">04</span><span style="font-size:15px; font-weight:600;">How it works · 1 of 4</span><span style="font-size:13px; color:var(--caption);">Clock in · Enter, tap or Next</span></div>
+        <dc-import name="Onboarding v4" start="how" beat="1" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--ink); color:#fff; font-size:12px; font-weight:700;">04</span><span style="font-size:15px; font-weight:600;">How it works · 2 of 4</span><span style="font-size:13px; color:var(--caption);">Clock out</span></div>
+        <dc-import name="Onboarding v4" start="how" beat="2" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--ink); color:#fff; font-size:12px; font-weight:700;">04</span><span style="font-size:15px; font-weight:600;">How it works · 3 of 4</span><span style="font-size:13px; color:var(--caption);">Post</span></div>
+        <dc-import name="Onboarding v4" start="how" beat="3" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--ink); color:#fff; font-size:12px; font-weight:700;">04</span><span style="font-size:15px; font-weight:600;">How it works · 4 of 4</span><span style="font-size:13px; color:var(--caption);">Friends react · Try it → practice</span></div>
+        <dc-import name="Onboarding v4" start="how" beat="4" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:flex; flex-direction:column; gap:28px;">
+    <h2 style="margin:0; color:var(--ink); font-family:var(--font-newsreader); font-size:28px; font-weight:500; letter-spacing:-0.015em;">Practice session</h2>
+    <div style="display:flex; gap:56px; align-items:flex-start;">
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--palette-2); color:#fff; font-size:12px; font-weight:700;">05</span><span style="font-size:15px; font-weight:600;">Practice clock-in</span><span style="font-size:13px; color:var(--caption);">v1 · tap to fast-forward</span></div>
+        <dc-import name="Onboarding v4" start="clock" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--palette-2); color:#fff; font-size:12px; font-weight:700;">06</span><span style="font-size:15px; font-weight:600;">Practice post</span><span style="font-size:13px; color:var(--caption);">v1</span></div>
+        <dc-import name="Onboarding v4" start="post" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--palette-2); color:#fff; font-size:12px; font-weight:700;">06</span><span style="font-size:15px; font-weight:600;">Practice post, posted</span><span style="font-size:13px; color:var(--caption);">v1 · Continue raises the UW sheet</span></div>
+        <dc-import name="Onboarding v4" start="post" variant="posted" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:flex; flex-direction:column; gap:28px;">
+    <h2 style="margin:0; color:var(--ink); font-family:var(--font-newsreader); font-size:28px; font-weight:500; letter-spacing:-0.015em;">UW, friends, notifications</h2>
+    <div style="display:flex; gap:56px; align-items:flex-start;">
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--palette-9); color:#fff; font-size:12px; font-weight:700;">06</span><span style="font-size:15px; font-weight:600;">UW question</span><span style="font-size:13px; color:var(--caption);">over the posted session</span></div>
+        <dc-import name="Onboarding v4" start="uw-sheet" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--palette-9); color:#fff; font-size:12px; font-weight:700;">06b</span><span style="font-size:15px; font-weight:600;">UW page</span><span style="font-size:13px; color:var(--caption);">majors + interests</span></div>
+        <dc-import name="Onboarding v4" start="uw-page" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--brand); color:#fff; font-size:12px; font-weight:700;">07</span><span style="font-size:15px; font-weight:600;">Find your friends</span><span style="font-size:13px; color:var(--caption);">v3</span></div>
+        <dc-import name="Onboarding v4" start="friends" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--brand); color:#fff; font-size:12px; font-weight:700;">07</span><span style="font-size:15px; font-weight:600;">Find your friends</span><span style="font-size:13px; color:var(--caption);">v3, UW groups</span></div>
+        <dc-import name="Onboarding v4" start="friends" variant="uw" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:10px;"><span style="padding:4px 9px; border-radius:9999px; background:var(--ink); color:#fff; font-size:12px; font-weight:700;">08</span><span style="font-size:15px; font-weight:600;">Notifications</span><span style="font-size:13px; color:var(--caption);">new · last step</span></div>
+        <dc-import name="Onboarding v4" start="notify" embedded="{{ true }}" hint-size="393px,852px"></dc-import>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+</body>
+</html>

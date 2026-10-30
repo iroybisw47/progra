@@ -55,9 +55,12 @@ const SAVE_FAILED = "Couldn't save your habits. Check your connection and try ag
 export function useHabitWrites({
   services,
   account,
+  colorFor,
 }: {
   services: OnboardingV3Services;
   account: readonly AccountHabit[];
+  // Onboarding v4's: the color a new habit is created in. None in v3.
+  colorFor?: (name: string) => string | null;
 }) {
   // Seeded once, for the reason useGoalWrites gives.
   const [rows, setRows] = useState<HabitRow[]>(() => habitRowsFrom(account));
@@ -77,7 +80,10 @@ export function useHabitWrites({
       try {
         for (const step of steps) {
           if (step.kind === "create") {
-            const r = await services.createHabit(step.name);
+            const color = colorFor?.(step.name);
+            const r = color
+              ? await services.createHabit(step.name, color)
+              : await services.createHabit(step.name);
             if ("error" in r) {
               toast.error(SAVE_FAILED);
               return;

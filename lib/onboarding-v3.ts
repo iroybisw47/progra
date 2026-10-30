@@ -195,10 +195,15 @@ export function goalHint(n: number, draft: string): string {
 
 // The example chips still worth showing: none at the cap, and never one
 // already added, compared case-insensitively (R:94).
-export function goalExamplesFor(goals: readonly string[]): string[] {
+// `from` is the chips to pick among: v3's, or v4's own four
+// (lib/onboarding-v4.ts, V4_GOAL_EXAMPLES).
+export function goalExamplesFor(
+  goals: readonly string[],
+  from: readonly string[] = GOAL_EXAMPLES
+): string[] {
   if (goals.length >= MAX_GOALS) return [];
   const added = new Set(goals.map(normalizeMatchText));
-  return GOAL_EXAMPLES.filter((g) => !added.has(normalizeMatchText(g)));
+  return from.filter((g) => !added.has(normalizeMatchText(g)));
 }
 
 // The hours a goal's box starts at. A stored quota is kept as it is, even one

@@ -10,6 +10,8 @@ import { isNativeApp } from "@/lib/native";
 import { GOOGLE_IOS_CLIENT_ID } from "@/lib/native-auth";
 import { signInWithGoogleIdToken } from "@/app/actions/native-auth";
 
+import { cn } from "@/lib/utils";
+
 import { AUTH_BUTTON } from "./auth-button";
 
 // MODULE scope, not component state: at most one native sign-in at a time. A
@@ -23,6 +25,7 @@ export function GoogleSignInButton({
   locked = false,
   onLocked,
   describedBy,
+  className,
 }: {
   next?: string;
   // Inviter's username (from /i/[username]). Carried through OAuth as `?ref=` so
@@ -35,6 +38,8 @@ export function GoogleSignInButton({
   locked?: boolean;
   onLocked?: () => void;
   describedBy?: string;
+  // Onboarding v4's sign-in draws it taller (app/login/sign-in-v4.tsx).
+  className?: string;
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -157,7 +162,7 @@ export function GoogleSignInButton({
   return (
     <button
       type="button"
-      className={`${AUTH_BUTTON} bg-brand text-primary-foreground shadow-[0_10px_22px_-10px_var(--glow)]`}
+      className={cn(`${AUTH_BUTTON} bg-brand text-primary-foreground shadow-[0_10px_22px_-10px_var(--glow)]`, className)}
       onClick={handleClick}
       disabled={loading}
       aria-disabled={locked || undefined}

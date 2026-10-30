@@ -9,6 +9,17 @@ import { signInWithPassword } from "@/app/actions/password-auth";
 const INPUT =
   "text-ink h-11 w-full rounded-[13px] border-[1.5px] border-control-border bg-transparent px-3.5 text-[15px] outline-none placeholder:text-disabled focus:border-brand disabled:opacity-50";
 
+// Onboarding v4's sign-in (app/login/sign-in-v4.tsx): 46px fields, a navy
+// submit, and a plain text toggle (design_handoff_onboarding_v4 R:67).
+const V4 = {
+  toggle:
+    "text-caption hover:text-brand self-center p-1 text-[13px] font-medium transition-[color,opacity] duration-200 active:scale-[.98] aria-disabled:cursor-not-allowed aria-disabled:opacity-45",
+  input:
+    "text-ink h-[46px] w-full rounded-[13px] border-[1.5px] border-control-border bg-transparent px-3.5 text-[15px] outline-none placeholder:text-disabled focus:border-brand disabled:opacity-50",
+  submit:
+    "bg-brand text-primary-foreground h-[46px] w-full rounded-[13px] text-[15px] font-semibold transition-[transform,opacity] duration-200 active:scale-[.98] aria-disabled:cursor-not-allowed aria-disabled:opacity-45 disabled:opacity-45",
+} as const;
+
 // The App Review sign-in door. Collapsed to a single line of text until asked
 // for, because it exists for Apple's reviewers rather than for users — every
 // real account here arrives through Google or Apple.
@@ -22,6 +33,8 @@ export function EmailSignInForm({
   locked = false,
   onLocked,
   describedBy,
+  variant,
+  onOpenChange,
 }: {
   next?: string;
   // True until the terms checkbox is ticked. Guideline 1.2 governs this door
@@ -30,8 +43,17 @@ export function EmailSignInForm({
   locked?: boolean;
   onLocked?: () => void;
   describedBy?: string;
+  // "v4": onboarding v4's sign-in look. `onOpenChange` hears the form open,
+  // which there shrinks the feed above it.
+  variant?: "v4";
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(false);
+  const v4 = variant === "v4";
+  function setOpen(next: boolean) {
+    setOpenState(next);
+    onOpenChange?.(next);
+  }
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
@@ -67,7 +89,11 @@ export function EmailSignInForm({
         onClick={() => (locked ? onLocked?.() : setOpen(true))}
         aria-disabled={locked || undefined}
         aria-describedby={locked ? describedBy : undefined}
-        className="text-caption hover:text-body self-center p-1 text-xs underline underline-offset-2 transition-[color,opacity] duration-200 aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+        className={
+          v4
+            ? V4.toggle
+            : "text-caption hover:text-body self-center p-1 text-xs underline underline-offset-2 transition-[color,opacity] duration-200 aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+        }
       >
         Sign in with email
       </button>
@@ -86,7 +112,7 @@ export function EmailSignInForm({
       <input
         id={emailId}
         type="email"
-        className={INPUT}
+        className={v4 ? V4.input : INPUT}
         placeholder="Email"
         autoCapitalize="none"
         autoCorrect="off"
@@ -102,7 +128,7 @@ export function EmailSignInForm({
       <input
         id={passwordId}
         type="password"
-        className={INPUT}
+        className={v4 ? V4.input : INPUT}
         placeholder="Password"
         autoComplete="current-password"
         value={password}
@@ -114,7 +140,11 @@ export function EmailSignInForm({
         disabled={pending}
         aria-disabled={locked || undefined}
         aria-describedby={locked ? describedBy : undefined}
-        className="text-body hover:border-brand h-11 w-full rounded-[13px] border-[1.5px] border-control-border bg-card text-sm font-semibold transition-[transform,opacity,border-color] duration-200 active:scale-[.98] aria-disabled:cursor-not-allowed aria-disabled:opacity-45 disabled:opacity-50"
+        className={
+          v4
+            ? V4.submit
+            : "text-body hover:border-brand h-11 w-full rounded-[13px] border-[1.5px] border-control-border bg-card text-sm font-semibold transition-[transform,opacity,border-color] duration-200 active:scale-[.98] aria-disabled:cursor-not-allowed aria-disabled:opacity-45 disabled:opacity-50"
+        }
       >
         {pending ? "Signing in…" : "Sign in"}
       </button>

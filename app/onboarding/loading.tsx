@@ -1,5 +1,5 @@
 import { PageSkeleton } from "@/components/page-skeleton";
-import { ONBOARDING_V3 } from "@/lib/flags";
+import { ONBOARDING_V3, ONBOARDING_V4 } from "@/lib/flags";
 
 import { WizardSkeleton } from "./v3/wizard-skeleton";
 
@@ -13,8 +13,9 @@ import { WizardSkeleton } from "./v3/wizard-skeleton";
 // there, so this does nothing for a cold open.
 //
 // With ONBOARDING_V3 on, the skeleton is v3's Screen 1 frame instead, so
-// Replay doesn't flash v2's layout before the v3 wizard paints.
+// Replay doesn't flash v2's layout before the v3 wizard paints. v4 opens on
+// the same welcome in the same frame, so it uses it too.
 export default function Loading() {
-  if (ONBOARDING_V3) return <WizardSkeleton />;
+  if (ONBOARDING_V3 || ONBOARDING_V4) return <WizardSkeleton />;
   return <PageSkeleton title="Welcome" variant="onboarding" />;
 }

@@ -394,14 +394,22 @@ export type GoalStep =
 // hours (`hours`, by position, as the reducer's goalHours). Nothing at all
 // when the screen matches the rows, which is every Continue after Back that
 // changed nothing.
+//
+// `chosen` is onboarding v4's: each goal's color as the person picked it (or
+// as it defaulted), by position, used in place of the slot colors. With it, an
+// account goal is recolored too, but only through its own id (`rowIds`), the
+// way its quota is only written through it: a color is an explicit edit there
+// (the owner's call, 2026-10-28), and a row found by title alone keeps its own.
 export function goalSteps(
   rows: readonly GoalRow[],
   titles: readonly string[],
   hours: readonly number[],
-  rowIds: readonly (string | null)[]
+  rowIds: readonly (string | null)[],
+  chosen?: readonly (string | null | undefined)[]
 ): GoalStep[] {
   const matched = matchGoals(rows, titles, hours, rowIds);
-  const colors = slotColors(matched);
+  const slots = slotColors(matched);
+  const colors = titles.map((_, i) => chosen?.[i] || slots[i]);
   const updates: GoalStep[] = [];
   const creates: GoalStep[] = [];
   titles.forEach((title, slot) => {
@@ -416,6 +424,8 @@ export function goalSteps(
     if (row.origin === "wizard") {
       if (row.title !== title) patch.title = title;
       if (!sameColor(row.color, color)) patch.color = color;
+    } else if (chosen?.[slot] && rowIds[slot] === row.id && !sameColor(goalFillHex(row), color)) {
+      patch.color = color;
     }
     if (row.quotaHours !== quota) patch.weeklyQuotaHours = quota;
     if (Object.keys(patch).length > 0) updates.push({ kind: "update", id: row.id, patch });
@@ -562,9 +572,14 @@ export function readyGoal(
   rows: readonly GoalRow[],
   titles: readonly string[],
   hours: readonly number[],
-  rowIds: readonly (string | null)[]
+  rowIds: readonly (string | null)[],
+  chosen?: readonly (string | null | undefined)[]
 ): ReadyGoal | null {
   if (titles.length === 0) return null;
   const matched = matchGoals(rows, titles, hours, rowIds);
-  return { id: matched[0]?.id ?? null, title: titles[0], color: slotColors(matched)[0] };
+  return {
+    id: matched[0]?.id ?? null,
+    title: titles[0],
+    color: chosen?.[0] || slotColors(matched)[0],
+  };
 }

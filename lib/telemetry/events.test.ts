@@ -69,7 +69,7 @@ describe("validateEvent — no free text can pass", () => {
     ).toMatchObject({ ok: false });
   });
 
-  // Which wizard sent a step event: a closed pair, on both step events, and
+  // Which wizard sent a step event: a closed set, on both step events, and
   // optional — events from before the property existed carry no flow.
   it("an onboarding step may say which flow sent it", () => {
     for (const name of ["onboarding_step_viewed", "onboarding_step_completed"] as const) {
@@ -81,12 +81,12 @@ describe("validateEvent — no free text can pass", () => {
         });
       }
       expect(validateEvent(name, { step_name: "goal" })).toMatchObject({ ok: true });
-      expect(validateEvent(name, { step_name: "goal", flow: "v4" })).toMatchObject({
+      expect(validateEvent(name, { step_name: "goal", flow: "v5" })).toMatchObject({
         ok: false,
         reason: 'bad value for "flow"',
       });
     }
-    expect(ONBOARDING_FLOWS).toEqual(["v2", "v3"]);
+    expect(ONBOARDING_FLOWS).toEqual(["v2", "v3", "v4"]);
   });
 
   it("an int property takes only a bounded integer", () => {

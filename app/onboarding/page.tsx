@@ -13,7 +13,7 @@ import { listActiveGoals } from "@/lib/db/goals";
 import { listActiveHabits, listCompletionsInRange } from "@/lib/db/habits";
 import { getWeekCategorySegs } from "@/lib/db/progress";
 import { listRecentSessions } from "@/lib/db/sessions";
-import { ONBOARDING_V3, REDESIGN, UW } from "@/lib/flags";
+import { ONBOARDING_V3, ONBOARDING_V4, REDESIGN, UW } from "@/lib/flags";
 import { accountGoalsFrom, accountHabitsFrom } from "@/lib/onboarding-v3-goals-habits";
 import { savedUwFrom } from "@/lib/onboarding-v3-uw";
 import {
@@ -27,6 +27,7 @@ import {
 import { OnboardingClient } from "./onboarding-client";
 import { OnboardingClientV2 } from "./onboarding-client-v2";
 import { OnboardingClientV3 } from "./onboarding-client-v3";
+import { OnboardingClientV4 } from "./onboarding-client-v4";
 import { STEPS, type Step } from "@/lib/onboarding";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -86,6 +87,29 @@ export default async function OnboardingPage({
     // open on the Yes bar with their majors, interests and listing as stored.
     // The columns come off the profile already read, and only with UW on:
     // before STEP 5 they don't exist.
+    //
+    // ONBOARDING_V4 wins over v3: the same reads, less the week (v4's "How
+    // Progra works" draws a sample, never a real week).
+    if (ONBOARDING_V4) {
+      const [goals, habits, relations] = await Promise.all([
+        listActiveGoals(),
+        listActiveHabits(),
+        getFriendRelations(),
+      ]);
+      return (
+        <OnboardingClientV4
+          initialUsername={profile?.username ?? ""}
+          initialDisplayName={profile?.display_name ?? null}
+          avatarUrl={avatarPublicUrl(profile?.avatar_path ?? null)}
+          replay={profile?.onboarded_at != null}
+          existingGoals={accountGoalsFrom(goals)}
+          existingHabits={accountHabitsFrom(habits)}
+          relations={relations}
+          uw={UW}
+          savedUw={UW ? savedUwFrom(profile) : undefined}
+        />
+      );
+    }
     if (ONBOARDING_V3) {
       const replay = profile?.onboarded_at != null;
       const [goals, habits, week, relations] = await Promise.all([

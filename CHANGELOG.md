@@ -5,6 +5,38 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-10-29
+
+### 00:10 · Onboarding v4, behind `ONBOARDING_V4` (dark)
+Built from `design_handoff_onboarding_v4/`. On, it wins over v3 at `/` (first run and the signed-out sign-in), `/onboarding` (Replay) and `/login`. Off, v3 and v2 run unchanged. **No SQL**: goal colors go in `goals.color` and habit colors in `habits.color`, both through the existing actions.
+- **Sign-in** (`app/login/sign-in-v4.tsx`): a live feed of six made-up sessions drifts down under the status bar (`feed-drift`, 48s). Under it are the brand, "The social network built around self improvement", and Apple / Google / email.
+  - **The terms checkbox stays** (owner's call, against the handoff's "by continuing" line). It's the same Guideline 1.2 gate as `SignInButtons`, in the new layout.
+  - The OAuth buttons take an optional `className`. `EmailSignInForm` gets a `v4` variant and an `onOpenChange`, which shrinks the feed from 380px to 252px while the form is open.
+- **Wizard** (`app/onboarding/onboarding-client-v4.tsx`): eight steps in v3's shell. Welcome → goal → habits → How Progra works → practice clock-in → practice post → [UW sheet / page] → find friends → notifications.
+  - The bar counts 8, or 7 where the notifications screen isn't shown. It creeps through How's four steps.
+  - A skip link sits under the CTA.
+  - Finishing fades the whole wizard to white before the Clock tab.
+- **Goal**: v3's screen with optional props for v4's four example chips (Reading, Studying, Exercising, Recharging) and a color button per row. The button opens `v4/goal-color-sheet.tsx` (the app's `BottomSheet`, which gets an optional `header`, plus `ColorSwatches`).
+  - A new goal takes the first unused color in `[7,2,5,9,3,6,10,0,1,4,8]`, and removing a goal keeps the others' colors.
+  - `goalSteps` / `readyGoal` take optional explicit colors. An account goal is recolored only through its own row id, as its quota is.
+- **Habits** (`v4/habits-screen.tsx`): v2's step in the shell. Four presets with their colors, plus typed ones. "Save habit(s)" / "Skip for now".
+  - `createHabit` gets the tile's color through `useHabitWrites`' new `colorFor`.
+- **How Progra works** (`v4/how-screen.tsx`): Clock in (a live timer leaf) → Clock out ("This week" growing on `GoalQuotaRows`) → Post → Friends react.
+  - Tap zones, swipe, and Enter / Space / arrow keys all move it.
+  - Back steps within the screen first. Back from the clock-in lands on step 4.
+- **Practice** (`v4/practice-clock-screen.tsx`, `v4/practice-post-screen.tsx`): v2's steps. The timer runs in real time for 1.5s, eases out (cubic) to 25:00, holds 500ms, then moves on.
+  - The post uses the real photo picker for a local preview only (nothing is uploaded) and confirms "Don't worry, nothing was posted."
+  - Eyebrows are numbered as the bar counts: "Step 3 of 8", "Step 5 of 8 · Practice", and so on.
+- **UW** moves after the post: the sheet rises over the posted session. Back from find friends returns to the UW page after a Yes.
+- **Notifications** (`v4/notify-screen.tsx`): "Allow notifications?" with two lock-screen banners naming goal 1. "Turn on notifications" / "Not now". It keeps v3's gating, and v3's "Ready?" screen isn't used.
+- **Plumbing:**
+  - `lib/onboarding-v4.ts` (reducer, progress, colors, habits, the practice curve) and `lib/onboarding-v4-preview.ts`, with tests.
+  - `WizardChrome` takes an optional fractional `fill`.
+  - Analytics flow `"v4"`. The admin per-screen v3 funnel doesn't count v4 yet; that needs `phase4.sql`.
+  - `/clock` stamps `onboarded_at` under v4 too (`finishesOnboarding` was gated on v3 alone).
+  - Dev preview at `/dev/onboarding-v4` (`?step=`, `&how=`, `&fixture=`, `&uw=`, `&posted=`, `&notify=0`, `?signin=1`).
+- **Gate:** tsc and eslint (changed files) are clean, vitest passes 1541/1541, the build passes with `ONBOARDING_V4=1`, and signed-out `/`, `/login`, `/onboarding` and `/clock` return 200. Every screen was clicked through in headless Chromium at 393×852, end to end. **Not checked on a device**, and nothing was checked in the native shell (the Apple button, the iOS dialog, safe areas, the keyboard).
+
 ## 2026-10-28
 
 ### 13:07 · A "Turn on notifications?" sheet, behind `NOTIFY_PROMPT` (dark)

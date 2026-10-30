@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type { CSSProperties } from "react";
 
 import { getCurrentUser } from "@/lib/auth/require-user";
+import { ONBOARDING_V4 } from "@/lib/flags";
 import { safeNextPath } from "@/lib/auth/safe-next";
 import { AddToHomeHint } from "@/components/add-to-home-hint";
 import { PrograMark } from "@/components/progra-mark";
@@ -9,6 +10,7 @@ import { TypedHeadline } from "@/components/v2/typed-headline";
 import { WeekPulse } from "@/components/v2/week-pulse";
 
 import { SignInButtons } from "./sign-in-buttons";
+import { SignInV4 } from "./sign-in-v4";
 
 export const metadata = {
   title: "Sign in - Progra",
@@ -33,6 +35,13 @@ export default async function LoginPage({
     // for an authenticated-but-not-yet-onboarded visitor (e.g. a stale bookmark).
     // safeNextPath rejects off-site redirect targets.
     redirect(safeNextPath(params.next));
+  }
+
+  // Onboarding v4's "live feed" sign-in, with the same buttons and gate.
+  if (ONBOARDING_V4) {
+    return (
+      <SignInV4 next={params.next} error={params.error} deleted={params.deleted != null} />
+    );
   }
 
   return (

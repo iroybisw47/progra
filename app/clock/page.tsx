@@ -7,7 +7,7 @@ import { listRecentSessions } from "@/lib/db/sessions";
 import { getSessionPhotoUrl } from "@/lib/db/session-photos";
 import { endOfWeek, startOfWeek } from "@/lib/dates";
 import { finishesOnboarding } from "@/lib/clock-handoff";
-import { ONBOARDING_V3 } from "@/lib/flags";
+import { ONBOARDING_V3, ONBOARDING_V4 } from "@/lib/flags";
 
 import { ClockClient } from "./clock-client";
 import { FinishOnboarding } from "./finish-onboarding";
@@ -24,7 +24,8 @@ export default async function ClockPage({
   // ?welcome=1 is that "Start session" (lib/clock-handoff.ts): the Clock tab
   // below renders exactly as it does for anyone, and a leaf beside it stamps
   // onboarded_at (finish-onboarding.tsx says why here). Only with
-  // ONBOARDING_V3 on and only while there's something to stamp; otherwise
+  // ONBOARDING_V3 or ONBOARDING_V4 on (v4 hands off the same way) and only
+  // while there's something to stamp; otherwise
   // the leaf isn't there and this page is the Clock tab as it always was.
   // (The arrival's Clock-in tap no longer asks for notifications: v3's own
   // notifications screen does, before the hand-off.)
@@ -62,7 +63,7 @@ export default async function ClockPage({
     : null;
 
   const finishing = finishesOnboarding({
-    enabled: ONBOARDING_V3,
+    enabled: ONBOARDING_V3 || ONBOARDING_V4,
     welcome,
     onboarded: profile?.onboarded_at != null,
   });
