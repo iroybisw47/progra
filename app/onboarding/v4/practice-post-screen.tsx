@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { CheckIcon, ImageIcon, XIcon } from "lucide-react";
+import { useState } from "react";
+import { CheckIcon, ImageIcon } from "lucide-react";
 
 import { themedColor } from "@/lib/colors";
 import { itemStyle, type ItemPhase } from "@/lib/motion";
@@ -17,9 +17,10 @@ import { CARD, UNDERLINE_INPUT } from "../onboarding-ui";
 // until then, "Continue" after, which raises the UW question over this screen
 // (UW on) or goes on to find your friends.
 //
-// The photo is a real pick from the device's library or camera (R:127), shown
-// as a thumbnail from a local object URL. It never leaves the device: there
-// is no upload, and the URL is revoked when it's replaced or the wizard goes.
+// The photo is a mock, as the prototype has it: "Add a photo" opens no picker,
+// it just shows a grey stand-in, "desk-photo.jpg attached". Nothing is chosen
+// and nothing is uploaded (the owner's call, 2026-10-29, over R:127's real
+// picker).
 export function PracticePostScreen({
   phase,
   reduced,
@@ -44,20 +45,8 @@ export function PracticePostScreen({
   posted: boolean;
   onPost: () => void;
 }) {
-  const [photo, setPhoto] = useState<{ url: string; name: string } | null>(null);
+  const [photo, setPhoto] = useState(false);
   const [caption, setCaption] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  // The preview's object URL goes with it.
-  useEffect(() => {
-    if (!photo) return;
-    return () => URL.revokeObjectURL(photo.url);
-  }, [photo]);
-
-  function pick(file: File | undefined) {
-    if (!file || !file.type.startsWith("image/")) return;
-    setPhoto({ url: URL.createObjectURL(file), name: file.name });
-  }
 
   return (
     <div className="absolute inset-x-0 top-0 bottom-[108px] overflow-y-auto overscroll-contain px-6">
@@ -102,37 +91,21 @@ export function PracticePostScreen({
             />
           </div>
 
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            tabIndex={-1}
-            onChange={(e) => {
-              pick(e.target.files?.[0]);
-              e.target.value = "";
-            }}
-          />
           {photo ? (
-            <div className="check-pop relative h-[76px] overflow-hidden rounded-[12px]">
-              {/* eslint-disable-next-line @next/next/no-img-element -- a local blob preview */}
-              <img src={photo.url} alt={`${photo.name} attached`} className="size-full object-cover" />
-              {!posted && (
-                <button
-                  type="button"
-                  aria-label="Remove photo"
-                  onClick={() => setPhoto(null)}
-                  className="absolute top-1.5 right-1.5 flex size-6 items-center justify-center rounded-full bg-black/45 text-white"
-                >
-                  <XIcon className="size-3.5" strokeWidth={2.4} />
-                </button>
-              )}
+            <div
+              className="check-pop flex h-[76px] items-center justify-center gap-2 rounded-[12px] bg-[linear-gradient(135deg,#dfe5ec,#eef0f3)]"
+              role="status"
+            >
+              <ImageIcon aria-hidden className="size-4 text-[#5d6672]" strokeWidth={2} />
+              <span className="text-secondary-ink text-[12px] font-semibold whitespace-nowrap">
+                desk-photo.jpg attached
+              </span>
             </div>
           ) : (
             <button
               type="button"
               disabled={posted}
-              onClick={() => fileRef.current?.click()}
+              onClick={() => setPhoto(true)}
               className="text-caption border-dash hover:border-brand bg-inset-2 flex h-[76px] w-full items-center justify-center gap-2 rounded-[12px] border-[1.5px] border-dashed text-[12.5px] font-semibold transition-colors"
             >
               <ImageIcon className="size-4" strokeWidth={2} />

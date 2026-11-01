@@ -7,6 +7,9 @@ when it was done, not a start/stop work timer.
 
 ## 2026-10-29
 
+### 18:05 · Onboarding v4: the practice photo is a mock
+"Add a photo" on the practice post no longer opens the photo picker. It shows the prototype's grey stand-in, "desk-photo.jpg attached", so nothing is picked or held in the browser. The owner's call, over the handoff's "use the real photo picker".
+
 ### 00:10 · Onboarding v4, behind `ONBOARDING_V4` (dark)
 Built from `design_handoff_onboarding_v4/`. On, it wins over v3 at `/` (first run and the signed-out sign-in), `/onboarding` (Replay) and `/login`. Off, v3 and v2 run unchanged. **No SQL**: goal colors go in `goals.color` and habit colors in `habits.color`, both through the existing actions.
 - **Sign-in** (`app/login/sign-in-v4.tsx`): a live feed of six made-up sessions drifts down under the status bar (`feed-drift`, 48s). Under it are the brand, "The social network built around self improvement", and Apple / Google / email.
@@ -25,7 +28,7 @@ Built from `design_handoff_onboarding_v4/`. On, it wins over v3 at `/` (first ru
   - Tap zones, swipe, and Enter / Space / arrow keys all move it.
   - Back steps within the screen first. Back from the clock-in lands on step 4.
 - **Practice** (`v4/practice-clock-screen.tsx`, `v4/practice-post-screen.tsx`): v2's steps. The timer runs in real time for 1.5s, eases out (cubic) to 25:00, holds 500ms, then moves on.
-  - The post uses the real photo picker for a local preview only (nothing is uploaded) and confirms "Don't worry, nothing was posted."
+  - The post confirms "Don't worry, nothing was posted."
   - Eyebrows are numbered as the bar counts: "Step 3 of 8", "Step 5 of 8 · Practice", and so on.
 - **UW** moves after the post: the sheet rises over the posted session. Back from find friends returns to the UW page after a Yes.
 - **Notifications** (`v4/notify-screen.tsx`): "Allow notifications?" with two lock-screen banners naming goal 1. "Turn on notifications" / "Not now". It keeps v3's gating, and v3's "Ready?" screen isn't used.
