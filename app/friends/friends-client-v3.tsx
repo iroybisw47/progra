@@ -90,7 +90,8 @@ const SentBlockedSheet = dynamic(
 //   "Friends" and "{n} FRIENDS", with the notifications bell (its only mount)
 //   the people search: while it's focused or holds a query, everything below
 //     it hides and the results take its place, with "Cancel" (R:164)
-//   the 68px invite button, breathing as on Screen 5 (R:165)
+//   the 68px invite button, held still (owner, 2026-11-01): it breathes on
+//     onboarding's Screen 5, but on a tab opened every day it's just noise
 //   Requests (count): Decline ✕ and Accept on each (R:167)
 //   a UW student's UW groups, with UW on (R:168, P9d): "In {Major}", "Shares
 //     your interests" and "More at UW", each with its count and each
@@ -490,7 +491,7 @@ export function FriendsClientV3({
               size="tab"
               sub={inviteTileSub(inviteSent)}
               onPress={invite}
-              pulse={!searching}
+              pulse={false}
               reduced={reduced}
             />
           </div>

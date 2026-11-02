@@ -7,6 +7,9 @@ when it was done, not a start/stop work timer.
 
 ## 2026-11-01
 
+### 19:45 · The Friends tab's invite button holds still
+The owner wants it static, so the v3 Friends tab's "Invite your friends" tile no longer breathes (`pulse={false}`). It keeps breathing on onboarding's find-your-friends screen, where it's the screen's main action.
+
 ### 19:30 · The v3 Friends tab keeps the week's leaderboard
 The owner wants the overall friends leaderboard kept when `FRIENDS_V3` goes on. That flag now has to be on for Groups to work, and v3 had dropped the board (D12).
 - **Placement:** the old tab's `FriendsLeaderboard` sits in the same spot on v3, under Requests and above "Your friends", and it hides while a search is running.
