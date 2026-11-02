@@ -5,6 +5,28 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-11-02
+
+### 10:00 · Open groups: a group can skip auto-friending
+**New SQL: `.claude/plans/groups.sql` STEP 4 / 4V / 4A.** The owner ran STEP 4 in prod. STEP 4V passed 8/8 and STEP 4A 11/11, and it rolled back cleanly. Whoever creates a group (an admin, for now) picks once, on `/admin`, whether joining friends you with every member. The owner chose view-only cards and a setting fixed at creation.
+- **Auto-friend on:** works exactly as before.
+- **Auto-friend off (an "open" group):** joining makes no friendships, and a pending request between members stays pending.
+  - Members see each other's shared, finished sessions from the last week as view-only cards in the group's feed. The cards come from the new `group_feed` function, newest first and at most 200: who, what, the goal or category, the duration and when, with Add friend, Requested, Accept or Friends. A friend's card opens the session page.
+  - **The new visibility:** the grant is exactly those card fields. A private goal shows nothing, and blocked pairs are hidden both ways. Descriptions, photos, likes and comments stay friends-only, and the database rules that keep sessions friends-only are untouched.
+- **Fixes `groups_prune`:** only auto-friend groups count as backing a group friendship. If two people were friended by auto group G1 and are also both in open group G2, leaving G1 now ends that friendship.
+- **Changed functions:**
+  - `list_groups`, `admin_list_groups` and `admin_create_group` gain `auto_friend`. They are dropped and re-created, so only one `admin_create_group` exists.
+  - STEP 1V now checks `admin_create_group` by name.
+  - **Never re-run STEP 1 after STEP 4:** it would put the old versions back.
+- **App:**
+  - `OpenFeed` (`app/groups/[id]/open-feed.tsx`). It shares the new `useGroupRelations` hook with the member list, so a tap in either behaves the same.
+  - The group header gets a mode line, and the Friends Groups tab and onboarding mark open groups "· Open".
+  - The join and leave copy now depends on the group's kind.
+  - The admin create form gets an "Auto-friend members" checkbox, and each admin row shows its mode.
+- **Harness:** STEP 4A 11/11, 15 new scenarios, 13 new mutants (53/53 caught). Mutants now apply to every copy of a function, since STEP 4 re-creates some of STEP 1's.
+- **Load simulation, open group of 200:** joins take about 0.3 ms, against 75 ms for auto-friend. 0 friendships are created. The group feed is 100 cards, and the home feed and Friends-tab reads stay at the member's own handful of rows instead of about 1,250.
+- **Checks:** vitest 1596/1596, eslint clean, the build passes, and the previews show both kinds.
+
 ## 2026-11-01
 
 ### 20:15 · Admins can change a group's member cap after creating it

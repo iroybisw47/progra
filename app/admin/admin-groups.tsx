@@ -15,6 +15,7 @@ import {
   GROUP_DESCRIPTION_MAX,
   GROUP_NAME_MAX,
   capChangeNote,
+  groupModeLine,
   validateGroupCap,
   validateGroupInput,
 } from "@/lib/groups";
@@ -32,6 +33,10 @@ export function AdminGroups({ groups }: { groups: AdminGroup[] | null }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [cap, setCap] = useState(String(GROUP_CAP_DEFAULT));
+  // On: joining friends you with every member. Off: an open group, whose
+  // members see each other's shared sessions in its feed and add friends
+  // themselves (groups.sql STEP 4). Fixed once the group exists.
+  const [autoFriend, setAutoFriend] = useState(true);
   const [confirming, setConfirming] = useState<string | null>(null);
   // Typed caps not yet saved, by group id. A saved one is dropped, so the
   // field falls back to the group's cap as the refreshed list reads it.
@@ -48,7 +53,7 @@ export function AdminGroups({ groups }: { groups: AdminGroup[] | null }) {
   }
 
   function create() {
-    const input = { name, description, cap: Number(cap) };
+    const input = { name, description, cap: Number(cap), autoFriend };
     const valid = validateGroupInput(input);
     if ("error" in valid) {
       toast.error(valid.error);
@@ -64,6 +69,7 @@ export function AdminGroups({ groups }: { groups: AdminGroup[] | null }) {
       setName("");
       setDescription("");
       setCap(String(GROUP_CAP_DEFAULT));
+      setAutoFriend(true);
     });
   }
 
@@ -163,6 +169,25 @@ export function AdminGroups({ groups }: { groups: AdminGroup[] | null }) {
                 Create group
               </Button>
             </div>
+            <label className="flex items-start gap-2.5">
+              <input
+                type="checkbox"
+                checked={autoFriend}
+                onChange={(e) => setAutoFriend(e.target.checked)}
+                className="mt-0.5 size-4 shrink-0"
+              />
+              <span className="flex flex-col gap-0.5">
+                <span className="text-sm font-semibold">
+                  Auto-friend members
+                </span>
+                <span className="text-caption text-xs text-pretty">
+                  {autoFriend
+                    ? "Joining friends you with everyone in the group. Best for small groups."
+                    : "Open group: nobody is friended. Members see each other’s sessions in the group feed and add friends themselves. Best for large groups."}{" "}
+                  Can&rsquo;t be changed later.
+                </span>
+              </span>
+            </label>
           </CardContent>
         </Card>
 
@@ -196,7 +221,7 @@ export function AdminGroups({ groups }: { groups: AdminGroup[] | null }) {
                         )}
                         <span className="text-caption text-xs tabular-nums">
                           {g.archivedAt === null
-                            ? `${g.memberCount}/${g.memberCap} members`
+                            ? `${g.memberCount}/${g.memberCap} members · ${groupModeLine(g)}`
                             : `Archived ${new Date(g.archivedAt).toLocaleDateString()}`}
                         </span>
                       </div>

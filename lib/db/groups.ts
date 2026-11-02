@@ -4,7 +4,8 @@ import { cache } from "react";
 
 import { getProfile } from "@/lib/auth/profile";
 import { getCurrentUser } from "@/lib/auth/require-user";
-import { readFeedForFriends, type FeedItem } from "@/lib/db/feed";
+import { goalColorOf } from "@/lib/colors";
+import { readFeedForFriends, type FeedAttribution, type FeedItem } from "@/lib/db/feed";
 import {
   getFriendRelations,
   hydrateUsers,
@@ -20,6 +21,7 @@ import {
   type ListGroupsRow,
 } from "@/lib/groups";
 import { leaderboardWeekWindow } from "@/lib/leaderboard";
+import { sessionWorkedMs } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validate";
 
@@ -168,6 +170,67 @@ export const listGroupFeed = cache(async (groupId: string): Promise<FeedItem[]> 
   );
 });
 
+// An OPEN group's feed (auto_friend off, groups.sql STEP 4): the other
+// members' shared, finished sessions of the last week, newest first, at most
+// 100, as view-only cards — whoever posted them, friend or not. Served by the
+// group_feed definer, which returns only the card's fields (never a
+// description, photo, likes or comments) and nothing across a block, so the
+// sessions RLS that keeps everything else friends-only is untouched. The
+// attribution follows resolveFeedAttribution's rule: a private goal shows
+// nothing rather than a stand-in.
+export type OpenFeedItem = {
+  sessionId: string;
+  author: PublicUser;
+  title: string;
+  attribution: FeedAttribution | null;
+  workedMs: number;
+  endedAt: number;
+};
+
+type GroupFeedRow = {
+  session_id: string;
+  user_id: string;
+  task_name: string;
+  started_at: string;
+  ended_at: string;
+  paused_ms: number | string;
+  goal_id: string | null;
+  attr_text: string | null;
+  attr_is_goal: boolean;
+  attr_color: string | null;
+};
+
+export const listOpenGroupFeed = cache(async (groupId: string): Promise<OpenFeedItem[]> => {
+  if (!GROUPS || !isUuid(groupId)) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("group_feed", { p_group: groupId });
+  if (error || !Array.isArray(data)) return [];
+  const rows = data as GroupFeedRow[];
+  const users = await hydrateUsers([...new Set(rows.map((r) => r.user_id))]);
+  return rows.flatMap((r) => {
+    const author = users.get(r.user_id);
+    if (!author) return [];
+    const startedAt = Date.parse(r.started_at);
+    const endedAt = Date.parse(r.ended_at);
+    const attribution: FeedAttribution | null =
+      r.attr_text === null
+        ? null
+        : r.attr_is_goal && r.goal_id
+          ? { text: r.attr_text, isGoal: true, color: goalColorOf({ id: r.goal_id, color: r.attr_color }) }
+          : { text: r.attr_text, isGoal: false, color: r.attr_color };
+    return [
+      {
+        sessionId: r.session_id,
+        author,
+        title: r.task_name.trim() || "Untitled session",
+        attribution,
+        workedMs: sessionWorkedMs({ startedAt, endedAt, pausedMs: Number(r.paused_ms), pausedSince: null }, endedAt),
+        endedAt,
+      },
+    ];
+  });
+});
+
 // /admin's list: every group, archived ones last, with real member counts.
 // Null, not [], when the RPC fails — before groups.sql has run — so the panel
 // can say it's not installed rather than "no groups yet".
@@ -178,6 +241,7 @@ export type AdminGroup = {
   memberCap: number;
   memberCount: number;
   archivedAt: number | null;
+  autoFriend: boolean;
 };
 
 export const adminListGroups = cache(async (): Promise<AdminGroup[] | null> => {
@@ -193,6 +257,7 @@ export const adminListGroups = cache(async (): Promise<AdminGroup[] | null> => {
       member_cap: number;
       member_count: number;
       archived_at: string | null;
+      auto_friend?: boolean;
     }[]
   ).map((r) => ({
     groupId: r.id,
@@ -201,5 +266,6 @@ export const adminListGroups = cache(async (): Promise<AdminGroup[] | null> => {
     memberCap: r.member_cap,
     memberCount: r.member_count,
     archivedAt: r.archived_at ? Date.parse(r.archived_at) : null,
+    autoFriend: r.auto_friend ?? true,
   }));
 });

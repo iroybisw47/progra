@@ -83,10 +83,10 @@ export type V4PreviewParams = {
 // The made-up groups the step lists: one you'd be friended into, one just
 // started, one empty, one full.
 export const PREVIEW_V4_GROUPS: GroupSummary[] = [
-  { groupId: "00000000-0000-4000-8000-0000000000b1", name: "UW CS 2027", description: null, memberCap: 50, memberCount: 31, isMember: false, friendableCount: 31 },
-  { groupId: "00000000-0000-4000-8000-0000000000b2", name: "Morning runners", description: null, memberCap: 50, memberCount: 1, isMember: false, friendableCount: 1 },
-  { groupId: "00000000-0000-4000-8000-0000000000b3", name: "Thesis writers", description: null, memberCap: 50, memberCount: 0, isMember: false, friendableCount: 0 },
-  { groupId: "00000000-0000-4000-8000-0000000000b4", name: "Founders' focus club", description: null, memberCap: 50, memberCount: 50, isMember: false, friendableCount: 50 },
+  { groupId: "00000000-0000-4000-8000-0000000000b1", name: "UW CS 2027", description: null, memberCap: 50, memberCount: 31, isMember: false, friendableCount: 31, autoFriend: true },
+  { groupId: "00000000-0000-4000-8000-0000000000b2", name: "Morning runners", description: null, memberCap: 50, memberCount: 1, isMember: false, friendableCount: 1, autoFriend: false },
+  { groupId: "00000000-0000-4000-8000-0000000000b3", name: "Thesis writers", description: null, memberCap: 50, memberCount: 0, isMember: false, friendableCount: 0, autoFriend: true },
+  { groupId: "00000000-0000-4000-8000-0000000000b4", name: "Founders' focus club", description: null, memberCap: 50, memberCount: 50, isMember: false, friendableCount: 50, autoFriend: true },
 ];
 
 export function parseV4PreviewParams(params: Params): V4PreviewParams {

@@ -191,6 +191,8 @@ export async function createGroup(input: {
   name: string;
   description: string;
   cap: number;
+  // Off makes an open group (groups.sql STEP 4). Fixed once created.
+  autoFriend: boolean;
 }): Promise<{ ok: true; groupId: string } | { error: string }> {
   if (!GROUPS) return { error: "Couldn't create that group." };
   const valid = validateGroupInput(input);
@@ -202,6 +204,7 @@ export async function createGroup(input: {
     p_name: valid.name,
     p_description: valid.description,
     p_cap: valid.cap,
+    p_auto_friend: valid.autoFriend,
   });
   if (error || typeof data !== "string") return { error: "Couldn't create that group." };
   revalidateAdminGroupSurfaces();

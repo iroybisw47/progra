@@ -210,10 +210,10 @@ const UW_WORLD: FriendsPreviewData = withUwGroups({
 // The groups fixture's list: two you're in (one too small for a
 // leaderboard), one to browse, one full.
 const PREVIEW_GROUPS: GroupSummary[] = [
-  { groupId: "00000000-0000-4000-8000-0000000000a1", name: "UW CS 2027", description: null, memberCap: 50, memberCount: 31, isMember: true, friendableCount: 30 },
-  { groupId: "00000000-0000-4000-8000-0000000000a2", name: "Morning runners", description: null, memberCap: 50, memberCount: 1, isMember: true, friendableCount: 0 },
-  { groupId: "00000000-0000-4000-8000-0000000000a3", name: "Pre-med study hall", description: null, memberCap: 50, memberCount: 18, isMember: false, friendableCount: 18 },
-  { groupId: "00000000-0000-4000-8000-0000000000a4", name: "Founders' focus club", description: null, memberCap: 50, memberCount: 50, isMember: false, friendableCount: 49 },
+  { groupId: "00000000-0000-4000-8000-0000000000a1", name: "UW CS 2027", description: null, memberCap: 50, memberCount: 31, isMember: true, friendableCount: 30, autoFriend: true },
+  { groupId: "00000000-0000-4000-8000-0000000000a2", name: "Morning runners", description: null, memberCap: 50, memberCount: 1, isMember: true, friendableCount: 0, autoFriend: true },
+  { groupId: "00000000-0000-4000-8000-0000000000a3", name: "Pre-med study hall", description: null, memberCap: 50, memberCount: 18, isMember: false, friendableCount: 18, autoFriend: false },
+  { groupId: "00000000-0000-4000-8000-0000000000a4", name: "Founders' focus club", description: null, memberCap: 50, memberCount: 50, isMember: false, friendableCount: 49, autoFriend: true },
 ];
 
 export function friendsPreviewData(fixture: FriendsPreviewFixture): FriendsPreviewData {

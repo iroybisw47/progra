@@ -67,6 +67,7 @@ export function GroupScreen({
                   <span className="text-body text-[14px] leading-[1.25] font-semibold">{g.name}</span>
                   <span className="text-faint text-[11.5px] tabular-nums">
                     {memberCountLine(g)}
+                    {!g.autoFriend && ` · ${GROUP_COPY.open}`}
                     {full && ` · ${GROUP_COPY.full}`}
                   </span>
                   {!full && (

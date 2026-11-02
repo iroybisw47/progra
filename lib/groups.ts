@@ -29,6 +29,10 @@ export type GroupSummary = {
   // How many members joining would friend you with: not you, not blocked
   // either way, not a pair one of you unfriended. The join line's N.
   friendableCount: number;
+  // Whether joining friends you with every member (groups.sql STEP 4). Off,
+  // it's an OPEN group: no friendships, and members see each other's shared
+  // sessions as view-only cards in the group's own feed. Fixed at creation.
+  autoFriend: boolean;
 };
 
 export type ListGroupsRow = {
@@ -39,6 +43,8 @@ export type ListGroupsRow = {
   member_count: number;
   is_member: boolean;
   friendable_count: number;
+  // Absent before STEP 4 had run, when every group auto-friended.
+  auto_friend?: boolean;
 };
 
 export function rowToGroupSummary(row: ListGroupsRow): GroupSummary {
@@ -50,6 +56,7 @@ export function rowToGroupSummary(row: ListGroupsRow): GroupSummary {
     memberCount: row.member_count,
     isMember: row.is_member,
     friendableCount: row.friendable_count,
+    autoFriend: row.auto_friend ?? true,
   };
 }
 
@@ -61,7 +68,17 @@ export function isGroupFull(g: Pick<GroupSummary, "memberCount" | "memberCap">):
 
 // What joining does, said before you do it. The join sheet and onboarding's
 // group step both show this line.
-export function joinCopy(g: Pick<GroupSummary, "memberCount" | "friendableCount">): string {
+export function joinCopy(
+  g: Pick<GroupSummary, "memberCount" | "friendableCount"> & { autoFriend?: boolean }
+): string {
+  // An open group friends nobody: what joining shares is the group feed.
+  if (g.autoFriend === false) {
+    if (g.memberCount === 0) {
+      return "You’ll be the first member. Members see each other’s sessions in the group feed. Nobody is friended automatically.";
+    }
+    const members = g.memberCount === 1 ? "Its 1 member" : `Its ${g.memberCount} members`;
+    return `${members} will see your sessions in the group feed. Nobody is friended automatically: add the people you want.`;
+  }
   if (g.memberCount === 0) {
     return "You’ll be the first member. Everyone who joins becomes your friend and sees your sessions.";
   }
@@ -122,8 +139,9 @@ export function validateGroupInput(input: {
   name: string;
   description: string;
   cap: number;
+  autoFriend?: boolean;
 }):
-  | { ok: true; name: string; description: string | null; cap: number }
+  | { ok: true; name: string; description: string | null; cap: number; autoFriend: boolean }
   | { error: string } {
   const name = input.name.trim();
   if (name.length === 0) return { error: "Give the group a name." };
@@ -134,7 +152,19 @@ export function validateGroupInput(input: {
   }
   const cap = validateGroupCap(input.cap);
   if ("error" in cap) return cap;
-  return { ok: true, name, description: description || null, cap: input.cap };
+  return { ok: true, name, description: description || null, cap: input.cap, autoFriend: input.autoFriend ?? true };
+}
+
+// What leaving does, said before it does it.
+export function leaveCopy(g: Pick<GroupSummary, "autoFriend">): string {
+  return g.autoFriend
+    ? "You’ll stop being friends with members you only know through this group. Friends you added yourself stay."
+    : "You’ll leave the group and its feed. Your friends stay your friends.";
+}
+
+// Which kind of group this is, in a line: the page header and the admin list.
+export function groupModeLine(g: Pick<GroupSummary, "autoFriend">): string {
+  return g.autoFriend ? "Joining friends you with every member" : "Open group: add friends yourself";
 }
 
 // "12/50 members" — the group header's count, out of its cap.
@@ -160,8 +190,8 @@ export const GROUP_COPY = {
   full: "Full",
   leave: "Leave",
   leaveGroup: "Leave group",
-  leaveBody:
-    "You’ll stop being friends with members you only know through this group. Friends you added yourself stay.",
+  open: "Open",
+  openFeedEmpty: "No sessions shared in this group in the last week.",
   unfriend: "Unfriend",
   addFriend: "Add friend",
   unfriendBody:

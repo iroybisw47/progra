@@ -9,7 +9,9 @@ import {
   isGroupFull,
   joinCopy,
   friendsSubTabFrom,
+  groupModeLine,
   joinedToast,
+  leaveCopy,
   memberCountLine,
   rankGroupRows,
   rowToGroupSummary,
@@ -113,14 +115,25 @@ describe("rowToGroupSummary", () => {
       memberCount: 3,
       isMember: true,
       friendableCount: 2,
+      autoFriend: true,
     });
+  });
+
+  it("reads an open group, and a row from before STEP 4 as auto-friend", () => {
+    const row = {
+      id: "g", name: "Big", description: null, member_cap: 300, member_count: 120,
+      is_member: false, friendable_count: 119,
+    };
+    expect(rowToGroupSummary({ ...row, auto_friend: false }).autoFriend).toBe(false);
+    expect(rowToGroupSummary(row).autoFriend).toBe(true);
   });
 });
 
 describe("validateGroupInput", () => {
   const ok = { name: "  UW CS  ", description: "  ", cap: GROUP_CAP_DEFAULT };
   it("trims, and an empty description is none", () => {
-    expect(validateGroupInput(ok)).toEqual({ ok: true, name: "UW CS", description: null, cap: 50 });
+    expect(validateGroupInput(ok)).toEqual({ ok: true, name: "UW CS", description: null, cap: 50, autoFriend: true });
+    expect(validateGroupInput({ ...ok, autoFriend: false })).toMatchObject({ ok: true, autoFriend: false });
   });
   it("refuses a missing or long name", () => {
     expect(validateGroupInput({ ...ok, name: "   " })).toHaveProperty("error");
@@ -175,5 +188,23 @@ describe("editing a cap", () => {
     );
     expect(capChangeNote(12, 12)).toBeNull();
     expect(capChangeNote(12, 80)).toBeNull();
+  });
+});
+
+describe("open groups", () => {
+  it("say what joining shares instead of who you'll be friends with", () => {
+    expect(joinCopy({ memberCount: 120, friendableCount: 119, autoFriend: false })).toBe(
+      "Its 120 members will see your sessions in the group feed. Nobody is friended automatically: add the people you want."
+    );
+    expect(joinCopy({ memberCount: 1, friendableCount: 1, autoFriend: false })).toMatch(/^Its 1 member will/);
+    expect(joinCopy({ memberCount: 0, friendableCount: 0, autoFriend: false })).toMatch(/^You’ll be the first member\./);
+    expect(joinCopy({ memberCount: 120, friendableCount: 119, autoFriend: false })).not.toMatch(/friends with all/);
+  });
+
+  it("leave and the mode line differ by kind", () => {
+    expect(leaveCopy({ autoFriend: true })).toMatch(/stop being friends/);
+    expect(leaveCopy({ autoFriend: false })).toBe("You’ll leave the group and its feed. Your friends stay your friends.");
+    expect(groupModeLine({ autoFriend: true })).toBe("Joining friends you with every member");
+    expect(groupModeLine({ autoFriend: false })).toBe("Open group: add friends yourself");
   });
 });

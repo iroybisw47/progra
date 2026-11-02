@@ -6,13 +6,14 @@ import { toast } from "sonner";
 import { BottomSheet, BottomSheetContent } from "@/components/v2/bottom-sheet";
 import { joinGroup, leaveGroup } from "@/app/actions/groups";
 import { track } from "@/lib/analytics";
-import { GROUP_COPY, joinCopy, joinedToast, type GroupSummary } from "@/lib/groups";
+import { GROUP_COPY, joinCopy, joinedToast, leaveCopy, type GroupSummary } from "@/lib/groups";
 
 // The Join / Leave sheet (loaded with next/dynamic from membership-button.tsx).
 // Join says who you'll be friends with before you are — "You'll be friends
 // with all N members, and they'll see your sessions." — where N leaves out
-// anyone blocked or unfriended, since joining won't friend them. Leave says
-// what goes and what stays. Either revalidates the page, which then reads as
+// anyone blocked or unfriended, since joining won't friend them; an open
+// group's says who'll see your sessions in its feed instead. Leave says what
+// goes and what stays. Either revalidates the page, which then reads as
 // the member's or the non-member's view.
 export function MembershipSheet({
   open,
@@ -52,7 +53,7 @@ export function MembershipSheet({
     <BottomSheet open={open} onOpenChange={onOpenChange}>
       <BottomSheetContent title={leaving ? `Leave ${group.name}?` : `Join ${group.name}?`}>
         <p className="text-body pt-1 text-[14px] leading-[1.5] text-pretty">
-          {leaving ? GROUP_COPY.leaveBody : joinCopy(group)}
+          {leaving ? leaveCopy(group) : joinCopy(group)}
         </p>
         <button
           type="button"

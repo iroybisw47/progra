@@ -63,6 +63,7 @@ function GroupRow({ group }: { group: GroupSummary }) {
           <span className="text-body truncate text-[13px] leading-[1.25] font-semibold">{group.name}</span>
           <span className="text-faint truncate text-[11px] leading-[1.3] tabular-nums">
             {memberCountLine(group)}
+            {!group.autoFriend && ` · ${GROUP_COPY.open}`}
             {full && ` · ${GROUP_COPY.full}`}
           </span>
         </span>
