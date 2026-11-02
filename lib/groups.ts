@@ -101,6 +101,21 @@ export function groupRankLine(rank: number, of: number): string {
   return `#${rank} of ${of} in your group`;
 }
 
+// A member cap, as groups_member_cap_check and admin_set_group_cap check it.
+export function validateGroupCap(cap: number): { ok: true } | { error: string } {
+  return Number.isInteger(cap) && cap >= GROUP_CAP_MIN && cap <= GROUP_CAP_MAX
+    ? { ok: true }
+    : { error: `The cap must be a whole number from ${GROUP_CAP_MIN} to ${GROUP_CAP_MAX}.` };
+}
+
+// What lowering a cap means, said before it's saved: below the current count
+// nobody is removed, the group just stops taking new members.
+export function capChangeNote(memberCount: number, cap: number): string | null {
+  return Number.isInteger(cap) && cap < memberCount
+    ? `Below its ${memberCount} members: nobody is removed, but nobody new can join until some leave.`
+    : null;
+}
+
 // The admin form, checked the way the database will check it, so a typo gets
 // a sentence instead of a generic failure.
 export function validateGroupInput(input: {
@@ -117,9 +132,8 @@ export function validateGroupInput(input: {
   if (description.length > GROUP_DESCRIPTION_MAX) {
     return { error: `Descriptions are at most ${GROUP_DESCRIPTION_MAX} characters.` };
   }
-  if (!Number.isInteger(input.cap) || input.cap < GROUP_CAP_MIN || input.cap > GROUP_CAP_MAX) {
-    return { error: `The cap must be a whole number from ${GROUP_CAP_MIN} to ${GROUP_CAP_MAX}.` };
-  }
+  const cap = validateGroupCap(input.cap);
+  if ("error" in cap) return cap;
   return { ok: true, name, description: description || null, cap: input.cap };
 }
 

@@ -7,6 +7,16 @@ when it was done, not a start/stop work timer.
 
 ## 2026-11-01
 
+### 20:15 · Admins can change a group's member cap after creating it
+**New SQL: `.claude/plans/groups.sql` STEP 3 / 3V.** It adds `admin_set_group_cap(group, cap)`. The owner ran STEP 3 in prod, and STEP 3V passed 3/3.
+- **Who can call it:** admins only, on live groups, with a cap from 2 to 500.
+- **Lowering a cap below the current count removes nobody.** The group reads full until people leave.
+- **No race with joins:** the update takes the group row's lock, the same one `join_group` waits on, so a join can't slip in past a cap being lowered.
+- **Harness:** 8 new checks and 3 new mutants, now 41/41 caught.
+- **On `/admin`:** each live group has a "Member cap" field with a Save button. When the new cap is below the member count, a note explains that before you save.
+- **App code:** `setGroupCap` in `app/actions/admin.ts`, and `validateGroupCap` / `capChangeNote` in `lib/groups.ts`.
+- **Checks:** vitest 1593/1593, eslint clean, and the build passes.
+
 ### 19:45 · The Friends tab's invite button holds still
 The owner wants it static, so the v3 Friends tab's "Invite your friends" tile no longer breathes (`pulse={false}`). It keeps breathing on onboarding's find-your-friends screen, where it's the screen's main action.
 

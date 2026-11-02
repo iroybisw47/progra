@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { PublicUser } from "@/lib/db/friends";
 import {
   GROUP_CAP_DEFAULT,
+  capChangeNote,
+  validateGroupCap,
   groupRankLine,
   isGroupFull,
   joinCopy,
@@ -158,5 +160,20 @@ describe("friendsSubTabFrom", () => {
     expect(friendsSubTabFrom("groups", false)).toBe("friends");
     expect(friendsSubTabFrom(undefined, true)).toBe("friends");
     expect(friendsSubTabFrom("nope", true)).toBe("friends");
+  });
+});
+
+describe("editing a cap", () => {
+  it("takes a whole number from 2 to 500", () => {
+    for (const cap of [2, 50, 500]) expect(validateGroupCap(cap)).toEqual({ ok: true });
+    for (const cap of [1, 501, 2.5, Number.NaN]) expect(validateGroupCap(cap)).toHaveProperty("error");
+  });
+
+  it("says what a cap below the count means, and nothing otherwise", () => {
+    expect(capChangeNote(12, 10)).toBe(
+      "Below its 12 members: nobody is removed, but nobody new can join until some leave."
+    );
+    expect(capChangeNote(12, 12)).toBeNull();
+    expect(capChangeNote(12, 80)).toBeNull();
   });
 });

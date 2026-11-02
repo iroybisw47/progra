@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { GROUPS } from "@/lib/flags";
-import { validateGroupInput } from "@/lib/groups";
+import { validateGroupCap, validateGroupInput } from "@/lib/groups";
 import { revalidateAdminGroupSurfaces } from "@/lib/revalidate";
 import { isUuid } from "@/lib/validate";
 
@@ -217,6 +217,22 @@ export async function archiveGroup(groupId: string): Promise<Result> {
   if ("error" in gate) return gate;
   const { error } = await supabase.rpc("admin_archive_group", { p_group: groupId });
   if (error) return { error: "Couldn't archive that group." };
+  revalidateAdminGroupSurfaces();
+  return { ok: true };
+}
+
+// Change a live group's member cap (groups.sql STEP 3, admin_set_group_cap).
+// Lowering it below the current count removes nobody; the group just stops
+// taking new members until some leave.
+export async function setGroupCap(groupId: string, cap: number): Promise<Result> {
+  if (!GROUPS || !isUuid(groupId)) return { error: "Couldn't change that cap." };
+  const valid = validateGroupCap(cap);
+  if ("error" in valid) return valid;
+  const supabase = await createClient();
+  const gate = await requireAdmin(supabase);
+  if ("error" in gate) return gate;
+  const { error } = await supabase.rpc("admin_set_group_cap", { p_group: groupId, p_cap: cap });
+  if (error) return { error: "Couldn't change that cap." };
   revalidateAdminGroupSurfaces();
   return { ok: true };
 }
