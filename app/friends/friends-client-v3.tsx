@@ -24,9 +24,11 @@ import {
   usePeopleSearch,
 } from "@/components/v2/people-search";
 import { PersonRow, rowErrorToast, type PersonAction } from "@/components/v2/person-row";
+import { CHIP, CHIP_OFF, CHIP_ON, ChipRail } from "@/components/v2/period-chips";
 import { PillToast, type PillToastHandle } from "@/components/v2/pill-toast";
 import { ShowMoreRow, useUwGroupPaging } from "@/components/v2/uw-groups";
 import type { BlockedEntry, PublicUser, RequestEntry } from "@/lib/db/friends";
+import { GROUPS_TAB_COPY, type FriendsSubTab, type GroupSummary } from "@/lib/groups";
 import {
   ACCEPT_FAILED,
   INVITE_COPY,
@@ -55,6 +57,7 @@ import {
   type Said,
 } from "@/lib/friends-tab";
 import { usePrefersReducedMotion } from "@/lib/hooks";
+import { cn } from "@/lib/utils";
 import { inviteText } from "@/lib/onboarding-v3";
 import type { ActionResult } from "@/lib/onboarding-v3-services";
 import {
@@ -66,6 +69,7 @@ import {
 } from "@/lib/uw-groups";
 import type { UwPeerGroups } from "@/lib/uw-peers";
 
+import { GroupsTab } from "./groups-tab";
 import { REAL_FRIENDS_SERVICES } from "./services";
 
 // Lazy, per the repo's dialog rule: most visits never open it. ssr: false, as
@@ -140,6 +144,12 @@ type Props = {
   // The UW info prompt's card (components/v2/uw-prompt-card.tsx), rendered by
   // the page while the viewer hasn't answered; null otherwise.
   uwPrompt?: ReactNode;
+  // Every live group (listGroups), with GROUPS on: the Friends | Groups
+  // switch shows under the header. Null or absent, there's no switch and the
+  // tab is exactly what it was.
+  groups?: readonly GroupSummary[] | null;
+  // Which sub-tab opens (`?tab=groups`).
+  initialTab?: FriendsSubTab;
   services?: FriendsTabServices;
   // Dev preview only: the search opens with this typed, or the sheet open,
   // and a stand-in for the bell, whose panel reads and stamps the signed-in
@@ -159,12 +169,25 @@ export function FriendsClientV3({
   inviteGoal,
   uw = null,
   uwPrompt = null,
+  groups = null,
+  initialTab = "friends",
   services = REAL_FRIENDS_SERVICES,
   initialQuery,
   initialSheetOpen = false,
   bell,
 }: Props) {
   const reduced = usePrefersReducedMotion();
+  // The sub-tab, kept in the URL (replaceState: no navigation, no refetch)
+  // so a reload or the back button lands where you were.
+  const [subTab, setSubTab] = useState<FriendsSubTab>(groups ? initialTab : "friends");
+  const onGroups = groups !== null && subTab === "groups";
+  function pickSubTab(next: FriendsSubTab) {
+    setSubTab(next);
+    const url = new URL(window.location.href);
+    if (next === "groups") url.searchParams.set("tab", "groups");
+    else url.searchParams.delete("tab");
+    window.history.replaceState(window.history.state, "", url);
+  }
   const search = usePeopleSearch({ search: services.searchUsers, initialText: initialQuery });
   const searching = search.mode;
   const toastRef = useRef<PillToastHandle>(null);
@@ -429,6 +452,28 @@ export function FriendsClientV3({
           {bell ?? <NotificationsBell initialUnseen={initialUnseen} />}
         </header>
 
+        {groups && (
+          <div className="px-5 pt-2 pb-1">
+            <ChipRail>
+              {(["friends", "groups"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  aria-pressed={subTab === t}
+                  onClick={() => pickSubTab(t)}
+                  className={cn(CHIP, "flex-1", subTab === t ? CHIP_ON : CHIP_OFF)}
+                >
+                  {GROUPS_TAB_COPY[t]}
+                </button>
+              ))}
+            </ChipRail>
+          </div>
+        )}
+
+        {onGroups && groups ? (
+          <GroupsTab groups={groups} />
+        ) : (
+        <>
         <div className="px-5 pt-1">
           <PeopleSearchField search={search} />
         </div>
@@ -590,6 +635,8 @@ export function FriendsClientV3({
         <p role="status" className="sr-only">
           {said && <span key={said.id}>{said.text}</span>}
         </p>
+        </>
+        )}
       </main>
 
       {sheetLoaded && (

@@ -146,6 +146,25 @@ export function revalidateFriendSurfaces() {
   revalidatePath("/feed");
   revalidatePath("/");
   revalidatePath("/profile/[username]", "page");
+  // A group page lists members with their friend action, and its feed is
+  // the friends in it.
+  revalidatePath("/groups/[id]", "page");
+}
+
+// Joining or leaving a group (.claude/plans/groups.sql) changes friendships
+// wholesale, so everything a friend change reaches — plus onboarding's group
+// step and the weekly review, which ranks you in each of your groups.
+export function revalidateGroupSurfaces() {
+  revalidateFriendSurfaces();
+  revalidatePath("/onboarding");
+  revalidatePath("/recap/[weekStart]", "page");
+}
+
+// An admin creating or archiving a group: the admin list, and every surface a
+// group appears on (archiving also ends its members' group friendships).
+export function revalidateAdminGroupSurfaces() {
+  revalidateGroupSurfaces();
+  revalidatePath("/admin");
 }
 
 // The "What's new" modal is decided in the ROOT LAYOUT, from

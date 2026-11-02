@@ -2,6 +2,7 @@
 
 import { after } from "next/server";
 
+import { GROUPS } from "@/lib/flags";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { revalidateFriendSurfaces } from "@/lib/revalidate";
 import {
@@ -103,6 +104,27 @@ export async function removeFriendship(id: string): Promise<Result> {
   if (!user) return { error: "Not authenticated" };
 
   const { error } = await supabase.from("friendships").delete().eq("id", id);
+  if (error) return { error: "Couldn't update that friendship." };
+  revalidateFriendSurfaces();
+  return { ok: true };
+}
+
+// Unfriend someone, by their user id. Under GROUPS every unfriend comes here
+// rather than removeFriendship's bare delete: unfriend_user
+// (.claude/plans/groups.sql) ends the friendship AND records the pair, so no
+// group — the one you share or a new one — friends you again. Adding them back
+// by hand (request → accept) clears the record. With GROUPS off there's no
+// record to keep, and callers use removeFriendship as before.
+export async function unfriendUser(targetUserId: string): Promise<Result> {
+  if (!GROUPS) return { error: "Couldn't update that friendship." };
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+  if (!isUuid(targetUserId) || targetUserId === user.id) {
+    return { error: "Couldn't update that friendship." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("unfriend_user", { p_target: targetUserId });
   if (error) return { error: "Couldn't update that friendship." };
   revalidateFriendSurfaces();
   return { ok: true };

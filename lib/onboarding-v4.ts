@@ -29,9 +29,16 @@ import { MAX_UW_INTERESTS, MAX_UW_MAJORS, cleanInterests, cleanMajors, normalize
 
 // ---- Screens ----------------------------------------------------------------
 
-// The eight screens, in order (R:6-17). The UW sheet and page aren't screens:
+// The screens, in order (R:6-17). The UW sheet and page aren't screens:
 // they sit between the practice post and find your friends, as overlays on
 // the post (R:131).
+//
+// `group` ("Join a group", GROUPS_ONBOARDING) comes before find your friends:
+// joining friends you with the group, so the friends screen after it already
+// knows them. It's shown only with the flag on and a group to join
+// (V4State.groupShown, fixed for the run); hidden, every move skips it and
+// the bar and eyebrows count as though it weren't there (displayScreen), so
+// the run is exactly the eight screens it was.
 export const V4_SCREEN = {
   welcome: 0,
   goal: 1,
@@ -39,10 +46,11 @@ export const V4_SCREEN = {
   how: 3,
   clock: 4,
   post: 5,
-  friends: 6,
-  notify: 7,
+  group: 6,
+  friends: 7,
+  notify: 8,
 } as const;
-export const V4_SCREEN_COUNT = 8;
+export const V4_SCREEN_COUNT = 9;
 
 // Each screen's step name, as analytics already accepts them (the prod CHECK
 // on profiles.onboarding_step and the event allowlist list exactly STEPS). Sent
@@ -54,6 +62,7 @@ export const V4_STEPS = [
   "how",
   "clock",
   "post",
+  "group",
   "friends",
   "notify",
 ] as const satisfies readonly Step[];
@@ -66,18 +75,31 @@ export const HOW_STEPS = 4;
 
 // How many screens this run has: eight, or seven where the notifications
 // screen isn't shown (the website, or a device iOS has already asked), which
-// leaves find your friends last. Being last, it never renumbers another.
-export function screenTotal(notifyShown: boolean): number {
-  return notifyShown ? V4_SCREEN_COUNT : V4_SCREEN_COUNT - 1;
+// leaves find your friends last. Being last, it never renumbers another. One
+// more with the group step shown; it's fixed before the run starts, so it
+// never renumbers mid-run either.
+export function screenTotal(notifyShown: boolean, groupShown = false): number {
+  return V4_SCREEN_COUNT - (notifyShown ? 0 : 1) - (groupShown ? 0 : 1);
+}
+
+// A screen's place in this run's count: its index, less one past a hidden
+// group step.
+export function displayScreen(screen: number, groupShown = false): number {
+  return !groupShown && screen > V4_SCREEN.group ? screen - 1 : screen;
 }
 
 // The progress bar's fill, 0-1 (R:34): step/of, where step is the screen's
-// index + 1. On How Progra works it creeps with each of its steps,
+// place + 1. On How Progra works it creeps with each of its steps,
 // (3 + (howStep + 1) / 4) / of, so the fourth lands where the screen's own
 // whole step would.
-export function progressFill(screen: number, howStep: number, notifyShown: boolean): number {
-  const of = screenTotal(notifyShown);
-  const at = Math.min(Math.max(0, Math.floor(screen)), of - 1);
+export function progressFill(
+  screen: number,
+  howStep: number,
+  notifyShown: boolean,
+  groupShown = false
+): number {
+  const of = screenTotal(notifyShown, groupShown);
+  const at = Math.min(Math.max(0, displayScreen(Math.floor(screen), groupShown)), of - 1);
   if (at === V4_SCREEN.how) {
     const k = Math.min(Math.max(0, Math.floor(howStep)), HOW_STEPS - 1);
     return (V4_SCREEN.how + (k + 1) / HOW_STEPS) / of;
@@ -88,9 +110,25 @@ export function progressFill(screen: number, howStep: number, notifyShown: boole
 // The "Step N of M" eyebrow for the screens that carry one (habits and the
 // two practice screens), numbered as the progress bar counts (the owner's
 // call, 2026-10-28: the numbering stays consistent throughout onboarding).
-export function stepEyebrow(screen: number, notifyShown: boolean, practice = false): string {
-  const text = `Step ${screen + 1} of ${screenTotal(notifyShown)}`;
+export function stepEyebrow(
+  screen: number,
+  notifyShown: boolean,
+  practice = false,
+  groupShown = false
+): string {
+  const text = `Step ${displayScreen(screen, groupShown) + 1} of ${screenTotal(notifyShown, groupShown)}`;
   return practice ? `${text} · Practice` : text;
+}
+
+// ---- The group step ------------------------------------------------------------
+
+// Its CTA, as find your friends' is (friendsCta): the quiet "Skip for now"
+// until a group is joined, then the primary "Continue · {n} joined".
+export function groupCta(joined: number): { label: string; variant: "primary" | "secondary" } {
+  const n = Math.max(0, Math.floor(joined));
+  return n > 0
+    ? { label: `Continue · ${n} joined`, variant: "primary" }
+    : { label: "Skip for now", variant: "secondary" };
 }
 
 // ---- Screen 02: goals and their colors ---------------------------------------
@@ -222,6 +260,9 @@ export type V4State = {
   goalColors: string[];
   habits: string[]; // selected, in pick order
   customHabits: string[]; // tiles typed in, beyond V4_HABITS
+  // Whether this run has the "Join a group" step (see V4_SCREEN). Set at the
+  // start and never changed by an action.
+  groupShown: boolean;
 };
 
 export type V4Action =
@@ -249,7 +290,7 @@ export type V4Action =
   | { type: "toggleHabit"; name: string }
   | { type: "addCustomHabit"; name: string };
 
-export function initialV4State(): V4State {
+export function initialV4State({ groupShown = false }: { groupShown?: boolean } = {}): V4State {
   return {
     screen: V4_SCREEN.welcome,
     howStep: 0,
@@ -266,6 +307,7 @@ export function initialV4State(): V4State {
     goalColors: [],
     habits: [],
     customHabits: [],
+    groupShown,
   };
 }
 
@@ -284,9 +326,14 @@ function settleUw(s: V4State): V4State {
 // the answer is Yes (R:131). Entering How Progra works starts it at step 1,
 // except coming back from the practice clock-in, which lands on step 4
 // (R:114).
+//
+// A hidden group step is stepped over in the direction of travel, so Back
+// from find your friends, the post's way on and advanceLater's `from + 1` all
+// land where they did before it existed.
 function go(s: V4State, to: number): V4State {
   if (!Number.isFinite(to)) return s;
-  const screen = Math.min(Math.max(0, Math.floor(to)), V4_SCREEN_COUNT - 1);
+  let screen = Math.min(Math.max(0, Math.floor(to)), V4_SCREEN_COUNT - 1);
+  if (screen === V4_SCREEN.group && !s.groupShown) screen += screen > s.screen ? 1 : -1;
   if (screen === s.screen) return s;
   let next: V4State = { ...s, screen, uwSheet: false, uwPage: false };
   if (screen === V4_SCREEN.post) {

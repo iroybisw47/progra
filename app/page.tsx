@@ -17,9 +17,10 @@ import { OnboardingClientV4 } from "@/app/onboarding/onboarding-client-v4";
 import { avatarPublicUrl } from "@/lib/images/avatar-url";
 import { getCurrentUser } from "@/lib/auth/require-user";
 import { getProfile } from "@/lib/auth/profile";
-import { ONBOARDING_V3, ONBOARDING_V4, RECAP_V2, REDESIGN, SOCIAL_ENABLED, UW } from "@/lib/flags";
+import { GROUPS_ONBOARDING, ONBOARDING_V3, ONBOARDING_V4, RECAP_V2, REDESIGN, SOCIAL_ENABLED, UW } from "@/lib/flags";
 import { isJohnUser } from "@/lib/john/cohort";
 import { getFriendRelations } from "@/lib/db/friends";
+import { listGroups } from "@/lib/db/groups";
 import { listActiveGoals } from "@/lib/db/goals";
 import { listActiveHabits, listUnansweredHabits } from "@/lib/db/habits";
 import { getDueReview, loadRecapStory } from "@/lib/db/recap-story";
@@ -82,10 +83,11 @@ export default async function Page({
     // ONBOARDING_V4 wins over v3 and reads the same things.
     if (!profile?.onboarded_at) {
       if (ONBOARDING_V4) {
-        const [goals, habits, relations] = await Promise.all([
+        const [goals, habits, relations, groups] = await Promise.all([
           listActiveGoals(),
           listActiveHabits(),
           getFriendRelations(),
+          GROUPS_ONBOARDING ? listGroups() : null,
         ]);
         return (
           <OnboardingClientV4
@@ -98,6 +100,7 @@ export default async function Page({
             relations={relations}
             uw={UW}
             savedUw={UW ? savedUwFrom(profile) : undefined}
+            groups={groups}
           />
         );
       }

@@ -1,10 +1,11 @@
 import type { CSSProperties } from "react";
+import Link from "next/link";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { anim } from "@/lib/recap-story-nav";
-import type { RankView } from "@/lib/recap-story";
+import type { GroupRankView, RankView } from "@/lib/recap-story";
 
-import { SlideFrame, SlideTitle } from "./slide-frame";
+import { SlideFrame, SlideTitle, stopStory } from "./slide-frame";
 
 function badgeStyle(rank: number): CSSProperties {
   if (rank === 1) return { background: "var(--brand)", color: "var(--primary-foreground)" };
@@ -58,6 +59,56 @@ export function RankSlide({ rank }: { rank: RankView }) {
             <span className="text-ink w-14 shrink-0 text-right text-[12.5px] font-semibold tabular-nums">
               {r.duration}
             </span>
+          </li>
+        ))}
+      </ol>
+    </SlideFrame>
+  );
+}
+
+// 06 · Your rank, under GROUPS: the group is the one ranking now, so a row per
+// group you're in — "#2", "of 14 in your group" — or "Invite your group" for
+// one with nobody else in it yet. In no group at all, the line that sends you
+// to the Groups tab instead.
+export function GroupRankSlide({ rank }: { rank: GroupRankView }) {
+  if (rank.kind === "none") {
+    return (
+      <SlideFrame label="Your rank">
+        <SlideTitle title="Your rank" sub="By clocked time" />
+        <div className="flex flex-col gap-4 pt-6" style={{ animation: anim("rise", 0.5, 0.35) }}>
+          <p className="text-ink m-0 font-serif text-[24px] leading-[1.25] font-medium text-balance">{rank.text}</p>
+          {/* Its tap navigates; it must never also turn the page. */}
+          <div onPointerDown={stopStory} onPointerUp={stopStory}>
+            <Link
+              href={rank.href}
+              className="bg-brand text-primary-foreground flex h-12 w-full items-center justify-center rounded-[15px] text-sm font-semibold"
+            >
+              Find a group
+            </Link>
+          </div>
+        </div>
+      </SlideFrame>
+    );
+  }
+  return (
+    <SlideFrame label="Your rank" gutter={false}>
+      <SlideTitle title="Your rank" sub="By clocked time" className="px-6" />
+      <ol className="m-0 flex list-none flex-col p-0 pt-4">
+        {rank.rows.map((r, i) => (
+          <li
+            key={r.groupId}
+            className="border-divider flex items-baseline gap-3 border-t px-6 py-3"
+            style={{ animation: anim("rise", 0.45, 0.35 + i * 0.08) }}
+          >
+            {r.hero && (
+              <span className="text-brand font-serif text-[40px] leading-none font-medium tracking-[-0.03em] tabular-nums">
+                {r.hero}
+              </span>
+            )}
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="text-body truncate text-[14px] leading-[1.3] font-semibold">{r.name}</span>
+              <span className="text-caption text-[12.5px]">{r.of}</span>
+            </div>
           </li>
         ))}
       </ol>

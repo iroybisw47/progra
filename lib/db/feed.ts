@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import { listFriends, type PublicUser } from "@/lib/db/friends";
+import { listFriends, type FriendEntry, type PublicUser } from "@/lib/db/friends";
 import {
   SESSION_COLUMNS,
   rowToSession,
@@ -116,7 +116,16 @@ type FeedSessionRow = SessionRow & { user_id: string };
 // app does not re-filter. Batched over all friend ids in one query; an empty
 // friend set short-circuits (never an empty .in()).
 export async function listFriendFeed(daysBack = 7): Promise<FeedItem[]> {
-  const friends = await listFriends();
+  return readFeedForFriends(await listFriends(), daysBack);
+}
+
+// The same read over any subset of your accepted friends — a group's feed is
+// the friends who are in it (lib/db/groups.ts listGroupFeed). Still RLS-gated
+// on its own: passing someone who isn't a friend returns nothing of theirs.
+export async function readFeedForFriends(
+  friends: readonly FriendEntry[],
+  daysBack: number
+): Promise<FeedItem[]> {
   if (friends.length === 0) return [];
 
   const authorById = new Map(friends.map((f) => [f.user.userId, f.user]));

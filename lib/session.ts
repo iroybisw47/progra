@@ -26,9 +26,11 @@ export type SessionTiming = Pick<
 // session freezes below the cap and can never trip it). Always on: no user
 // setting, no preference column.
 //
-// NOTE: the `week_leaderboard` SECURITY DEFINER RPC re-implements worked-time
-// math in SQL and carries this value as the literal 36000000. The two must
-// move together or leaderboard ranks diverge from every other surface.
+// NOTE: SQL carries this value as the literal 36000000 in three places — the
+// `week_leaderboard` RPC, `analytics_worked_ms` (analytics/phase4.sql, which
+// streaks and the group leaderboard both call) and `group_week_totals`'s
+// attribution end (groups.sql). They must move together or ranks diverge from
+// every other surface.
 export const SESSION_CAP_MS = 10 * 60 * 60 * 1000;
 
 // Uncapped worked time. Internal: the cap is a guardrail on *live* sessions,

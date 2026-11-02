@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { getProfile } from "@/lib/auth/profile";
 import { requireUser } from "@/lib/auth/require-user";
-import { FRIENDS_V3, SOCIAL_ENABLED, UW } from "@/lib/flags";
+import { FRIENDS_V3, GROUPS, SOCIAL_ENABLED, UW } from "@/lib/flags";
 import {
   listBlockedUsers,
   listFriends,
@@ -17,9 +17,11 @@ import {
 } from "@/lib/db/friends-leaderboard";
 import { listActiveGoals, listActiveGoalsForUsers } from "@/lib/db/goals";
 import { hasUnseenNotifications } from "@/lib/db/notifications-activity";
+import { listGroups } from "@/lib/db/groups";
 import { listUwPeerGroups } from "@/lib/db/uw";
 import type { SuggestionsInput } from "@/lib/friend-suggestions";
 import { buildFriendRows, inviteGoalTitle } from "@/lib/friends-tab";
+import { friendsSubTabFrom, type FriendsSubTab } from "@/lib/groups";
 import { friendsTabUw } from "@/lib/uw-groups";
 import { uwPromptFor } from "@/lib/uw-prompt";
 import { UwPromptCard } from "@/components/v2/uw-prompt-card";
@@ -29,12 +31,17 @@ import { FriendsClientV3 } from "./friends-client-v3";
 
 // Friend management (social v2). Flag-gated: 404s entirely while the social
 // build is switched off, so it never appears for current beta users.
-export default async function FriendsPage() {
+export default async function FriendsPage({
+  searchParams,
+}: {
+  // Next 16: searchParams is a Promise and must be awaited.
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   if (!SOCIAL_ENABLED) notFound();
   await requireUser();
   // The v3 tab (plan P8) has its own reads, below. Off, everything after this
-  // line is the tab as it was.
-  if (FRIENDS_V3) return <FriendsPageV3 />;
+  // line is the tab as it was. `?tab=groups` opens its Groups sub-tab (GROUPS).
+  if (FRIENDS_V3) return <FriendsPageV3 tab={friendsSubTabFrom((await searchParams).tab, GROUPS)} />;
 
   const [
     friends,
@@ -107,7 +114,10 @@ async function readSuggestions(): Promise<SuggestionsInput> {
 // which is what keeps a revalidated tab agreeing with its optimistic one. A
 // failed RPC still hands the tab a UW answer, with no groups, so it keeps the
 // ones it has rather than taking the student for someone outside the cohort.
-async function FriendsPageV3() {
+//
+// With GROUPS on, the Groups sub-tab's list (listGroups, one definer RPC)
+// rides the same wave whichever sub-tab opens, so switching costs nothing.
+async function FriendsPageV3({ tab }: { tab: FriendsSubTab }) {
   const friendsRead = listFriends();
   const uwRead = UW
     ? getProfile().then(async (p) =>
@@ -126,6 +136,7 @@ async function FriendsPageV3() {
     myGoals,
     uw,
     uwPrompt,
+    groups,
   ] = await Promise.all([
     friendsRead,
     listIncomingRequests(),
@@ -138,6 +149,7 @@ async function FriendsPageV3() {
     listActiveGoals(),
     uwRead,
     readUwPromptCard(),
+    GROUPS ? listGroups() : null,
   ]);
 
   return (
@@ -151,6 +163,8 @@ async function FriendsPageV3() {
       inviteGoal={inviteGoalTitle(myGoals)}
       uw={uw}
       uwPrompt={uwPrompt}
+      groups={groups}
+      initialTab={tab}
     />
   );
 }

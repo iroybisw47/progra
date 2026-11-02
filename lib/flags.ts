@@ -254,6 +254,24 @@ export const ONBOARDING_V4 =
 export const FRIENDS_V3 =
   envFlag(process.env.NEXT_PUBLIC_FRIENDS_V3) && SOCIAL_ENABLED;
 
+// Master switch for groups: communities you join, which friend you with every
+// member. The Groups sub-tab on /friends, the /groups/[id] page, unfriending
+// through unfriend_user (so a group never re-friends the pair), and the weekly
+// review ranking you in each of your groups instead of among your friends.
+//
+// THIS FLAG MEANS .claude/plans/groups.sql STEP 1 HAS RUN: every read and
+// write names a table or RPC it creates. Flipped early, reads come back empty
+// and writes fail with their generic error. Off again, group friendships stay
+// ordinary friendships, which is the rollback.
+//
+// Built on the successor surfaces only (owner, 2026-10-31), so it implies
+// FRIENDS_V3 (the sub-tab lives there) and RECAP_V2 (the rank slide).
+export const GROUPS =
+  envFlag(process.env.NEXT_PUBLIC_GROUPS) && FRIENDS_V3 && RECAP_V2;
+
+// Onboarding v4's skippable "Join a group" step, before find-your-friends.
+export const GROUPS_ONBOARDING = GROUPS && ONBOARDING_V4;
+
 // Master switch for the iOS Live Activity: the Lock Screen / Dynamic Island card
 // for a running clock-in session.
 //

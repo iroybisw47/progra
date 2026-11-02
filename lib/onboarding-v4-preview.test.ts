@@ -32,3 +32,13 @@ describe("the v4 preview's URL", () => {
     expect(parseV4PreviewParams({ notify: "0" }).notify).toBe(false);
   });
 });
+
+describe("the group step in the preview", () => {
+  it("opens on it with groups, and leaves it out elsewhere unless asked", async () => {
+    const { parseV4PreviewParams: parse, PREVIEW_V4_GROUPS } = await import("@/lib/onboarding-v4-preview");
+    expect(parse({ step: "group" })).toMatchObject({ screen: V4_SCREEN.group, groups: PREVIEW_V4_GROUPS });
+    expect(parse({ step: "friends" }).groups).toBeNull();
+    expect(parse({ step: "friends", groups: "1" }).groups).toBe(PREVIEW_V4_GROUPS);
+    expect(parse({ step: "group", groups: "0" }).groups).toBeNull();
+  });
+});

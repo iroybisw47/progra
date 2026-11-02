@@ -1,0 +1,111 @@
+{
+  "_comment": "One person's worked ms for a week, as the group leaderboard ranks it. Run through SQL by .claude/plans/nudges-harness/groups.mjs (group_week_totals) and through TS by lib/group-leaderboard.test.ts (the circle read's filter, then aggregateRangeByGoal) — the two must agree. The window is America/Los_Angeles's Mon 2026-10-19 → Sun 2026-10-25, end inclusive (lib/dates.ts weekWindow). `now` is capped at the window's end on both sides. A session: start/end ISO (end null = running), pausedMin banked, pausedSince ISO (running only), autoEnded, private, goal.",
+  "window": { "start": "2026-10-19T07:00:00.000Z", "end": "2026-10-26T06:59:59.999Z" },
+  "cases": [
+    {
+      "name": "an ended session inside the week",
+      "now": "2026-10-22T00:00:00.000Z",
+      "sessions": [{ "start": "2026-10-20T17:00:00.000Z", "end": "2026-10-20T17:30:00.000Z" }],
+      "expectMs": 1800000
+    },
+    {
+      "name": "ends exactly at the week's start: the read's ended_at > start drops it",
+      "now": "2026-10-22T00:00:00.000Z",
+      "sessions": [{ "start": "2026-10-19T06:00:00.000Z", "end": "2026-10-19T07:00:00.000Z" }],
+      "expectMs": 0
+    },
+    {
+      "name": "ends exactly at the week's end: counts",
+      "now": "2026-10-27T00:00:00.000Z",
+      "sessions": [{ "start": "2026-10-26T06:00:00.000Z", "end": "2026-10-26T06:59:59.999Z" }],
+      "expectMs": 3599999
+    },
+    {
+      "name": "started before Monday, ended inside: counts whole, not clipped",
+      "now": "2026-10-22T00:00:00.000Z",
+      "sessions": [{ "start": "2026-10-19T05:00:00.000Z", "end": "2026-10-19T08:00:00.000Z" }],
+      "expectMs": 10800000
+    },
+    {
+      "name": "started inside, ended after the week: belongs to the next one",
+      "now": "2026-10-27T00:00:00.000Z",
+      "sessions": [{ "start": "2026-10-26T06:00:00.000Z", "end": "2026-10-26T08:00:00.000Z" }],
+      "expectMs": 0
+    },
+    {
+      "name": "running, with a banked pause",
+      "now": "2026-10-22T12:00:00.000Z",
+      "sessions": [{ "start": "2026-10-22T10:00:00.000Z", "end": null, "pausedMin": 15 }],
+      "expectMs": 6300000
+    },
+    {
+      "name": "running and paused right now",
+      "now": "2026-10-22T12:00:00.000Z",
+      "sessions": [{ "start": "2026-10-22T09:00:00.000Z", "end": null, "pausedMin": 30, "pausedSince": "2026-10-22T11:00:00.000Z" }],
+      "expectMs": 5400000
+    },
+    {
+      "name": "running past the 10h cap: frozen at the cap",
+      "now": "2026-10-21T13:00:00.000Z",
+      "sessions": [{ "start": "2026-10-21T00:00:00.000Z", "end": null }],
+      "expectMs": 36000000
+    },
+    {
+      "name": "running past the cap, attributed before Monday: dropped",
+      "now": "2026-10-19T08:00:00.000Z",
+      "sessions": [{ "start": "2026-10-18T20:00:00.000Z", "end": null }],
+      "expectMs": 0
+    },
+    {
+      "name": "running past the cap with a banked pause: the pause moves attribution into the week",
+      "now": "2026-10-19T09:00:00.000Z",
+      "sessions": [{ "start": "2026-10-18T20:00:00.000Z", "end": null, "pausedMin": 120 }],
+      "expectMs": 36000000
+    },
+    {
+      "name": "auto-ended by the cap: zero",
+      "now": "2026-10-22T00:00:00.000Z",
+      "sessions": [{ "start": "2026-10-20T00:00:00.000Z", "end": "2026-10-20T10:00:00.000Z", "autoEnded": true }],
+      "expectMs": 0
+    },
+    {
+      "name": "a private session counts (totals only)",
+      "now": "2026-10-22T00:00:00.000Z",
+      "sessions": [{ "start": "2026-10-20T17:00:00.000Z", "end": "2026-10-20T17:45:00.000Z", "private": true }],
+      "expectMs": 2700000
+    },
+    {
+      "name": "a past week read later: now is capped at the week's end",
+      "now": "2026-10-27T00:00:00.000Z",
+      "sessions": [{ "start": "2026-10-26T06:00:00.000Z", "end": null }],
+      "expectMs": 3599999
+    },
+    {
+      "name": "several sessions add up, goal or not",
+      "now": "2026-10-22T00:00:00.000Z",
+      "sessions": [
+        { "start": "2026-10-20T10:00:00.000Z", "end": "2026-10-20T10:20:00.000Z" },
+        { "start": "2026-10-21T10:00:00.000Z", "end": "2026-10-21T10:40:00.000Z", "goal": true }
+      ],
+      "expectMs": 3600000
+    },
+    {
+      "name": "a zero-length session",
+      "now": "2026-10-22T00:00:00.000Z",
+      "sessions": [{ "start": "2026-10-20T10:00:00.000Z", "end": "2026-10-20T10:00:00.000Z" }],
+      "expectMs": 0
+    },
+    {
+      "name": "a pause longer than the span reads zero",
+      "now": "2026-10-22T00:00:00.000Z",
+      "sessions": [{ "start": "2026-10-20T10:00:00.000Z", "end": "2026-10-20T10:30:00.000Z", "pausedMin": 45 }],
+      "expectMs": 0
+    },
+    {
+      "name": "nothing this week: a zero row, still listed",
+      "now": "2026-10-22T00:00:00.000Z",
+      "sessions": [],
+      "expectMs": 0
+    }
+  ]
+}

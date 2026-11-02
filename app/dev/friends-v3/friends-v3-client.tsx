@@ -38,6 +38,7 @@ export function FriendsV3PreviewClient({ fixture }: { fixture: FriendsPreviewFix
       services={services}
       initialQuery={start.query}
       initialSheetOpen={start.sheetOpen}
+      initialTab={start.tab}
       bell={<PreviewBell />}
     />
   );

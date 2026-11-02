@@ -10,7 +10,7 @@ import { FriendsV3PreviewClient } from "./friends-v3-client";
 // DEV ONLY: the v3 Friends tab (plan P8) with no sign-in and no database, for
 // screenshots.
 //
-//   /dev/friends-v3?fixture=default|empty|search|sheet|uw
+//   /dev/friends-v3?fixture=default|empty|search|sheet|uw|groups
 //
 // It renders the real tab (app/friends/friends-client-v3.tsx) from made-up
 // reads (lib/friends-v3-preview.ts), on fake services: every write answers

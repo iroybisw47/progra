@@ -183,3 +183,17 @@ describe("the uw fixture (P9d)", () => {
     });
   });
 });
+
+describe("the groups fixture", () => {
+  it("opens on the Groups sub-tab with groups to list; the others have none", async () => {
+    const { friendsPreviewData, friendsPreviewStart } = await import("@/lib/friends-v3-preview");
+    expect(friendsPreviewStart("groups").tab).toBe("groups");
+    const groups = friendsPreviewData("groups").groups ?? [];
+    expect(groups.some((g) => g.isMember)).toBe(true);
+    expect(groups.some((g) => !g.isMember && g.memberCount >= g.memberCap)).toBe(true);
+    for (const f of ["default", "empty", "search", "sheet", "uw"] as const) {
+      expect(friendsPreviewData(f).groups).toBeNull();
+      expect(friendsPreviewStart(f).tab).toBeUndefined();
+    }
+  });
+});

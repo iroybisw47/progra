@@ -9,6 +9,8 @@ import {
   V4_SCREEN,
   V4_STEPS,
   customHabitColor,
+  displayScreen,
+  groupCta,
   formatClock,
   habitColor,
   habitsCtaLabel,
@@ -18,6 +20,7 @@ import {
   practiceName,
   prefillHabits,
   progressFill,
+  screenTotal,
   stepEyebrow,
   v4Reducer,
   type V4Action,
@@ -33,7 +36,7 @@ const at = (screen: number, extra: Partial<V4State> = {}): V4State => ({
 });
 
 describe("screens", () => {
-  it("are eight, named with step names analytics accepts", () => {
+  it("are nine with the group step, named with step names analytics accepts", () => {
     expect(V4_STEPS).toEqual([
       "welcome",
       "goal",
@@ -41,6 +44,7 @@ describe("screens", () => {
       "how",
       "clock",
       "post",
+      "group",
       "friends",
       "notify",
     ]);
@@ -268,5 +272,55 @@ describe("Back", () => {
   it("has nowhere to go from the welcome", () => {
     const s = initialV4State();
     expect(run(s, { type: "back" })).toBe(s);
+  });
+});
+
+describe("the group step", () => {
+  const hidden = (screen: number, extra: Partial<V4State> = {}) => at(screen, extra);
+  const shown = (screen: number, extra: Partial<V4State> = {}) => at(screen, { groupShown: true, ...extra });
+
+  it("is off unless the run starts with it", () => {
+    expect(initialV4State().groupShown).toBe(false);
+    expect(initialV4State({ groupShown: true }).groupShown).toBe(true);
+  });
+
+  it("hidden, every move steps over it, both ways", () => {
+    expect(run(hidden(V4_SCREEN.post), { type: "go", to: V4_SCREEN.group }).screen).toBe(V4_SCREEN.friends);
+    expect(run(hidden(V4_SCREEN.friends), { type: "back" }).screen).toBe(V4_SCREEN.post);
+    // advanceLater's from + 1 off the post.
+    expect(run(hidden(V4_SCREEN.post), { type: "go", to: V4_SCREEN.post + 1 }).screen).toBe(V4_SCREEN.friends);
+  });
+
+  it("shown, it's a screen like any other", () => {
+    let s = run(shown(V4_SCREEN.post), { type: "go", to: V4_SCREEN.group });
+    expect(s.screen).toBe(V4_SCREEN.group);
+    s = run(s, { type: "go", to: V4_SCREEN.friends }, { type: "back" });
+    expect(s.screen).toBe(V4_SCREEN.group);
+    expect(run(s, { type: "back" }).screen).toBe(V4_SCREEN.post);
+  });
+
+  it("hidden, the count is exactly what it was before it existed", () => {
+    expect(screenTotal(true)).toBe(8);
+    expect(screenTotal(false)).toBe(7);
+    expect(displayScreen(V4_SCREEN.friends)).toBe(6);
+    expect(displayScreen(V4_SCREEN.notify)).toBe(7);
+    expect(displayScreen(V4_SCREEN.post)).toBe(5);
+    expect(progressFill(V4_SCREEN.friends, 0, true)).toBe(7 / 8);
+    expect(stepEyebrow(V4_SCREEN.post, true, true)).toBe("Step 6 of 8 · Practice");
+  });
+
+  it("shown, it counts one more, and the screens after it move up", () => {
+    expect(screenTotal(true, true)).toBe(9);
+    expect(screenTotal(false, true)).toBe(8);
+    expect(stepEyebrow(V4_SCREEN.habits, true, false, true)).toBe("Step 3 of 9");
+    expect(stepEyebrow(V4_SCREEN.group, true, false, true)).toBe("Step 7 of 9");
+    expect(progressFill(V4_SCREEN.friends, 0, true, true)).toBe(8 / 9);
+    expect(progressFill(V4_SCREEN.notify, 0, true, true)).toBe(1);
+    expect(progressFill(V4_SCREEN.friends, 0, false, true)).toBe(1);
+  });
+
+  it("asks to skip until a group is joined", () => {
+    expect(groupCta(0)).toEqual({ label: "Skip for now", variant: "secondary" });
+    expect(groupCta(2)).toEqual({ label: "Continue · 2 joined", variant: "primary" });
   });
 });

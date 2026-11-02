@@ -13,6 +13,7 @@ export const STEPS = [
   "clock",
   "post",
   "uw",
+  "group",
   "friends",
   "notify",
 ] as const;
@@ -40,8 +41,12 @@ export type Step = (typeof STEPS)[number];
 // `uw` sits after `goal` — goal titles are one of the three match signals, so
 // the goal has to exist first — and before `friends`, which shows the peers it
 // makes findable.
+//
+// `group` is onboarding v4's alone ("Join a group", GROUPS_ONBOARDING): it's a
+// step name here so analytics and setOnboardingStep accept it, and v2 never
+// shows it.
 export function activeSteps(native: boolean, uw: boolean): readonly Step[] {
-  return STEPS.filter((s) => (s !== "notify" || native) && (s !== "uw" || uw));
+  return STEPS.filter((s) => s !== "group" && (s !== "notify" || native) && (s !== "uw" || uw));
 }
 
 // "Step 3 of 7 · Practice". Welcome isn't numbered; on the web it's "of 6".

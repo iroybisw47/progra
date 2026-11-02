@@ -164,3 +164,12 @@ describe("practice clock", () => {
     expect(formatSim(SIM_TARGET_MS)).toBe("25:00");
   });
 });
+
+describe("the v4 group step", () => {
+  it("is a step name analytics accepts, and never in v2's run", () => {
+    expect(STEPS).toContain("group");
+    for (const native of [true, false]) {
+      for (const uw of [true, false]) expect(activeSteps(native, uw)).not.toContain("group");
+    }
+  });
+});

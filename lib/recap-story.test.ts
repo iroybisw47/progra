@@ -9,6 +9,7 @@ import {
   firstName,
   friendsSlide,
   goalsSlide,
+  groupRankSlide,
   habitsSlide,
   hoursSlide,
   joinNames,
@@ -19,6 +20,7 @@ import {
   weeklyAverageMs,
   whereSlide,
   CLOSING_FALLBACK_ACCENT,
+  NO_GROUP_RANK,
   UNCATEGORIZED_FILL,
   type RecapPerson,
   type RecapStoryInput,
@@ -476,5 +478,63 @@ describe("helpers", () => {
       { userId: "a", count: 2, lastMs: 9 },
       { userId: "b", count: 1, lastMs: 1 },
     ]);
+  });
+});
+
+describe("GROUPS: the group is the one ranking", () => {
+  const friends = [person("a", "Ana Diaz"), person("b", "Ben Ode")];
+
+  it("in no group: the rank slide is the line to the Groups tab", () => {
+    const v = buildRecapStory(input({ groups: [], friends }));
+    expect(v.slides).toContain("rank");
+    expect(v.rank).toBeNull();
+    expect(v.groupRank).toEqual({ kind: "none", text: NO_GROUP_RANK, href: "/friends?tab=groups" });
+    expect(NO_GROUP_RANK).toBe("Join a group to see how your week stacks up");
+  });
+
+  it("one row per group; a group of one says invite instead of a rank", () => {
+    expect(
+      groupRankSlide([
+        { groupId: "g1", name: "UW CS 2027", rank: 2, of: 14 },
+        { groupId: "g2", name: "Morning runners", rank: 1, of: 1 },
+      ])
+    ).toEqual({
+      kind: "groups",
+      rows: [
+        { groupId: "g1", name: "UW CS 2027", hero: "#2", of: "of 14 in your group" },
+        { groupId: "g2", name: "Morning runners", hero: null, of: "Invite your group" },
+      ],
+    });
+  });
+
+  it("the circle never ranks, however many friends were active", () => {
+    const circle: RecapStoryInput["circle"] = [
+      { user: person("me"), isMe: true, rank: 2, totalMs: 4 * H, goalCount: 0 },
+      ...["a", "b", "c", "d"].map((id, i) => ({ user: person(id), isMe: false, rank: i === 0 ? 1 : i + 2, totalMs: H, goalCount: 0 })),
+    ];
+    const v = buildRecapStory(input({ circle, friends, groups: [{ groupId: "g", name: "G", rank: 3, of: 9 }] }));
+    expect(v.rank).toBeNull();
+    expect(v.groupRank?.kind).toBe("groups");
+  });
+
+  it("the friends slide keeps the likes and drops the circle's lines", () => {
+    const v = friendsSlide(
+      input({
+        groups: [],
+        friends,
+        likesReceived: [{ userId: "a", count: 3, lastMs: 1 }],
+        circle: [{ user: person("me"), isMe: true, rank: 1, totalMs: 9 * H, goalCount: 0 }],
+      })
+    );
+    expect(v).toMatchObject({ meta: "2 friends", groupHours: null, top3: null, invite: null });
+    expect(v.likedYou?.text).toBe("Ana liked your posts the most.");
+    const alone = friendsSlide(input({ groups: [], friends: [] }));
+    expect(alone.meta).toBe("No friends yet");
+    expect(alone.invite).toMatch(/Send a friend the app/);
+  });
+
+  it("with GROUPS off (no groups), nothing changes", () => {
+    const v = buildRecapStory(input());
+    expect(v.groupRank).toBeNull();
   });
 });

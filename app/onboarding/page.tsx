@@ -9,11 +9,12 @@ import {
 import { listCategories } from "@/lib/db/categories";
 import { listEventsInRange } from "@/lib/db/calendar-events";
 import { getFriendRelations } from "@/lib/db/friends";
+import { listGroups } from "@/lib/db/groups";
 import { listActiveGoals } from "@/lib/db/goals";
 import { listActiveHabits, listCompletionsInRange } from "@/lib/db/habits";
 import { getWeekCategorySegs } from "@/lib/db/progress";
 import { listRecentSessions } from "@/lib/db/sessions";
-import { ONBOARDING_V3, ONBOARDING_V4, REDESIGN, UW } from "@/lib/flags";
+import { GROUPS_ONBOARDING, ONBOARDING_V3, ONBOARDING_V4, REDESIGN, UW } from "@/lib/flags";
 import { accountGoalsFrom, accountHabitsFrom } from "@/lib/onboarding-v3-goals-habits";
 import { savedUwFrom } from "@/lib/onboarding-v3-uw";
 import {
@@ -91,10 +92,11 @@ export default async function OnboardingPage({
     // ONBOARDING_V4 wins over v3: the same reads, less the week (v4's "How
     // Progra works" draws a sample, never a real week).
     if (ONBOARDING_V4) {
-      const [goals, habits, relations] = await Promise.all([
+      const [goals, habits, relations, groups] = await Promise.all([
         listActiveGoals(),
         listActiveHabits(),
         getFriendRelations(),
+        GROUPS_ONBOARDING ? listGroups() : null,
       ]);
       return (
         <OnboardingClientV4
@@ -107,6 +109,7 @@ export default async function OnboardingPage({
           relations={relations}
           uw={UW}
           savedUw={UW ? savedUwFrom(profile) : undefined}
+          groups={groups}
         />
       );
     }

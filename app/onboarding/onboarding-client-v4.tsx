@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useReducer, useRef, useState } from "react";
 
-import { useFriendAdds } from "@/components/v2/person-row";
+import { rowErrorToast, useFriendAdds } from "@/components/v2/person-row";
 import { PillToast, type PillToastHandle } from "@/components/v2/pill-toast";
 import { goalFillHex } from "@/lib/colors";
 import {
@@ -15,6 +15,7 @@ import {
 } from "@/lib/find-friends";
 import { clockHandoffHref } from "@/lib/clock-handoff";
 import { CLOCK_REMINDERS, NUDGES, RECAP_PUSH, SOCIAL_PUSH, STREAKS } from "@/lib/flags";
+import { GROUP_COPY, joinedToast, type GroupSummary } from "@/lib/groups";
 import { usePrefersReducedMotion } from "@/lib/hooks";
 import { handoffExitMs, type Box, type ItemPhase } from "@/lib/motion";
 import { markNavRise, sessionFlagStore } from "@/lib/nav-rise";
@@ -48,7 +49,9 @@ import {
   V4_SCREEN,
   V4_SCREEN_COUNT,
   V4_STEPS,
+  displayScreen,
   firstGoal,
+  groupCta,
   habitColor,
   habitsCtaLabel,
   initialV4State,
@@ -87,6 +90,7 @@ import { useUwWrites } from "./v3/uw-writes";
 import { V3_COLUMN, V3_FRAME } from "./v3/frame";
 import { WelcomeScreen, useWelcomePhoto, type WelcomeScreenHandle } from "./v3/welcome-screen";
 import { WizardChrome } from "./v3/wizard-chrome";
+import { GroupScreen } from "./v4/group-screen";
 import { HabitsScreen, type HabitsScreenHandle } from "./v4/habits-screen";
 import { HowScreen } from "./v4/how-screen";
 import { NotifyScreen } from "./v4/notify-screen";
@@ -114,8 +118,10 @@ const GoalColorSheet = dynamic(
 //   4 clock        v2's practice clock-in
 //   5 post         v2's practice post; its Continue raises the UW sheet
 //                  (UW on), whose Yes opens the UW page over it
-//   6 friends      v3's find your friends
-//   7 notify       a new notifications screen, last, while iOS can still ask
+//   6 group        "Join a group" (GROUPS_ONBOARDING, with a group to join);
+//                  otherwise skipped, and the run counts eight as before
+//   7 friends      v3's find your friends
+//   8 notify       a new notifications screen, last, while iOS can still ask
 //
 // Where the notifications screen isn't shown (the website, or a device iOS
 // has already asked), find your friends is last, the bar counts seven, and
@@ -145,6 +151,9 @@ type Props = {
   // straight to find your friends.
   uw?: boolean;
   savedUw?: SavedUw;
+  // GROUPS_ONBOARDING: every live group (listGroups), for the "Join a group"
+  // step. Null, absent or empty, the step isn't in the run.
+  groups?: readonly GroupSummary[] | null;
   // Dev preview only (app/dev/onboarding-v4). Production passes none of these.
   services?: OnboardingV3Services;
   initialScreen?: number;
@@ -179,6 +188,7 @@ const SCREEN_LABELS = [
   "How Progra works",
   "Try clocking in",
   "Show your work",
+  "Join a group",
   "Find your friends",
   "Allow notifications",
 ];
@@ -201,7 +211,9 @@ function startAt({
   sheet,
   selected,
   page,
+  groupShown,
 }: {
+  groupShown: boolean;
   screen: number;
   howStep: number;
   goals: AccountGoal[];
@@ -221,7 +233,7 @@ function startAt({
     return g ? goalFillHex(g) : nextGoalColor([]);
   });
   let start: V4State = {
-    ...initialV4State(),
+    ...initialV4State({ groupShown }),
     goals: titles,
     goalHours,
     goalRowIds,
@@ -279,6 +291,7 @@ export function OnboardingClientV4({
   relations = NO_RELATIONS,
   uw = false,
   savedUw,
+  groups = null,
   services = REAL_SERVICES,
   initialScreen = V4_SCREEN.welcome,
   initialHowStep = 0,
@@ -307,6 +320,7 @@ export function OnboardingClientV4({
       sheet: initialUwSheet,
       selected: initialUwSelected,
       page: initialUwPage,
+      groupShown: (groups?.length ?? 0) > 0,
     },
     startAt
   );
@@ -530,12 +544,13 @@ export function OnboardingClientV4({
     });
     void Promise.all([saved, wait(uwDelay("noAdvanceMs", reduced))]).then(([out]) => {
       if (!mounted.current || screenNow.current !== V4_SCREEN.post) return;
-      if (out === "saved" || (out === "failed" && !inCohort)) go(V4_SCREEN.friends);
+      if (out === "saved" || (out === "failed" && !inCohort)) go(V4_SCREEN.group);
       else dispatch({ type: "changeUw" });
     });
   }
 
-  // The UW page's Skip or Continue: the Yes path saved, then find your friends.
+  // The UW page's Skip or Continue: the Yes path saved, then the next screen
+  // (the group step, or find your friends where it isn't in the run).
   function exitYes(lists: { majors: string[]; interests: string[] }) {
     const input = uwExitInput({ kind: "yes", ...lists, listed: wizard.uwListed });
     const next = advanceLater(V4_SCREEN.post);
@@ -563,11 +578,12 @@ export function OnboardingClientV4({
     if (sheetDismissible) dispatch({ type: "closeUwSheet" });
   }
 
-  // The post's Continue: the UW sheet (UW on), else find your friends.
+  // The post's Continue: the UW sheet (UW on), else the group step (which the
+  // reducer steps over when it isn't in the run) or find your friends.
   function continuePost() {
     if (!posted) return;
     if (!uw) {
-      go(V4_SCREEN.friends);
+      go(V4_SCREEN.group);
       return;
     }
     blurField();
@@ -629,6 +645,55 @@ export function OnboardingClientV4({
   function nextHow() {
     if (wizard.howStep >= HOW_STEPS - 1) go(V4_SCREEN.clock);
     else dispatch({ type: "nextHow" });
+  }
+
+  // ---- The group step -----------------------------------------------------------
+
+  // Joined in this run, or already a member (a replay), by group id. A tap
+  // shows at once; a failure takes it back and says why. One call per group
+  // at a time: a second tap while the first is out is dropped.
+  const [joinedGroups, setJoinedGroups] = useState<ReadonlySet<string>>(
+    () => new Set((groups ?? []).filter((g) => g.isMember).map((g) => g.groupId))
+  );
+  const groupCalls = useRef(new Set<string>());
+  function toggleGroup(group: GroupSummary) {
+    const id = group.groupId;
+    if (groupCalls.current.has(id)) return;
+    groupCalls.current.add(id);
+    const leaving = joinedGroups.has(id);
+    const flip = (on: boolean) =>
+      setJoinedGroups((now) => {
+        const next = new Set(now);
+        if (on) next.add(id);
+        else next.delete(id);
+        return next;
+      });
+    flip(!leaving);
+    const failed = leaving ? GROUP_COPY.leaveFailed : GROUP_COPY.joinFailed;
+    const call: Promise<{ ok: true; newFriends?: number } | { error: string }> = leaving
+      ? services.leaveGroup(id)
+      : services.joinGroup(id);
+    void call
+      .then(
+        (result) => {
+          if ("error" in result) {
+            flip(leaving);
+            rowErrorToast(result.error);
+            return;
+          }
+          services.track(leaving ? "group_left" : "group_joined", {
+            group_id: id,
+            from: "onboarding",
+            ...(leaving ? {} : { new_friends: result.newFriends ?? 0 }),
+          });
+          if (!leaving) toastRef.current?.show(joinedToast(result.newFriends ?? 0));
+        },
+        () => {
+          flip(leaving);
+          rowErrorToast(failed);
+        }
+      )
+      .finally(() => groupCalls.current.delete(id));
   }
 
   // ---- Friends and notifications -------------------------------------------------
@@ -731,6 +796,8 @@ export function OnboardingClientV4({
       disabled: !posted,
       onPress: continuePost,
     };
+  } else if (screen === V4_SCREEN.group) {
+    cta = { ...groupCta(joinedGroups.size), onPress: () => go(V4_SCREEN.friends) };
   } else if (screen === V4_SCREEN.friends && !lastIsFriends) {
     cta = { ...friendsCta(friendAdds.count), onPress: () => go(V4_SCREEN.notify) };
   } else if (screen === V4_SCREEN.friends) {
@@ -748,7 +815,7 @@ export function OnboardingClientV4({
   }
   if (leaving) skip = null;
 
-  const total = screenTotal(notifyShown);
+  const total = screenTotal(notifyShown, wizard.groupShown);
 
   return (
     <div data-onboarding-v3 data-onboarding-v4 className={V3_FRAME}>
@@ -767,8 +834,8 @@ export function OnboardingClientV4({
           reduced={reduced}
           onBack={back}
           onClose={replay ? close : undefined}
-          progress={{ at: Math.min(screen, total - 1), of: total }}
-          fill={progressFill(screen, wizard.howStep, notifyShown)}
+          progress={{ at: Math.min(displayScreen(screen, wizard.groupShown), total - 1), of: total }}
+          fill={progressFill(screen, wizard.howStep, notifyShown, wizard.groupShown)}
           avatar={{
             name: shown.displayName,
             colorKey: shown.colorKey,
@@ -839,7 +906,7 @@ export function OnboardingClientV4({
                     ref={habitsScreenRef}
                     phase={phase}
                     reduced={reduced}
-                    eyebrow={stepEyebrow(V4_SCREEN.habits, notifyShown)}
+                    eyebrow={stepEyebrow(V4_SCREEN.habits, notifyShown, false, wizard.groupShown)}
                     habits={wizard.habits}
                     customHabits={wizard.customHabits}
                     busy={habitWrites.saving}
@@ -865,7 +932,7 @@ export function OnboardingClientV4({
                   <PracticeClockScreen
                     phase={phase}
                     reduced={reduced}
-                    eyebrow={stepEyebrow(V4_SCREEN.clock, notifyShown, true)}
+                    eyebrow={stepEyebrow(V4_SCREEN.clock, notifyShown, true, wizard.groupShown)}
                     goal={goal1}
                     onRunning={setClockRunning}
                     onStart={setSessionName}
@@ -877,13 +944,22 @@ export function OnboardingClientV4({
                   <PracticePostScreen
                     phase={phase}
                     reduced={reduced}
-                    eyebrow={stepEyebrow(V4_SCREEN.post, notifyShown, true)}
+                    eyebrow={stepEyebrow(V4_SCREEN.post, notifyShown, true, wizard.groupShown)}
                     name={shown.displayName}
                     username={shown.colorKey}
                     sessionName={sessionName}
                     goal={goal1}
                     posted={posted}
                     onPost={() => setPosted(true)}
+                  />
+                ) : i === V4_SCREEN.group ? (
+                  <GroupScreen
+                    phase={phase}
+                    reduced={reduced}
+                    eyebrow={stepEyebrow(V4_SCREEN.group, notifyShown, false, wizard.groupShown)}
+                    groups={groups ?? []}
+                    joined={joinedGroups}
+                    onToggle={toggleGroup}
                   />
                 ) : i === V4_SCREEN.friends ? (
                   <FindFriendsScreen

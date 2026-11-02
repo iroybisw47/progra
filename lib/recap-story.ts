@@ -1,4 +1,5 @@
 import { aggregateRange } from "@/lib/aggregate";
+import { GROUP_COPY, GROUP_LEADERBOARD_MIN } from "@/lib/groups";
 import { entityColor, entityOnDark, goalColorOf, goalFillHex } from "@/lib/colors";
 import { addDaysISO, weekWindow, type WeekWindow } from "@/lib/dates";
 import { formatDuration } from "@/lib/duration";
@@ -68,6 +69,11 @@ export type RecapStoryInput = {
   circle: { user: RecapPerson; isMe: boolean; rank: number; totalMs: number; goalCount: number }[];
   // Every accepted friend, active that week or not.
   friends: RecapPerson[];
+  // GROUPS: your rank in each of your groups that week (lib/db/groups.ts
+  // getMyGroupRanksForWeek), which replaces the circle as the one ranking —
+  // [] for someone in no group. Absent or null with GROUPS off: the circle
+  // ranks, exactly as before.
+  groups?: GroupRankInput[] | null;
   likesGiven: LikeTally[];
   likesReceived: LikeTally[];
   quote?: RecapQuote;
@@ -130,6 +136,20 @@ export type FriendsView = {
   invite: string | null;
 };
 
+export type GroupRankInput = { groupId: string; name: string; rank: number; of: number };
+
+// The rank slide under GROUPS: one row per group you're in, each "#2 · of 14
+// in your group", or "Invite your group" where there's nobody to rank against
+// yet. With no group at all, the one line pointing at the Groups tab.
+export type GroupRankView =
+  | {
+      kind: "groups";
+      rows: { groupId: string; name: string; hero: string | null; of: string }[];
+    }
+  | { kind: "none"; text: string; href: string };
+
+export const NO_GROUP_RANK = "Join a group to see how your week stacks up";
+
 export type RankView = {
   hero: string;
   of: string;
@@ -186,6 +206,8 @@ export type RecapStoryView = {
   habits: HabitsView | null;
   friends: FriendsView;
   rank: RankView | null;
+  // GROUPS: the rank slide's groups version, in place of `rank`.
+  groupRank: GroupRankView | null;
   share: ShareView | null;
   closing: { accent: string; quote: RecapQuote };
 };
@@ -415,6 +437,37 @@ function topTally(tallies: LikeTally[], friendsById: Map<string, RecapPerson>): 
 }
 
 export function friendsSlide(input: RecapStoryInput): FriendsView {
+  // GROUPS: the group is the one ranking now, so this slide drops what the
+  // circle drove — its hours together, the top-three line and "leaderboards
+  // start at three" — and keeps the likes. Someone with no friends still
+  // gets the invite.
+  if (input.groups != null) {
+    const friendsById = new Map(input.friends.map((f) => [f.userId, f]));
+    const given = topTally(input.likesGiven, friendsById);
+    const received = topTally(input.likesReceived, friendsById);
+    const n = input.friends.length;
+    return {
+      meta: n === 0 ? "No friends yet" : `${n} ${plural(n, "friend", "friends")}`,
+      groupHours: null,
+      groupUnit: "hours",
+      likedByYou: given
+        ? {
+            person: friendsById.get(given.userId)!,
+            text: `You liked ${firstName(friendsById.get(given.userId)!)}’s posts the most`,
+            countLabel: `${given.count} ${plural(given.count, "like", "likes")}`,
+          }
+        : null,
+      likedYou: received
+        ? {
+            person: friendsById.get(received.userId)!,
+            text: `${firstName(friendsById.get(received.userId)!)} liked your posts the most.`,
+            countLabel: null,
+          }
+        : null,
+      top3: null,
+      invite: n === 0 ? "Send a friend the app, and you’ll see each other’s weeks here." : null,
+    };
+  }
   const activeFriends = input.circle.filter((r) => !r.isMe).length;
   const me = input.circle.find((r) => r.isMe) ?? null;
   const friendsById = new Map(input.friends.map((f) => [f.userId, f]));
@@ -459,6 +512,19 @@ export function friendsSlide(input: RecapStoryInput): FriendsView {
       : `Leaderboards start at three active friends — invite ${numberWord(
           MIN_ACTIVE_FRIENDS - activeFriends
         )} more and you’ll see how your weeks stack up.`,
+  };
+}
+
+// GROUPS' rank slide: every group you're in, in the order you joined them.
+export function groupRankSlide(groups: readonly GroupRankInput[]): GroupRankView {
+  if (groups.length === 0) return { kind: "none", text: NO_GROUP_RANK, href: "/friends?tab=groups" };
+  return {
+    kind: "groups",
+    rows: groups.map((g) =>
+      g.of >= GROUP_LEADERBOARD_MIN
+        ? { groupId: g.groupId, name: g.name, hero: `#${g.rank}`, of: `of ${g.of} in your group` }
+        : { groupId: g.groupId, name: g.name, hero: null, of: GROUP_COPY.invite }
+    ),
   };
 }
 
@@ -523,7 +589,9 @@ export function buildRecapStory(input: RecapStoryInput): RecapStoryView {
   const where = whereSlide(input.categories);
   const goals = goalsSlide(input.goals);
   const habits = habitsSlide(input.weekStartISO, input.habits, input.completions);
-  const rank = rankSlide(input.circle);
+  // One ranking: the groups under GROUPS, the circle otherwise.
+  const groupRank = input.groups != null ? groupRankSlide(input.groups) : null;
+  const rank = input.groups != null ? null : rankSlide(input.circle);
 
   const slides: SlideId[] = ["loading"];
   if (input.firstReview) slides.push("welcome");
@@ -532,7 +600,7 @@ export function buildRecapStory(input: RecapStoryInput): RecapStoryView {
   if (goals) slides.push("goals");
   if (habits) slides.push("habits");
   slides.push("friends");
-  if (rank) slides.push("rank");
+  if (rank || groupRank) slides.push("rank");
   const share: ShareView | null = input.share?.postable
     ? {
         summary: reviewPostSummary(input),
@@ -556,6 +624,7 @@ export function buildRecapStory(input: RecapStoryInput): RecapStoryView {
     habits,
     friends: friendsSlide(input),
     rank,
+    groupRank,
     share,
     closing: {
       accent: closingAccent(input.goals),

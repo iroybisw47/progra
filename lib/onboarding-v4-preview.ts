@@ -3,7 +3,7 @@
 // is and what their account has, and its fake services; only which screen and
 // which state to open on are v4's own.
 //
-//   ?step=welcome|goal|habits|how|clock|post|friends|notify  (or 1-8)
+//   ?step=welcome|goal|habits|how|clock|post|group|friends|notify  (or 1-9)
 //   &how=1..4        How Progra works' step
 //   &fixture=…       any of v3's PREVIEW_FIXTURES (goals, habits, uw-sheet, …)
 //   &uw=1|0          the UW variant on or off (the uw-* fixtures turn it on)
@@ -11,6 +11,8 @@
 //   &notify=0        a device that has already answered iOS: no notifications
 //                    screen, so find your friends is last
 //   &q=…             typed into find your friends' search
+//   &groups=1|0      the "Join a group" step in the run or not (GROUPS_ONBOARDING);
+//                    on by default only when the URL opens on it
 //
 // The uw-sheet, uw-sheet-no and uw-page fixtures open on the posted practice
 // post, where v4 asks the question, with the sheet up or the page in front.
@@ -20,6 +22,7 @@ import {
   PREVIEW_FIXTURES,
   type PreviewFixture,
 } from "@/lib/onboarding-v3-preview";
+import type { GroupSummary } from "@/lib/groups";
 import { HOW_STEPS, V4_SCREEN, V4_SCREEN_COUNT } from "@/lib/onboarding-v4";
 
 type Params = Record<string, string | string[] | undefined>;
@@ -34,6 +37,8 @@ const STEP_NAMES: Record<string, number> = {
   how: V4_SCREEN.how,
   clock: V4_SCREEN.clock,
   post: V4_SCREEN.post,
+  group: V4_SCREEN.group,
+  groups: V4_SCREEN.group,
   friends: V4_SCREEN.friends,
   notify: V4_SCREEN.notify,
 };
@@ -71,7 +76,18 @@ export type V4PreviewParams = {
   posted: boolean;
   notify: boolean;
   query?: string;
+  // The group step's list, or null: not in the run.
+  groups: GroupSummary[] | null;
 };
+
+// The made-up groups the step lists: one you'd be friended into, one just
+// started, one empty, one full.
+export const PREVIEW_V4_GROUPS: GroupSummary[] = [
+  { groupId: "00000000-0000-4000-8000-0000000000b1", name: "UW CS 2027", description: null, memberCap: 50, memberCount: 31, isMember: false, friendableCount: 31 },
+  { groupId: "00000000-0000-4000-8000-0000000000b2", name: "Morning runners", description: null, memberCap: 50, memberCount: 1, isMember: false, friendableCount: 1 },
+  { groupId: "00000000-0000-4000-8000-0000000000b3", name: "Thesis writers", description: null, memberCap: 50, memberCount: 0, isMember: false, friendableCount: 0 },
+  { groupId: "00000000-0000-4000-8000-0000000000b4", name: "Founders' focus club", description: null, memberCap: 50, memberCount: 50, isMember: false, friendableCount: 50 },
+];
 
 export function parseV4PreviewParams(params: Params): V4PreviewParams {
   const raw = first(params.fixture);
@@ -99,5 +115,9 @@ export function parseV4PreviewParams(params: Params): V4PreviewParams {
     posted,
     notify: first(params.notify) !== "0",
     query: first(params.q),
+    groups:
+      first(params.groups) === "1" || (first(params.groups) !== "0" && screen === V4_SCREEN.group)
+        ? PREVIEW_V4_GROUPS
+        : null,
   };
 }

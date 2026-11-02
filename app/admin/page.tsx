@@ -4,9 +4,11 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionPhotoUrl } from "@/lib/db/session-photos";
-import { SOCIAL_ENABLED } from "@/lib/flags";
+import { adminListGroups } from "@/lib/db/groups";
+import { GROUPS, SOCIAL_ENABLED } from "@/lib/flags";
 import { presetCopy } from "@/lib/social/nudges";
 
+import { AdminGroups } from "./admin-groups";
 import { AdminReports, type AdminReport } from "./admin-reports";
 import {
   AdminBugReports,
@@ -108,11 +110,13 @@ export default async function AdminPage() {
   // Beta capacity. Both RPCs are read-only and both degrade to null/empty on
   // error, so a missing Stage 7 migration can't take the moderation queue down
   // with it.
-  const [overviewRes, waitlistRes, bugRes, suggestionRes] = await Promise.all([
+  const [overviewRes, waitlistRes, bugRes, suggestionRes, groups] = await Promise.all([
     supabase.rpc("admin_beta_overview"),
     supabase.rpc("admin_list_waitlist"),
     supabase.rpc("admin_list_bug_reports"),
     supabase.rpc("admin_list_suggestions"),
+    // Groups (GROUPS): null with the flag off or before groups.sql has run.
+    GROUPS ? adminListGroups() : null,
   ]);
 
   const rawOverview = overviewRes.error
@@ -300,6 +304,7 @@ export default async function AdminPage() {
       {/* Bug reports first — the most actionable thing on this page. */}
       <AdminBugReports reports={bugReports} installed={bugsInstalled} />
       <AdminWaitlist overview={overview} entries={waitlist} />
+      {GROUPS && <AdminGroups groups={groups} />}
       {/* Suggestions are a queue you answer, not a mailing list, so they sit
           with the other two rather than at the bottom — but below them, because
           an idea can wait and a bug or a blocked signup can't. Moderation stays

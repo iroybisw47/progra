@@ -10,6 +10,7 @@ import {
   previewUwCohort,
   type PreviewFixture,
 } from "@/lib/onboarding-v3-preview";
+import type { GroupSummary } from "@/lib/groups";
 import { V4_SCREEN } from "@/lib/onboarding-v4";
 
 // The client half of the v4 preview: v3's fixtures and fake services, made
@@ -23,6 +24,7 @@ export function OnboardingV4Client({
   posted,
   notify,
   query,
+  groups,
 }: {
   screen: number;
   howStep: number;
@@ -31,6 +33,7 @@ export function OnboardingV4Client({
   posted: boolean;
   notify: boolean;
   query?: string;
+  groups: GroupSummary[] | null;
 }) {
   const { uwSheet, uwSelected, uwPage, weekSegments: _week, ...profile } = previewProfile(fixture);
   void _week;
@@ -43,7 +46,7 @@ export function OnboardingV4Client({
   );
   return (
     <OnboardingClientV4
-      key={`${fixture}:${screen}:${howStep}:${uw}:${posted}:${notify}:${query ?? ""}:${restarts}`}
+      key={`${fixture}:${screen}:${howStep}:${uw}:${posted}:${notify}:${query ?? ""}:${groups ? 1 : 0}:${restarts}`}
       {...profile}
       uw={uw}
       initialUwSheet={uwSheet}
@@ -52,6 +55,7 @@ export function OnboardingV4Client({
       initialPosted={posted}
       searchDraft={query ?? profile.searchDraft}
       services={services}
+      groups={groups}
       initialScreen={restarts > 0 ? V4_SCREEN.welcome : screen}
       initialHowStep={howStep}
       onHandoff={() => setRestarts((n) => n + 1)}

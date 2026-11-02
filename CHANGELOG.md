@@ -5,6 +5,126 @@ prefixed with the commit time (local, `HH:MM`) the work landed — a proxy for
 when it was done, not a start/stop work timer.
 
 
+## 2026-11-01
+
+### 18:50 · Groups ships with no patch note
+The owner decided Groups goes out without a "What's new" note, so `GROUPS_PATCH_NOTE` and its tests are gone. The 18:10 entry's note no longer exists.
+
+### 18:40 · Groups SQL applied in production
+`.claude/plans/groups.sql` has run against prod:
+- **STEP 0:** 8/8 checks passed. Prod's `block_user`, `accept_friend_request` and `is_admin` were read and are compatible:
+  - `block_user` is an `INSERT … ON CONFLICT DO UPDATE SET status = 'blocked'`, which the block trigger catches on both paths.
+  - `accept_friend_request` updates `status`, which is what the clear-on-accept trigger keys on.
+- **STEP 1:** applied by the owner in the SQL editor. The connector's SQL tool declined schema changes.
+- **STEP 1V:** 13/13.
+- **STEP 2:** 23/23, and it rolled back cleanly. Afterwards there were 0 groups, memberships or recorded pairs, 364 friendships all `manual`, and 141 still seated.
+- `NEXT_PUBLIC_GROUPS` may now be turned on. Nothing is switched on yet.
+
+### 18:10 · Groups P6: the admin panel, the patch note and docs (dark)
+- **The /admin Groups panel** (`app/admin/admin-groups.tsx`, under Beta capacity, only with GROUPS on):
+  - A create form: name, optional description, cap 2–500 (default 50). It uses `validateGroupInput` before calling `createGroup`.
+  - Every live group with "N/cap members", linking to its page. Archive asks for a second tap ("Archive for good?") before it runs, since it removes every member and the group friendships only that group backed.
+  - Archived groups are listed with their date.
+  - It says "Groups unavailable" before groups.sql has run. To support that, `adminListGroups` now returns null rather than `[]` on error.
+- **Patch note:** `GROUPS_PATCH_NOTE` (1.06), gated on GROUPS like Rally's, so it appears in the deploy that flips the flag. **The copy is a draft for the owner to rewrite.** Tests check it sorts above every note, Rally's included.
+- **Docs:**
+  - `docs/SCREENS.md`: a GROUPS flag-context entry, plus R29 (`/groups/[id]`), L15, S79 (the Groups sub-tab), S80 (the join/leave sheet and unfriend dialog), S81 (the onboarding step), S82 (the recap's group rank) and S83 (the admin panel).
+  - `.claude/plans/groups.md`: what was built, the owner's decisions and the plan defaults, the flags, and the rollout in order. The rollout is: harness, then STEP 0/0B/1/1V/2 in prod, then create groups, then a signed-in check, then flip with the patch note.
+- **Whole feature, checked:**
+  - tsc clean, and eslint clean on all 53 changed or new files.
+  - vitest 1592/1592, and the build passes.
+  - Signed out on `next start`: `/groups/<uuid>` and `/dev/onboarding-v4` are 404s with the flag off and in production; `/friends?tab=groups`, `/admin`, `/onboarding` and `/recap/<week>` redirect to `/login`.
+  - The SQL harness: 103 checks and 38/38 mutants.
+  - **Not yet done:** a signed-in check and a check on a device.
+
+### 17:45 · Groups P5: onboarding v4's "Join a group" step (dark)
+`GROUPS_ONBOARDING` (`GROUPS && ONBOARDING_V4`) adds a skippable step between the practice post and find your friends. It appears only when there's at least one group to join.
+- **What it shows:** the list of groups to join, each with its count and the join line ("You'll be friends with all N members, and they'll see your sessions."). Full groups are greyed out.
+- **Joining:** Join toggles to "✓ Joined", and tapping again leaves. You can join several. A join toasts how many new friends it made.
+- **The CTA** reads "Skip for now" until a group is joined, then "Continue · N joined", following the find-your-friends screen's pattern.
+- **Files:** `app/onboarding/v4/group-screen.tsx`. Writes go through two new services, `joinGroup` and `leaveGroup` (real in `app/onboarding/v3/services.ts`, fakes in the preview). `/` and `/onboarding` read `listGroups()` in the same wave as their other reads.
+- **`lib/onboarding-v4.ts`:**
+  - `V4_SCREEN` gains `group: 6`, which moves friends to 7 and notify to 8. `V4_STEPS` gains `"group"`.
+  - `V4State.groupShown` is fixed at the start of the run.
+  - When the step isn't in the run, the reducer's `go()` steps over it in the direction of travel. That covers Back, `advanceLater`'s `from + 1`, and the post's and UW exits, which now aim at `V4_SCREEN.group`.
+  - The new `displayScreen` drives `screenTotal`, `progressFill`, `stepEyebrow` and the bar's position. **With the step hidden, the run counts exactly as it did** ("Step 6 of 8"), as the tests pin.
+- **Step names:** `lib/onboarding.ts` `STEPS` gains `"group"`, so `setOnboardingStep` and analytics accept it; groups.sql STEP 1 adds it to the database's check. `activeSteps` and v2's step type both leave it out, so v2's wizard never shows it.
+- **Dev preview:** `/dev/onboarding-v4?step=group` (or `&groups=1` with any step) shows four made-up groups: one with 31 members, one with a single member, an empty one, and a full one.
+- **Checks:** 13 new tests across the v4 model, `STEPS`/`activeSteps` and the preview parser. vitest 1590/1590, eslint clean, and the build passes. The preview renders the step as "Step 7 of 9" with each kind of join line, and with the step hidden the post still reads "Step 6 of 8".
+
+### 17:10 · Groups P4: the weekly review ranks you in each of your groups (dark)
+Under GROUPS, the group replaces the friends circle as the only ranking.
+- **`loadRecapStory`** reads `getMyGroupRanksForWeek` and no longer reads the circle at all.
+- **The rank slide:**
+  - **In a group:** one row per group, "#2 · of 14 in your group". A group with fewer than two members shows "Invite your group" instead of a rank.
+  - **In no group:** "Join a group to see how your week stacks up", with a "Find a group" button to `/friends?tab=groups`.
+  - **Mechanics:** the slide is `GroupRankSlide` in `components/recap-story/rank-slide.tsx`, driven by a new `view.groupRank`. It keeps the `"rank"` slide id, so the analytics slide names don't change.
+- **The friends slide** keeps the likes but drops what the circle drove: its hours together, the top-three line and "leaderboards start at three". Someone with no friends gets a plain invite instead.
+- **Posting the week** (`loadReviewPost`) now stores `rank: null` and `circle_size: 0`, so the feed card shows no rank. "#2 of 8" meant the circle, and a member of three groups has three ranks. Old posts keep theirs.
+- **With GROUPS off** (`groups` absent or null), the circle ranks exactly as before. Every existing test is unchanged.
+- **Recap preview:** new `groups` and `no-group` fixtures at `/dev/recap-story`.
+- **Checks:** 5 new tests in `lib/recap-story.test.ts`, vitest 1582/1582, eslint clean, and the build passes. Both new fixtures render the right rank slide on the dev server.
+
+### 16:45 · Groups P3: the Friends | Groups sub-tabs (dark)
+- **On the v3 Friends tab, with GROUPS on**, a Friends | Groups switch appears under the header. It uses the Progress tab's chip rail.
+  - **Groups** (`app/friends/groups-tab.tsx`) lists "Your groups" with member counts, then "Browse". Full groups are greyed and marked "· Full". Every row opens `/groups/[id]`.
+  - **Friends** is the tab exactly as it was.
+- **`?tab=groups`** opens the Groups side. The page now awaits `searchParams`. Switching updates the URL with `replaceState`, so it doesn't navigate or refetch.
+- **`listGroups()`** loads in the page's existing wave of reads, so switching costs nothing.
+- **With GROUPS off**, `groups` is null and there's no switch.
+- **Dev preview:** a new `/dev/friends-v3?fixture=groups` shows two of your groups (one with a single member), one to browse, and one full. Every other fixture has no groups.
+- **Tests:** `friendsSubTabFrom` and the preview fixture.
+- **Checks:** eslint clean, vitest 1577/1577, and the build passes. The `groups` fixture was fetched from the dev server and renders the sub-tab; `default` renders as before.
+
+### 16:20 · Groups P2: the `/groups/[id]` page (dark)
+- **Header:** a back button, the name, "12/50 members" and the description. A member gets a small Leave chip. A non-member gets a full-width Join button (greyed "Full" at the cap) and "Join to see its members, feed and leaderboard", and nothing about who's in it.
+- **Members get three views under the Progress tab's chip rail:**
+  - **Leaderboard:** this week, in the caller's own timezone week, with every member you can see ranked and "#N of M in your group" above the list. Under two members it shows "Invite your group" with the invite buttons instead.
+  - **Feed:** finished sessions from the members you're friends with, as `SessionCard`s, with likes and comments chained off the feed as on the Feed tab.
+  - **Members:** `PersonRow`s offering Unfriend, Add friend, Requested or Accept, applied optimistically.
+- **Unfriend asks first** (`unfriend-dialog.tsx`), because no group will re-friend the pair afterwards. The member stays listed with Add friend.
+- **Join/Leave sheet** (`membership-sheet.tsx`): it says what will happen before you confirm ("You'll be friends with all N members, and they'll see your sessions."). Joining toasts how many new friends it made.
+- **Lazy-loaded:** the sheet and the dialog both load with `next/dynamic`.
+- **Analytics:** new `group_joined` and `group_left` events (`lib/telemetry/events.ts`).
+- **The clock:** cards read the time from a `cache()`d `requestNow()` in `lib/db/groups.ts`, rather than calling `Date.now()` during render, so this adds no new purity lint debt.
+- **Checks:** tsc and eslint clean, vitest 1575/1575, and the build passes (`ƒ /groups/[id]`). Signed out on `next start`, `/groups/<uuid>` is a 404 with the flag off, and `/friends` redirects to `/login`.
+
+### 15:45 · Groups P1: the flag, reads and actions (dark, no UI yet)
+The TypeScript half under the P0 SQL. Nothing renders it yet; the page, the Friends sub-tab, the recap, onboarding and admin come in P2–P6. With the flag off, nothing behaves any differently.
+- **`GROUPS`** (`lib/flags.ts`): means "groups.sql STEP 1 ran". It requires `FRIENDS_V3` and `RECAP_V2`, since it's built only on those successors. **`GROUPS_ONBOARDING`** additionally requires `ONBOARDING_V4`.
+- **`lib/groups.ts`** (pure, tested in `lib/groups.test.ts`):
+  - `rankGroupRows`: every member is ranked, zero-hour members included. Ties share a rank (1, 1, 3) and sort by name.
+  - `joinCopy`: the join line. "You'll be friends with all N members, and they'll see your sessions." N counts only the members you'd actually be friended with. An empty group, or a group with nobody you can be friended with, gets its own line, so it never says "all 0 members".
+  - Also: `isGroupFull`, `groupRankLine`, `validateGroupInput`, and the form limits, which mirror the SQL constraints.
+- **`lib/db/groups.ts`**: `listGroups`, `getGroup`, `listGroupMembers` (each member with your relation to them), `getGroupLeaderboard`, `getMyGroupRanksForWeek`, `listGroupFeed`, `adminListGroups`.
+  - All are `cache()`-wrapped, go through the definer RPCs, and return empty on error or with the flag off.
+  - The group feed is the home feed's own read, narrowed to the friends in the group. To allow that, `listFriendFeed`'s body became `readFeedForFriends(friends, daysBack)` in `lib/db/feed.ts`; `listFriendFeed` itself behaves as before.
+- **Actions:**
+  - `joinGroup` returns `newFriends`; a full group gets its own message. `leaveGroup` is the other half (`app/actions/groups.ts`).
+  - `unfriendUser(targetUserId)` (`app/actions/friends.ts`).
+  - `createGroup` and `archiveGroup` (`app/actions/admin.ts`, next to its private `requireAdmin`).
+- **The profile's "Remove as friend"** goes through `unfriendUser` when GROUPS is on, so no group re-friends the pair. With it off, it uses `removeFriendship` as before.
+- **`lib/revalidate.ts`**: `revalidateFriendSurfaces` now includes `/groups/[id]`. New `revalidateGroupSurfaces` (adds `/onboarding` and `/recap/[weekStart]`) and `revalidateAdminGroupSurfaces` (adds `/admin`).
+- **Parity:** `lib/group-leaderboard.test.ts` runs P0's 17 fixtures through the circle read's filter and `aggregateRangeByGoal`; all of them match the SQL. `lib/session.ts`'s cap note now names every SQL carrier of 36000000.
+- **Checks:** `tsc` and eslint (changed files) are clean, vitest is 1573/1573, and `npm run build` passes.
+
+### 15:33 · Groups P0: hand-run SQL and its harness (no app code, nothing run in prod)
+Groups are communities. Joining one makes you friends with every member; each group has a member list, a feed and a weekly leaderboard. P0 is the database half only. `.claude/plans/groups.sql` (STEP 0 → 1 → 1V → 2) is **written, not run**. No app code calls it yet; that is P1, behind a `NEXT_PUBLIC_GROUPS` flag that means "STEP 1 ran".
+- **Tables:**
+  - `groups` (cap default 50, `archived_at`), `group_members` (clients see only their own rows) and `unfriended_pairs` (no client access at all).
+  - `friendships.origin` (`manual` | `group`). Every existing row becomes `manual`, and a guard trigger stops clients writing `group`.
+- **RPCs:**
+  - `join_group`: seat-checked in the database. It skips blocked pairs and pairs on `unfriended_pairs`, and turns a pending request into an accepted group friendship.
+  - `leave_group` and `admin_archive_group`: delete only the group friendships no shared live group still backs. Manual friendships are never touched.
+  - `unfriend_user`: every unfriend goes through it and records the pair. A block records the pair too, through a trigger.
+  - The member list and leaderboard are members-only and drop blocked pairs in both directions.
+  - Plus `list_groups` and the `admin_*` functions.
+  - The four writers serialize on one advisory lock. The header explains why a per-group lock alone loses friendships.
+- **The leaderboard reuses `analytics_worked_ms`.** It buckets whole sessions as `lib/aggregate.ts` does. Private sessions count, as totals only (owner's call).
+- **New `lib/group-leaderboard.fixtures.json`** (17 cases): the shared parity cases. The harness runs them through SQL now; `lib/group-leaderboard.test.ts` will run them through TS in P1.
+- `'group'` is added to `profiles_onboarding_step_check`, and mirrored in `analytics/phase1.sql`, for the v4 "Join a group" step.
+- **Harness:** `nudges-harness/groups.mjs`. 103 checks pass, including STEP 2's 23/23, and 38/38 mutants are caught. PGlite has one connection, so the lock itself is argued in the SQL rather than tested.
+
 ## 2026-10-29
 
 ### 18:05 · Onboarding v4: the practice photo is a mock

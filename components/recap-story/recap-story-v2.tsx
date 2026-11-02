@@ -28,7 +28,7 @@ import { GoalsSlide } from "./goals-slide";
 import { HabitsSlide } from "./habits-slide";
 import { HoursSlide } from "./hours-slide";
 import { IntroCurtain, LoadingSlide } from "./loading-slide";
-import { RankSlide } from "./rank-slide";
+import { GroupRankSlide, RankSlide } from "./rank-slide";
 import { ShareSlide } from "./share-slide";
 import { StoryHeader } from "./story-header";
 import { WelcomeSlide } from "./welcome-slide";
@@ -300,7 +300,8 @@ export function RecapStoryV2({
         {slide === "goals" && view.goals && <GoalsSlide goals={view.goals} still={still} />}
         {slide === "habits" && view.habits && <HabitsSlide habits={view.habits} still={still} />}
         {slide === "friends" && <FriendsSlide friends={view.friends} still={still} />}
-        {slide === "rank" && view.rank && <RankSlide rank={view.rank} />}
+        {slide === "rank" && view.groupRank && <GroupRankSlide rank={view.groupRank} />}
+        {slide === "rank" && !view.groupRank && view.rank && <RankSlide rank={view.rank} />}
         {slide === "share" && view.share && (
           <ShareSlide
             share={view.share}

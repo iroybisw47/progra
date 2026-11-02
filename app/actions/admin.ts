@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
+import { GROUPS } from "@/lib/flags";
+import { validateGroupInput } from "@/lib/groups";
+import { revalidateAdminGroupSurfaces } from "@/lib/revalidate";
+import { isUuid } from "@/lib/validate";
+
 import { createClient } from "@/lib/supabase/server";
 import { isBugStatus } from "@/lib/bug-reports";
 import { isSuggestionStatus } from "@/lib/suggestions";
@@ -177,4 +182,41 @@ export async function backfillGoalCategories(): Promise<
   }
   revalidatePath("/admin/analytics");
   return { ok: true, labeled, skipped };
+}
+
+// Create a group (.claude/plans/groups.sql admin_create_group). The input is
+// checked the way the table's constraints will check it, so a bad name reads
+// as a sentence rather than the generic failure.
+export async function createGroup(input: {
+  name: string;
+  description: string;
+  cap: number;
+}): Promise<{ ok: true; groupId: string } | { error: string }> {
+  if (!GROUPS) return { error: "Couldn't create that group." };
+  const valid = validateGroupInput(input);
+  if ("error" in valid) return valid;
+  const supabase = await createClient();
+  const gate = await requireAdmin(supabase);
+  if ("error" in gate) return gate;
+  const { data, error } = await supabase.rpc("admin_create_group", {
+    p_name: valid.name,
+    p_description: valid.description,
+    p_cap: valid.cap,
+  });
+  if (error || typeof data !== "string") return { error: "Couldn't create that group." };
+  revalidateAdminGroupSurfaces();
+  return { ok: true, groupId: data };
+}
+
+// Archive a group: hidden from browse, every membership removed, and the
+// group friendships only it backed ended. The row is kept.
+export async function archiveGroup(groupId: string): Promise<Result> {
+  if (!GROUPS || !isUuid(groupId)) return { error: "Couldn't archive that group." };
+  const supabase = await createClient();
+  const gate = await requireAdmin(supabase);
+  if ("error" in gate) return gate;
+  const { error } = await supabase.rpc("admin_archive_group", { p_group: groupId });
+  if (error) return { error: "Couldn't archive that group." };
+  revalidateAdminGroupSurfaces();
+  return { ok: true };
 }

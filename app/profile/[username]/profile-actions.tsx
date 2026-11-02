@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { track } from "@/lib/analytics";
+import { GROUPS } from "@/lib/flags";
 import { Button } from "@/components/ui/button";
 import { BottomSheet, BottomSheetContent } from "@/components/v2/bottom-sheet";
 import { MenuRow } from "@/components/v2/menu-row";
@@ -33,6 +34,7 @@ import {
   acceptFriendRequest,
   blockUser,
   removeFriendship,
+  unfriendUser,
   sendFriendRequest,
 } from "@/app/actions/friends";
 import { setProfileIdentity } from "@/app/actions/profile";
@@ -156,7 +158,9 @@ export function ProfileActions({
     if (k === "friends") {
       return {
         label: "Remove as friend",
-        run: () => run(() => removeFriendship(relationship.friendshipId!), {
+        // Under GROUPS through unfriendUser, which also stops any group
+        // friending the pair again.
+        run: () => run(() => (GROUPS ? unfriendUser(target.userId) : removeFriendship(relationship.friendshipId!)), {
           okMsg: "Removed",
           then: () => setMenuOpen(false),
         }),

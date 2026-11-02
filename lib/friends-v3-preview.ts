@@ -11,6 +11,7 @@
 // no dots, so the prototype's "leo.m" and "nina.k" are leo_m and nina_k).
 
 import type { BlockedEntry, PublicUser, RequestEntry } from "@/lib/db/friends";
+import type { GroupSummary } from "@/lib/groups";
 import {
   buildFriendRows,
   type FriendGoal,
@@ -48,7 +49,7 @@ import {
 //          UW groups from the made-up cohort (lib/uw-peers-preview.ts, "More
 //          at UW" a page and a bit long), then the three friends. People on
 //          Progra gives way to the groups (D12)
-export const FRIENDS_PREVIEW_FIXTURES = ["default", "empty", "search", "sheet", "uw"] as const;
+export const FRIENDS_PREVIEW_FIXTURES = ["default", "empty", "search", "sheet", "uw", "groups"] as const;
 export type FriendsPreviewFixture = (typeof FRIENDS_PREVIEW_FIXTURES)[number];
 
 // The page's reads, as FriendsClientV3 takes them.
@@ -60,6 +61,9 @@ export type FriendsPreviewData = {
   suggested: PublicUser[];
   // A UW student's groups (friendsTabUw), or null outside the cohort.
   uw: FriendsTabUw | null;
+  // Every live group (listGroups) with GROUPS on — the Friends | Groups
+  // switch — or null, which leaves the tab as it is with GROUPS off.
+  groups: GroupSummary[] | null;
 };
 
 function person(username: string, displayName: string): PublicUser {
@@ -141,6 +145,7 @@ const WORLD: FriendsPreviewData = {
   blocked: [{ user: DANIEL }],
   suggested: SUGGESTED,
   uw: null,
+  groups: null,
 };
 
 const EMPTY: FriendsPreviewData = {
@@ -150,6 +155,7 @@ const EMPTY: FriendsPreviewData = {
   blocked: [],
   suggested: SUGGESTED,
   uw: null,
+  groups: null,
 };
 
 // The made-up UW students as the tab's rows know people: their public
@@ -188,8 +194,18 @@ const UW_WORLD: FriendsPreviewData = withUwGroups({
   uw: { groups: emptyUwPeerGroups(), majors: PREVIEW_UW_CALLER.majors },
 });
 
+// The groups fixture's list: two you're in (one too small for a
+// leaderboard), one to browse, one full.
+const PREVIEW_GROUPS: GroupSummary[] = [
+  { groupId: "00000000-0000-4000-8000-0000000000a1", name: "UW CS 2027", description: null, memberCap: 50, memberCount: 31, isMember: true, friendableCount: 30 },
+  { groupId: "00000000-0000-4000-8000-0000000000a2", name: "Morning runners", description: null, memberCap: 50, memberCount: 1, isMember: true, friendableCount: 0 },
+  { groupId: "00000000-0000-4000-8000-0000000000a3", name: "Pre-med study hall", description: null, memberCap: 50, memberCount: 18, isMember: false, friendableCount: 18 },
+  { groupId: "00000000-0000-4000-8000-0000000000a4", name: "Founders' focus club", description: null, memberCap: 50, memberCount: 50, isMember: false, friendableCount: 49 },
+];
+
 export function friendsPreviewData(fixture: FriendsPreviewFixture): FriendsPreviewData {
   if (fixture === "empty") return EMPTY;
+  if (fixture === "groups") return { ...WORLD, groups: PREVIEW_GROUPS };
   return fixture === "uw" ? UW_WORLD : WORLD;
 }
 
@@ -197,7 +213,9 @@ export function friendsPreviewData(fixture: FriendsPreviewFixture): FriendsPrevi
 export function friendsPreviewStart(fixture: FriendsPreviewFixture): {
   query?: string;
   sheetOpen: boolean;
+  tab?: "groups";
 } {
+  if (fixture === "groups") return { sheetOpen: false, tab: "groups" };
   if (fixture === "search") return { query: "pri", sheetOpen: false };
   return { sheetOpen: fixture === "sheet" };
 }

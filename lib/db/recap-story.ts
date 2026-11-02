@@ -15,6 +15,8 @@ import { categorizeEvents, fetchEventsRaw } from "@/lib/db/calendar-events";
 import { listCategories } from "@/lib/db/categories";
 import { getFriendsLeaderboardForWeek } from "@/lib/db/friends-leaderboard";
 import { listFriends } from "@/lib/db/friends";
+import { getMyGroupRanksForWeek } from "@/lib/db/groups";
+import { GROUPS } from "@/lib/flags";
 import { listActiveGoals } from "@/lib/db/goals";
 import { listActiveHabits, listCompletionsInRange } from "@/lib/db/habits";
 import { computeWeekRecap } from "@/lib/db/recap";
@@ -208,12 +210,15 @@ export const loadRecapStory = cache(async (weekStartISO: string): Promise<RecapS
   const win = weekWindow(tz, weekStartISO);
   const createdMs = createdMsOf(profile?.created_at);
 
-  const [recap, categories, goals, circle, habits, completions, likes, averageMs, friends, seenOne, posted] =
+  // GROUPS: the groups rank instead of the circle (one ranking concept), so
+  // the circle isn't read at all.
+  const [recap, categories, goals, circle, groups, habits, completions, likes, averageMs, friends, seenOne, posted] =
     await Promise.all([
       computeWeekRecap(win.weekStartMs, win.weekEndMs),
       listCategories(),
       listActiveGoals(),
-      getFriendsLeaderboardForWeek(win.weekStartMs, win.weekEndMs),
+      GROUPS ? [] : getFriendsLeaderboardForWeek(win.weekStartMs, win.weekEndMs),
+      GROUPS ? getMyGroupRanksForWeek(win.weekStartMs, win.weekEndMs) : null,
       listActiveHabits(),
       listCompletionsInRange(win.weekStartISO, addDaysISO(win.weekStartISO, 6)),
       getWeekLikes(win.weekStartMs, win.weekEndMs),
@@ -257,6 +262,7 @@ export const loadRecapStory = cache(async (weekStartISO: string): Promise<RecapS
       displayName: f.user.displayName,
       avatarUrl: f.user.avatarUrl,
     })),
+    groups,
     likesGiven: likes.given,
     likesReceived: likes.received,
     firstReview: !seenOne,
@@ -302,7 +308,9 @@ export async function loadReviewPost(weekStartISO: string): Promise<{
     listActiveGoals(),
     listActiveHabits(),
     listCompletionsInRange(win.weekStartISO, addDaysISO(win.weekStartISO, 6)),
-    getFriendsLeaderboardForWeek(win.weekStartMs, win.weekEndMs),
+    // GROUPS: a post carries no rank — "#2 of 8" meant the circle, and a
+    // member of three groups has three ranks — so the feed card shows none.
+    GROUPS ? [] : getFriendsLeaderboardForWeek(win.weekStartMs, win.weekEndMs),
     listCategories(),
   ]);
   const me = circle.find((r) => r.isMe);

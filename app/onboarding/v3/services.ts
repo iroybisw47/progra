@@ -6,6 +6,7 @@ import {
   sendFriendRequest,
 } from "@/app/actions/friends";
 import { archiveGoal, createGoal, updateGoal } from "@/app/actions/goals";
+import { joinGroup, leaveGroup } from "@/app/actions/groups";
 import { archiveHabit, createHabit } from "@/app/actions/habits";
 import { setProfileIdentity, setUsername } from "@/app/actions/profile";
 import { setOnboardingStep } from "@/app/actions/telemetry";
@@ -39,6 +40,8 @@ export const REAL_SERVICES: OnboardingV3Services = {
   acceptFriendRequest,
   fetchUwPeerGroups,
   fetchMoreUwPeers,
+  joinGroup,
+  leaveGroup,
   shareInvite,
   askNotifications: requestNotificationPermission,
   recordStep: (step) => {

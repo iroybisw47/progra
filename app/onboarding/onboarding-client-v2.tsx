@@ -77,8 +77,9 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // v2 runs without UW (plan P9a): the cohort moved to onboarding v3's Screen 1,
 // so `uw` is never in this wizard's list. The name stays in STEPS because
 // analytics' CHECK lists them all; this narrows it out of the shell's types.
-type V2Step = Exclude<Step, "uw">;
-const isV2Step = (s: Step): s is V2Step => s !== "uw";
+// v4's "group" step never runs here either (activeSteps leaves it out).
+type V2Step = Exclude<Step, "uw" | "group">;
+const isV2Step = (s: Step): s is V2Step => s !== "uw" && s !== "group";
 
 export function OnboardingClientV2({
   initialUsername,

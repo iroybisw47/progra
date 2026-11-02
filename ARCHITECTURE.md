@@ -11,7 +11,7 @@
 > first. When code and this doc disagree, the code wins — and the doc should be
 > fixed in the same session.
 >
-> _Last updated: 2026-10-07_
+> _Last updated: 2026-11-01_
 
 ---
 
@@ -123,6 +123,7 @@ unaffected.
 | `/me` | `app/me/page.tsx` | — | **You** tab (social on only): the personal dashboard, relocated off Home. Shares `components/dashboard.tsx`. |
 | `/friends` | `friends/page.tsx` | `friends-client.tsx` | Friend search / requests / blocked (social on only). |
 | `/profile/[username]` | `profile/[username]/page.tsx` | `profile-actions.tsx` | Public profile: identity + a friend's non-private goals/habits + photo **stories** (social on only). |
+| `/groups/[id]` | `groups/[id]/page.tsx` | `group-tabs.tsx`, `group-members.tsx`, `membership-button.tsx` (+ lazy `membership-sheet.tsx`, `unfriend-dialog.tsx`) | **One group** (`GROUPS`, 2026-11-01; 404 off, or for an unknown/archived id). Members get a Leaderboard · Feed · Members chip rail, every view rendered on the server and handed to the client switcher as a slot; a non-member gets the header and Join only. Reached from the Groups sub-tab of `/friends` (`?tab=groups`, Friends v3 only), which `friendsSubTabFrom` parses from the awaited `searchParams`. |
 | `/admin` | `admin/page.tsx` | `admin-bug-reports.tsx`, `admin-waitlist.tsx`, `admin-suggestions.tsx`, `admin-reports.tsx` | Moderation queue (social on + `is_admin()` only): open reports with target preview, take-down / dismiss. Four stacked panels, in order: **Bug reports** (open-first triage), **Beta capacity** (seated/cap/waiting, editable cap, grant-a-seat), **Suggestions** (open-first, Accept / Decline / Reopen, suggester's handle + name + email), **Moderation**. Ordering is deliberate — a bug or a blocked signup can't wait and an idea can; Moderation stays last because it owns the page's bottom padding. (**Interview consents** was a panel here until 2026-09-30, always empty since the consents were cleared 2026-09-19; it and `admin-interviews.tsx` are gone.) |
 | `/login` | `app/login/page.tsx` | `google-sign-in-button.tsx` | Google OAuth entry. |
 | `/auth/callback` | `route.ts` | — | OAuth code exchange → session. |
@@ -164,7 +165,10 @@ is the interactive shell. `loading.tsx` provides route-level skeletons.
 | `event_exclusions` | `app/actions/event-exclusions.ts` | Hidden/excluded calendar events. |
 | `habits` (+ logs) | `lib/db/habits.ts` | Habit definitions and per-day completion. Tz-checked server-side. |
 | rollups / recap | `lib/db/rollups.ts`, `lib/db/recap.ts` | Read-side aggregation helpers for `/history` and `/recap`. |
-| `friendships` (social v2) | `lib/db/friends.ts` | One row per pair: `requester_id`/`addressee_id`, `status` (pending/accepted/blocked), `blocked_by`. RLS hides blocks from the blocked party; consent-critical transitions go through `SECURITY DEFINER` RPCs (`accept_friend_request`, `block_user`). |
+| `friendships` (social v2) | `lib/db/friends.ts` | One row per pair: `requester_id`/`addressee_id`, `status` (pending/accepted/blocked), `blocked_by`. RLS hides blocks from the blocked party; consent-critical transitions go through `SECURITY DEFINER` RPCs (`accept_friend_request`, `block_user`). **Groups** (groups.sql) add `origin` (`manual` \| `group`; every pre-existing row is `manual`) — the provenance leave/archive need, since a pair still has exactly one row. A `guard_friendship_origin` trigger (the `guard_profiles_is_internal` pattern, keyed off `current_user`) stops a client inserting or changing `origin`, so only definers make group friendships. |
+| `groups` (groups) | `lib/db/groups.ts` | Admin-made community: `name` (1–60), `description` (≤280), `member_cap` (2–500, default 50), `archived_at`. **No `created_by`**: every FK to `auth.users` cascades, and a cascade would delete the group with its admin. RLS on, no policies, no client grants — read only through `list_groups()`. |
+| `group_members` (groups) | `lib/db/groups.ts` | `(group_id, user_id)` PK, both cascading. RLS: **select own rows only**, no client writes. Deliberately not "co-members can read": that would let a blocked pair see each other through the raw API, so every co-member read is a definer that drops blocks both ways. |
+| `unfriended_pairs` (groups) | — (definers only) | `(user_lo, user_hi)` ordered pair that must never be auto-friended again, with `by_user` and `reason` (`unfriend` \| `block`). Written by `unfriend_user` and by the `unfriended_on_block` trigger (fires on any write that lands a blocked row, so it holds whichever way `block_user` is written); cleared by `unfriended_clear_on_accept` when a pending row becomes an accepted **manual** friendship. RLS on, no policies, revoked from every client role. |
 | `session_comments` (social v2) | `lib/db/comments.ts`, `app/actions/comments.ts` | Comments on feed sessions (`body` 1–500). RLS mirrors session visibility via the `can_see_session` definer helper; delete limited to author or session owner (`owns_session`). **Replies** (`COMMENT_REPLIES`, 2026-09-15): one level deep via `parent_id` (thread root; composite FK with `session_id`, cascades), `reply_to_id` (the comment answered; set null) and `reply_to_author_id` (recipient; cascades). The client sends only `reply_to_id`; the BEFORE INSERT `session_comments_thread_guard` definer derives the other two and refuses — with RLS's own 42501 — a target on another/invisible session or across a block with the replied-to or root author. Deleting a root deletes its replies. Known gap: comments from someone you blocked stay visible on a mutual friend's post. |
 | `session_reactions` (social v2) | `lib/db/reactions.ts`, `app/actions/reactions.ts` | Fixed-palette emoji reactions on feed sessions. RLS SELECT mirrors session visibility; writes go **only** through the `toggle_reaction` definer RPC (atomic insert-or-delete, re-checks visibility + emoji) so a reaction can't target an unseen session or be forged. |
 | `reports` (social v2, Phase 4) | `lib/social/reports.ts`, `app/actions/reports.ts` | Abuse reports. **INSERT-only RLS** (`reporter_id = auth.uid()`) — users can file but never read; the admin reads via definer RPCs. `target_type` ∈ story/comment/profile/**recap** (CHECK), `target_id` (polymorphic, no FK), fixed reason set + optional note, `status`. |
@@ -312,6 +316,8 @@ proportional window clipping) and carries the same `36000000` cap literal as
 phase4.sql STEP 3 retires it, `admin_activity_days()` and
 `analytics_excluded_users` once the dashboard is deployed.
 
+**Groups (2026-11-01, `.claude/plans/groups.sql` — run by hand and confirmed applied 2026-11-01; STEP 1V 13/13, STEP 2 23/23) added these definers:** `list_groups()` (live groups with `member_count`, `is_member`, and `friendable_count` — members joining would actually friend you with); `join_group(id) → int` (seat-checked in the database, cap-checked under the group row's `FOR UPDATE`; friends you with every member except recorded or blocked pairs — a pending row between you becomes an accepted `group` friendship, an accepted one is left alone); `leave_group(id)`; `unfriend_user(target)` (every unfriend in the app, records the pair); `list_group_members(id)` and `group_leaderboard(id, start_ms, end_ms)` (members-only, blocks dropped both ways, the latter totals only — private sessions count as a bare number); `admin_create_group` / `admin_archive_group` / `admin_list_groups` (`is_admin()`). Internal, revoked from clients: `groups_prune(user)` deletes that user's accepted `group`-origin rows no shared live group still backs (leave and archive both call it; manual rows are never touched), and `group_week_totals(viewer, …, p_now)`, the leaderboard with its clock injectable so the harness can pin it. It also adds `'group'` to `profiles_onboarding_step_check` (mirrored in `analytics/phase1.sql`).
+
 **Weekly recap added these definer RPCs:** `week_leaderboard(p_week_start_ms,
 p_week_end_ms)` (ranks caller + accepted friends by **clocked** session time —
 takes only the week bounds, derives the circle from `auth.uid()` so a caller can
@@ -413,6 +419,10 @@ numbers reconcile across every surface.
   to schedule" into scheduled/cancelled sets, which is the only honest thing a
   device can report. `lib/goal-categories.ts` is the eight labels shared by the
   classifier's schema, the CHECK and the dashboard.
+
+---
+
+**`lib/groups.ts`** (groups) — the pure half of groups: `rankGroupRows` (every member ranked, zero hours included — unlike `rankLeaderboard`, which drops zeros — with competition ranking for ties, 1, 1, 3, broken alphabetically), the join line `joinCopy` (N is `friendable_count`, never the raw count, and it never says "all 0 members"), `isGroupFull` (`>=`, so a cap lowered below the count still reads full), `validateGroupInput` (the SQL's check constraints, restated so the admin form fails with a sentence), and `friendsSubTabFrom`. The group leaderboard's totals are computed in **SQL**, not here — non-friends' sessions are invisible under RLS — so the TypeScript side of the rule lives in `lib/group-leaderboard.test.ts`, which runs the same `lib/group-leaderboard.fixtures.json` through the circle read's filter + `aggregateRangeByGoal` that `nudges-harness/groups.mjs` runs through `group_week_totals`. `lib/recap-story.ts` gained `groupRankSlide` / `GroupRankView` beside the circle's `rankSlide` (left untouched), and `lib/onboarding-v4.ts` a `group` screen with `displayScreen`, so a run without it counts exactly as before.
 
 ---
 
@@ -733,6 +743,11 @@ durably.
   `generated_at`; the page never calls `Date.now()` during render (the
   `react-hooks/purity` baseline is a gate), and relative times and the date
   presets derive from that value.
+- **Groups: friendship provenance is a column, backing is computed.** A group friendship is "backed" while the pair shares a live group; nothing stores the backing. Leave and archive delete exactly the unbacked `group`-origin rows (`groups_prune`); a manual friendship is never touched by any group function, and a group can't turn a manual friendship into a group one. There is no way to make a group friendship manual (one row per pair) — accepted.
+- **Every unfriend goes through `unfriend_user`** under `GROUPS` (the profile's "Remove as friend" and the group page), because it is the only writer of `unfriended_pairs`. `removeFriendship`'s bare delete stays for declines and cancels — and the participant DELETE policy still allows a raw-API unfriend that skips the record (see §10).
+- **Group membership changes serialize on one global advisory lock** (`pg_advisory_xact_lock(hashtext('progra.groups'))`, taken first by join, leave, unfriend and archive). A per-group row lock is not enough: A and B share only G, A is also in H; A leaving G while B joins H loses A–B forever. `block_user` and `accept_friend_request` don't take it and don't need to (row locks plus `status = 'pending'` re-checks). PGlite has one connection, so this is argued in the SQL header, not tested.
+- **The group leaderboard is SQL that must agree with Progress.** It calls `analytics_worked_ms` (the existing twin of `sessionWorkedMs`) and copies the TS rules exactly: whole-session bucketing by attribution end into an inclusive window (no clipping), the over-cap attribution instant, the circle read's `ended_at > start` pre-filter, `now` capped at the week's end. One shared fixture file holds both suites to it; mutants cover each rule. `analytics_worked_ms` is therefore load-bearing for streaks *and* groups.
+- **Under `GROUPS` the group is the only ranking.** The weekly review reads `getMyGroupRanksForWeek` and never the circle; posted reviews store `rank = null`, `circle_size = 0` (a member of three groups has three ranks). `NEXT_PUBLIC_GROUPS` means "groups.sql STEP 1 has run" and requires `FRIENDS_V3` and `RECAP_V2`; off, group friendships are ordinary friendships and nothing reads the new tables, which is the rollback.
 - **`SPEC.md` is historical**, not current scope.
 - **Sentinel** (`.sentinel.yaml`): the agent runtime is monitored. Notably it
   **denies tool-writes to `.claude/settings*.json` and `.sentinel.yaml`** (reads
@@ -788,6 +803,10 @@ durably.
   effect size.
 - **PostHog's pageview history stopped accruing on removal**; nothing read it
   and it was never backfilled. `NEXT_PUBLIC_POSTHOG_KEY` can come off Vercel.
+- **groups.sql is applied (2026-11-01), the app is still dark.** Prod's `block_user` (an `INSERT … ON CONFLICT DO UPDATE`) and `accept_friend_request` (an `UPDATE` of `status`) were read before applying and fire the triggers as designed. No signed-in or device check of any groups surface yet.
+- **The raw-API unfriend gap.** The friendships DELETE policy (participant) still lets a crafted request unfriend without recording the pair, so a later join could re-friend them. Tightening it is a production RLS change for no user-facing gain; left open on purpose.
+- **Group leaderboards rank current members only.** Membership history isn't kept, so a past week's review ranks whoever is in the group now (D7). If that ever matters, it needs a `left_at` instead of a delete.
+- **Under `GROUPS`, people in no group lose the recap ranking they had** (the circle) and see "Join a group…". By design (one ranking concept), but it is a visible regression for anyone groupless at launch.
 - `lib/hooks.ts`, `lib/duration.ts`, `lib/storage.ts` (now types-only),
   `lib/aggregate.ts` goal/category reconciliation, and the recap/rollups read
   helpers are summarized but not exhaustively documented.
@@ -799,6 +818,13 @@ durably.
 > Append one entry per work session / feature set. Keep it terse: what changed
 > architecturally, why, and any new invariant or migration. Seeded from git
 > history; entries before this file existed are reconstructed.
+
+### 2026-11-01 — Groups, P0–P6 **(requires SQL, run by hand — applied 2026-11-01: `.claude/plans/groups.sql` STEP 1 run by the user, STEP 0/1V/2 verified 8/8, 13/13, 23/23)**
+- Admin-made communities that friend you with every member. The model keeps friendships one-row-per-pair and adds **provenance** (`friendships.origin`) rather than a join table of "why we're friends": backing is recomputed from shared live groups at leave/archive time (`groups_prune`), so there is no second source of truth to drift. `unfriended_pairs` makes an unfriend or block permanent against auto-friending; a manual re-friend clears it.
+- Every co-member read is a definer (`list_group_members`, `group_leaderboard`) that drops blocks both ways; `group_members` RLS is own-rows-only, and `groups` / `unfriended_pairs` have no client access at all. Seat and cap are enforced in the database (`join_group`), not just by `requireSeat`. Membership writes serialize on one global advisory lock (see §9).
+- The leaderboard ranks non-friends, so it can't be TypeScript over RLS reads like the circle; it is SQL over `analytics_worked_ms`, held to Progress by a shared fixture file run through both languages. Private sessions count as totals (owner's call).
+- Under `GROUPS` the circle stops ranking: the weekly review's rank slide becomes one row per group (or "Join a group…"), the Friends slide drops its circle lines, and posts store no rank. **Supersedes** the 2026-07-25 Weekly Recap entry's "circle rank" as the review's ranking whenever the flag is on.
+- Surfaces built only on the successors (owner's call): `/groups/[id]`; a Friends · Groups sub-tab on Friends v3 (`?tab=groups`); a skippable v4 onboarding step (`group`, a new `STEPS` name excluded from v2's `activeSteps`, its screen stepped over by the reducer when not in the run); an /admin panel. No patch note (owner's call). `listFriendFeed`'s body became `readFeedForFriends` so the group feed reuses the home feed's read (and its private rule) rather than copying it.
 
 ### 2026-10-07 — Internal analytics, phases 1–5 **(requires SQL, run by hand — NOT yet applied: `.claude/plans/analytics/phase1.sql` then `phase4.sql`)**
 - **PostHog is gone; every event lands in our own Postgres.** `track()` kept its

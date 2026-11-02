@@ -532,6 +532,9 @@ export function createPreviewServices(
           : { peers: [], total: null, cursor: null },
       });
     },
+    // As if the group had three members to friend you with.
+    joinGroup: () => after(latencyMs, { ok: true as const, newFriends: 3 }),
+    leaveGroup: ok,
     shareInvite: () => after(latencyMs, "shared" as const),
     // As if iOS's dialog came up and was answered Allow.
     askNotifications: () => after(latencyMs, "granted" as const),

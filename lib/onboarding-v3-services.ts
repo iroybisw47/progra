@@ -105,6 +105,11 @@ export type OnboardingV3Services = {
   // (lib/uw-groups.ts, uwFetchKey), and "More at UW"'s further pages.
   fetchUwPeerGroups(): Promise<UwPeerGroupsResult>;
   fetchMoreUwPeers(bucket: UwBucket, cursor: UwPeerCursor): Promise<UwPeerPageResult>;
+  // v4's "Join a group" step (GROUPS_ONBOARDING): app/actions/groups.ts. A
+  // join friends you with the group's members and answers how many; "✓
+  // Joined" tapped again leaves.
+  joinGroup(groupId: string): Promise<{ ok: true; newFriends: number } | { error: string }>;
+  leaveGroup(groupId: string): Promise<ActionResult>;
   // lib/invite-share.ts' shareInvite: the native share sheet, or the
   // clipboard where there's none. It tracks invite_sent itself.
   shareInvite(text: string): Promise<ShareOutcome>;

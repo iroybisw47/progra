@@ -29,6 +29,9 @@ export const RECAP_PREVIEW_FIXTURES = [
   "solo",
   "quiet",
   "crowd",
+  // GROUPS: the rank slide by group, and in no group at all.
+  "groups",
+  "no-group",
 ] as const;
 export type RecapPreviewFixture = (typeof RECAP_PREVIEW_FIXTURES)[number];
 
@@ -234,6 +237,16 @@ export function recapPreviewInput(fixture: RecapPreviewFixture): RecapStoryInput
         friends: friendsOf(circle),
       };
     }
+    case "groups":
+      return {
+        ...b,
+        groups: [
+          { groupId: "preview-group-cs", name: "UW CS 2027", rank: 2, of: 31 },
+          { groupId: "preview-group-runners", name: "Morning runners", rank: 1, of: 1 },
+        ],
+      };
+    case "no-group":
+      return { ...b, groups: [] };
   }
 }
 

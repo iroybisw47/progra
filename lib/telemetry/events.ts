@@ -202,6 +202,10 @@ export const EVENTS = {
     from: ["friends_tab", "onboarding", "profile"],
   },
   invite_sent: { method: ["share_sheet", "clipboard"] },
+  // Groups (GROUPS): joining friends you with the members, so new_friends is
+  // how many that made.
+  group_joined: { group_id: "uuid", new_friends: "int", from: ["group_page", "onboarding"] },
+  group_left: { group_id: "uuid", from: ["group_page", "onboarding"] },
 
   // --- notifications ---------------------------------------------------------
   // iOS grants permission once, ever, so the grant rate at each surface is the
