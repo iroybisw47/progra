@@ -15,6 +15,7 @@ import { ChevronRightIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { FeedLivePoll } from "@/components/feed-live-poll";
+import { FriendsLeaderboard } from "@/components/v2/friends-leaderboard";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { InviteTile } from "@/components/v2/invite-tile";
 import {
@@ -57,6 +58,7 @@ import {
   type Said,
 } from "@/lib/friends-tab";
 import { usePrefersReducedMotion } from "@/lib/hooks";
+import type { FriendsLeaderboardRow } from "@/lib/leaderboard";
 import { cn } from "@/lib/utils";
 import { inviteText } from "@/lib/onboarding-v3";
 import type { ActionResult } from "@/lib/onboarding-v3-services";
@@ -109,9 +111,9 @@ const SentBlockedSheet = dynamic(
 // refresh whose UW read failed keeps the groups the tab already had.
 //
 // FeedLivePoll keeps the hours climbing and the requests fresh (every 60s and
-// on refocus), as on the old tab. The leaderboard is gone: its hours are on
-// the rows now (D12). Remove and Block live on each friend's profile, which
-// every row links to.
+// on refocus), as on the old tab. The week's leaderboard sits under Requests,
+// as on the old tab: D12 dropped it, the owner brought it back (2026-11-01).
+// Remove and Block live on each friend's profile, which every row links to.
 //
 // Every write is an existing action, which revalidates the friend surfaces
 // itself, so the fresh reads come back with its answer. A tap shows at once
@@ -150,6 +152,9 @@ type Props = {
   groups?: readonly GroupSummary[] | null;
   // Which sub-tab opens (`?tab=groups`).
   initialTab?: FriendsSubTab;
+  // This week's leaderboard (getFriendsLeaderboard): you and your friends,
+  // ranked. Null or absent, none is shown (the dev preview's other fixtures).
+  leaderboard?: FriendsLeaderboardRow[] | null;
   services?: FriendsTabServices;
   // Dev preview only: the search opens with this typed, or the sheet open,
   // and a stand-in for the bell, whose panel reads and stamps the signed-in
@@ -171,6 +176,7 @@ export function FriendsClientV3({
   uwPrompt = null,
   groups = null,
   initialTab = "friends",
+  leaderboard = null,
   services = REAL_FRIENDS_SERVICES,
   initialQuery,
   initialSheetOpen = false,
@@ -539,6 +545,10 @@ export function FriendsClientV3({
             ))}
           </Section>
         )}
+
+        {/* The week's leaderboard, under Requests as on the old tab; hidden
+            with everything else while searching. */}
+        {!searching && leaderboard && <FriendsLeaderboard rows={leaderboard} />}
 
         {/* R:168: between Requests and Your friends. Every row is an Add
             here: anyone it could say more about has already left the

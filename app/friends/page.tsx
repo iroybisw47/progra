@@ -103,7 +103,9 @@ async function readSuggestions(): Promise<SuggestionsInput> {
 // than waiting for the whole wave: getFriendsWeekRows awaits the same cached
 // listFriends and then two reads of its own, so it finishes no sooner, and the
 // goals read costs no extra latency. The viewer's own goals name the invite.
-// No getFriendsLeaderboard: v3 has no leaderboard (D12).
+// The week's leaderboard is back (owner, 2026-11-01, reversing D12):
+// getFriendsLeaderboard ranks the same cached week rows getFriendsWeekRows
+// reads, so it costs no query of its own.
 //
 // With UW on, a UW student also gets their three UW groups (R:168, P9d):
 // listUwPeerGroups, the first page of each, chained off the profile (cached,
@@ -137,6 +139,7 @@ async function FriendsPageV3({ tab }: { tab: FriendsSubTab }) {
     uw,
     uwPrompt,
     groups,
+    leaderboard,
   ] = await Promise.all([
     friendsRead,
     listIncomingRequests(),
@@ -150,6 +153,7 @@ async function FriendsPageV3({ tab }: { tab: FriendsSubTab }) {
     uwRead,
     readUwPromptCard(),
     GROUPS ? listGroups() : null,
+    getFriendsLeaderboard(),
   ]);
 
   return (
@@ -165,6 +169,7 @@ async function FriendsPageV3({ tab }: { tab: FriendsSubTab }) {
       uwPrompt={uwPrompt}
       groups={groups}
       initialTab={tab}
+      leaderboard={leaderboard}
     />
   );
 }

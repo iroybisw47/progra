@@ -18,7 +18,7 @@ import {
   type FriendRowView,
   type FriendsTabServices,
 } from "@/lib/friends-tab";
-import type { FriendsWeekRow } from "@/lib/leaderboard";
+import { rankLeaderboard, type FriendsLeaderboardRow, type FriendsWeekRow } from "@/lib/leaderboard";
 import { PREVIEW_LATENCY_MS } from "@/lib/onboarding-v3-preview";
 import type { SearchedUser } from "@/lib/onboarding-v3-services";
 import {
@@ -64,6 +64,8 @@ export type FriendsPreviewData = {
   // Every live group (listGroups) with GROUPS on — the Friends | Groups
   // switch — or null, which leaves the tab as it is with GROUPS off.
   groups: GroupSummary[] | null;
+  // This week's leaderboard (getFriendsLeaderboard), or null for none.
+  leaderboard: FriendsLeaderboardRow[] | null;
 };
 
 function person(username: string, displayName: string): PublicUser {
@@ -111,13 +113,22 @@ function weekRow(user: PublicUser, totalMs: number, goal: string | null): Friend
 // Priya worked on a goal this week (its title wins); Marcus tracked nothing,
 // so his row reads 0m and names his oldest shared goal; Sofia tracked
 // category time only and keeps her one goal private, so there's no line.
+const WEEK_ROWS = [
+  weekRow(PRIYA, 9 * HOUR + 10 * MINUTE, "Pass the CFA Level I"),
+  weekRow(MARCUS, 0, null),
+  weekRow(SOFIA, 7 * HOUR + 45 * MINUTE, null),
+];
+
+// The board: the viewer between Priya and Sofia; Marcus, at zero, is left
+// off as rankLeaderboard leaves zeros off.
+const LEADERBOARD = rankLeaderboard([
+  { ...weekRow(person("you", "You"), 8 * HOUR, PREVIEW_INVITE_GOAL), isMe: true },
+  ...WEEK_ROWS,
+]);
+
 const FRIENDS = buildFriendRows(
   [{ user: PRIYA }, { user: MARCUS }, { user: SOFIA }],
-  [
-    weekRow(PRIYA, 9 * HOUR + 10 * MINUTE, "Pass the CFA Level I"),
-    weekRow(MARCUS, 0, null),
-    weekRow(SOFIA, 7 * HOUR + 45 * MINUTE, null),
-  ],
+  WEEK_ROWS,
   [
     // Priya's week goal is still active, so its title stands.
     {
@@ -146,6 +157,7 @@ const WORLD: FriendsPreviewData = {
   suggested: SUGGESTED,
   uw: null,
   groups: null,
+  leaderboard: LEADERBOARD,
 };
 
 const EMPTY: FriendsPreviewData = {
@@ -156,6 +168,7 @@ const EMPTY: FriendsPreviewData = {
   suggested: SUGGESTED,
   uw: null,
   groups: null,
+  leaderboard: null,
 };
 
 // The made-up UW students as the tab's rows know people: their public

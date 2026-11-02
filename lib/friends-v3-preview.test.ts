@@ -197,3 +197,16 @@ describe("the groups fixture", () => {
     }
   });
 });
+
+describe("the week's leaderboard", () => {
+  it("is on the default world, with the viewer ranked among friends, and not on the empty one", async () => {
+    const { friendsPreviewData } = await import("@/lib/friends-v3-preview");
+    const board = friendsPreviewData("default").leaderboard ?? [];
+    expect(board.map((r) => [r.user.username, r.rank, r.isMe])).toEqual([
+      ["priyaraman", 1, false],
+      ["you", 2, true],
+      ["sofia_alv", 3, false],
+    ]);
+    expect(friendsPreviewData("empty").leaderboard).toBeNull();
+  });
+});
